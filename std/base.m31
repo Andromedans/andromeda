@@ -14,11 +14,13 @@ mltype debug a = (!!) of a end
 let debug x = print (!! x)
 
 (* Top-level handlers default to failure. *)
+(*
 handle
   | equal _ _ ⇒ None
   | as_prod _ ⇒ None
   | as_eq _ ⇒ None
 end
+*)
 
 let (|>) x f :> Π α β, α → (α → β) → β = f x
 
@@ -26,16 +28,18 @@ let failure x = print ("FAILURE", x); exit ()
 
 mltype mlbool = mltrue | mlfalse end
 
-operation whnf : judgement -> judgement
+(* operation whnf : judgement -> judgement *)
 
 mltype eagerness =
   | eager
   | lazy
   end
 
+(*
 constant funext : forall (A : Type) (B : A -> Type) (f g : forall x : A, B x),
   (forall x : A, f x ≡ g x) -> f ≡ g
 
 constant uip : forall (A : Type) (lhs rhs : A) (p q : lhs ≡ rhs), p ≡ q
+*)
 
 mltype empty = end

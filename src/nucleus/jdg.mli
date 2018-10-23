@@ -1,209 +1,263 @@
-type ctx
+(** Judgements can be abstracted *)
+type 'a abstraction
 
-(** Judgements [ctx |- e : t] *)
-type term
+(** Judgement that something is a term. *)
+type is_term
 
-(** Judgements [(x : t) in ctx] *)
-type atom
+(** Judgement that something is an atom. *)
+type is_atom
 
-(** Judgements [ctx |- t type] *)
-type ty
+(** Judgement that something is a type. *)
+type is_type
 
-(** Judgements [|- t type] *)
-type closed_ty
+(** Judgement that something is a type equality. *)
+type eq_type
 
-(** Judgements [ctx |- e1 == e2 : t] *)
+(** Judgement that something is a term equality. *)
 type eq_term
 
-(** Judgements [ctx |- t1 == t2] *)
-type eq_ty
+(** Shorthands for abstracted judgements. *)
+type is_term_abstraction = is_term abstraction
+type is_type_abstraction = is_type abstraction
+type eq_type_abstraction = eq_type abstraction
+type eq_term_abstraction = eq_term abstraction
 
-module Ctx : sig
-  (** The type of contexts. *)
-  type t = ctx
 
-  val add_fresh : ty -> Name.ident -> atom
+(** An argument to a term or type constructor *)
+type premise =
+  | PremiseIsType of is_type_abstraction
+  | PremiseIsTerm of is_term_abstraction
+  | PremiseEqType of eq_type_abstraction
+  | PremiseEqTerm of eq_term_abstraction
 
-  (** [elements ctx] returns the elements of [ctx] sorted into a list so that all dependencies
-      point forward in the list, ie the first atom does not depend on any atom, etc. *)
-  val elements : t -> atom list
+(** A stump is obtained when we invert a judgement. *)
 
-end
+type assumption = is_type Assumption.t
+
+type stump_is_type =
+  | TypeConstructor of Name.constructor * premise list
+
+type stump_is_term =
+  | TermAtom of is_atom
+  | TermConstructor of Name.constructor * premise list
+  | TermConvert of is_term * eq_type
+
+type stump_eq_type =
+  | EqType of assumption * is_type * is_type
+
+type stump_eq_term =
+  | EqTerm of assumption * is_term * is_term * is_type
+
+type 'a stump_abstraction =
+  | NotAbstract of 'a
+  | Abstract of is_atom * 'a abstraction
+
+
+(** An auxiliary type for providing arguments to a congruence rule. Each arguments is like
+   two endpoints with a path between them, except that no paths between equalities are
+   needed. *)
+type congruence_premise =
+  | CongrIsType of is_type_abstraction * is_type_abstraction * eq_type_abstraction
+  | CongrIsTerm of is_term_abstraction * is_term_abstraction * eq_term_abstraction
+  | CongrEqType of eq_type_abstraction * eq_type_abstraction
+  | CongrEqTerm of eq_term_abstraction * eq_term_abstraction
+
 
 module Signature : sig
   type t
 
   val empty : t
-
-  val add_constant : Name.constant -> closed_ty -> t -> t
 end
 
-type error
+(** Given a type formation rule and a list of premises, match the rule
+   against the given premises, make sure they fit the rule, and return the
+   judgement corresponding to the conclusion of the rule. *)
+val form_is_type_rule : Signature.t -> Name.constructor -> premise list -> is_type
 
-exception Error of error Location.located
-
-val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
-
-(** The jdugement that [Type] is a type. *)
-val ty_ty : ty
-
-val is_closed_ty : loc:Location.t -> ty -> closed_ty
-
-(** The type judgement of a term judgement. *)
-val typeof : term -> ty
-
-(** Typeof for atoms *)
-val atom_ty : atom -> ty
+(** Given a term rule and a list of premises, match the rule against the given
+    premises, make sure they fit the rule, and return the list of arguments that
+    the term constructor should be applied to, together with the natural type of
+    the resulting term. *)
+val form_is_term_rule : Signature.t -> Name.constructor -> premise list -> is_term
 
 (** Convert atom judgement to term judgement *)
-val atom_term : loc:Location.t -> atom -> term
+val form_is_term_atom : is_atom -> is_term
 
-(** The judgement ctx |- t : Type associated with ctx |- t type *)
-val term_of_ty : ty -> term
+val atom_name : is_atom -> Name.atom
 
-(** Does this atom occur in this judgement, and if so with what type? *)
-val occurs : atom -> term -> atom option
+(** [fresh_atom x t] Create a fresh atom from name [x] with type [t] *)
+val fresh_atom : Name.ident -> is_type -> is_atom
 
-val contextof : term -> Ctx.t
+val form_is_term_convert : Signature.t -> is_term -> eq_type -> is_term
 
-(** Print the judgement that something is a term. *)
-val print_term : penv:TT.print_env -> ?max_level:Level.t -> term -> Format.formatter -> unit
+(** Given an equality type rule and a list of premises, match the rule against
+    the given premises, make sure they fit the rule, and return the conclusion
+    of the instance of the rule so obtained. *)
+val form_eq_type_rule : Signature.t -> Name.constructor -> premise list -> eq_type
 
-(** Print the judgement that something is a type. *)
-val print_ty : penv:TT.print_env -> ?max_level:Level.t -> ty -> Format.formatter -> unit
+(** Given an terms equality type rule and a list of premises, match the rule
+    against the given premises, make sure they fit the rule, and return the
+    conclusion of the instance of the rule so obtained. *)
+val form_eq_term_rule : Signature.t -> Name.constructor -> premise list -> eq_term
 
-val print_eq_term : penv:TT.print_env -> ?max_level:Level.t -> eq_term -> Format.formatter -> unit
+(** Form a non-abstracted abstraction *)
+val form_not_abstract : 'a -> 'a abstraction
 
-val print_eq_ty : penv:TT.print_env -> ?max_level:Level.t -> eq_ty -> Format.formatter -> unit
+(** Form an abstracted abstraction *)
+val form_is_type_abstract : is_atom -> is_type_abstraction -> is_type_abstraction
+val form_is_term_abstract : is_atom -> is_term_abstraction -> is_term_abstraction
+val form_eq_type_abstract : is_atom -> eq_type_abstraction -> eq_type_abstraction
+val form_eq_term_abstract : is_atom -> eq_term_abstraction -> eq_term_abstraction
 
-(** Destructors *)
-(** The atom is used in the second component *)
-type 'a abstraction = atom * 'a
 
-(** Contains enough information to construct a new judgement *)
-type shape =
-  | Type
-  | Atom of atom
-  | Constant of Name.constant
-  | Prod of ty abstraction
-  | Lambda of term abstraction
-    (** Apply (j1,j2) means (up to alpha equivalence)
-        - j1 = ctx1 |- e1 : forall x: A,B
-        - j2 = ctx2 |- e2 : A
-        - ctx1 and ctx2 joinable *)
-  | Apply of term * term
-  | Eq of term * term
-  | Refl of term
+val invert_is_type : is_type -> stump_is_type
 
-val shape : term -> shape
-val shape_ty : ty -> shape
+val invert_is_term : Signature.t -> is_term -> stump_is_term
 
-(** Deconstruct a type judgment into a product, if possible. *)
-val shape_prod : ty -> (atom * ty) option
+val invert_eq_type : eq_type -> stump_eq_type
 
-(** Construct a judgement using the appropriate formation rule. The type is the natural type. *)
-val form : loc:Location.t -> Signature.t -> shape -> term
+val invert_eq_term : eq_term -> stump_eq_term
 
-(** Fails if the type isn't [Type] *)
-val is_ty : loc:Location.t -> term -> ty
+val invert_is_term_abstraction :
+  ?atom_name:Name.ident -> is_term_abstraction -> is_term stump_abstraction
 
-(** [is_ty ∘ form] *)
-val form_ty : loc:Location.t -> Signature.t -> shape -> ty
+val invert_is_type_abstraction :
+  ?atom_name:Name.ident -> is_type_abstraction -> is_type stump_abstraction
 
-(** Substitution *)
+val invert_eq_type_abstraction :
+  ?atom_name:Name.ident -> eq_type_abstraction -> eq_type stump_abstraction
 
-(** [substitute_ty t a v] substitutes [a] with [v] in [t]. *)
-val substitute_ty : loc:Location.t -> ty -> atom -> term -> ty
+val invert_eq_term_abstraction :
+  ?atom_name:Name.ident -> eq_term_abstraction -> eq_term stump_abstraction
 
-(** [substitute e a v] substitutes [a] with [v] in [e]. *)
-val substitute : loc:Location.t -> term -> atom -> term -> term
+val context_is_type_abstraction : is_type_abstraction -> is_atom list
+val context_is_term_abstraction : is_term_abstraction -> is_atom list
+val context_eq_type_abstraction : eq_type_abstraction -> is_atom list
+val context_eq_term_abstraction : eq_term_abstraction -> is_atom list
 
-(** Conversion *)
+(** An error emitted by the nucleus *)
+type error
 
-(** Destructors *)
-type side = LEFT | RIGHT
+exception Error of error
 
-val eq_term_side : side -> eq_term -> term
+(** The type judgement of a term judgement. *)
+val type_of_term : Signature.t -> is_term -> is_type
 
-val eq_term_typeof : eq_term -> ty
+(** The type judgement of an abstracted term judgement. *)
+val type_of_term_abstraction : Signature.t -> is_term_abstraction -> is_type_abstraction
 
-val eq_ty_side : side -> eq_ty -> ty
+(** Typeof for atoms *)
+val type_of_atom : is_atom -> is_type
 
-(** The conversion rule: if [e : A] and [A == B] then [e : B] *)
-val convert : loc:Location.t -> term -> eq_ty -> term
+(** Does this atom occur in this judgement? *)
+val occurs_is_type_abstraction : is_atom -> is_type_abstraction -> bool
+val occurs_is_term_abstraction : is_atom -> is_term_abstraction -> bool
+val occurs_eq_type_abstraction : is_atom -> eq_type_abstraction -> bool
+val occurs_eq_term_abstraction : is_atom -> eq_term_abstraction -> bool
+
+val apply_is_type_abstraction :
+  Signature.t -> is_type_abstraction -> is_term -> is_type_abstraction
+
+val apply_is_term_abstraction :
+  Signature.t -> is_term_abstraction -> is_term -> is_term_abstraction
+
+val apply_eq_type_abstraction :
+  Signature.t -> eq_type_abstraction -> is_term -> eq_type_abstraction
+
+val apply_eq_term_abstraction :
+  Signature.t -> eq_term_abstraction -> is_term -> eq_term_abstraction
 
 (** If [e1 == e2 : A] and [A == B] then [e1 == e2 : B] *)
-val convert_eq : loc:Location.t -> eq_term -> eq_ty -> eq_term
+val convert_eq_term : eq_term -> eq_type -> eq_term
 
-(** Constructors *)
+(** Construct the judgment [e == e : A] from [e : A] *)
+val reflexivity_term : Signature.t -> is_term -> eq_term
 
-val reflexivity : term -> eq_term
+(** Construct the jdugment [A == A] from [A type] *)
+val reflexivity_type : is_type -> eq_type
 
-val reflexivity_ty : ty -> eq_ty
+(** Given two terms [e1 : A1] and [e2 : A2] construct [e1 == e2 : A1],
+    provided [A1] and [A2] are alpha equal and [e1] and [e2] are alpha equal *)
+val mk_alpha_equal_term : Signature.t -> is_term -> is_term -> eq_term option
 
-(** Test whether 2 terms are alpha-equal. They may have different types and incompatible contexts even if [true] is returned. *)
-val alpha_equal : term -> term -> bool
+(** Given two types [A] and [B] construct [A == B] provided the types are alpha equal *)
+val mk_alpha_equal_type : is_type -> is_type -> eq_type option
 
-(** Compare 2 terms up to alpha equality. They must have alpha-equivalent types and compatible contexts. *)
-val alpha_equal_eq_term : loc:Location.t -> term -> term -> eq_term option
+(** Given two abstractions, construct an abstracted equality provided the abstracted entities are alpha equal. *)
+val mk_alpha_equal_abstraction :
+  ('a -> 'b -> 'c option) ->
+  'a abstraction -> 'b abstraction -> 'c abstraction option
 
-(** Compare 2 types up to alpha-equality. They must have compatible contexts. *)
-val alpha_equal_eq_ty : loc:Location.t -> ty -> ty -> eq_ty option
+(** Test whether terms are alpha-equal. They may have different types and incompatible contexts even if [true] is returned. *)
+val alpha_equal_term : is_term -> is_term -> bool
 
-val symmetry_ty : eq_ty -> eq_ty
+(** Test whether types are alpha-equal. They may have different contexts. *)
+val alpha_equal_type : is_type -> is_type -> bool
 
-val is_type_equality : loc:Location.t -> eq_term -> eq_ty
+val alpha_equal_abstraction
+  : ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
 
-(** The reflection rule *)
-val reflect : loc:Location.t -> term -> eq_term
+(** If [e1 == e2 : A] then [e2 == e1 : A] *)
+val symmetry_term : eq_term -> eq_term
 
-val reflect_ty_eq : loc:Location.t -> term -> eq_ty
+(** If [A == B] then [B == A] *)
+val symmetry_type : eq_type -> eq_type
 
-(** Beta reduction *)
+(** If [e1 == e2 : A] and [e2 == e3 : A] then [e1 == e2 : A] *)
+val transitivity_term : eq_term -> eq_term -> eq_term
 
-(** If [A1 == A2], [B1 == B2], [e1 : B1] and [e2 : A2] then [(lambda A1 B1 e1) @[A2 B2] e2 == e1[e2] : B2[e2]]. *)
-val beta : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> term -> term -> eq_term
+(** If [A == B] and [B == C] then [A == C] *)
+val transitivity_type : eq_type -> eq_type -> eq_type
+
+(** Given [e : A], compute the natural type of [e] as [B], return [B == A] *)
+val natural_type_eq : Signature.t -> is_term -> eq_type
 
 (** Congruence rules *)
 
-(** If [A1 == A2] and [B1 == B2] then [prod A1 B1 == prod A2 B2].
-    The first atom is used to abstract both sides. The second is used only for the name in the right hand side product. *)
-val congr_prod : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_term
+val congruence_type_constructor :
+  Signature.t -> Name.constructor -> congruence_premise list -> eq_type
 
-val congr_prod_ty : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_ty
+val congruence_term_constructor :
+  Signature.t -> Name.constructor -> congruence_premise list -> eq_term
 
-(** If [A1 == A2], [B1 == B2] and [e1 == e2 : B1] then [lambda A1. B1. e1 == lambda A2. B2. e2 : prod A1 B1].
-    The first atom is used to abstract both sides. The second is used only for the name in the right hand side. *)
-val congr_lambda : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_term -> eq_term
+(** Printing routines *)
 
-(** If [A1 == A2], [B1 == B2], [h1 == h2 : prod A1 B1] and [e1 == e2 : A1], then [h1 @ [A1 . B1] e1 == h2 @ [A2 . B2] e2 : B1[e1]].
-    The first atom is used to abstract both sides. The second is used only for the name in the right hand side. *)
-val congr_apply : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_term -> eq_term -> eq_term
+val print_is_term :
+  ?max_level:Level.t -> penv:TT.print_env -> is_term -> Format.formatter -> unit
 
-(** If [A == B], [lhs1 == lhs2 : A] and [rhs1 == rhs2 : A] then [Eq A lhs1 rhs1 == Eq B lhs2 rhs2]. *)
-val congr_eq : loc:Location.t -> eq_ty -> eq_term -> eq_term -> eq_term
-val congr_eq_ty : loc:Location.t -> eq_ty -> eq_term -> eq_term -> eq_ty
+val print_is_type :
+  ?max_level:Level.t -> penv:TT.print_env -> is_type -> Format.formatter -> unit
 
-(** If [A == B] and [e1 == e2 : A] then [refl A e1 == refl B e2 : Eq A e1 e1] *)
-val congr_refl : loc:Location.t -> eq_ty -> eq_term -> eq_term
+val print_eq_term :
+  ?max_level:Level.t -> penv:TT.print_env -> eq_term -> Format.formatter -> unit
 
-(** Derivable rules *)
+val print_eq_type :
+  ?max_level:Level.t -> penv:TT.print_env -> eq_type -> Format.formatter -> unit
 
-(** If [e : B] and [A] is the natural type of [e] then [A == B] *)
-val natural_eq : loc:Location.t -> Signature.t -> term -> eq_ty
+val print_is_term_abstraction :
+  ?max_level:Level.t -> penv:TT.print_env -> is_term_abstraction -> Format.formatter -> unit
 
-(** if [e == e1] and [e == e2] then [refl e : e1 == e2] *)
-val mk_refl : loc:Location.t -> eq_term -> eq_term -> term
+val print_is_type_abstraction :
+  ?max_level:Level.t -> penv:TT.print_env -> is_type_abstraction -> Format.formatter -> unit
 
-(** if [e1 == e2] then [refl e1 : e1 == e2] *)
-val refl_of_eq : loc:Location.t -> eq_term -> term
+val print_eq_term_abstraction :
+  ?max_level:Level.t -> penv:TT.print_env -> eq_term_abstraction -> Format.formatter -> unit
 
-(** if [e1 == e2] then [refl e1 : e1 == e2] *)
-val refl_of_eq_ty : loc:Location.t -> eq_ty -> term
+val print_eq_type_abstraction :
+  ?max_level:Level.t -> penv:TT.print_env -> eq_type_abstraction -> Format.formatter -> unit
+
+(** Print a nucleus error *)
+val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
 
 module Json :
 sig
-  val term : term -> Json.t
+  val abstraction : ('a -> Json.t) -> 'a abstraction -> Json.t
 
-  val ty : ty -> Json.t
+  val is_term : is_term -> Json.t
+
+  val is_type : is_type -> Json.t
+
+  val eq_term : eq_term -> Json.t
+
+  val eq_type : eq_type -> Json.t
 end

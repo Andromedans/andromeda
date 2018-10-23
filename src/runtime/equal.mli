@@ -1,17 +1,15 @@
 (** Equality checking *)
 
 (** Compares two terms at alpha-equivalent types *)
-val equal : loc:Location.t -> Jdg.term -> Jdg.term -> Jdg.eq_term option Runtime.comp
+val equal :
+  loc:Location.t -> Jdg.Signature.t ->
+  Jdg.is_term -> Jdg.is_term -> Jdg.eq_term option Runtime.comp
 
-val equal_ty : loc:Location.t -> Jdg.ty -> Jdg.ty -> Jdg.eq_ty option Runtime.comp
+(** Compare two type abstractions. *)
+val equal_type :
+  loc:Location.t -> Jdg.is_type -> Jdg.is_type -> Jdg.eq_type option Runtime.comp
 
 (** Coerce the given term to the given type, if possible *)
-val coerce : loc:Location.t -> Jdg.term -> Jdg.ty -> Jdg.term option Runtime.comp
-
-(** Coerce the given term to a term of a product type, if possible *)
-val coerce_fun : loc:Location.t -> Jdg.term -> (Jdg.term * Jdg.atom * Jdg.ty) option Runtime.comp
-
-val as_eq : loc:Location.t -> Jdg.ty -> (Jdg.eq_ty * Jdg.term * Jdg.term) option Runtime.comp
-
-val as_prod : loc:Location.t -> Jdg.ty -> (Jdg.eq_ty * Jdg.atom * Jdg.ty) option Runtime.comp
-
+val coerce :
+  loc:Location.t -> Jdg.Signature.t -> Jdg.is_term_abstraction -> Jdg.is_type_abstraction ->
+  Jdg.is_term_abstraction option Runtime.comp

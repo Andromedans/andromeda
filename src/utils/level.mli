@@ -1,4 +1,4 @@
-(** Parenthesis levels. Low level means less likely to be parenthesized. 
+(** Parenthesis levels. Low level means less likely to be parenthesized.
     The levels described here should strive to be compatible with parsing
     precedence. *)
 
@@ -44,6 +44,7 @@ val prefix_arg : t
 val app : t
 val app_left : t
 val app_right : t
+val el_arg : t
 
 (** Infix operators *)
 val infix : infix -> t * t * t
@@ -98,4 +99,3 @@ val ml_app_arg : t
 
 (** [t] in [forall a, t] *)
 val ml_forall_r : t
-

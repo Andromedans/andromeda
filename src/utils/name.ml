@@ -11,10 +11,11 @@ type ident = Ident of string * fixity
 type atom = Atom of string * fixity * int
 
 type constant = ident
-type operation = ident
-
-type ty = ident
 type constructor = ident
+
+type operation = ident
+type ty = ident
+type aml_constructor = ident
 
 let print_ident ?(parentheses=true) x ppf =
   match x with
@@ -53,14 +54,14 @@ module Predefined = struct
 
   let none = make "None"
 
-  let equal = make "equal"
+  let equal_term = make "equal_term"
+
+  let equal_type = make "equal_type"
 
   let as_prod = make "as_prod"
 
-  let as_eq = make "as_eq"
-
   let coercible_ty = make "coercible"
- 
+
   let coercible_constructor = make "Coercible"
 
   let convertible = make "Convertible"
@@ -111,7 +112,13 @@ let refresh xs ((Ident (s, fixity)) as x) =
 
 let eq_ident (x : ident) (y : ident) = (x = y)
 
+(* XXX why do we compare fixities? *)
 let compare_ident (x : ident) (y : ident) = Pervasives.compare x y
+
+module IdentSet = Set.Make (struct
+                    type t = ident
+                    let compare = compare_ident
+                  end)
 
 module IdentMap = Map.Make (struct
                     type t = ident
@@ -185,7 +192,7 @@ type atom_printer = { mutable reindex : atom AtomMap.t; mutable next : int }
 
 let global_printer = { reindex = AtomMap.empty; next = 0 }
 
-let atom_printer () = 
+let atom_printer () =
   if !Config.global_atom_printer
   then global_printer
   else { reindex = AtomMap.empty; next = 0 }
@@ -228,5 +235,7 @@ struct
   let atom (Atom (s, _, k)) = Json.tuple [Json.String s; Json.Int k]
 
   let atomset s = Json.List (List.map atom (AtomSet.elements s))
+
+  let atommap s = Json.List (List.map (fun (x, _) -> atom x) (AtomMap.bindings s))
 
 end

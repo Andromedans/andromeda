@@ -24,4 +24,3 @@ val add : Mlty.meta -> Mlty.ty -> t -> t option
 
 (** [partition p s] returns [s1, s2] where [s1] is the bindings verifying [p] and [s2] are the others. *)
 val partition : (Mlty.meta -> Mlty.ty -> bool) -> t -> t * t
-

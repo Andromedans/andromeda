@@ -4,7 +4,11 @@
 #29: non-escaped end-of-line in string constant
 #50: unexpected documentation comment
 
+# Use this to not die on all warnings
+#OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50 -use-ocamlfind -pkg menhirLib -pkg sedlex
+
 OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
+
 OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 

@@ -1,7 +1,7 @@
 (* Test whether application errors have sensible locations *)
-let f = Type
-let x = Type
-let y = Type
+let f = ()
+let x = ()
+let y = ()
 
 
 

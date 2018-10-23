@@ -1,23 +1,37 @@
+(* Application is over-loaded, as [e1 e2] could mean that we're applying an AML
+   function [e1] to an AML arguement [e2], or that we're applying a judgement
+   [e1] to a judgement [e2]. If [e1 : t1], [e2 : t2] and [e1 e2 : t3] then
+   [AppConstraint (_, t1, t2, t3)] represents the contraint that applying
+   something of type [t1] to something of type [t2] gives something of type
+   [t3]. *)
 type constrain =
   | AppConstraint of Location.t * Mlty.ty * Mlty.ty * Mlty.ty
 
 type t =
   { context : Context.t;
     substitution : Substitution.t;
-    unsolved : constrain list }
+    unsolved : constrain list;
+    local_vars : (Name.ident * Mlty.ty) list (* the variables bound since the last call to [locally] *)
+ }
 
-type 'a tyenvM = t -> 'a * Substitution.t * constrain list
+type 'a tyenvM = t -> 'a * t
 
 let empty =
   { context = Context.empty;
     substitution = Substitution.empty;
-    unsolved = [] }
+    unsolved = [];
+    local_vars = []
+  }
 
-let return x env = x, env.substitution, env.unsolved
+let return x env = x, env
 
 let (>>=) m f env =
-  let x, substitution, unsolved = m env in
-  f x {env with substitution; unsolved}
+  let x, env = m env in
+  f x env
+
+let run env m = let x, env = m env in env, x
+
+let get_context env = env.context, env
 
 let unsolved_known unsolved =
   List.fold_left
@@ -28,18 +42,19 @@ let unsolved_known unsolved =
                             (Mlty.MetaSet.union (Mlty.occuring t2) (Mlty.occuring t3))))
     Mlty.MetaSet.empty unsolved
 
-let gather_known env =
+let gather_known ~known_context env =
   Mlty.MetaSet.union
     (Mlty.MetaSet.union
-       (Context.gather_known env.substitution env.context)
+       (Context.gather_known env.substitution known_context)
        (Substitution.domain env.substitution))
     (unsolved_known env.unsolved)
 
 let remove_known ~known s =
+  (* XXX: why isn't this just Mlty.MetaSet.diff s known ? *)
   Mlty.MetaSet.fold Mlty.MetaSet.remove known s
 
-let generalize t env =
-  let known = gather_known env in
+let generalize ~known_context t env =
+  let known = gather_known ~known_context env in
   let t = Substitution.apply env.substitution t in
   let gen = Mlty.occuring t in
   let gen = remove_known ~known gen in
@@ -53,9 +68,32 @@ let ungeneralize t env =
   let t = Substitution.apply env.substitution t in
   return ([], t) env
 
-let add_let x s m env =
+let locally m env =
+  let context = env.context in
+  let x, env = m env in
+  x, {env with context}
+
+let record_vars m env =
+  let local_vars = env.local_vars in
+  let x, env = m {env with local_vars = []} in
+  (* XXX should we apply the substition to the types of local vars that we're returning? *)
+  (List.rev env.local_vars, x), {env with local_vars}
+
+let record_var x t env =
+  let t = Substitution.apply env.substitution t in
+  (), {env with local_vars = (x,t) :: env.local_vars}
+
+let add_var x t env =
+  let t = Substitution.apply env.substitution t in
+  let context = Context.add_let x ([], t) env.context in
+  (), {env with context}
+
+let locally_add_var x t m =
+  locally (add_var x t >>= fun () -> m)
+
+let add_let x s env =
   let context = Context.add_let x s env.context in
-  m {env with context}
+  (), {env with context}
 
 let lookup_var k env =
   let t = Context.lookup_var k env.context in
@@ -64,16 +102,14 @@ let lookup_var k env =
 let lookup_op op env =
   return (Context.lookup_op op env.context) env
 
-let lookup_constructor c env =
-  return (Context.lookup_constructor c env.context) env
+let lookup_aml_constructor c env =
+  return (Context.lookup_aml_constructor c env.context) env
+
+let lookup_tt_constructor c env =
+  return (Context.lookup_tt_constructor c env.context) env
 
 let lookup_continuation env =
   return (Context.lookup_continuation env.context) env
-
-let add_var x t m env =
-  let t = Substitution.apply env.substitution t in
-  let context = Context.add_var x ([], t) env.context in
-  m {env with context}
 
 (* Whnf for meta instantiations and type aliases *)
 let rec whnf ctx s = function
@@ -90,17 +126,30 @@ let rec whnf ctx s = function
            | None -> t
      end
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
+  | (Mlty.Judgement _ | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
      Mlty.Handler _ | Mlty.Ref _ | Mlty.Dynamic _) as t -> t
 
 let rec unifiable ctx s t t' =
+  let rec unifiable_judgement_abstraction s abstr1 abstr2 =
+    match abstr1, abstr2 with
+    | Mlty.NotAbstract frm1, Mlty.NotAbstract frm2 ->
+       if frm1 = frm2 then
+         Some s
+       else
+         None
+    | Mlty.Abstract abstr1, Mlty.Abstract abstr2 ->
+       unifiable_judgement_abstraction s abstr1 abstr2
+    | Mlty.NotAbstract _, Mlty.Abstract _
+    | Mlty.Abstract _, Mlty.NotAbstract _ -> None
+  in
   let (>?=) m f = match m with
     | Some x -> f x
     | None -> None
   in
   match whnf ctx s t, whnf ctx s t' with
+  | Mlty.Judgement abstr1, Mlty.Judgement abstr2 ->
+     unifiable_judgement_abstraction s abstr1 abstr2
 
-  | Mlty.Judgment, Mlty.Judgment
   | Mlty.String, Mlty.String ->
      Some s
 
@@ -150,8 +199,9 @@ let rec unifiable ctx s t t' =
      in
      fold s ts ts'
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Prod _ | Mlty.Param _ |
-     Mlty.Arrow _ | Mlty.Handler _ | Mlty.App _), _ -> None
+  | (Mlty.Judgement _ | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Prod _ |
+     Mlty.Param _ | Mlty.Arrow _ | Mlty.Handler _ | Mlty.App _), _ ->
+     None
 
 let rec add_equation ~loc t t' env =
   match unifiable env.context env.substitution t t' with
@@ -170,6 +220,8 @@ let rec add_equation ~loc t t' env =
                 (Mlty.TypeMismatch (Substitution.apply env.substitution t,
                                     Substitution.apply env.substitution t'))
 
+(* XXX this is severely broken at the moment, as it will allow application of
+   one [is_term] judgement to another. We need to deal with this in the future. *)
 and add_application ~loc h arg out env =
   let s = env.substitution in
   let h = whnf env.context s h
@@ -177,8 +229,8 @@ and add_application ~loc h arg out env =
   and out = whnf env.context s out in
   match h with
 
-  | Mlty.Judgment ->
-     (>>=) (add_equation ~loc arg Mlty.Judgment) (fun () -> add_equation ~loc out Mlty.Judgment) env
+  | Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) as t->
+     (>>=) (add_equation ~loc arg t) (fun () -> add_equation ~loc out t) env
 
   | Mlty.Arrow (a, b) ->
      (>>=) (add_equation ~loc arg a) (fun () -> add_equation ~loc out b) env
@@ -186,20 +238,21 @@ and add_application ~loc h arg out env =
   | Mlty.Meta m ->
      begin
        match arg, out with
-       | (Mlty.Judgment | Mlty.Meta _), (Mlty.Judgment | Mlty.Meta _) ->
+       | (Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) | Mlty.Meta _),
+         (Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) | Mlty.Meta _) ->
           let unsolved = AppConstraint (loc, h, arg, out) :: env.unsolved in
-          (), s, unsolved
+          (), { env with unsolved }
        | _, _ ->
           begin
             match Substitution.add m (Mlty.Arrow (arg, out)) s with
-            | Some s ->
-               (), s, env.unsolved
+            | Some substitution ->
+               (), { env with substitution }
             | None -> Mlty.error ~loc (Mlty.InvalidApplication (h, arg, out))
           end
      end
 
-  | (Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Param _ | Mlty.Prod _
-     |  Mlty.Handler _ | Mlty.App _) ->
+  | (Mlty.Judgement _ | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Param _ |
+     Mlty.Prod _ |  Mlty.Handler _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.InvalidApplication (h, arg, out))
 
 let as_handler ~loc t env =
@@ -216,7 +269,7 @@ let as_handler ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ |  Mlty.Param _ |
+  | (Mlty.Judgement _ | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ |  Mlty.Param _ |
      Mlty.Prod _ | Mlty.Arrow _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.HandlerExpected t)
 
@@ -233,7 +286,7 @@ let as_ref ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
+  | (Mlty.Judgement _ | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
      Mlty.Arrow _ | Mlty.App _ | Mlty.Dynamic _) ->
      Mlty.error ~loc (Mlty.RefExpected t)
 
@@ -250,7 +303,7 @@ let as_dynamic ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
+  | (Mlty.Judgement _ | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
      Mlty.Arrow _ | Mlty.App _ | Mlty.Ref _) ->
      Mlty.error ~loc (Mlty.DynamicExpected t)
 
@@ -258,32 +311,28 @@ let op_cases op ~output m env =
   let argts, context = Context.op_cases op ~output env.context in
   m argts {env with context}
 
-let at_toplevel env m =
-  let x, substitution, unsolved = m env in
-  { env with substitution; unsolved }, x
-
 let predefined_type x ts env =
   let t = Context.predefined_type x ts env.context in
   return t env
 
-let generalizes_to ~loc t (ps, u) env =
-  let (), substitution, unsolved = add_equation ~loc t u env in
+let generalizes_to ~loc ~known_context t (ps, u) env =
+  let (), env = add_equation ~loc t u env in
   (* NB: [s1] is the one that has [ps] appearing in the image *)
   let s1, s2 = Substitution.partition
             (fun _ t -> Mlty.params_occur ps t)
-            substitution
+            env.substitution
   in
   let s1dom = Substitution.domain s1 in
   let known =
     Mlty.MetaSet.union
       (* XXX is it [substitution] or one of [s1], [s2]? *)
-      (Context.gather_known s2 env.context)
-      (unsolved_known unsolved)
+      (Context.gather_known s2 known_context)
+      (unsolved_known env.unsolved)
   in
   let ms = Mlty.MetaSet.inter s1dom known in
   if Mlty.MetaSet.is_empty ms
   then
-    (), s2, unsolved
+    (), {env with substitution=s2}
   else
     let ps =
       List.filter
@@ -301,12 +350,12 @@ let generalizes_to ~loc t (ps, u) env =
 
 (* Toplevel functionality *)
 
-let topadd_tydef t d env =
+let add_tydef t d env =
   let context = Context.add_tydef t d env.context in
-  { env with context }
+  (), { env with context }
 
-let topadd_operation op opty env =
+let add_operation op opty env =
   let context = Context.add_operation op opty env.context in
-  { env with context }
+  (), { env with context }
 
-let topadd_let x s env = add_let x s (fun env -> env) env
+let print_context {context;_} = Context.print_context context

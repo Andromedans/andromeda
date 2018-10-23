@@ -2,18 +2,11 @@
   open Input
 %}
 
-(* Type *)
-%token TYPE
-
-(* Products *)
-%token PROD LAMBDA
+(* Abstractions *)
+%token PROD
 
 (* Infix operations *)
 %token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
-
-(* Equality types *)
-%token EQEQ
-%token REFL
 
 (* Names and numerals *)
 %token UNDERSCORE
@@ -23,12 +16,12 @@
 (* Parentheses & punctuations *)
 %token LPAREN RPAREN
 %token LBRACK RBRACK
+%token LBRACE RBRACE
 %token COLON COMMA COLONGT
 %token ARROW DARROW
 
 (* Things specific to toplevel *)
 %token DO FAIL
-%token CONSTANT
 
 (* Let binding *)
 %token LET REC EQ AND IN
@@ -38,25 +31,22 @@
 
 (* Meta-level programming *)
 %token OPERATION
-%token <Name.ident> PATTVAR
 %token MATCH
-%token AS
-%token VDASH
+%token AS TYPE
+%token VDASH EQEQ
 
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 %token SEMICOLON
-
-%token CONGR_PROD CONGR_APPLY CONGR_LAMBDA CONGR_EQ CONGR_REFL
-%token BETA_STEP
 
 %token NATURAL
 
 %token EXTERNAL
 
-%token UATOM UCONSTANT
+%token UATOM
 
 (* Meta types *)
-%token JUDGMENT MLUNIT MLSTRING
+%token MLUNIT MLSTRING
+%token MLISTYPE MLISTERM MLEQTYPE MLEQTERM
 %token MLTYPE
 %token OF
 
@@ -68,9 +58,6 @@
 
 (* Assumptions *)
 %token ASSUME CONTEXT OCCURS
-
-(* Substitution *)
-%token WHERE
 
 (* Toplevel directives *)
 %token VERBOSITY
@@ -118,8 +105,6 @@ plain_topcomp:
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
-  | CONSTANT xs=separated_nonempty_list(COMMA, var_name) COLON u=term
-                                                      { DeclConstants (xs, u) }
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
   | OPERATION op=var_name COLON opsig=op_mlsig        { DeclOperation (op, opsig) }
@@ -143,28 +128,20 @@ plain_term:
   | NOW x=term EQ c1=term IN c2=term                             { Now (x,c1,c2) }
   | CURRENT c=term                                               { Current c }
   | ASSUME x=var_name COLON t=ty_term IN c=term                  { Assume ((x, t), c) }
-  | c1=equal_term WHERE e=simple_term EQ c2=term                 { Where (c1, e, c2) }
   | MATCH e=term WITH lst=match_cases END                        { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_cases END                     { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                                    { With (h, c) }
   | HANDLER hcs=handler_cases END                                { Handler (hcs) }
   | e=app_term COLON t=ty_term                                   { Ascribe (e, t) }
-  | e1=equal_term SEMICOLON e2=term                              { Sequence (e1, e2) }
+  | e1=binop_term SEMICOLON e2=term                              { Sequence (e1, e2) }
   | CONTEXT c=prefix_term                                        { Context c }
   | OCCURS c1=prefix_term c2=prefix_term                         { Occurs (c1,c2) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
-  | e=plain_equal_term                               { e }
-  | PROD a=prod_abstraction COMMA e=term             { Prod (a, e) }
-  | LAMBDA a=lambda_abstraction COMMA e=term         { Lambda (a, e) }
-  | FUNCTION xs=ml_arg+ DARROW e=term                { Function (xs, e) }
-  | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous (), t1)], t2) }
-
-equal_term: mark_location(plain_equal_term) { $1 }
-plain_equal_term:
   | e=plain_binop_term                               { e }
-  | e1=binop_term EQEQ e2=binop_term                 { Eq (e1, e2) }
+  | a=abstraction e=binop_term                       { Abstract (a, e) }
+  | FUNCTION xs=ml_arg+ DARROW e=term                { Function (xs, e) }
 
 binop_term: mark_location(plain_binop_term) { $1 }
 plain_binop_term:
@@ -180,17 +157,6 @@ app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
   | e=plain_prefix_term                             { e }
   | e=prefix_term es=nonempty_list(prefix_term)     { Spine (e, es) }
-  | CONGR_PROD e1=prefix_term e2=prefix_term e3=prefix_term { CongrProd (e1, e2, e3) }
-  | CONGR_APPLY e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
-    { CongrApply (e1, e2, e3, e4, e5) }
-  | CONGR_LAMBDA e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term
-    { CongrLambda (e1, e2, e3, e4) }
-  | CONGR_EQ e1=prefix_term e2=prefix_term e3=prefix_term
-    { CongrEq (e1, e2, e3) }
-  | CONGR_REFL e1=prefix_term e2=prefix_term
-    { CongrRefl (e1, e2) }
-  | BETA_STEP e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
-    { BetaStep (e1, e2, e3, e4, e5) }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:
@@ -204,14 +170,12 @@ plain_prefix_term:
     }
   | NATURAL t=prefix_term                      { Natural t }
   | YIELD e=prefix_term                        { Yield e }
-  | REFL e=prefix_term                         { Refl e }
 
-simple_term: mark_location(plain_simple_term) { $1 }
+(* simple_term: mark_location(plain_simple_term) { $1 } *)
 plain_simple_term:
-  | TYPE                                                { Type }
   | x=var_name                                          { Var x }
   | s=QUOTED_STRING                                     { String s }
-  | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
+  | LBRACK lst=separated_list(COMMA, binop_term) RBRACK { List lst }
   | LPAREN c=term COLONGT t=ml_schema RPAREN            { MLAscribe (c, t) }
   | LPAREN lst=separated_list(COMMA, term) RPAREN       { match lst with
                                                           | [{Location.thing=e;loc=_}] -> e
@@ -262,35 +226,13 @@ dyn_annotation:
   |                { Arg_annot_none }
   | COLONGT t=mlty { Arg_annot_ty t }
 
-typed_binder:
-  | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, t)) xs }
-
 maybe_typed_binder:
-  | x=name                                         { [(x, None)] }
-  | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, Some t)) xs }
+  | LBRACE xs=name+ RBRACE                         { List.map (fun x -> (x, None)) xs }
+  | LBRACE xs=name+ COLON t=ty_term RBRACE         { List.map (fun x -> (x, Some t)) xs }
 
-prod_abstraction:
-  | lst=nonempty_list(typed_binder)
+abstraction:
+  | lst=nonempty_list(maybe_typed_binder)
     { List.concat lst }
-  | lst=nonempty_list(name) COLON t=ty_term
-    { List.map (fun x -> (x, t)) lst }
-
-lambda_abstraction:
-  | lam=raw_nonempty_lambda_abstraction { fst lam }
-
-raw_nonempty_lambda_abstraction:
-  | x=name lam=raw_lambda_abstraction
-    { let (l,t) = lam in ((x,t)::l,t) }
-  | xs=typed_binder ys=maybe_typed_binder*
-    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
-
-raw_lambda_abstraction:
-  | { ([],None) }
-  | COLON t=ty_term { ([],Some t) }
-  | x=name lam=raw_lambda_abstraction
-    { let (l,t) = lam in ((x,t)::l,t) }
-  | xs=typed_binder ys=maybe_typed_binder*
-    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
 
 handler_cases:
   | BAR lst=separated_nonempty_list(BAR, handler_case)  { lst }
@@ -310,8 +252,8 @@ handler_case:
   | FINALLY p=pattern DARROW t=term                             { CaseFinally (p, t) }
 
 handler_checking:
-  |                    { None }
-  | COLON pt=pattern { Some pt }
+  |                     { None }
+  | COLON pt=tt_pattern { Some pt }
 
 top_handler_cases:
   | BAR lst=separated_nonempty_list(BAR, top_handler_case)  { lst }
@@ -330,7 +272,7 @@ top_handler_case:
       (op, ([x1;x2], y, t)) }
 
 top_patt_maybe_var:
-  | x=patt_var                   { Some x }
+  | x=var_name                   { Some x }
   | UNDERSCORE                   { None }
 
 top_handler_checking:
@@ -348,10 +290,9 @@ match_case:
 
 pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
-  | p=plain_binop_pattern                   { p }
-  | p=simple_pattern AS x=patt_var          { Patt_As (p,x) }
-  | VDASH e1=tt_pattern COLON e2=tt_pattern { Patt_Jdg (e1, Some e2) }
-  | VDASH e1=tt_pattern                     { Patt_Jdg (e1, None) }
+  | p=plain_binop_pattern                             { p }
+  | p1=binop_pattern AS p2=binop_pattern              { Patt_As (p1, p2) }
+  | VDASH p=abstracted_tt_pattern                     { Patt_Judgement p }
 
 binop_pattern: mark_location(plain_binop_pattern) { $1 }
 plain_binop_pattern:
@@ -374,11 +315,10 @@ plain_prefix_pattern:
       Patt_Constr (op, [e])
     }
 
-simple_pattern: mark_location(plain_simple_pattern) { $1 }
+(* simple_pattern: mark_location(plain_simple_pattern) { $1 } *)
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
-  | x=patt_var                     { Patt_Var x }
-  | x=var_name                     { Patt_Name x }
+  | x=var_name                     { Patt_Var x }
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
       | [{Location.thing=p;loc=_}] -> p
@@ -386,60 +326,53 @@ plain_simple_pattern:
     }
   | LBRACK ps=separated_list(COMMA, pattern) RBRACK { Patt_List ps }
 
+(* Judgement pattern (further disambiguation is performed during desugaring) *)
+
+abstracted_tt_pattern: mark_location(plain_abstracted_tt_pattern) { $1 }
+plain_abstracted_tt_pattern:
+  | p=plain_tt_pattern                                            { p }
+  | abstr=tt_abstraction p=tt_pattern                             { Patt_TT_Abstraction (abstr, p) }
+
 tt_pattern: mark_location(plain_tt_pattern) { $1 }
 plain_tt_pattern:
-  | p=plain_equal_tt_pattern                     { p }
-  | LAMBDA a=tt_abstraction COMMA p=tt_pattern   { Tt_Lambda (a, p) }
-  | PROD a=tt_abstraction COMMA p=tt_pattern     { Tt_Prod (a, p) }
-  | p1=equal_tt_pattern ARROW p2=tt_pattern      { Tt_Prod ([(NonPattVar (Name.anonymous ()), Some p1)], p2) }
-  | p=app_tt_pattern AS x=patt_var               { Tt_As (p,x) }
-
-equal_tt_pattern: mark_location(plain_equal_tt_pattern) { $1 }
-plain_equal_tt_pattern:
-  | p=plain_binop_tt_pattern                      { p }
-  | p1=binop_tt_pattern EQEQ p2=binop_tt_pattern  { Tt_Eq (p1, p2) }
+  | p1=binop_tt_pattern AS p2=binop_tt_pattern                        { Patt_TT_As (p1, p2) }
+  | p=plain_binop_tt_pattern                                          { p }
+  | p=binop_tt_pattern TYPE                                           { Patt_TT_IsType p }
+  | p1=binop_tt_pattern COLON p2=binop_tt_pattern                     { Patt_TT_IsTerm (p1, p2) }
+  | p1=binop_tt_pattern EQEQ  p2=binop_tt_pattern                     { Patt_TT_EqType (p1, p2) }
+  | p1=binop_tt_pattern EQEQ  p2=binop_tt_pattern COLON p3=tt_pattern { Patt_TT_EqTerm (p1, p2, p3) }
 
 binop_tt_pattern: mark_location(plain_binop_tt_pattern) { $1 }
 plain_binop_tt_pattern:
   | p=plain_app_tt_pattern                        { p }
   | e1=binop_tt_pattern oploc=infix e2=binop_tt_pattern
-    { let (op, loc) = oploc in
-      let op = Location.locate (Tt_Name op) loc in
-      Tt_Spine (op, [e1; e2])
+    { let (op, _loc) = oploc in
+      Patt_TT_Constructor (op, [e1; e2])
     }
 
-app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
+(* app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 } *)
 plain_app_tt_pattern:
-  | p=plain_prefix_tt_pattern                                { p }
-  | p=prefix_tt_pattern ps=nonempty_list(prefix_tt_pattern)  { Tt_Spine (p, ps) }
+  | p=plain_prefix_tt_pattern                       { p }
+  | c=var_name ps=nonempty_list(prefix_tt_pattern)  { Patt_TT_Constructor (c, ps) }
 
 prefix_tt_pattern: op=mark_location(plain_prefix_tt_pattern) { op }
 plain_prefix_tt_pattern:
   | p=plain_simple_tt_pattern        { p }
-  | REFL p=prefix_tt_pattern         { Tt_Refl p }
-  | UATOM p=prefix_tt_pattern        { Tt_GenAtom p }
-  | UCONSTANT p=prefix_tt_pattern    { Tt_GenConstant p }
+  | UATOM p=prefix_tt_pattern        { Patt_TT_GenAtom p }
   | oploc=prefix e=prefix_tt_pattern
-    { let (op, loc) = oploc in
-      let op = Location.locate (Tt_Name op) loc in
-      Tt_Spine (op, [e])
+    { let (op, _loc) = oploc in
+      Patt_TT_Constructor (op, [e])
     }
 
+(* simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 } *)
 plain_simple_tt_pattern:
-  | UNDERSCORE                                                           { Tt_Anonymous }
-  | TYPE                                                                 { Tt_Type }
-  | x=patt_var                                                           { Tt_Var x }
-  | x=var_name                                                           { Tt_Name x }
-  | LPAREN p=plain_tt_pattern RPAREN                                     { p }
+  | UNDERSCORE                        { Patt_TT_Anonymous }
+  | x=var_name                        { Patt_TT_Var x }
+  | LPAREN p=plain_abstracted_tt_pattern RPAREN  { p }
 
-(* The TT pattern for abstraction follows the lambda abstraction syntax *)
 tt_name:
-  | x=var_name      { NonPattVar x }
-  | UNDERSCORE      { PattVar (Name.anonymous ()) }
-  | x=PATTVAR       { PattVar x }
-
-patt_var:
-  | x=PATTVAR                    { x }
+  | UNDERSCORE       { None }
+  | x=var_name       { Some x }
 
 let_pattern: mark_location(plain_let_pattern) { $1 }
 plain_let_pattern:
@@ -449,31 +382,13 @@ plain_let_pattern:
       | _ -> Patt_Tuple ps
     }
 
-(* TODO It is likely that tt_typed_binder and typed_binder share enough structure that
-   they could be unified and presented as two instances of the same thing. *)
-tt_typed_binder:
-  | LPAREN xs=tt_name+ COLON t=tt_pattern RPAREN         { List.map (fun x -> (x, t)) xs }
-
 tt_maybe_typed_binder:
-  | x=tt_name                                            { [(x, None)] }
-  | LPAREN xs=tt_name+ COLON t=tt_pattern RPAREN         { List.map (fun x -> (x, Some t)) xs }
+  | LBRACE xs=tt_name+ RBRACE                            { List.map (fun x -> (x, None)) xs }
+  | LBRACE xs=tt_name+ COLON t=tt_pattern RBRACE         { List.map (fun x -> (x, Some t)) xs }
 
 tt_abstraction:
-  | lam=raw_nonempty_tt_abstraction { fst lam }
-
-raw_nonempty_tt_abstraction:
-  | x=tt_name lam=raw_tt_abstraction
-    { let (l,t) = lam in ((x,t)::l,t) }
-  | xs=tt_typed_binder ys=tt_maybe_typed_binder*
-    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
-
-raw_tt_abstraction:
-  | { ([],None) }
-  | COLON t=tt_pattern { ([],Some t) }
-  | x=tt_name lam=raw_tt_abstraction
-    { let (l,t) = lam in ((x,t)::l,t) }
-  | xs=tt_typed_binder ys=tt_maybe_typed_binder*
-    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
+  | lst=nonempty_list(tt_maybe_typed_binder)
+    { List.concat lst }
 
 (***)
 
@@ -517,10 +432,20 @@ simple_mlty: mark_location(plain_simple_mlty) { $1 }
 plain_simple_mlty:
   | LPAREN t=plain_mlty RPAREN          { t }
   | c=var_name                          { ML_TyApply (c, []) }
-  | JUDGMENT                            { ML_Judgment }
+  | abstr=mlty_abstracted_judgement     { ML_Judgement abstr }
   | MLUNIT                              { ML_Prod [] }
   | MLSTRING                            { ML_String }
   | UNDERSCORE                          { ML_Anonymous }
+
+mlty_judgement:
+  | MLISTYPE { ML_IsType }
+  | MLISTERM { ML_IsTerm }
+  | MLEQTYPE { ML_EqType }
+  | MLEQTERM { ML_EqTerm }
+
+mlty_abstracted_judgement:
+  | frm=mlty_judgement                                      { ML_NotAbstract frm }
+  | LBRACE RBRACE abstr=mlty_abstracted_judgement           { ML_Abstract abstr }
 
 mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def) { lst }

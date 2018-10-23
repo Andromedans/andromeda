@@ -1,7 +1,7 @@
 (** Runtime values and computations *)
 
-type ref = Store.Ref.key
-type dyn = Store.Dyn.key
+type ref = Store.Ref.key (* TODO rename to aml_ref, or just get rid of this *)
+type dyn = Store.Dyn.key (* TODO rename to aml_dyn, or just get rid of this *)
 
 (** This module defines 2 monads:
     - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
@@ -38,13 +38,16 @@ and lexical = {
   continuation : value continuation option;
 
   (* toplevel handlers *)
-  handle : (Name.ident * (value list * Jdg.ty option,value) closure) list;
+  handle : (Name.ident * (value list * Jdg.is_type_abstraction option,value) closure) list;
 }
 
 and state = value Store.Ref.t
 
 and value =
-  | Term of Jdg.term
+  | IsTerm of Jdg.is_term_abstraction
+  | IsType of Jdg.is_type_abstraction
+  | EqTerm of Jdg.eq_term_abstraction
+  | EqType of Jdg.eq_type_abstraction
   | Closure of (value, value) closure
   | Handler of handler
   | Tag of Name.ident * value list
@@ -58,11 +61,11 @@ and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
 and 'a result =
   | Return of 'a
-  | Operation of Name.ident * value list * Jdg.ty option * dynamic * 'a continuation
+  | Operation of Name.ident * value list * Jdg.is_type_abstraction option * dynamic * 'a continuation
 
 and 'a comp = env -> 'a result * state
 
-and operation_args = { args : value list; checking : Jdg.ty option }
+and operation_args = { args : value list; checking : Jdg.is_type_abstraction option }
 
 and handler = {
   handler_val: (value,value) closure option;
@@ -76,35 +79,39 @@ type 'a toplevel = env -> 'a * env
 
 (** Error reporting *)
 type error =
-  | ExpectedAtom of Jdg.term
+  | ExpectedAtom of Jdg.is_term
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | AnnotationMismatch of Jdg.ty * Jdg.ty
-  | TypeMismatchCheckingMode of Jdg.term * Jdg.ty
-  | EqualityFail of Jdg.term * Jdg.term
-  | UnannotatedLambda of Name.ident
+  | AnnotationMismatch of Jdg.is_type * Jdg.is_type_abstraction
+  | TypeMismatchCheckingMode of Jdg.is_term_abstraction * Jdg.is_type_abstraction
+  | UnexpectedAbstraction of Jdg.is_type
+  | TermEqualityFail of Jdg.is_term * Jdg.is_term
+  | TypeEqualityFail of Jdg.is_type * Jdg.is_type
+  | UnannotatedAbstract of Name.ident
   | MatchFail of value
   | FailureFail of value
-  | InvalidEqual of Jdg.ty
-  | EqualityTypeExpected of Jdg.ty
-  | InvalidAsEquality of Jdg.ty
-  | ProductExpected of Jdg.ty
-  | InvalidAsProduct of Jdg.ty
+  | InvalidEqualTerm of Jdg.is_term * Jdg.is_term
+  | InvalidEqualType of Jdg.is_type * Jdg.is_type
   | ListExpected of value
   | OptionExpected of value
-  | TermExpected of value
+  | IsTypeExpected of value
+  | IsTermExpected of value
+  | EqTypeExpected of value
+  | EqTermExpected of value
+  | IsTypeAbstractionExpected of value
+  | IsTermAbstractionExpected of value
+  | EqTypeAbstractionExpected of value
+  | EqTermAbstractionExpected of value
+  | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
-  | FunctionExpected of Jdg.term
   | RefExpected of value
   | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
-  | InvalidConvertible of Jdg.ty * Jdg.ty * Jdg.eq_ty
-  | InvalidCoerce of Jdg.ty * Jdg.term
-  | InvalidFunConvertible of Jdg.ty * Jdg.eq_ty
-  | InvalidFunCoerce of Jdg.term
+  | InvalidConvertible of Jdg.is_type_abstraction * Jdg.is_type_abstraction * Jdg.eq_type_abstraction
+  | InvalidCoerce of Jdg.is_type_abstraction * Jdg.is_term_abstraction
   | UnhandledOperation of Name.operation * value list
 
 exception Error of error Location.located
@@ -113,8 +120,11 @@ let error ~loc err = raise (Error (Location.locate err loc))
 
 
 (** Make values *)
-let mk_term j =
-  Term j
+
+let mk_is_term t = IsTerm t
+let mk_is_type t = IsType t
+let mk_eq_term eq = EqTerm eq
+let mk_eq_type eq = EqType eq
 
 let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
@@ -163,14 +173,14 @@ let top_bind m f env =
 type 'a caught =
   | CaughtJdg of Jdg.error Location.located
   | CaughtRuntime of error Location.located
-  | Value of 'a
+  | Result of 'a
 
-let catch m env =
+let catch ~loc m env =
   try
     let x, env = Lazy.force m env in
-    Value x, env
+    Result x, env
   with
-    | Jdg.Error err -> CaughtJdg err, env
+    | Jdg.Error err -> CaughtJdg (Location.locate err loc), env
     | Error err -> CaughtRuntime err, env
 
 (** Returns *)
@@ -180,7 +190,10 @@ let top_return_closure f env = mk_closure0 f env, env
 
 let return x env = Return x, env.state
 
-let return_term e = return (mk_term e)
+let return_is_term e = return (mk_is_term e)
+let return_is_type e = return (mk_is_type e)
+let return_eq_term e = return (mk_eq_term e)
+let return_eq_type e = return (mk_eq_type e)
 
 let return_closure f env = Return (Closure (mk_closure0 f env)), env.state
 
@@ -203,7 +216,10 @@ let rec top_fold f acc = function
 
 let name_of v =
   match v with
-    | Term _ -> "a term"
+    | IsTerm _ -> "a term"
+    | IsType _ -> "a type"
+    | EqTerm _ -> "a term equality"
+    | EqType _ -> "a type equality"
     | Closure _ -> "a function"
     | Handler _ -> "a handler"
     | Tag _ -> "a data tag"
@@ -213,34 +229,99 @@ let name_of v =
     | String _ -> "a string"
 
 (** Coerce values *)
-let as_term ~loc = function
-  | Term e -> e
-  | (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (TermExpected v)
+
+let as_is_type ~loc = function
+  | IsType t as v ->
+     begin match Jdg.invert_is_type_abstraction t with
+     | Jdg.NotAbstract t -> t
+     | Jdg.Abstract _ -> error ~loc (IsTermExpected v)
+     end
+  | (IsTerm _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (IsTypeExpected v)
+
+let as_is_term ~loc = function
+  | IsTerm e as v ->
+     begin match Jdg.invert_is_term_abstraction e with
+     | Jdg.NotAbstract e -> e
+     | Jdg.Abstract _ -> error ~loc (IsTermExpected v)
+     end
+  | (IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (IsTermExpected v)
+
+let as_eq_type ~loc = function
+  | EqType eq as v ->
+     begin match Jdg.invert_eq_type_abstraction eq with
+     | Jdg.NotAbstract eq -> eq
+     | Jdg.Abstract _ -> error ~loc (EqTypeExpected v)
+     end
+  | (IsType _ | IsTerm _ | EqTerm _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (EqTypeExpected v)
+
+let as_eq_term ~loc = function
+  | EqTerm eq as v ->
+     begin match Jdg.invert_eq_term_abstraction eq with
+     | Jdg.NotAbstract eq -> eq
+     | Jdg.Abstract _ -> error ~loc (EqTermExpected v)
+     end
+  | (IsType _ | IsTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (EqTermExpected v)
+
+let as_is_type_abstraction ~loc = function
+  | IsType t -> t
+  | (IsTerm _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (IsTypeAbstractionExpected v)
+
+let as_is_term_abstraction ~loc = function
+  | IsTerm e -> e
+  | (IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (IsTermAbstractionExpected v)
+
+let as_eq_type_abstraction ~loc = function
+  | EqType eq -> eq
+  | (IsType _ | IsTerm _ | EqTerm _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (EqTypeAbstractionExpected v)
+
+let as_eq_term_abstraction ~loc = function
+  | EqTerm eq -> eq
+  | (IsType _ | IsTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (EqTermAbstractionExpected v)
 
 let as_closure ~loc = function
   | Closure f -> f
-  | (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (ClosureExpected v)
 
 let as_handler ~loc = function
   | Handler h -> h
-  | (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (HandlerExpected v)
 
 let as_ref ~loc = function
   | Ref v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | String _) as v ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | String _) as v ->
     error ~loc (RefExpected v)
 
 let as_dyn ~loc = function
   | Dyn v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~loc (DynExpected v)
 
 let as_string ~loc = function
   | String v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | Ref _) as v ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | Ref _) as v ->
     error ~loc (StringExpected v)
 
 (** Operations *)
@@ -254,10 +335,10 @@ let get_env env = Return env, env.state
 
 let top_get_env env = env, env
 
-let get_typing_signature env = env.dynamic.signature
+let get_signature env = env.dynamic.signature
 
-let lookup_typing_signature env =
-  Return (get_typing_signature env), env.state
+let lookup_signature env =
+  Return env.dynamic.signature, env.state
 
 let index_of_level k env =
   let n = List.length env.lexical.bound - k - 1 in
@@ -276,18 +357,21 @@ let lookup_dyn dyn env =
 let add_bound0 v env = {env with lexical = { env.lexical with
                                              bound = v :: env.lexical.bound } }
 
-let add_free ~loc x jt m env =
-  let jy = Jdg.Ctx.add_fresh jt x in
-  let y_val = mk_term (Jdg.atom_term ~loc jy) in
+let add_free x jt m env =
+  let jy = Jdg.fresh_atom x jt in
+  let y_val = mk_is_term (Jdg.form_not_abstract (Jdg.form_is_term_atom jy)) in
   let env = add_bound0 y_val env in
   m jy env
 
+(* XXX This will get fancier once we have rules and we want to add them to the signature
 let add_constant0 ~loc x t env =
   { env with dynamic = {env.dynamic with signature =
                            Jdg.Signature.add_constant x t env.dynamic.signature };
              lexical = {env.lexical with forbidden = x :: env.lexical.forbidden } }
 
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
+*)
+
 
 (* XXX rename to bind_value *)
 let add_bound v m env =
@@ -377,13 +461,20 @@ let rec as_list_opt = function
        | None -> None
        | Some xs -> Some (x :: xs)
      end
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
      None
 
 let rec print_value ?max_level ~penv v ppf =
   match v with
 
-  | Term e -> Jdg.print_term ~penv:penv ?max_level e ppf
+  | IsTerm e -> Jdg.print_is_term_abstraction ~penv:penv ?max_level e ppf
+
+  | IsType t -> Jdg.print_is_type_abstraction ~penv:penv ?max_level t ppf
+
+  | EqTerm eq -> Jdg.print_eq_term_abstraction ~penv:penv ?max_level eq ppf
+
+  | EqType eq -> Jdg.print_eq_type_abstraction ~penv:penv ?max_level eq ppf
 
   | Closure f -> Format.fprintf ppf "<function>"
 
@@ -474,7 +565,7 @@ let print_error ~penv err ppf =
 
   | ExpectedAtom j ->
      Format.fprintf ppf "expected an atom but got %t"
-                    (Jdg.print_term ~penv:penv j)
+                    (Jdg.print_is_term ~penv:penv j)
 
   | UnknownExternal s ->
      Format.fprintf ppf "unknown external %s" s
@@ -485,23 +576,33 @@ let print_error ~penv err ppf =
   | Inapplicable v ->
      Format.fprintf ppf "cannot apply %s" (name_of v)
 
+
   | AnnotationMismatch (t1, t2) ->
       Format.fprintf ppf
-      "@[<v>The type annotation is@,   @[<hov>%t@]@ but the surroundings imply it should be@,   @[<hov>%t@].@]"
-                    (Jdg.print_ty ~penv:penv t1)
-                    (Jdg.print_ty ~penv:penv t2)
+      "@[<v>The type annotation is@, @[<hov>%t@]@ but the surroundings imply it should be@, @[<hov>%t@].@]"
+                    (Jdg.print_is_type ~penv:penv t1)
+                    (Jdg.print_is_type_abstraction ~penv:penv t2)
 
   | TypeMismatchCheckingMode (v, t) ->
-      Format.fprintf ppf "The term@,   @[<hov>%t@]@ is expected by its surroundings to have type@,   @[<hov>%t@]"
-                    (Jdg.print_term ~penv:penv v)
-                    (Jdg.print_ty ~penv:penv t)
+      Format.fprintf ppf "The term@, @[<hov>%t@]@ is expected by its surroundings to have type@, @[<hov>%t@]"
+                    (Jdg.print_is_term_abstraction ~penv:penv v)
+                    (Jdg.print_is_type_abstraction ~penv:penv t)
 
-  | EqualityFail (e1, e2) ->
+  | UnexpectedAbstraction t ->
+      Format.fprintf ppf "This term is an abstraction but the surroundings imply it shoule be@, @[<hov>%t@]"
+                    (Jdg.print_is_type ~penv:penv t)
+
+  | TermEqualityFail (e1, e2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
-                    (Jdg.print_term ~penv:penv e1)
-                    (Jdg.print_term ~penv:penv e2)
+                    (Jdg.print_is_term ~penv:penv e1)
+                    (Jdg.print_is_term ~penv:penv e2)
 
-  | UnannotatedLambda x ->
+  | TypeEqualityFail (t1, t2) ->
+     Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
+                    (Jdg.print_is_type ~penv:penv t1)
+                    (Jdg.print_is_type ~penv:penv t2)
+
+  | UnannotatedAbstract x ->
      Format.fprintf ppf "cannot infer the type of@ %t" (Name.print_ident x)
 
   | MatchFail v ->
@@ -512,29 +613,15 @@ let print_error ~penv err ppf =
      Format.fprintf ppf "expected to fail but computed@ %t"
                     (print_value ~penv v)
 
-  | InvalidEqual j ->
-     Format.fprintf ppf "this should be a witness of %t"
-                    (Jdg.print_ty ~penv:penv j)
+  | InvalidEqualTerm (e1, e2) ->
+     Format.fprintf ppf "this should be equality of terms %t@ and@ %t"
+                    (Jdg.print_is_term ~penv:penv e1)
+                    (Jdg.print_is_term ~penv:penv e2)
 
-  | EqualityTypeExpected j ->
-     Format.fprintf ppf "expected an equality type but got@ %t"
-                    (Jdg.print_ty ~penv:penv j)
-
-  | InvalidAsEquality j ->
-     Format.fprintf ppf "this should be an equality between %t and an equality"
-                    (Jdg.print_ty ~penv:penv j)
-
-  | ProductExpected j ->
-     Format.fprintf ppf "expected a product but got@ %t"
-                    (Jdg.print_ty ~penv:penv j)
-
-  | InvalidAsProduct j ->
-     Format.fprintf ppf "this should be an equality between %t and a product"
-                    (Jdg.print_ty ~penv:penv j)
-
-  | FunctionExpected t ->
-     Format.fprintf ppf "@[<v>Application of the non-function:@    @[<hov>%t@]@]@."
-                    (Jdg.print_term ~penv:penv t)
+  | InvalidEqualType (t1, t2) ->
+     Format.fprintf ppf "this should be equality of types %t@ and@ %t"
+                    (Jdg.print_is_type ~penv:penv t1)
+                    (Jdg.print_is_type ~penv:penv t2)
 
   | ListExpected v ->
      Format.fprintf ppf "expected a list but got %s" (name_of v)
@@ -542,8 +629,33 @@ let print_error ~penv err ppf =
   | OptionExpected v ->
      Format.fprintf ppf "expected an option but got %s" (name_of v)
 
-  | TermExpected v ->
+  | IsTypeExpected v ->
+     Format.fprintf ppf "expected a type but got %s" (name_of v)
+
+  | IsTermExpected v ->
      Format.fprintf ppf "expected a term but got %s" (name_of v)
+
+  | EqTypeExpected v ->
+     Format.fprintf ppf "expected a type equality but got %s" (name_of v)
+
+  | EqTermExpected v ->
+     Format.fprintf ppf "expected a term equality but got %s" (name_of v)
+
+  | IsTypeAbstractionExpected v ->
+     Format.fprintf ppf "expected a possibly abstracted type but got %s" (name_of v)
+
+  | IsTermAbstractionExpected v ->
+     Format.fprintf ppf "expected a possibly abstracted term but got %s" (name_of v)
+
+  | EqTypeAbstractionExpected v ->
+     Format.fprintf ppf "expected a possibly abstracted type equality but got %s" (name_of v)
+
+  | EqTermAbstractionExpected v ->
+     Format.fprintf ppf "expected a possibly abstracted term equality but got %s" (name_of v)
+
+
+  | JudgementExpected v ->
+     Format.fprintf ppf "expected a judgement but got %s" (name_of v)
 
   | ClosureExpected v ->
      Format.fprintf ppf "expected a function but got %s" (name_of v)
@@ -565,23 +677,14 @@ let print_error ~penv err ppf =
 
   | InvalidConvertible (t1, t2, eq) ->
      Format.fprintf ppf "expected a witness of equality between %t and %t but got %t"
-                    (Jdg.print_ty ~penv t1)
-                    (Jdg.print_ty ~penv t2)
-                    (Jdg.print_eq_ty ~penv eq)
+                    (Jdg.print_is_type_abstraction ~penv t1)
+                    (Jdg.print_is_type_abstraction ~penv t2)
+                    (Jdg.print_eq_type_abstraction ~penv eq)
 
   | InvalidCoerce (t, e) ->
      Format.fprintf ppf "expected a term of type %t but got %t"
-                    (Jdg.print_ty ~penv t)
-                    (Jdg.print_term ~penv e)
-
-  | InvalidFunConvertible (t, eq) ->
-     Format.fprintf ppf "expected a witness of equality between %t and a product but got %t"
-                    (Jdg.print_ty ~penv t)
-                    (Jdg.print_eq_ty ~penv eq)
-
-  | InvalidFunCoerce e ->
-     Format.fprintf ppf "expected a term of a product type got %t"
-                    (Jdg.print_term ~penv e)
+                    (Jdg.print_is_type_abstraction ~penv t)
+                    (Jdg.print_is_term_abstraction ~penv e)
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "@[<v>Unhandled operation:@.   @[<hov>%t@]@]@."
@@ -650,8 +753,19 @@ let top_handle ~loc r env =
 (** Equality *)
 let rec equal_value v1 v2 =
   match v1, v2 with
-    | Term j1, Term j2 ->
-      Jdg.alpha_equal j1 j2
+    | IsTerm e1, IsTerm e2 ->
+      Jdg.alpha_equal_abstraction Jdg.alpha_equal_term e1 e2
+
+    | IsType t1, IsType t2 ->
+      Jdg.alpha_equal_abstraction Jdg.alpha_equal_type t1 t2
+
+    | EqTerm eq1, EqTerm eq2 ->
+       (* XXX: should we even compare equality judgements for equality? That will lead to comparison of contexts. *)
+       eq1 == eq2
+
+    | EqType eq1, EqType eq2 ->
+       (* XXX: should we even compare equality judgements for equality? That will lead to comparison of contexts. *)
+       eq1 == eq2
 
     | Tag (t1,vs1), Tag (t2,vs2) ->
       Name.eq_ident t1 t2 &&
@@ -690,14 +804,17 @@ let rec equal_value v1 v2 =
        false
 
     (* At some level the following is a bit ridiculous *)
-    | Term _, (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Closure _, (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Handler _, (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Tag _, (Term _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Tuple _, (Term _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _)
-    | String _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _)
-    | Ref _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Dyn _)
-    | Dyn _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ref _) ->
+    | IsTerm _, (IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | IsType _, (IsTerm _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | EqTerm _, (IsTerm _ | IsType _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | EqType _, (IsTerm _ | IsType _ | EqTerm _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Closure _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Handler _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Tag _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Tuple _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _)
+    | String _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _)
+    | Ref _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Dyn _)
+    | Dyn _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ref _) ->
        false
 
 
@@ -711,7 +828,13 @@ struct
   let rec value v =
     match v with
 
-    | Term e -> Json.tag "Term" [Jdg.Json.term e]
+    | IsTerm e -> Json.tag "IsTerm" [Jdg.Json.abstraction Jdg.Json.is_term e]
+
+    | IsType t -> Json.tag "IsType" [Jdg.Json.abstraction Jdg.Json.is_type t]
+
+    | EqType eq -> Json.tag "EqType" [Jdg.Json.abstraction Jdg.Json.eq_type eq]
+
+    | EqTerm eq -> Json.tag "EqTerm" [Jdg.Json.abstraction Jdg.Json.eq_term eq]
 
     | Closure _ -> Json.tag "<fun>" []
 

@@ -27,8 +27,18 @@ module MetaOrd = struct
   let compare = compare
 end
 
+type judgement =
+  | IsType
+  | IsTerm
+  | EqType
+  | EqTerm
+
+type abstracted_judgement =
+  | NotAbstract of judgement
+  | Abstract of abstracted_judgement
+
 type ty =
-  | Judgment
+  | Judgement of abstracted_judgement
   | String
   | Meta of meta
   | Param of param
@@ -39,6 +49,8 @@ type ty =
   | Ref of ty
   | Dynamic of ty
 
+type tt_constructor_ty = abstracted_judgement list * judgement
+
 let unit_ty = Prod []
 
 let fresh_type () = Meta (fresh_meta ())
@@ -48,11 +60,11 @@ type 'a forall = param list * 'a
 
 type ty_schema = ty forall
 
-type constructor = Name.constructor * ty list
+type aml_constructor = Name.constructor * ty list
 
 type ty_def =
   | Alias of ty forall
-  | Sum of constructor list forall
+  | Sum of aml_constructor list forall
 
 type error =
   | InvalidApplication of ty * ty * ty
@@ -64,6 +76,9 @@ type error =
   | UnknownExternal of string
   | ValueRestriction
   | Ungeneralizable of param list * ty
+  | UnknownJudgementForm
+  | JudgementExpected of ty
+  | UnexpectedJudgementAbstraction of judgement
 
 exception Error of error Location.located
 
@@ -98,10 +113,25 @@ let print_param ~penv (p : param) ppf =
   in
   Format.fprintf ppf "%s" s
 
+let print_judgement frm ppf =
+  Format.fprintf ppf
+  (match frm with
+   | IsType -> "is_type"
+   | IsTerm -> "is_term"
+   | EqType -> "eq_type"
+   | EqTerm -> "eq_term")
+
+let rec print_abstracted_judgement abstr ppf =
+  match abstr with
+  | NotAbstract frm -> print_judgement frm ppf
+  | Abstract abstr ->
+     Format.fprintf ppf "{}%t"
+       (print_abstracted_judgement abstr)
+
 let rec print_ty ~penv ?max_level t ppf =
   match t with
 
-  | Judgment -> Format.fprintf ppf "judgment"
+  | Judgement abstr -> print_abstracted_judgement abstr ppf
 
   | String -> Format.fprintf ppf "mlstring"
 
@@ -153,40 +183,60 @@ let print_ty_schema ~penv ?max_level (ms, t) ppf =
 let print_error err ppf =
   let penv = fresh_penv () in
   match err with
+
   | InvalidApplication (h, arg, out) ->
     Format.fprintf ppf "Invalid application of %t to %t producing %t"
       (print_ty ~penv h)
       (print_ty ~penv arg)
       (print_ty ~penv out)
+
   | TypeMismatch (t1, t2) ->
     Format.fprintf ppf "Expected %t but got %t"
       (print_ty ~penv t2)
       (print_ty ~penv t1)
+
   | UnsolvedApp (h, arg, out) ->
     Format.fprintf ppf "Unsolved application of %t to %t producing %t"
       (print_ty ~penv h)
       (print_ty ~penv arg)
       (print_ty ~penv out)
+
   | HandlerExpected t ->
     Format.fprintf ppf "Expected a handler but got %t"
       (print_ty ~penv t)
+
   | RefExpected t ->
     Format.fprintf ppf "Expected a reference but got %t"
       (print_ty ~penv t)
+
   | DynamicExpected t ->
     Format.fprintf ppf "Expected a dynamic but got %t"
       (print_ty ~penv t)
+
   | UnknownExternal s ->
     Format.fprintf ppf "Unknown external %s" s
+
   | ValueRestriction ->
      Format.fprintf ppf "This computation cannot be polymorphic (value restriction)"
+
   | Ungeneralizable (ps, ty) ->
      Format.fprintf ppf "Cannot generalize %t in %t"
                     (Print.sequence (print_param ~penv) "," ps)
                     (print_ty ~penv ty)
 
+  | UnknownJudgementForm ->
+     Format.fprintf ppf "Cannot infer the judgement form"
+
+  | JudgementExpected t ->
+    Format.fprintf ppf "Expected a judgement but got %t"
+      (print_ty ~penv t)
+
+  | UnexpectedJudgementAbstraction jdg_actual ->
+     Format.fprintf ppf "Expected %t but got an abstraction"
+       (print_judgement jdg_actual)
+
 let rec occurs m = function
-  | Judgment | String | Param _ -> false
+  | Judgement _ | String | Param _ -> false
   | Meta m' -> m = m'
   | Prod ts  | App (_, _, ts) ->
     List.exists (occurs m) ts
@@ -195,7 +245,7 @@ let rec occurs m = function
   | Ref t | Dynamic t -> occurs m t
 
 let rec occuring = function
-  | Judgment | String | Param _ -> MetaSet.empty
+  | Judgement _ | String | Param _ -> MetaSet.empty
   | Meta m -> MetaSet.singleton m
   | Prod ts  | App (_, _, ts) ->
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
@@ -209,7 +259,7 @@ let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
 let instantiate pus t =
   let rec inst = function
 
-    | Judgment | String | Meta _ as t -> t
+    | Judgement _ | String | Meta _ as t -> t
 
     | Param p as t ->
        begin
@@ -249,7 +299,7 @@ let instantiate pus t =
 
 let params_occur ps t =
   let rec occurs = function
-  | Judgment | String | Meta _ -> false
+  | Judgement _ | String | Meta _ -> false
   | Param p -> List.mem p ps
   | Prod ts  | App (_, _, ts) ->
     List.exists occurs ts

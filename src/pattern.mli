@@ -5,28 +5,30 @@ type 'a located = 'a Location.located
 (** Bound variables are de Bruijn indices *)
 type bound = int
 
+(** Judgement pattern. *)
+type judgement = judgement' located
+and judgement' =
+  | TTAnonymous
+  | TTVar of Name.ident    (* XXX are the idents used anywhere? *)
+  | TTAs of judgement * judgement
+  | TTConstructor of Name.constructor * argument list
+  | TTGenAtom of is_term
+  | TTIsType of is_type
+  | TTIsTerm of is_term * is_type
+  | TTEqType of is_type * is_type
+  | TTEqTerm of is_term * is_term * is_type
+  | TTAbstract of Name.ident option * is_type * judgement
 
-(** Patterns *)
-type tt_pattern = tt_pattern' located
-and tt_pattern' =
-  | Tt_Anonymous
-  | Tt_As of tt_pattern * bound
-  | Tt_Bound of bound
-  | Tt_Type
-  | Tt_Constant of Name.ident
-  | Tt_Lambda of Name.ident * bound option * tt_pattern option * tt_pattern
-  | Tt_Apply of tt_pattern * tt_pattern
-  | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
-  | Tt_Eq of tt_pattern * tt_pattern
-  | Tt_Refl of tt_pattern
-  | Tt_GenAtom of tt_pattern
-  | Tt_GenConstant of tt_pattern
+and is_type = judgement
+and is_term = judgement
+and argument = judgement
 
-type pattern = pattern' located
-and pattern' =
-  | Patt_Anonymous
-  | Patt_As of pattern * bound
-  | Patt_Bound of bound
-  | Patt_Jdg of tt_pattern * tt_pattern
-  | Patt_Constructor of Name.ident * pattern list
-  | Patt_Tuple of pattern list
+(** AML pattern *)
+type aml = aml' located
+and aml' =
+  | Anonymous
+  | Var of Name.ident
+  | As of aml * aml
+  | Judgement of judgement
+  | AMLConstructor of Name.ident * aml list
+  | Tuple of aml list

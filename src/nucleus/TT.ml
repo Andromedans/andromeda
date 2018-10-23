@@ -1,501 +1,664 @@
 (** The abstract syntax of Andromedan type theory (TT). *)
 
-type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
-
 type bound = int
 
-type term = {
-  term : term';
-  (* raw term *)
+type ty =
+  | TypeConstructor of Name.constructor * argument list
 
-  assumptions : Assumption.t;
-  (* set of atoms on which the term depends *)
+and term =
+  | TermAtom of ty atom
+  | TermBound of bound
+  | TermConstructor of Name.constructor * argument list
+  | TermConvert of term * assumption * ty
 
-  loc : Location.t
-  (* the location in input where the term appeared, as much as that makes sense *)
-}
+and eq_type = EqType of assumption * ty * ty
 
-and term' =
-  | Type
-  | Atom of Name.atom
-  | Bound of bound
-  | Constant of Name.constant
-  | Lambda of (term * ty) ty_abstraction
-  | Apply of term * ty ty_abstraction * term
-  | Prod of ty ty_abstraction
-  | Eq of ty * term * term
-  | Refl of ty * term
+and eq_term = EqTerm of assumption * term * term * ty
 
-and ty = Ty of term
+and assumption = ty Assumption.t
 
-and 'a ty_abstraction = (ty, 'a) abstraction
+and 't atom = { atom_name : Name.atom ; atom_type : 't }
 
-(** We disallow direct creation of terms (using the [private] qualifier in the interface
-    file), so we provide these constructors instead. *)
+(** An argument of a term or a type constructor *)
+and argument =
+  | ArgIsTerm of term abstraction
+  | ArgIsType of ty abstraction
+  | ArgEqType of eq_type abstraction
+  | ArgEqTerm of eq_term abstraction
 
-(* Helpers *)
-let ty_hyps (Ty e) = e.assumptions
-let rec hyp_union acc = function
-  | [] -> acc
-  | x::rem -> hyp_union (Assumption.union acc x) rem
-
-let mk_atom ~loc x = {
-  term = Atom x;
-  assumptions = Assumption.singleton x;
-  loc = loc
-}
-
-let mk_constant ~loc x = {
-  term = Constant x;
-  assumptions=Assumption.empty;
-  loc = loc
-}
-
-let mk_lambda ~loc x a e b = {
-  term = Lambda ((x, a), (e, b)) ;
-  assumptions=hyp_union (ty_hyps a) (List.map Assumption.bind1 [ty_hyps b;e.assumptions]) ;
-  loc = loc
-}
-
-let mk_prod ~loc x a b = {
-  term = Prod ((x, a), b) ;
-  assumptions=hyp_union (ty_hyps a) [Assumption.bind1 (ty_hyps b)] ;
-  loc = loc
-}
-
-let mk_apply ~loc e1 x a b e2 = {
-  term = Apply (e1, ((x, a),b), e2);
-  assumptions = hyp_union (ty_hyps a) [Assumption.bind1 (ty_hyps b);e1.assumptions;e2.assumptions] ;
-  loc = loc
-}
-
-let mk_type ~loc =
-  { term = Type;
-    assumptions = Assumption.empty;
-    loc = loc }
-
-let mk_eq ~loc t e1 e2 =
-  { term = Eq (t, e1, e2);
-    assumptions = hyp_union (ty_hyps t) [e1.assumptions;e2.assumptions];
-    loc = loc }
-
-let mk_refl ~loc t e =
-  { term = Refl (t, e);
-    assumptions = hyp_union (ty_hyps t) [e.assumptions];
-    loc = loc }
-
-(** Convert a term to a type. *)
-let ty e = Ty e
-
-let mk_eq_ty ~loc t e1 e2 = ty (mk_eq ~loc t e1 e2)
-let mk_prod_ty ~loc x a b = ty (mk_prod ~loc x a b)
-let mk_type_ty ~loc = ty (mk_type ~loc)
-
-(** The [Type] constant, without a location. *)
-let typ = Ty (mk_type ~loc:Location.unknown)
-
-let mention_atoms a e =
-  { e with assumptions = Assumption.add_atoms a e.assumptions }
-
-let mention_atoms_ty a (Ty e) = Ty (mention_atoms a e)
-
-let mention a e =
-  { e with assumptions = Assumption.union e.assumptions a }
-
-let gather_assumptions {assumptions;_} = assumptions
-
-let assumptions_term ({loc;_} as e) =
-  let a = gather_assumptions e in
-  Assumption.as_atom_set ~loc a
-
-let assumptions_ty (Ty t) = assumptions_term t
+(** An abstracted entity. Note that abstractions only ever appear as arguments
+   to constructors. Thus we do not carry any type information for the abstracted
+   variable, as it can be recovered from the constructor. *)
+and 'a abstraction =
+  | Abstract of Name.ident * ty * 'a abstraction
+  | NotAbstract of 'a
 
 
-(** Generic fold on a term. The functions [atom], [bound] and
-    [hyps] tell it what to do with atoms, bound variables, and
-    assumptions, respectively.
+let equal_bound (i : bound) (j : bound) = (i = j)
 
-    If the assumptions on a subterm do not change, this means the entire subterm does not change.
+(** Manipulation of assumptions. *)
 
-    If [substitute] used [at_var] directly, this shortcut would be incorrect:
-    [x where x = x * x] with [x] some atom does not change the assumptions.
+(** The assumptions of a term [e] are the atoms and bound variables appearing in [e]. *)
+let rec assumptions_term ?(lvl=0) = function
 
-    However we only use [at_var] in the following cases:
-    - instantiation, which changes bound variables to atoms
-    - abstraction, which changes atoms to bound variables
-    So if a variable which will change appears, it will be in the assumptions and the assumptions will change.
-    *)
-let rec at_var atom bound hyps ~lvl ({term=e';assumptions=hs;loc} as e) =
-  let assumptions = hyps ~lvl hs in
-  if Assumption.equal assumptions hs
-  then e
-  else
-  match e' with
-    | (Type | Constant _) as term -> {term;assumptions;loc}
-    | Atom x -> atom ~lvl x assumptions loc
-    | Bound k -> bound ~lvl k assumptions loc
-    | Prod ((x,a),b) ->
-      let a = at_var_ty atom bound hyps ~lvl a
-      and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b in
-      let term = Prod ((x,a),b) in
-      {term;assumptions;loc}
-    | Lambda ((x,a),(e,b)) ->
-      let a = at_var_ty atom bound hyps ~lvl a
-      and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b
-      and e = at_var atom bound hyps ~lvl:(lvl+1) e in
-      let term = Lambda ((x,a),(e,b)) in
-      {term;assumptions;loc}
-    | Apply (e1,((x,a),b),e2) ->
-      let a = at_var_ty atom bound hyps ~lvl a
-      and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b
-      and e1 = at_var atom bound hyps ~lvl e1
-      and e2 = at_var atom bound hyps ~lvl e2 in
-      let term = Apply (e1,((x,a),b),e2) in
-      {term;assumptions;loc}
-    | Eq (a,e1,e2) ->
-      let a = at_var_ty atom bound hyps ~lvl a
-      and e1 = at_var atom bound hyps ~lvl e1
-      and e2 = at_var atom bound hyps ~lvl e2 in
-      let term = Eq (a,e1,e2) in
-      {term;assumptions;loc}
-    | Refl (a,e) ->
-      let a = at_var_ty atom bound hyps ~lvl a
-      and e = at_var atom bound hyps ~lvl e in
-      let term = Refl (a,e) in
-      {term;assumptions;loc}
+  | TermAtom {atom_name=x; atom_type=t} ->
+     Assumption.add_free x t (assumptions_type ~lvl t)
 
-and at_var_ty atom bound hyps ~lvl (Ty a) =
-  Ty (at_var atom bound hyps ~lvl a)
+  | TermBound k ->
+     if k < lvl then
+       Assumption.empty
+     else
+       Assumption.singleton_bound (k - lvl)
+
+  | TermConstructor (_, args) ->
+     assumptions_arguments ~lvl args
+
+  | TermConvert (e, asmp', t) ->
+     Assumption.union
+       asmp'
+       (Assumption.union (assumptions_term ~lvl e) (assumptions_type ~lvl t))
+
+and assumptions_type ?(lvl=0) = function
+  | TypeConstructor (_, args) -> assumptions_arguments ~lvl args
+
+and assumptions_arguments ~lvl args =
+  let rec fold asmp = function
+    | [] -> asmp
+    | arg :: args -> Assumption.union (assumptions_argument ~lvl arg) (fold asmp args)
+  in
+  fold Assumption.empty args
+
+and assumptions_eq_type ?(lvl=0) (EqType (asmp, t1, t2)) =
+  Assumption.union
+    (assumptions_assumptions ~lvl asmp)
+    (Assumption.union (assumptions_type ~lvl t1) (assumptions_type ~lvl t2))
+
+and assumptions_eq_term ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
+  Assumption.union
+    (Assumption.union (assumptions_assumptions ~lvl asmp) (assumptions_type ~lvl t))
+    (Assumption.union (assumptions_term ~lvl e1) (assumptions_term ~lvl e2))
+
+and assumptions_argument ?(lvl=0) = function
+  | ArgIsType abstr -> assumptions_abstraction assumptions_type ~lvl abstr
+  | ArgIsTerm abstr -> assumptions_abstraction assumptions_term ~lvl abstr
+  | ArgEqType abstr -> assumptions_abstraction assumptions_eq_type ~lvl abstr
+  | ArgEqTerm abstr -> assumptions_abstraction assumptions_eq_term ~lvl abstr
+
+and assumptions_assumptions ?(lvl=0) asmp = Assumption.at_level ~lvl asmp
+
+and assumptions_abstraction
+  : 'a . (?lvl:bound -> 'a -> assumption) ->
+        ?lvl:bound -> 'a abstraction -> assumption
+ = fun asmp_v ?(lvl=0) -> function
+  | NotAbstract v -> asmp_v ~lvl v
+  | Abstract (x, u, abstr) ->
+     Assumption.union
+       (assumptions_type ~lvl u)
+       (assumptions_abstraction asmp_v ~lvl:(lvl+1) abstr)
+
+let assumptions_arguments = assumptions_arguments ~lvl:0
+
+let context_u assumptions_u t =
+  let asmp = assumptions_u t in
+  let free, bound = Assumption.unpack asmp in
+  assert (Assumption.BoundSet.is_empty bound) ;
+  let free = Name.AtomMap.bindings free in
+  List.map (fun (atom_name, atom_type) -> {atom_name; atom_type}) free
+
+let context_abstraction assumptions_u =
+  context_u (assumptions_abstraction ?lvl:None assumptions_u)
+
+(* Helper functions *)
+
+let fresh_atom x t =
+  let x = Name.fresh x in
+  { atom_name = x; atom_type = t }
+
+let mk_atom a = TermAtom a
+
+let mk_bound k = TermBound k
+
+let mk_type_constructor c args = TypeConstructor (c, args)
+
+let mk_term_constructor c args = TermConstructor (c, args)
+
+let mk_term_convert e asmp t =
+  match e with
+  | TermConvert _ -> assert false
+  | _ -> TermConvert (e, asmp, t)
+
+let mk_arg_is_type t = ArgIsType t
+let mk_arg_is_term e = ArgIsTerm e
+let mk_arg_eq_type s = ArgEqType s
+let mk_arg_eq_term s = ArgEqTerm s
+
+let mk_eq_type asmp t1 t2 = EqType (asmp, t1, t2)
+
+let mk_eq_term asmp e1 e2 t = EqTerm (asmp, e1, e2, t)
+
+let mk_not_abstract e = NotAbstract e
+
+let mk_abstract x t abstr = Abstract (x, t, abstr)
+
+(** Shifting of bound variables *)
+let rec shift_term ~lvl k = function
+
+  | TermAtom _ as e ->
+     e (* no bound variables in atoms *)
+
+  | TermBound j as e ->
+     if j < lvl then
+       e
+     else
+       TermBound (j + k)
+
+  | TermConstructor (c, args) ->
+     let args = shift_args ~lvl k args
+     in TermConstructor (c, args)
+
+  | TermConvert (e, asmp, t) ->
+     let e = shift_term ~lvl k e
+     and asmp = Assumption.shift ~lvl k asmp
+     and t = shift_type ~lvl k t
+     in TermConvert (e, asmp, t)
+
+and shift_type ~lvl k (TypeConstructor (c, args)) =
+     let args = shift_args ~lvl k args
+     in TypeConstructor (c, args)
+
+and shift_eq_type ~lvl k (EqType (asmp, t1, t2)) =
+  let asmp = Assumption.shift ~lvl k asmp
+  and t1 = shift_type ~lvl k t1
+  and t2 = shift_type ~lvl k t2
+  in EqType (asmp, t1, t2)
+
+and shift_eq_term ~lvl k (EqTerm (asmp, e1, e2, t)) =
+  let asmp = Assumption.shift ~lvl k asmp
+  and e1 = shift_term ~lvl k e1
+  and e2 = shift_term ~lvl k e2
+  and t = shift_type ~lvl k t
+  in EqTerm (asmp, e1, e2, t)
+
+and shift_args ~lvl k args =
+  List.map (shift_arg ~lvl k) args
+
+and shift_arg ~lvl k = function
+   | ArgIsTerm abstr ->
+      let abstr = shift_abstraction shift_term ~lvl k abstr in
+      ArgIsTerm abstr
+
+   | ArgIsType abstr ->
+      let abstr = shift_abstraction shift_type ~lvl k abstr in
+      ArgIsType abstr
+
+   | ArgEqType abstr ->
+      let abstr = shift_abstraction shift_eq_type ~lvl k abstr in
+      ArgEqType abstr
+
+   | ArgEqTerm abstr ->
+      let abstr = shift_abstraction shift_eq_term ~lvl k abstr in
+      ArgEqTerm abstr
+
+and shift_abstraction
+  : 'a . (lvl:bound -> int -> 'a -> 'a) ->
+         lvl:bound -> int -> 'a abstraction -> 'a abstraction
+  = fun shift_u ~lvl k -> function
+  | NotAbstract u ->
+     let u = shift_u ~lvl k u
+     in NotAbstract u
+
+  | Abstract (x, t, abstr) ->
+     let t = shift_type ~lvl k t
+     and abstr = shift_abstraction shift_u ~lvl:(lvl+1) k abstr
+     in Abstract (x, t, abstr)
+
 
 (** Instantiate *)
-let instantiate_atom ~lvl x assumptions loc =
-  {term=Atom x;assumptions;loc}
 
-let instantiate_bound es ~lvl k assumptions loc =
-  if k < lvl
-  then
-    {term=Bound k;assumptions;loc}
-    (* this is a variable bound in an abstraction inside the
-    instantiated term, so we leave it as it is *)
-  else
-    let n = List.length es in
-    if k < lvl + n
-    then (* variable corresponds to a substituted term, replace it *)
-      let e = List.nth es (k - lvl) in
-      mention assumptions e
-    else
-      {term = Bound (k - n); assumptions; loc}
-      (* this is a variable bound in an abstraction outside the
-         instantiated term, so it remains bound, but its index decreases
-         by the number of bound variables replaced by terms *)
+let rec instantiate_abstraction
+  : 'a .(term -> ?lvl:bound -> 'a -> 'a) ->
+        term -> ?lvl:bound -> 'a abstraction -> 'a abstraction
+  = fun inst_v e0 ?(lvl=0) ->
+  function
+  | NotAbstract v ->
+     let v = inst_v e0 ~lvl v in
+     NotAbstract v
 
-let instantiate_hyps es =
-  let hs = List.map gather_assumptions es in
-  fun ~lvl h -> Assumption.instantiate hs lvl h
+  | Abstract (x, u, abstr) ->
+     let u = instantiate_type e0 ~lvl u
+     and abstr = instantiate_abstraction inst_v e0 ~lvl:(lvl+1) abstr
+     in
+     Abstract (x, u, abstr)
 
-let instantiate es ?(lvl=0) e =
-  if es = [] then e else
-  at_var instantiate_atom (instantiate_bound es) (instantiate_hyps es) ~lvl e
+and instantiate_term e0 ?(lvl=0) = function
 
-let instantiate_ty es ?(lvl=0) (Ty t) =
-  let t = instantiate es ~lvl t
-  in Ty t
+    | TermAtom _ as e -> e (* there are no bound variables in an atom type *)
 
-let unabstract xs ?(lvl=0) e =
-  let es = List.map (mk_atom ~loc:Location.unknown) xs
-  in instantiate es ~lvl e
+    | TermConstructor (c, args) ->
+       let args = instantiate_arguments e0 ~lvl args in
+       TermConstructor (c, args)
 
-let unabstract_ty xs ?(lvl=0) (Ty t) =
-  let t = unabstract xs ~lvl t
-  in Ty t
+    | TermConvert (e, asmp, t) ->
+       let e = instantiate_term e0 ~lvl e
+       and asmp = instantiate_assumptions e0 ~lvl asmp
+       and t = instantiate_type e0 ~lvl t in
+       TermConvert (e, asmp, t)
 
+    | TermBound k as e ->
+       if k < lvl then
+         e
+       else begin
+         (* We should only ever instantiate the highest occurring bound variable. *)
+         assert (k = lvl) ;
+         shift_term ~lvl:0 lvl e0
+       end
+
+and instantiate_type e0 ?(lvl=0) = function
+  | TypeConstructor (c, args) ->
+     let args = instantiate_arguments e0 ~lvl args in
+     TypeConstructor (c, args)
+
+and instantiate_arguments e0 ~lvl args =
+  List.map (instantiate_argument e0 ~lvl) args
+
+and instantiate_argument e0 ?(lvl=0) = function
+
+    | ArgIsType t ->
+       let t = instantiate_abstraction instantiate_type e0 ~lvl t in
+       ArgIsType t
+
+    | ArgIsTerm e ->
+       let e = instantiate_abstraction instantiate_term e0 ~lvl e in
+       ArgIsTerm e
+
+    | ArgEqType asmp ->
+       let asmp = instantiate_abstraction instantiate_eq_type e0 ~lvl asmp in
+       ArgEqType asmp
+
+    | ArgEqTerm asmp ->
+       let asmp = instantiate_abstraction instantiate_eq_term e0 ~lvl asmp in
+       ArgEqTerm asmp
+
+and instantiate_eq_type e0 ?(lvl=0) (EqType (asmp, t1, t2)) =
+  let asmp = instantiate_assumptions e0 ~lvl asmp
+  and t1 = instantiate_type e0 ~lvl t1
+  and t2 = instantiate_type e0 ~lvl t2 in
+  EqType (asmp, t1, t2)
+
+and instantiate_eq_term e0 ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
+  let asmp = instantiate_assumptions e0 ~lvl asmp
+  and e1 = instantiate_term e0 ~lvl e1
+  and e2 = instantiate_term e0 ~lvl e2
+  and t = instantiate_type e0 ~lvl t in
+  EqTerm (asmp, e1, e2, t)
+
+and instantiate_assumptions e0 ?(lvl=0) asmp =
+  let asmp0 = assumptions_term ~lvl e0 in
+  Assumption.instantiate ~lvl asmp0 asmp
+
+let rec fully_instantiate_type ?(lvl=0) es (TypeConstructor (c, args)) =
+  let args = fully_instantiate_args ~lvl es args in
+  TypeConstructor (c, args)
+
+and fully_instantiate_term ?(lvl=0) es = function
+
+  | TermAtom _ as e -> e (* there are no bound variables in an atom type *)
+
+  | (TermBound k) as e ->
+     if k < lvl then
+       e
+     else
+       (* XXX can fail here, should we report an error or die? *)
+       let e = List.nth es (k - lvl)
+       in shift_term ~lvl:0 lvl e
+
+  | TermConstructor (c, args) ->
+     let args = fully_instantiate_args ~lvl es args in
+     TermConstructor (c, args)
+
+  | TermConvert (e, asmp, t) ->
+     let e = fully_instantiate_term ~lvl es e
+     and asmp = fully_instantiate_assumptions ~lvl es asmp
+     and t = fully_instantiate_type ~lvl es t
+     in TermConvert (e, asmp, t)
+
+and fully_instantiate_eq_type ?(lvl=0) es (EqType (asmp, t1, t2)) =
+  let asmp = fully_instantiate_assumptions ~lvl es asmp
+  and t1 = fully_instantiate_type ~lvl es t1
+  and t2 = fully_instantiate_type ~lvl es t2
+  in EqType (asmp, t1, t2)
+
+and fully_instantiate_eq_term ?(lvl=0) es (EqTerm (asmp, e1, e2, t)) =
+  let asmp = fully_instantiate_assumptions ~lvl es asmp
+  and e1 = fully_instantiate_term ~lvl es e1
+  and e2 = fully_instantiate_term ~lvl es e2
+  and t = fully_instantiate_type ~lvl es t
+  in EqTerm (asmp, e1, e2, t)
+
+
+and fully_instantiate_assumptions ~lvl es asmp =
+  let asmps = List.map (assumptions_term ~lvl) es in
+  Assumption.fully_instantiate asmps ~lvl asmp
+
+and fully_instantiate_args ?(lvl=0) es args =
+  List.map (fully_instantiate_arg ~lvl es) args
+
+and fully_instantiate_arg ?(lvl=0) es = function
+  | ArgIsType abstr ->
+     let abstr = fully_instantiate_abstraction fully_instantiate_type ~lvl es abstr in
+     ArgIsType abstr
+
+  | ArgIsTerm abstr ->
+     let abstr = fully_instantiate_abstraction fully_instantiate_term ~lvl es abstr in
+     ArgIsTerm abstr
+
+  | ArgEqType abstr ->
+     let abstr = fully_instantiate_abstraction fully_instantiate_eq_type ~lvl es abstr in
+     ArgEqType abstr
+
+  | ArgEqTerm abstr ->
+     let abstr = fully_instantiate_abstraction fully_instantiate_eq_term ~lvl es abstr in
+     ArgEqTerm abstr
+
+and fully_instantiate_abstraction
+  : 'a . (?lvl:int -> term list -> 'a -> 'a) ->
+         ?lvl:int -> term list -> 'a abstraction -> 'a abstraction
+  = fun inst_u ?(lvl=0) es -> function
+
+  | NotAbstract u ->
+     let u = inst_u ~lvl es u in
+     NotAbstract u
+
+  | Abstract (x, t, abstr) ->
+     let t = fully_instantiate_type ~lvl es t
+     and abstr = fully_instantiate_abstraction inst_u ~lvl:(lvl+1) es abstr
+     in Abstract (x, t, abstr)
+
+(** Unabstract *)
+
+let unabstract_type x t1 t2 =
+  let a = fresh_atom x t1 in
+  a, instantiate_type (mk_atom a) t2
+
+let unabstract_term x t e =
+  let a = fresh_atom x t in
+  a, instantiate_term (mk_atom a) e
+
+let unabstract_eq_type x t eq =
+  let a = fresh_atom x t in
+  a, instantiate_eq_type (mk_atom a) eq
+
+let unabstract_eq_term x t eq =
+  let a = fresh_atom x t in
+  a, instantiate_eq_term (mk_atom a) eq
+
+let unabstract_abstraction instantiate_u x t abstr =
+  let a = fresh_atom x t in
+  a, instantiate_abstraction instantiate_u (mk_atom a) abstr
 
 (** Abstract *)
-let abstract_atom xs ~lvl x assumptions loc =
-  begin
-    match Name.index_of_atom x xs with
-      | None -> {term=Atom x;assumptions;loc}
-      | Some k -> {term = Bound (lvl + k); assumptions; loc}
-  end
 
-let abstract_bound ~lvl k assumptions loc =
-  {term=Bound k;assumptions;loc}
+let rec abstract_term x ?(lvl=0) = function
+  | (TermAtom {atom_name=y; atom_type=t}) as e ->
+     begin match Name.eq_atom x y with
+     | false -> ignore e ; failwith "(* XXX check that t does not depend on x, then give me e !!! *)"
+     | true -> TermBound lvl
+     end
 
-let abstract_hyps xs ~lvl h =
-  Assumption.abstract xs lvl h
+  | TermBound k as e ->
+     if k < lvl then
+       e
+     else
+       assert false
+       (* we should never get here because abstracting
+          should always introduce a highest-level bound
+          index. *)
 
-let abstract xs ?(lvl=0) e =
-  if xs = [] then e else
-  at_var (abstract_atom xs) abstract_bound (abstract_hyps xs) ~lvl e
+  | TermConstructor (c, args) ->
+     let args = abstract_arguments x ~lvl args in
+     TermConstructor (c, args)
 
-let abstract_ty xs ?(lvl=0) (Ty t) =
-  let t = abstract xs ~lvl t
-  in Ty t
+  | TermConvert (c, asmp, t) ->
+     let asmp = Assumption.abstract x ~lvl asmp
+     and t = abstract_type x ~lvl t in
+     TermConvert (c, asmp, t)
+
+and abstract_type x ?(lvl=0) = function
+  | TypeConstructor (c, args) ->
+     let args = abstract_arguments x ~lvl args in
+     TypeConstructor (c, args)
+
+and abstract_arguments x ?(lvl=0) args =
+  List.map (abstract_argument x ~lvl) args
+
+and abstract_argument x ?(lvl=0) = function
+
+    | ArgIsType t -> ArgIsType (abstract_abstraction abstract_type x ~lvl t)
+
+    | ArgIsTerm e -> ArgIsTerm (abstract_abstraction abstract_term x ~lvl e)
+
+    | ArgEqType asmp ->
+       let asmp = abstract_abstraction abstract_eq_type x ~lvl asmp in
+       ArgEqType asmp
+
+    | ArgEqTerm asmp ->
+       let asmp = abstract_abstraction abstract_eq_term x ~lvl asmp in
+       ArgEqTerm asmp
+
+and abstract_assumptions x ?(lvl=0) asmp =
+  Assumption.abstract x ~lvl asmp
+
+and abstract_eq_type x ?(lvl=0) (EqType (asmp, t1, t2)) =
+  let asmp = abstract_assumptions x ~lvl asmp
+  and t1 = abstract_type x ~lvl t1
+  and t2 = abstract_type x ~lvl t2
+  in EqType (asmp, t1, t2)
+
+and abstract_eq_term x ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
+  let asmp = abstract_assumptions x ~lvl asmp
+  and e1 = abstract_term x ~lvl e1
+  and e2 = abstract_term x ~lvl e2
+  and t = abstract_type x ~lvl t
+  in EqTerm (asmp, e1, e2, t)
+
+and abstract_abstraction
+  : 'a . (Name.atom -> ?lvl:int -> 'a -> 'a) ->
+         Name.atom -> ?lvl:int -> 'a abstraction -> 'a abstraction
+  = fun abstr_v x ?(lvl=0) ->
+  function
+  | NotAbstract v ->
+     let v = abstr_v x ~lvl v in
+     NotAbstract v
+
+  | Abstract (y, u, abstr) ->
+     let u = abstract_type x ~lvl u in
+     let abstr = abstract_abstraction abstr_v x ~lvl:(lvl+1) abstr in
+     Abstract (y, u, abstr)
 
 (** Substitute *)
-let substitute xs es t =
-  if xs = [] && es = []
-  then t
-  else
-    let t = abstract xs ~lvl:0 t in
-    instantiate es ~lvl:0 t
+let substitute_term e0 x e =
+  let e = abstract_term x e in
+  instantiate_term e0 e
 
-let substitute_ty xs es (Ty ty) =
-  Ty (substitute xs es ty)
+let substitute_type e0 x t =
+  let t = abstract_type x t in
+  instantiate_type e0 t
 
-(** Occurs (for printing) *)
-let occurs_abstraction occurs_u occurs_v k ((x,u), v) =
-  occurs_u k u || occurs_v (k+1) v
+(* Does the bound variable [k] occur in an expression? Used only for printing. *)
+let rec occurs_term k = function
+  | TermAtom _ -> false
+  | TermBound m -> k = m
+  | TermConstructor (_, args) -> occurs_args k args
+  | TermConvert (e, asmp, t) -> occurs_term k e || occurs_assumptions k asmp || occurs_type k t
 
-(* How many times does bound variable [k] occur in an expression? Used only for printing. *)
-let rec occurs k {term=e';loc;_} =
-  match e' with
-  | Type -> false
-  | Atom _ -> false
-  | Bound m -> k = m
-  | Constant x -> false
-  | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
-  | Apply (e1, xtst, e2) ->
-    occurs k e1 ||
-    occurs_abstraction occurs_ty occurs_ty k xtst ||
-    occurs k e2
-  | Prod a ->
-    occurs_abstraction occurs_ty occurs_ty k a
-  | Eq (t, e1, e2) ->
-    occurs_ty k t || occurs k e1 || occurs k e2
-  | Refl (t, e) ->
-    occurs_ty k t || occurs k e
+and occurs_type k = function
+  | TypeConstructor (_, args) -> occurs_args k args
 
-and occurs_ty k (Ty t) = occurs k t
+and occurs_args k = function
+  | [] -> false
+  | arg :: args -> occurs_arg k arg || occurs_args k args
 
-and occurs_term_ty k (e, t) =
-  occurs k e || occurs_ty k t
+and occurs_arg k = function
+  | ArgIsType t  -> occurs_abstraction occurs_type k t
+  | ArgIsTerm e  -> occurs_abstraction occurs_term k e
+  | ArgEqType abstr -> occurs_abstraction occurs_eq_type k abstr
+  | ArgEqTerm abstr -> occurs_abstraction occurs_eq_term k abstr
+
+and occurs_eq_type k (EqType (asmp, t1, t2)) =
+  occurs_assumptions k asmp || occurs_type k t1 || occurs_type k t2
+
+and occurs_eq_term k (EqTerm (asmp, e1, e2, t)) =
+  occurs_assumptions k asmp || occurs_term k e1 || occurs_term k e2 || occurs_type k t
+
+and occurs_abstraction
+  : 'a . (bound -> 'a -> bool) -> bound -> 'a abstraction -> bool
+  = fun occurs_v k ->
+  function
+  | NotAbstract v -> occurs_v k v
+  | Abstract (_, u, abstr) ->
+     occurs_type k u || occurs_abstraction occurs_v (k+1) abstr
+
+and occurs_assumptions k asmp =
+  Assumption.mem_bound k asmp
 
 (****** Alpha equality ******)
 
-let alpha_equal_abstraction alpha_equal_u alpha_equal_v ((x,u), v) ((x,u'), v') =
-  alpha_equal_u u u' &&
-  alpha_equal_v v v'
-
-let rec alpha_equal {term=e1;_} {term=e2;_} =
+let rec alpha_equal_term e1 e2 =
   e1 == e2 || (* a shortcut in case the terms are identical *)
   begin match e1, e2 with
 
-    | Atom x, Atom y -> Name.eq_atom x y
+    | TermAtom {atom_name=x;_}, TermAtom {atom_name=y;_} -> Name.eq_atom x y
 
-    | Bound i, Bound j -> i = j
+    | TermBound i, TermBound j -> i = j
 
-    | Constant x, Constant y -> Name.eq_ident x y
+    | TermConstructor (c, args), TermConstructor (c', args') ->
+       Name.eq_ident c c' && alpha_equal_args args args'
 
-    | Lambda abs, Lambda abs' ->
-      alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
+    | TermConvert (e1, _, _), TermConvert (e2, _, _) ->
+       alpha_equal_term e1 e2
 
-    | Apply (e1, xts, e2), Apply (e1', xts', e2') ->
-      alpha_equal e1 e1' &&
-      alpha_equal_abstraction alpha_equal_ty alpha_equal_ty xts xts' &&
-      alpha_equal e2 e2'
-
-    | Type, Type -> true
-
-    | Prod abs, Prod abs' ->
-      alpha_equal_abstraction alpha_equal_ty alpha_equal_ty abs abs'
-
-    | Eq (t, e1, e2), Eq (t', e1', e2') ->
-      alpha_equal_ty t t' &&
-      alpha_equal e1 e1' &&
-      alpha_equal e2 e2'
-
-    | Refl (t, e), Refl (t', e') ->
-      alpha_equal_ty t t' &&
-      alpha_equal e e'
-
-    | (Atom _ | Bound _ | Constant _ | Lambda _ | Apply _ |
-        Type | Prod _ | Eq _ | Refl _), _ ->
+    | (TermAtom _ | TermBound _ | TermConstructor _  | TermConvert _), _ ->
       false
   end
 
-and alpha_equal_ty (Ty t1) (Ty t2) = alpha_equal t1 t2
+and alpha_equal_type t1 t2 =
+  match t1, t2 with
+  | TypeConstructor (c, args), TypeConstructor (c', args') ->
+     Name.eq_ident c c' && alpha_equal_args args args'
 
-and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t'
+and alpha_equal_args args args' =
+  match args, args' with
+
+  | [], [] -> true
+
+  | (ArgIsTerm e)::args, (ArgIsTerm e')::args' ->
+     alpha_equal_abstraction alpha_equal_term e e' && alpha_equal_args args args'
+
+  | (ArgIsType t)::args, (ArgIsType t')::args' ->
+     alpha_equal_abstraction alpha_equal_type t t' && alpha_equal_args args args'
+
+  | ArgEqType _ :: args, ArgEqType _ :: args' -> alpha_equal_args args args'
+
+  | ArgEqTerm _ :: args, ArgEqTerm _ :: args' -> alpha_equal_args args args'
+
+  | (ArgIsTerm _ | ArgIsType _ | ArgEqType _ | ArgEqTerm _)::_, _::_
+
+  | (_::_), []
+
+  | [], (_::_) ->
+     (* we should never get here, because that implies that a constructor
+        was applied in two different ways, and somehow the nucleus was happy
+        with that *)
+     assert false
+
+and alpha_equal_abstraction
+  : 'a . ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
+  = fun equal_v e e' ->
+  e == e' ||
+  (* XXX try e = e' ? *)
+  match e, e' with
+
+  | Abstract (_, u, abstr), Abstract(_, u', abstr') ->
+     alpha_equal_type u u' &&
+     alpha_equal_abstraction equal_v abstr abstr'
+
+  | NotAbstract v, NotAbstract v' -> equal_v v v'
+
+  | (Abstract _ | NotAbstract _), _ -> false
 
 (****** Printing routines *****)
 type print_env =
   { forbidden : Name.ident list ;
     atoms : Name.atom_printer ; }
 
-type name_printing =
-  | As_atom of Name.atom
-  | As_ident of Name.ident
-
 let add_forbidden x penv = { penv with forbidden = x :: penv.forbidden }
 
-let print_binders ~penv print_u print_v xus ppf =
-  Format.pp_open_hovbox ppf 2 ;
-  let rec fold ~penv = function
-    | [] -> penv
-    | (x,u) :: xus ->
-       let y = Name.refresh penv.forbidden x in
-       Print.print ppf "@;<1 -4>(%t : %t)"
-                   (Name.print_ident y)
-                   (print_u ~penv u) ;
-       fold ~penv:(add_forbidden y penv) xus
+let rec print_abstraction
+   : 'b . (bound -> 'b -> bool) ->
+          (?max_level:Level.t -> penv:print_env -> 'b -> Format.formatter -> unit) ->
+          ?max_level:Level.t ->
+          penv:print_env ->
+          'b abstraction ->
+          Format.formatter -> unit
+  = fun occurs_v print_v ?max_level ~penv abstr ppf ->
+  let rec fold penv xus = function
+
+    | NotAbstract v ->
+       let xus = List.rev xus in
+       Print.print ?max_level ppf ~at_level:Level.binder "@[<hov 2>%t@ %t@]"
+              (Print.sequence (print_binder ~penv) "" xus)
+              (print_v ~penv v)
+
+    | Abstract (x, u, abstr) ->
+       let x =
+         (if occurs_abstraction occurs_v 0 abstr then
+            Name.refresh penv.forbidden x
+          else
+            Name.anonymous ())
+       in
+       let penv = add_forbidden x penv in
+       fold penv ((x,u) :: xus) abstr
+
   in
-  let penv = fold ~penv xus in
-  Print.print ppf ",@ %t" (print_v ~penv) ;
+
+  fold penv [] abstr
+
+and print_term ?max_level ~penv e ppf =
+  match e with
+  | TermAtom {atom_name=x; _} ->
+     Name.print_atom ~printer:(penv.atoms) x ppf
+
+  | TermBound k -> Name.print_debruijn penv.forbidden k ppf
+
+  | TermConstructor (c, args) ->
+     print_constructor ?max_level ~penv c args ppf
+
+  | TermConvert (e, _, _) -> print_term ~penv ?max_level e ppf
+
+and print_type ?max_level ~penv t ppf =
+  match t with
+
+  | TypeConstructor (c, args) ->
+     print_constructor ?max_level ~penv c args ppf
+
+and print_constructor ?max_level ~penv c args ppf =
+  Format.pp_open_hovbox ppf 2 ;
+  Print.print ~at_level:Level.app ?max_level ppf "%t@ %t"
+    (Name.print_ident c)
+    (Print.sequence (print_arg ~penv) "" args) ;
   Format.pp_close_box ppf ()
 
-let rec print_term ?max_level ~penv {term=e;_} ppf =
-    print_term' ~penv ?max_level e ppf
+and print_arg ~penv arg ppf =
+  match arg with
+  | ArgIsTerm abstr -> print_abstraction occurs_term print_term ~penv abstr ppf
+  | ArgIsType abstr -> print_abstraction occurs_type print_type ~penv abstr ppf
+  | ArgEqType _ -> () (* XXX should we print something to indicate the argument is there? *)
+  | ArgEqTerm _ -> ()
 
-and print_term' ~penv ?max_level e ppf =
-  let print ?at_level = Print.print ?max_level ?at_level ppf in
-    match e with
-      | Type ->
-        Format.fprintf ppf "Type"
-
-      | Atom x ->
-        Name.print_atom ~printer:(penv.atoms) x ppf
-
-      | Constant x ->
-         Name.print_ident x ppf
-
-      | Bound k -> Name.print_debruijn penv.forbidden k ppf
-
-      | Lambda a -> print_lambda ?max_level ~penv a ppf
-
-      | Apply (e1, _, e2) -> print_app ?max_level ~penv e1 e2 ppf
-
-      | Prod xts -> print_prod ?max_level ~penv xts ppf
-
-      | Eq (t, e1, e2) ->
-        print ~at_level:Level.eq "%t@ %s@ %t"
-          (print_term ~max_level:Level.eq_left ~penv e1)
-          (Print.char_equal ())
-          (print_term ~max_level:Level.eq_right ~penv e2)
-
-      | Refl (t, e) ->
-        print ~at_level:Level.app "refl@ %t"
-          (print_term ~max_level:Level.app_right ~penv  e)
-
-and print_ty ?max_level ~penv (Ty t) ppf = print_term ?max_level ~penv t ppf
-
-(** [print_app e1 e2 ppf] prints the application [e1 e2] using formatter [ppf],
-    possibly as a prefix or infix operator. *)
-and print_app ?max_level ~penv e1 e2 ppf =
-  let e1_prefix =
-    match e1.term with
-    | Bound k ->
-       begin
-         match List.nth penv.forbidden k with
-         | Name.Ident (_, Name.Prefix) as op -> Some (As_ident op)
-         | Name.Ident (_, _) -> None
-         | exception Failure failure when failure = "nth" -> None
-       end
-    | Constant (Name.Ident (_, Name.Prefix) as op) -> Some (As_ident op)
-    | Atom (Name.Atom (_, Name.Prefix, _) as op) -> Some (As_atom op)
-
-    | Constant (Name.Ident (_, (Name.Word | Name.Anonymous _| Name.Infix _)))
-    | Atom (Name.Atom (_, (Name.Word | Name.Anonymous _| Name.Infix _), _))
-    | Type | Lambda _ | Apply _ | Prod _ | Eq _ | Refl _ ->
-      None
-  in
-  match e1_prefix with
-  | Some (As_atom op) ->
-     Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
-                 (Name.print_atom ~parentheses:false ~printer:penv.atoms op)
-                 (print_term ~max_level:Level.prefix_arg ~penv e2)
-
-  | Some (As_ident op) ->
-     Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
-                 (Name.print_ident ~parentheses:false op)
-                 (print_term ~max_level:Level.prefix_arg ~penv e2)
-
-  | None ->
-     (* Infix or ordinary application. *)
-     begin
-       let e1_infix =
-         begin
-           match e1.term with
-           | Apply ({term=Bound k; _}, _, e1) ->
-              begin
-                match List.nth penv.forbidden k with
-                | Name.Ident (_, Name.Infix fixity) as op ->
-                   Some (As_ident op, fixity, e1)
-                | Name.Ident (_, (Name.Word | Name.Anonymous _| Name.Prefix)) -> None
-                | exception Failure failure when failure = "nth" -> None
-              end
-           | Apply ({term=Constant (Name.Ident (_, Name.Infix fixity) as op);_},
-                    _, e1) ->
-              Some (As_ident op, fixity, e1)
-           | Apply ({term=Atom (Name.Atom (_, Name.Infix fixity, _) as op);_},
-                    _, e1) ->
-              Some (As_atom op, fixity, e1)
-
-           | Apply _ (* Spelling out exactly which cases are not covered is quite
-                        verbose, so we do not do it. *)
-           | Type | Lambda _ | Prod _ | Eq _ | Refl _
-           | Atom _ | Constant _ | Bound _ ->
-             None
-         end
-       in
-       match e1_infix with
-       | Some (op, fixity, e1) ->
-          let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
-          Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
-                      (print_term ~max_level:lvl_left ~penv e1)
-                      (match op with
-                       | As_ident op -> Name.print_ident ~parentheses:false op
-                       | As_atom op -> Name.print_atom ~parentheses:false ~printer:penv.atoms op)
-                      (print_term ~max_level:lvl_right ~penv e2)
-       | None ->
-          (* ordinary application *)
-          Print.print ppf ?max_level ~at_level:Level.app "%t@ %t"
-                       (print_term ~max_level:Level.app_left ~penv e1)
-                       (print_term ~max_level:Level.app_right ~penv e2)
-     end
-
-
-(** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
-and print_lambda ?max_level ~penv ((x, u), (e, _)) ppf =
-  let x = (if not (occurs 0 e) then Name.anonymous () else x) in
-  let rec collect xus e =
-    match e.term with
-    | Lambda ((x, u), (e, _)) ->
-       let x = (if not (occurs 0 e) then Name.anonymous () else x) in
-       collect ((x, u) :: xus) e
-    | _ ->
-       (List.rev xus, e)
-  in
-  let xus, e = collect [(x,u)] e in
-  Print.print ?max_level ~at_level:Level.binder ppf "%s%t"
-    (Print.char_lambda ())
-    (print_binders ~penv
-                   (print_ty ~max_level:Level.ascription)
-                   (fun ~penv -> print_term ~max_level:Level.in_binder ~penv e)
-                   xus)
-
-(** [print_prod a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
-and print_prod ?max_level ~penv ((x, u), t) ppf =
-  if not (occurs_ty 0 t) then
-    Print.print ?max_level ~at_level:Level.arr ppf "%t@ %s@ %t"
-          (print_ty ~max_level:Level.arr_left ~penv u)
-          (Print.char_arrow ())
-          (print_ty ~max_level:Level.arr_right ~penv:(add_forbidden (Name.anonymous ()) penv) t)
-  else
-    let rec collect xus ((Ty t) as t_ty) =
-      match t.term with
-      | Prod ((x, u), t_ty) when occurs_ty 0 t_ty ->
-         collect ((x, u) :: xus) t_ty
-      | _ ->
-         (List.rev xus, t_ty)
-    in
-    let xus, t = collect [(x,u)] t in
-    Print.print ?max_level ~at_level:Level.binder ppf "%s%t"
-                (Print.char_prod ())
-                (print_binders ~penv
-                               (print_ty ~max_level:Level.ascription)
-                               (fun ~penv -> print_ty ~max_level:Level.in_binder ~penv t)
-                               xus)
+and print_binder ~penv (x,t) ppf =
+  Print.print ppf "(%t@ :@ %t)"
+    (Name.print_ident ~parentheses:true x)
+    (print_type ~penv t)
 
 
 (** Conversion to JSON *)
@@ -503,36 +666,35 @@ and print_prod ?max_level ~penv ((x, u), t) ppf =
 module Json =
 struct
 
-  let rec term {term=e; assumptions=asm; loc} =
-    if !Config.json_location
-    then Json.tuple [term' e; Assumption.Json.assumptions asm; Location.Json.location loc]
-    else Json.tuple [term' e; Assumption.Json.assumptions asm]
-
-
-  and term' e =
+  let rec term e =
     match e with
 
-      | Type -> Json.tag "Type" []
+      | TermAtom {atom_name=x; atom_type=t} -> Json.tag "TermAtom" [Name.Json.atom x; ty t]
 
-      | Atom a -> Json.tag "Atom" [Name.Json.atom a]
+      | TermBound b -> Json.tag "TermBound" [Json.Int b]
 
-      | Bound b -> Json.tag "Bound" [Json.Int b]
+      | TermConstructor (c, lst) -> Json.tag "TermConstructor" (Name.Json.ident c :: args lst)
 
-      | Constant c -> Json.tag "Constant" [Name.Json.ident c]
+      | TermConvert (e, asmp, t) -> Json.tag "TermConvert" [term e; Assumption.Json.assumptions asmp; ty t]
 
-      | Lambda (xt, (e, u)) ->
-         Json.tag "Lambda" [abstraction xt (Json.tuple [term e; ty u])]
+  and ty = function
+      | TypeConstructor (c, lst) -> Json.tag "TypeConstructor" (Name.Json.ident c :: args lst)
 
-      | Apply (e1, (xt, u), e2) -> Json.tag "Apply" [term e1; abstraction xt (ty u); term e2]
+  and args lst =
+    (List.map
+       (function
+        | ArgIsTerm abstr -> Json.tag "ArgIsTerm" (abstraction term [] abstr)
+        | ArgIsType abstr -> Json.tag "ArgIsType" (abstraction ty [] abstr)
+        | ArgEqType _ -> Json.tag "ArgIsType" []
+        | ArgEqTerm _ -> Json.tag "ArgEqTerm" [])
+       lst)
 
-      | Prod (xt, u) -> Json.tag "Prod" [abstraction xt (ty u)]
-
-      | Eq (t, e1, e2) -> Json.tag "Eq" [ty t; term e1; term e2]
-
-      | Refl (t, e) -> Json.tag "Refl" [ty t; term e]
-
-  and abstraction (x, t) d = Json.tuple [Name.Json.ident x; ty t; d]
-
-  and ty (Ty e) = term e
-
+  and abstraction : 'a . ('a -> Json.t) -> (Name.ident * ty) list -> 'a abstraction -> Json.t list =
+    fun json_u xts ->
+    function
+    | Abstract (x, t, abstr) ->
+       abstraction json_u ((x,t) :: xts) abstr
+    | NotAbstract u ->
+       let xts = List.map (fun (x, t) -> Json.List [Name.Json.ident x; ty t])  (List.rev xts) in
+       [Json.tuple xts ; json_u u]
 end
