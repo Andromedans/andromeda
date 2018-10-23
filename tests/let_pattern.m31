@@ -1,28 +1,28 @@
 (* Let-patterns *)
 
-do let (?x, ?y) = ("foo", ["bar"]) in (y, x)
+do let (x, y) = ("foo", ["bar"]) in (y, x)
 
-do let (?x, ?y) :> mlstring * list mlstring = ("foo", ["bar"]) in (y, x)
+do let (x, y) :> mlstring * list mlstring = ("foo", ["bar"]) in (y, x)
 
 do let () = () in ()
 
-do let (?a :: ?a :: _) = ["cow", "cow", "bar"] in a
+do let (a :: _ :: _) = ["cow", "cow", "bar"] in a
 
-do let ((?x1, ?y1)) = ("yeah", []) in x1 :: y1
+do let ((x1, y1)) = ("yeah", []) in x1 :: y1
 
-do let (?x2, ?y2) = ("yeah", []) in x2 :: y2
+do let (x2, y2) = ("yeah", []) in x2 :: y2
 
-do let (?x3, ?y3) :> forall a, mlstring * list a = ("yeah", []) in x3 :: y3
+do let (x3, y3) :> forall a, mlstring * list a = ("yeah", []) in x3 :: y3
 
 (* Toplevel let-patterns *)
-let (?x, ?y) = ("foo", ["bar"])
+let (x, y) = ("foo", ["bar"])
 
 do x
 do y
 
 let () = (fun x => x) ()
 
-let (?a :: ?a :: _) = ["cow", "cow", "bar"]
+let (a :: _ :: _) = ["cow", "cow", "bar"]
 
 do a
 

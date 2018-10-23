@@ -296,7 +296,9 @@ and check_pattern ~bind_var ({Location.thing=p'; loc} as p) t =
 
      | Mlty.String | Mlty.Meta _ | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _
      | Mlty.Handler _ | Mlty.App _ | Mlty.Ref _ | Mlty.Dynamic _ ->
-          Mlty.error ~loc (Mlty.UnexpectedJudgement t)
+        tt_pattern ~bind_var p >>= fun (p, pt) ->
+        Tyenv.add_equation ~loc (Mlty.Judgement pt) t >>= fun () ->
+        return_located ~loc (Pattern.Judgement p)
      end
 
   | Dsyntax.Patt_Tuple ps ->

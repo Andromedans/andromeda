@@ -1,11 +1,3 @@
-val f :> judgment
 
-val x :> judgment
-
-val y :> judgment
-
-
-File "./error_apply_non_function.m31", line 9, characters 9-9:
-Application of the non-function:
-   ⊢ Type : Type
-
+File "error_apply_non_function.m31", line 9, characters 9-11:
+Invalid application of mlunit to mlunit producing _α

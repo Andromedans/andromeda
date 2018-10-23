@@ -3,13 +3,13 @@ dynamic fixed = None
 
 let fix f x =
  let g x =
-   let self = (match current fixed with Some ?self => self end) in
+   let self = (match current fixed with Some self => self end) in
    f self x
  in
  now fixed = Some g in 
  g x
 
-let iter f = fix (fun iter l => match l with [] => () | ?x :: ?l => f x; iter l end)
+let iter f = fix (fun iter l => match l with [] => () | x :: l => f x; iter l end)
 
 let _ = iter print [None,Some [],Some [None]]
 
