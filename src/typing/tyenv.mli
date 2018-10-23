@@ -67,14 +67,14 @@ val predefined_type : Name.ty -> Mlty.ty list -> Mlty.ty tyenvM
     but using only [known_context] as typing context, possibly solving
     unification problems. If [known_context] is not provided, use the one from
     the current typechecking environment. *)
-val generalize : ?known_context:Context.t -> Mlty.ty -> Mlty.ty_schema tyenvM
+val generalize : known_context:Context.t -> Mlty.ty -> Mlty.ty_schema tyenvM
 
 (** Check that the given type can be generalized to the given schema in the
     current environment but using only [known_context] as typing context,
     possibly solving unification problems. If [known_context] is not provided,
     use the one from the current typechecking environment. *)
 val generalizes_to
-  : loc:Location.t -> ?known_context:Context.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
+  : loc:Location.t -> known_context:Context.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
 
 (** Return the given type as a schema without generalizing anything. *)
 val ungeneralize : Mlty.ty -> Mlty.ty_schema tyenvM

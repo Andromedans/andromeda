@@ -433,7 +433,8 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
        begin
          match generalizable c with
          | Generalizable ->
-            Tyenv.generalizes_to ~loc:c.Location.loc t sch
+            Tyenv.get_context >>= fun known_context ->
+            Tyenv.generalizes_to ~loc:c.Location.loc ~known_context t sch
          | Ungeneralizable ->
             begin
               match sch with
@@ -730,6 +731,8 @@ and letrec_clauses
           (Rsyntax.letrec_clause list * 'a) Tyenv.tyenvM
   = fun fycs m ->
 
+  Tyenv.get_context >>= fun old_context ->
+
   let rec bind_functions acc = function
     | [] -> return (List.rev acc)
 
@@ -767,12 +770,12 @@ and letrec_clauses
 
     | (f, Some sch, y, a, c, b) :: rem ->
        let t = Mlty.Arrow (a, b) in
-       Tyenv.generalizes_to ~loc:c.Location.loc t sch >>= fun () ->
+       Tyenv.generalizes_to ~loc:c.Location.loc t ~known_context:old_context sch >>= fun () ->
        generalize_funs (Rsyntax.Letrec_clause (f, y, sch, c) :: acc) rem
 
     | (f, None, y, a, c, b) :: rem ->
        let t = Mlty.Arrow (a, b) in
-       Tyenv.generalize t >>= fun sch ->
+       Tyenv.generalize ~known_context:old_context t >>= fun sch ->
        generalize_funs (Rsyntax.Letrec_clause (f, y, sch, c) :: acc) rem
 
   in

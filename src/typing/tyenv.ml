@@ -53,8 +53,7 @@ let remove_known ~known s =
   (* XXX: why isn't this just Mlty.MetaSet.diff s known ? *)
   Mlty.MetaSet.fold Mlty.MetaSet.remove known s
 
-let generalize ?known_context t env =
-  let known_context = match known_context with None -> env.context | Some x -> x in
+let generalize ~known_context t env =
   let known = gather_known ~known_context env in
   let t = Substitution.apply env.substitution t in
   let gen = Mlty.occuring t in
@@ -312,8 +311,7 @@ let predefined_type x ts env =
   let t = Context.predefined_type x ts env.context in
   return t env
 
-let generalizes_to ~loc ?known_context t (ps, u) env =
-  let known_context = match known_context with None -> env.context | Some x -> x in
+let generalizes_to ~loc ~known_context t (ps, u) env =
   let (), env = add_equation ~loc t u env in
   (* NB: [s1] is the one that has [ps] appearing in the image *)
   let s1, s2 = Substitution.partition
