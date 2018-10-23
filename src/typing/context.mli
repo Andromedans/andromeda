@@ -42,3 +42,5 @@ val gather_known : Substitution.t -> t -> Mlty.MetaSet.t
 
 (** [predefined_type x ts ctx] creates the type [x ts] assuming the type definition for [x] can be found in [ctx]. *)
 val predefined_type : Name.ty -> Mlty.ty list -> t -> Mlty.ty
+
+val print_context : t -> unit

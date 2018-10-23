@@ -99,3 +99,14 @@ let predefined_type x ts {types;_} =
     | _ :: types -> search (k + 1) types
   in
   search 0 (List.rev types)
+
+let print_context {variables;_} =
+  let penv = Mlty.fresh_penv () in
+  List.iter
+    (fun (x, sch) ->
+      Format.printf
+        "%t : %t@\n"
+        (Name.print_ident x)
+        (Mlty.print_ty_schema ~penv sch)
+    )
+    variables

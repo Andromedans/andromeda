@@ -357,3 +357,5 @@ let add_tydef t d env =
 let add_operation op opty env =
   let context = Context.add_operation op opty env.context in
   (), { env with context }
+
+let print_context {context;_} = Context.print_context context

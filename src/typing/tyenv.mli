@@ -114,3 +114,6 @@ val add_tydef : Name.ty -> Mlty.ty_def -> unit tyenvM
 
 (** Declare a new operation. *)
 val add_operation : Name.operation -> Mlty.ty list * Mlty.ty -> unit tyenvM
+
+(** Print the typing context (useful for debugging) *)
+val print_context : t -> unit
