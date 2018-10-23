@@ -715,7 +715,10 @@ and let_clauses
           end >>= fun () ->
           let rec fold xss = function
             | [] -> fold_lhs (Rsyntax.Let_clause (List.rev xss, p, c) :: clauses_out) clauses_in
-            | (x,t) :: xts -> Tyenv.ungeneralize t >>= fun sch -> fold ((x,sch) :: xss) xts
+            | (x,t) :: xts ->
+               Tyenv.ungeneralize t >>= fun sch ->
+               Tyenv.add_let x sch >>= fun () ->
+               fold ((x,sch) :: xss) xts
           in
           fold [] xts
        end
