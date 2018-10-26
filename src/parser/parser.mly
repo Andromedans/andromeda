@@ -333,6 +333,7 @@ plain_simple_pattern:
 
 abstracted_tt_pattern: mark_location(plain_abstracted_tt_pattern) { $1 }
 plain_abstracted_tt_pattern:
+  | p=plain_tt_pattern                                            { p }
   | abstr=tt_abstraction p=tt_pattern                             { Patt_TT_Abstraction (abstr, p) }
 
 tt_pattern: mark_location(plain_tt_pattern) { $1 }

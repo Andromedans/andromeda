@@ -12,6 +12,9 @@ let add_var x (v : Runtime.value) xvs = v :: xvs
    but this seems to be the price to pay for the discrepancy between the
    syntax of patterns and the structure of runtime values. *)
 
+(* Collect the values of the matched bound variables and return them in a list. The head
+   of the list is the *last* variable found, which means that probably the list should be
+   reversed before we actually put the values onto the environment. *)
 let rec collect_is_term env xvs {Location.thing=p';loc} v =
   match p' with
   (* patterns that are generic for all judgement forms *)

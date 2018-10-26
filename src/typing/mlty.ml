@@ -79,7 +79,6 @@ type error =
   | UnknownJudgementForm
   | JudgementExpected of ty
   | AbstractionExpected of judgement
-  | UnexpectedJudgement of ty
   | UnexpectedJudgementAbstraction of judgement
 
 exception Error of error Location.located
@@ -236,10 +235,6 @@ let print_error err ppf =
   | AbstractionExpected t ->
     Format.fprintf ppf "Expected an abstraction but got %t"
       (print_judgement t)
-
-  | UnexpectedJudgement t ->
-     Format.fprintf ppf "Expected %t but got a judgement"
-                    (print_ty ~penv t)
 
   | UnexpectedJudgementAbstraction jdg_actual ->
      Format.fprintf ppf "Expected %t but got an abstraction"

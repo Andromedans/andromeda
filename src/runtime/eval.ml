@@ -238,7 +238,7 @@ let rec infer {Location.thing=c'; loc} =
      let infer_substitute invert substitute return abstr =
        match invert abstr with
 
-       | Jdg.NotAbstract tm -> Runtime.(error ~loc (AbstractionExpected v1))
+       | Jdg.NotAbstract _tm -> Runtime.(error ~loc (AbstractionExpected v1))
 
        | Jdg.Abstract (x, abstr) ->
           let ty_x = Jdg.type_of_atom x in
@@ -551,15 +551,25 @@ and sequence ~loc v =
 
 and let_bind
   : 'a. loc:Location.t -> Rsyntax.let_clause list -> 'a Runtime.comp -> 'a Runtime.comp
-  = fun ~loc clauses cmd ->
-  let rec fold vs = function
+  = fun ~loc clauses cmp ->
+  let rec fold uss = function
     | [] ->
       (* parallel let: only bind at the end *)
-      List.fold_left (fun cmd v -> Runtime.add_bound v cmd) cmd vs
+      (* suppose we had the following parallel let:
+
+            let (x, y, z) = (a, b, c)
+            and (u, v)    = (1, 2)
+
+        then uss will be [[2;1]; [c; b; a]].
+        Here v has de Bruijn index 0 and x has de Bruijn index 4. *)
+       Runtime.lookup_penv >>= fun penv ->
+       List.fold_left
+         (List.fold_left (fun cmp u -> Runtime.add_bound u cmp))
+         cmp uss
     | Rsyntax.Let_clause (xs, pt, c) :: clauses ->
        infer c >>= fun v ->
        Matching.match_pattern pt v >>= begin function
-        | Some us -> fold (List.rev us @ vs) clauses
+        | Some us -> fold (us :: uss) clauses
         | None ->
            Runtime.lookup_penv >>= fun penv ->
            Runtime.(error ~loc (MatchFail v))
@@ -578,8 +588,9 @@ and letrec_bind
   in
   Runtime.add_bound_rec gs
 
-(* [match_cases loc cases eval v] tries for each case in [cases] to match [v]
-   and if successful continues on the computation using [eval] with the pattern variables bound. *)
+(* [match_cases loc cases eval v] tries for each case in [cases] to match [v] and if
+   successful continues on the computation using [eval] with the pattern variables bound.
+   *)
 and match_cases
   : 'a . loc:Location.t -> Rsyntax.match_case list -> (Rsyntax.comp -> 'a Runtime.comp)
          -> Runtime.value -> 'a Runtime.comp
@@ -591,13 +602,7 @@ and match_cases
     | (p, c) :: cases ->
       Matching.match_pattern p v >>= begin function
         | None -> fold cases
-        | Some vs ->
-          let rec bind = function
-            | [] -> eval c
-            | v :: vs ->
-              Runtime.add_bound v (bind vs)
-          in
-          bind vs
+        | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (eval c) vs
       end
   in
   fold cases
@@ -610,13 +615,7 @@ and match_op_cases ~loc op cases vs checking =
     | (ps, ptopt, c) :: cases ->
       Matching.match_op_pattern ps ptopt vs checking >>=
         begin function
-        | Some vs ->
-          let rec bind = function
-            | [] -> infer c
-            | v::vs ->
-              Runtime.add_bound v (bind vs)
-          in
-          bind vs
+        | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (infer c) vs
         | None -> fold cases
       end
   in
@@ -674,19 +673,19 @@ let (>>=) = Runtime.top_bind
 let return = Runtime.top_return
 
 let toplet_bind ~loc ~quiet ~print_annot clauses =
-  let rec fold vs = function
+  let rec fold uss = function
     | [] ->
        (* parallel let: only bind at the end *)
        List.fold_left
-         (fun cmd v -> Runtime.add_topbound v >>= fun () -> cmd)
+         (List.fold_left (fun cmp u -> Runtime.add_topbound u >>= fun () -> cmp))
          (return ())
-         vs
+         uss
 
     | Rsyntax.Let_clause (_, pt, c) :: clauses ->
        comp_value c >>= fun v ->
        Matching.top_match_pattern pt v >>= begin function
         | None -> Runtime.error ~loc (Runtime.MatchFail v)
-        | Some us -> fold (List.rev us @ vs) clauses
+        | Some us -> fold (us :: uss) clauses
        end
   in
   fold [] clauses >>= fun () ->

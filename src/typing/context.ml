@@ -51,10 +51,6 @@ let lookup_continuation {continuation;_} =
     | Some cont -> cont
     | None -> assert false
 
-let add_var x t ctx =
-  let variables = (x, t) :: ctx.variables in
-  {ctx with variables}
-
 let add_tydef t d ctx =
   let types = (t, d) :: ctx.types in
   {ctx with types}
@@ -103,3 +99,14 @@ let predefined_type x ts {types;_} =
     | _ :: types -> search (k + 1) types
   in
   search 0 (List.rev types)
+
+let print_context {variables;_} =
+  let penv = Mlty.fresh_penv () in
+  List.iter
+    (fun (x, sch) ->
+      Format.printf
+        "%t : %t@\n"
+        (Name.print_ident x)
+        (Mlty.print_ty_schema ~penv sch)
+    )
+    variables

@@ -22,16 +22,13 @@ val lookup_tt_constructor : Name.constructor -> t -> Mlty.tt_constructor_ty
 (** Lookup the continuation, returning the expected type of its argument and the type it returns. *)
 val lookup_continuation : t -> Mlty.ty * Mlty.ty
 
-(** Add a variable with a monomorphic type. *)
-val add_var : Name.ident -> Mlty.ty_schema -> t -> t
-
 (** Define a new type. The type definition may refer to not-yet-defined types, relying on the caller to add them afterwards. *)
 val add_tydef : Name.ident -> Mlty.ty_def -> t -> t
 
 (** Declare a new operation. *)
 val add_operation : Name.operation -> Mlty.ty list * Mlty.ty -> t -> t
 
-(** Add a variable with a polymorphic type. *)
+(** Add a variable of polymorphic type given by the schema. *)
 val add_let : Name.ident -> Mlty.ty_schema -> t -> t
 
 (** Creates the context for evaluating the operation handling of [op] *)
@@ -45,3 +42,5 @@ val gather_known : Substitution.t -> t -> Mlty.MetaSet.t
 
 (** [predefined_type x ts ctx] creates the type [x ts] assuming the type definition for [x] can be found in [ctx]. *)
 val predefined_type : Name.ty -> Mlty.ty list -> t -> Mlty.ty
+
+val print_context : t -> unit

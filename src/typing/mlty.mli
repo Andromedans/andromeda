@@ -84,7 +84,6 @@ type error =
   | UnknownJudgementForm
   | JudgementExpected of ty
   | AbstractionExpected of judgement
-  | UnexpectedJudgement of ty
   | UnexpectedJudgementAbstraction of judgement
 
 exception Error of error Location.located

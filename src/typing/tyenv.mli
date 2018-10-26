@@ -67,14 +67,14 @@ val predefined_type : Name.ty -> Mlty.ty list -> Mlty.ty tyenvM
     but using only [known_context] as typing context, possibly solving
     unification problems. If [known_context] is not provided, use the one from
     the current typechecking environment. *)
-val generalize : ?known_context:Context.t -> Mlty.ty -> Mlty.ty_schema tyenvM
+val generalize : known_context:Context.t -> Mlty.ty -> Mlty.ty_schema tyenvM
 
 (** Check that the given type can be generalized to the given schema in the
     current environment but using only [known_context] as typing context,
     possibly solving unification problems. If [known_context] is not provided,
     use the one from the current typechecking environment. *)
 val generalizes_to
-  : loc:Location.t -> ?known_context:Context.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
+  : loc:Location.t -> known_context:Context.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
 
 (** Return the given type as a schema without generalizing anything. *)
 val ungeneralize : Mlty.ty -> Mlty.ty_schema tyenvM
@@ -90,8 +90,15 @@ val add_let : Name.ident -> Mlty.ty_schema -> unit tyenvM
     This is used to handle locally scoped variables in let bindings and match cases. *)
 val locally : 'a tyenvM -> 'a tyenvM
 
-(** [record_vars m] runs the computation [m] and records what variables were added by it, with their types.
-    It then returns the list of variables so added by [m], and the original result of [m]. *)
+(** [record_var x t] records the fact that variable [x] of type [t] was found.
+    Later the so recorded variables are reported by [record_vars]. This is used
+    for collecting bound variables in match cases and let bindings. *)
+val record_var : Name.ident -> Mlty.ty -> unit tyenvM
+
+(** [record_vars m] runs the computation [m] and records what variables were registered
+   using [record_var]. It then returns the list of variables so added by [m], and the
+   original result of [m]. This is used for collecting bound variables in match cases
+   and let bindings. *)
 val record_vars : 'a tyenvM -> ((Name.ident * Mlty.ty) list * 'a) tyenvM
 
 (** [locally_add_var x t m] runs the computation [m] in the context extended with the
@@ -107,3 +114,6 @@ val add_tydef : Name.ty -> Mlty.ty_def -> unit tyenvM
 
 (** Declare a new operation. *)
 val add_operation : Name.operation -> Mlty.ty list * Mlty.ty -> unit tyenvM
+
+(** Print the typing context (useful for debugging) *)
+val print_context : t -> unit

@@ -5,14 +5,14 @@ mltype rec tree a =
 
 let rec left t =
   match t with
-  | Leaf ?x => Leaf ("left", x)
-  | Node ?a ?b => Node (left a) (right b)
+  | Leaf x => Leaf ("left", x)
+  | Node a b => Node (left a) (right b)
   end
 
 and right t =
   match t with
-  | Leaf ?x => Leaf ("right", x)
-  | Node ?a ?b => Node (left a) (right b)
+  | Leaf x => Leaf ("right", x)
+  | Node a b => Node (left a) (right b)
   end
 
 let t =
