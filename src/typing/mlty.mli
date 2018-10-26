@@ -83,6 +83,7 @@ type error =
   | Ungeneralizable of param list * ty
   | UnknownJudgementForm
   | JudgementExpected of ty
+  | AbstractionExpected of judgement
   | UnexpectedJudgement of ty
   | UnexpectedJudgementAbstraction of judgement
 

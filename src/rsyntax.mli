@@ -47,6 +47,7 @@ and comp' =
   | EqTermConstructor of Name.constructor * comp list
   | Apply of comp * comp
   | Abstract of Name.ident * comp option * comp
+  | Substitute of comp * comp
   | Yield of comp
   | String of string
   | OccursIsTypeAbstraction of comp * comp

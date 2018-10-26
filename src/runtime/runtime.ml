@@ -103,6 +103,7 @@ type error =
   | IsTermAbstractionExpected of value
   | EqTypeAbstractionExpected of value
   | EqTermAbstractionExpected of value
+  | AbstractionExpected of value
   | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
@@ -653,6 +654,8 @@ let print_error ~penv err ppf =
   | EqTermAbstractionExpected v ->
      Format.fprintf ppf "expected a possibly abstracted term equality but got %s" (name_of v)
 
+  | AbstractionExpected v ->
+     Format.fprintf ppf "expected an abstraction but got %s" (name_of v)
 
   | JudgementExpected v ->
      Format.fprintf ppf "expected a judgement but got %s" (name_of v)

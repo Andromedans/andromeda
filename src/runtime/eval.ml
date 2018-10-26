@@ -207,6 +207,90 @@ let rec infer {Location.thing=c'; loc} =
 
            end)
 
+  | Rsyntax.Substitute (c1, c2) ->
+     (*
+
+        Checking is kind of useless:
+
+        c1  ==>  {x:A} jdg     c2  <==  A --> s   jdg[s/x] = C
+        ------------------------------------------------------
+            c1{c2}  <== C
+
+
+        Abstractions want to be inferred, like applications.
+
+        * c1 has to be an abstraction (not very useful)
+        * either
+          + c1  ==>  {x:A} jdg
+          + c2  <==  A --> s
+        * or
+          + c2  ==>  A
+          + c1  <==  {x:A} α     for α fresh.
+            Mlty doesn't currently allow us to do this because we need to know
+            what judgement we're abstracting over.
+        ---------------------------------
+            c1{c2}  ==>  jdg[s/x]
+
+ *)
+
+     infer c1 >>= fun v1 ->
+
+     let infer_substitute invert substitute return abstr =
+       match invert abstr with
+
+       | Jdg.NotAbstract tm -> Runtime.(error ~loc (AbstractionExpected v1))
+
+       | Jdg.Abstract (x, abstr) ->
+          let ty_x = Jdg.type_of_atom x in
+          check c2 (Jdg.form_not_abstract ty_x) >>= fun e0 ->
+          let e0 =
+            begin match Jdg.invert_is_term_abstraction e0 with
+            | Jdg.NotAbstract e0 -> e0
+            | Jdg.Abstract _ -> Runtime.(error ~loc (IsTermExpected (Runtime.mk_is_term e0)))
+            end in
+          Runtime.lookup_signature >>= fun sgn ->
+
+          let v = substitute sgn abstr e0 in
+          return v
+     in
+
+     begin match v1 with
+
+     | Runtime.IsType abstr ->
+        infer_substitute
+          (Jdg.invert_is_type_abstraction ?atom_name:None)
+          Jdg.apply_is_type_abstraction
+          Runtime.return_is_type
+          abstr
+
+     | Runtime.IsTerm abstr ->
+        infer_substitute
+          (Jdg.invert_is_term_abstraction ?atom_name:None)
+          Jdg.apply_is_term_abstraction
+          Runtime.return_is_term
+          abstr
+
+     | Runtime.EqTerm abstr ->
+        infer_substitute
+          (Jdg.invert_eq_term_abstraction ?atom_name:None)
+          Jdg.apply_eq_term_abstraction
+          Runtime.return_eq_term
+          abstr
+
+     | Runtime.EqType abstr ->
+        infer_substitute
+          (Jdg.invert_eq_type_abstraction ?atom_name:None)
+          Jdg.apply_eq_type_abstraction
+          Runtime.return_eq_type
+          abstr
+
+     | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag (_, _)
+     | Runtime.Tuple _ | Runtime.Ref _ | Runtime.Dyn _
+     | Runtime.String _ ->
+        Runtime.(error ~loc (JudgementExpected v1))
+
+     end
+
   | Rsyntax.Yield c ->
     infer c >>= fun v ->
     Runtime.continue ~loc v
@@ -322,6 +406,7 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.OccursIsTermAbstraction _
   | Rsyntax.OccursEqTypeAbstraction _
   | Rsyntax.OccursEqTermAbstraction _
+  | Rsyntax.Substitute _
   | Rsyntax.Context _
   | Rsyntax.Natural _ ->
     infer c >>= fun v ->
@@ -367,6 +452,7 @@ and check ({Location.thing=c';loc} as c) t_check =
 
   | Rsyntax.Abstract (x, uopt, c) ->
     check_abstract ~loc t_check x uopt c
+
 
 and check_abstract ~loc t_check x uopt c =
   match Jdg.invert_is_type_abstraction ~atom_name:x t_check with

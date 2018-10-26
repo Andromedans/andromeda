@@ -136,6 +136,7 @@ plain_term:
   | e1=binop_term SEMICOLON e2=term                              { Sequence (e1, e2) }
   | CONTEXT c=prefix_term                                        { Context c }
   | OCCURS c1=prefix_term c2=prefix_term                         { Occurs (c1,c2) }
+  | e=prefix_term s=substitution                                 { Substitute (e, s) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
@@ -231,8 +232,10 @@ maybe_typed_binder:
   | LBRACE xs=name+ COLON t=ty_term RBRACE         { List.map (fun x -> (x, Some t)) xs }
 
 abstraction:
-  | lst=nonempty_list(maybe_typed_binder)
-    { List.concat lst }
+  | lst=nonempty_list(maybe_typed_binder)          { List.concat lst }
+
+substitution:
+  | LBRACE subst=separated_nonempty_list(COMMA, term) RBRACE     { subst }
 
 handler_cases:
   | BAR lst=separated_nonempty_list(BAR, handler_case)  { lst }

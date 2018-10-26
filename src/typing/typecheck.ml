@@ -41,6 +41,7 @@ let rec generalizable c =
   | Rsyntax.EqTypeConstructor _
   | Rsyntax.EqTermConstructor _
   | Rsyntax.Abstract _
+  | Rsyntax.Substitute _
   | Rsyntax.Yield _
   | Rsyntax.Apply _
   | Rsyntax.OccursIsTypeAbstraction _
@@ -140,7 +141,7 @@ let rec check_tt_pattern ({Location.thing=p';loc} as p) t =
         check_tt_pattern p1 (Mlty.NotAbstract Mlty.IsType) >>= fun p1 ->
         begin match xopt with
         | None -> return ()
-        | Some x -> Tyenv.add_var x (Mlty.Judgement (Mlty.NotAbstract Mlty.IsType))
+        | Some x -> Tyenv.add_var x (Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm))
         end >>= fun () ->
         check_tt_pattern p2 t >>= fun p2 ->
         return_located ~loc (Pattern.TTAbstract (xopt, p1, p2))
@@ -513,10 +514,33 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
            let c = locate ~loc (Rsyntax.Abstract (x, copt, c))
            and t = Mlty.Judgement (Mlty.Abstract t) in
            return (c, t)
-        | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _ | App _ | Ref _|Dynamic _) as t ->
+        | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _
+               | App _ | Ref _|Dynamic _) as t ->
+           (* XXX should Meta and Param be errors? *)
            Mlty.error ~loc (Mlty.JudgementExpected t)
         end
       end
+
+  | Dsyntax.Substitute (c1, c2) ->
+     let as_judgement c =
+       comp c >>= fun (c, t) ->
+       match t with
+       | Mlty.Judgement abstr -> return (c, abstr)
+       | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _
+         | Handler _ | App _ | Ref _ | Dynamic _) ->
+          (* XXX should Meta and Param be errors? *)
+          Mlty.error ~loc:c.Location.loc (Mlty.JudgementExpected t)
+     in
+
+     as_judgement c1 >>= fun (c1, t1) ->
+     begin match t1 with
+     | Mlty.NotAbstract t1 -> Mlty.(error ~loc:c1.Location.loc (AbstractionExpected t1))
+     | Mlty.Abstract t1 ->
+        let t2 = Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) in
+        check_comp c2 t2 >>= fun c2 ->
+        return (locate ~loc (Rsyntax.Substitute (c1, c2)), Mlty.Judgement t1)
+     end
+
 
   | Dsyntax.Apply (c1, c2) ->
      comp c1 >>= fun (c1, t1) ->
@@ -560,6 +584,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
 
      | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _
      | Handler _ | App _ | Ref _ | Dynamic _) ->
+        (* XXX should Meta and Param be errors? *)
         Mlty.error ~loc:c2.Location.loc (Mlty.JudgementExpected t2)
      end
 

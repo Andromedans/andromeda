@@ -95,6 +95,9 @@ and term' =
   | Assume of (Name.ident * comp) * comp
   | Ascribe of comp * ty
   | Abstract of (Name.ident * comp option) list * comp
+  (* Multi-argument substitutions are *not* treated as parallel substitutions
+     but desugared to consecutive substitutions. *)
+  | Substitute of comp * comp list
   | Spine of comp * comp list
   | Yield of comp
   | String of string

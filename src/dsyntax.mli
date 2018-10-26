@@ -90,6 +90,7 @@ and comp' =
   | TT_Constructor of Name.ident * comp list
   | Apply of comp * comp
   | Abstract of Name.ident * comp option * comp
+  | Substitute of comp * comp
   | Yield of comp
   | String of string
   | Occurs of comp * comp

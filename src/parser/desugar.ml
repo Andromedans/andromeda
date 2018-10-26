@@ -562,6 +562,16 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      in
      fold ctx [] xs
 
+  | Input.Substitute (e, cs) ->
+     let e = comp ~yield ctx e in
+     List.fold_left
+       (fun e c ->
+          let c = comp ~yield ctx c
+          and loc = Location.from_to loc c.Location.loc in
+
+          locate (Dsyntax.Substitute (e, c)) loc)
+       e cs
+
   | Input.Spine (e, cs) ->
      spine ~yield ctx e cs
 

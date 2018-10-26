@@ -52,13 +52,13 @@ type eq_term_rule = premise list * (term * term * ty)
       ⊢ [Π A B] type
 
       Processed to schema:
-      ⊢ A type    {x : MV 0} ⊢ B type
-      ———————————————————————————————
+      ⊢ A type    {x : MV_ty 0} ⊢ B type
+      ——————————————————————————————————
       ⊢ [Π A B] type
 
       Instance:
       Γ₁ ⊢ A₁ type    Γ₂ | {y:A₂} ⊢ B₁ type
-      ——————————————————————————————————— {Γ₁,Γ₂}↑Δ, A₁ =α= A₂
+      ————————————————————————————————————— {Γ₁,Γ₂}↑Δ, A₁ =α= A₂
       Δ ⊢ Π A B type
 
 
@@ -68,9 +68,9 @@ type eq_term_rule = premise list * (term * term * ty)
       ⊢ [λ A B s] : Π A B
 
       Processed to schema:
-      ⊢ A type    {x : MV 0} ⊢ B type   {y : MV 1} ⊢ s : (MV 0){y}
-      ————————————————————————————————————————————————————————————
-      ⊢ [λ A B s] : Π (MV 2) (MV 1)
+      ⊢ A type    {x : MV_ty 0} ⊢ B type   {y : MV_ty 1} ⊢ s : (MV_ty 0){y}
+      —————————————————————————————————————————————————————————————————————
+      ⊢ [λ A B s] : Π (MV_ty 2) (MV_ty 1)
 
       Instance:
       Γ₁ ⊢ A₁ type    Γ₂ | {x:A₂} ⊢ B₁ type   Γ₃ | {y:A₃} ⊢ s : B₂
