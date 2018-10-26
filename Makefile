@@ -9,7 +9,7 @@
 
 OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
 
-OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
+OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --strict"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 
 all: andromeda.native

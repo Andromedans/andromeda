@@ -41,6 +41,10 @@ val locate : 'a -> t -> 'a located
     If either l1 or l2 is Unknown, the other one is used. *)
 val union : t -> t -> t
 
+(** [from_to l1 l2] combines [l1] and [l2] to span from [l1.beg] to [l2.end]. Only
+   valid if both locations come from the same file. *)
+val from_to : t -> t -> t
+
 (** Conversion to JSON *)
 module Json :
 sig

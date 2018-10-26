@@ -66,6 +66,16 @@ let union l1 l2 =
      (* We should record the fact that we made this location up. *)
      l
 
+let from_to l1 l2 =
+  match l1, l2 with
+  | (Known {filename = fn1; start_line; start_col; _},
+     Known {filename = fn2; end_line; end_col; _}) ->
+     assert (fn1 = fn2);
+     Known { filename = fn1; start_line; start_col; end_line; end_col; }
+  | Unknown, l | l, Unknown ->
+     (* We should record the fact that we made this location up. *)
+     l
+
 
 module Json =
 struct

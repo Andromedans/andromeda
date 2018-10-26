@@ -83,6 +83,7 @@ type error =
   | Ungeneralizable of param list * ty
   | UnknownJudgementForm
   | JudgementExpected of ty
+  | AbstractionExpected of judgement
   | UnexpectedJudgementAbstraction of judgement
 
 exception Error of error Location.located

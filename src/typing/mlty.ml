@@ -78,6 +78,7 @@ type error =
   | Ungeneralizable of param list * ty
   | UnknownJudgementForm
   | JudgementExpected of ty
+  | AbstractionExpected of judgement
   | UnexpectedJudgementAbstraction of judgement
 
 exception Error of error Location.located
@@ -230,6 +231,10 @@ let print_error err ppf =
   | JudgementExpected t ->
     Format.fprintf ppf "Expected a judgement but got %t"
       (print_ty ~penv t)
+
+  | AbstractionExpected t ->
+    Format.fprintf ppf "Expected an abstraction but got %t"
+      (print_judgement t)
 
   | UnexpectedJudgementAbstraction jdg_actual ->
      Format.fprintf ppf "Expected %t but got an abstraction"

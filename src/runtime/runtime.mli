@@ -143,6 +143,7 @@ type error =
   | IsTermAbstractionExpected of value
   | EqTypeAbstractionExpected of value
   | EqTermAbstractionExpected of value
+  | AbstractionExpected of value
   | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
