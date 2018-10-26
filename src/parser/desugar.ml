@@ -747,44 +747,39 @@ and let_annotation ctx = function
      let sch = ml_schema ctx sch in
      Dsyntax.Let_annot_schema sch
 
-(* Desugar a spine. This function is a bit messy because we need to untangle
-   to env. But it's worth doing to make users happy. TODO outdated comment *)
+(* To desugar a spine [c1 c2 ... cN], we check if c1 is an identifier, in which
+   case we break the spine according to the arity of c1. *)
 and spine ~yield ctx ({Location.thing=c';loc} as c) cs =
 
   (* Auxiliary function which splits a list into two parts with k
      elements in the first part. *)
-  let split x k lst =
-    let n = List.length lst in
-    if n < k
-    then
-      error ~loc (ArityMismatch (x, n, k))
-    else
+  let split_at constr k lst =
     let rec split acc k lst =
       if k = 0 then
         List.rev acc, lst
       else
         match lst with
-        | [] -> assert false
+        | [] -> error ~loc (ArityMismatch (constr, List.length acc, k))
         | x :: lst -> split (x :: acc) (k - 1) lst
     in
     split [] k lst
   in
 
   (* First we calculate the head of the spine, and the remaining arguments. *)
-  let c, cs =
+  let head, cs =
     match c' with
     | Input.Var x ->
        begin match Ctx.find ~loc x ctx with
        | Variable i ->
           locate (Dsyntax.Bound i) loc, cs
        | TTConstructor k ->
-          let cs', cs = split x k cs in
+          let cs', cs = split_at x k cs in
           tt_constructor ~loc ~yield ctx x cs', cs
        | AMLConstructor k ->
-          let cs', cs = split x k cs in
+          let cs', cs = split_at x k cs in
           aml_constructor ~loc ~yield ctx x cs', cs
        | Operation k ->
-          let cs', cs = split x k cs in
+          let cs', cs = split_at x k cs in
           operation ~loc ~yield ctx x cs', cs
        end
 
@@ -792,9 +787,14 @@ and spine ~yield ctx ({Location.thing=c';loc} as c) cs =
   in
 
   (* TODO improve locs *)
-  List.fold_left (fun h arg ->
-      let arg = comp ~yield ctx arg in
-      locate (Dsyntax.Apply (h, arg)) (Location.union loc arg.Location.loc)) c cs
+  List.fold_left
+    (fun head arg ->
+       let arg = comp ~yield ctx arg
+       and loc = Location.union loc arg.Location.loc in
+       let head = Dsyntax.Apply (head, arg) in
+       locate head loc)
+    head
+    cs
 
 (* Desugar handler cases. *)
 and handler ~loc ctx hcs =

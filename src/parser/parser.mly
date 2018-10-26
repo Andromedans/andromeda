@@ -148,10 +148,10 @@ binop_term: mark_location(plain_binop_term) { $1 }
 plain_binop_term:
   | e=plain_app_term                                { e }
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
-  | e2=binop_term oploc=infix e3=binop_term
+  | e1=binop_term oploc=infix e2=binop_term
     { let (op, loc) = oploc in
       let op = Location.locate (Var op) loc in
-      Spine (op, [e2; e3])
+      Spine (op, [e1; e2])
     }
 
 app_term: mark_location(plain_app_term) { $1 }
