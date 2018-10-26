@@ -23,6 +23,8 @@
 (* Things specific to toplevel *)
 %token DO FAIL
 
+%token RULE
+
 (* Let binding *)
 %token LET REC EQ AND IN
 
@@ -111,6 +113,39 @@ plain_topcomp:
   | VERBOSITY n=NUMERAL                               { Verbosity n }
   | EXTERNAL n=var_name COLON sch=ml_schema EQ s=QUOTED_STRING
                                                       { DeclExternal (n, sch, s) }
+  | RULE r=plain_rule                                 { r }
+
+plain_rule:
+  | c=var_name ps=premises COLON TYPE
+    { RuleIsType (c, ps) }
+  | c=var_name ps=premises COLON ty=term
+    { RuleIsTerm (c, ps, ty) }
+  | c=var_name ps=premises COLON l=app_term EQEQ r=ty_term
+    { RuleEqType (c, ps, (l, r)) }
+  | c=var_name ps=premises COLON l=app_term EQEQ r=app_term COLON ty=term
+    { RuleEqTerm (c, ps, (l, r, ty)) }
+
+premises:
+  |                                              { [] }
+  | LPAREN p=premise RPAREN ps=premises          { p :: ps }
+
+premise: mark_location(plain_premise) { $1 }
+plain_premise:
+  | lctx=local_context VDASH mv=name TYPE                 { PremiseIsType (mv, lctx) }
+  | lctx=local_context VDASH mv=name COLON ty=term        { PremiseIsTerm (mv, lctx, ty) }
+  | lctx=local_context VDASH l=app_term EQEQ r=ty_term mv=equality_premise_name
+    { PremiseEqType (mv, lctx, (l, r)) }
+  | lctx=local_context VDASH l=app_term EQEQ r=app_term COLON ty=term mv=equality_premise_name
+    { PremiseEqTerm (mv, lctx, (l, r, ty)) }
+
+equality_premise_name:
+  |             { None }
+  | AS x=name   { Some x }
+
+local_context:
+  |                                             { []  }
+  | x=name COLON a=term                         { [(x, a)] }
+  | x=name COLON a=term COMMA ctx=local_context { (x, a) :: ctx }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective)      { $1 }
@@ -172,7 +207,7 @@ plain_prefix_term:
   | NATURAL t=prefix_term                      { Natural t }
   | YIELD e=prefix_term                        { Yield e }
 
-(* simple_term: mark_location(plain_simple_term) { $1 } *)
+/* simple_term: mark_location(plain_simple_term) { $1 } */
 plain_simple_term:
   | x=var_name                                          { Var x }
   | s=QUOTED_STRING                                     { String s }

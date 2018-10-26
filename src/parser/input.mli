@@ -157,3 +157,16 @@ and toplevel' =
   | TopFail of comp
   | Verbosity of int
   | Require of string list
+  | RuleIsType of Name.ident * premise list
+  | RuleIsTerm of Name.ident * premise list * ty
+  | RuleEqType of Name.ident * premise list * (ty * ty)
+  | RuleEqTerm of Name.ident * premise list * (term * term * ty)
+
+and premise = premise' located
+and premise' =
+  | PremiseIsType of Name.ident * local_context
+  | PremiseIsTerm of Name.ident * local_context * ty
+  | PremiseEqType of Name.ident option * local_context * (ty * ty)
+  | PremiseEqTerm of Name.ident option * local_context * (term * term * ty)
+
+and local_context = (Name.ident * comp) list

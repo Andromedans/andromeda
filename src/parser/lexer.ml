@@ -36,6 +36,7 @@ let reserved = [
   ("operation", OPERATION) ;
   ("rec", REC) ;
   ("ref", REF) ;
+  ("rule", RULE) ;
   ("type", TYPE) ;
   ("require", REQUIRE) ;
   ("val", VAL) ;
