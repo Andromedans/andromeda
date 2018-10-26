@@ -118,12 +118,7 @@ module Ctx = struct
   let add_fresh (Ty (ctx, ty)) x =
     let y = Name.fresh x in
     let ctx = AtomMap.mapi
-      (fun z node ->
-        (* Because of the invariant that `ctx` is minimal for `ty` we have to
-           add `y` as a needed_by to all nodes in `ctx`. If it wasn't minimal
-           we would have to collect the recursive assumptions of `ty` like we
-           do in `add_weak` *)
-        {node with needed_by = AtomSet.add y node.needed_by})
+      (fun z node -> {node with needed_by = AtomSet.add y node.needed_by})
       ctx
     in
     let ctx = AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx in
