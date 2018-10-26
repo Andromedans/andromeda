@@ -24,6 +24,7 @@ let prefix_arg = 50
 let app = 100
 let app_left = app
 let app_right = app - 1
+let el_arg = app_right
 
 let infix = function
   | Infix4 -> (200, 199, 200)
@@ -62,4 +63,3 @@ let ml_handler_left = ml_arr_left
 let ml_handler_right = ml_arr_right
 
 let ml_forall_r = highest
-

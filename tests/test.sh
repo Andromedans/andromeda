@@ -38,11 +38,18 @@ VALIDATE=0
 if [ "$1" = "-v" ]
 then
     VALIDATE=1
+    shift
+fi
+
+FILES="$@"
+if [ "$FILES" = "" ]
+then
+    FILES="$BASEDIR"/*.m31
 fi
 
 _EXIT=0
 
-for FILE in $BASEDIR/*.m31
+for FILE in $FILES
 do
     while :
     do
@@ -53,6 +60,7 @@ do
             if [ "$?" = "0" ]
             then
                 $PRINTF "Test: $FILE                        \r"
+                $PRINTF "SUCCESS: $FILE\n"
                 rm "$FILE.out"
             else
                 _EXIT=1

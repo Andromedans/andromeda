@@ -17,8 +17,9 @@ let apply (s : t) t =
   then t
   else begin
       let rec app = function
-
-        | Mlty.Judgment | Mlty.String | Mlty.Param _ as t -> t
+        | Mlty.Judgement _
+        | Mlty.String
+        | Mlty.Param _ as t -> t
 
         | Mlty.Meta m as orig ->
            begin match lookup m s with

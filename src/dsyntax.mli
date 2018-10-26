@@ -8,6 +8,17 @@ type level = int
 
 type 'a located = 'a Location.located
 
+(* The types called ml_* are AML types *)
+type ml_judgement =
+  | ML_IsType
+  | ML_IsTerm
+  | ML_EqType
+  | ML_EqTerm
+
+type ml_abstracted_judgement =
+  | ML_NotAbstract of ml_judgement
+  | ML_Abstract of ml_abstracted_judgement
+
 type ml_ty = ml_ty' located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
@@ -16,7 +27,7 @@ and ml_ty' =
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
-  | ML_Judgment
+  | ML_Judgement of ml_abstracted_judgement
   | ML_String
   | ML_Bound of bound
   | ML_Anonymous
@@ -32,14 +43,35 @@ type let_annotation =
   | Let_annot_none
   | Let_annot_schema of ml_schema
 
+type tt_pattern = tt_pattern' located
+and tt_pattern' =
+  | Patt_TT_Anonymous
+  | Patt_TT_Var of Name.ident (* new pattern variable *)
+  | Patt_TT_As of tt_pattern * tt_pattern
+  | Patt_TT_Constructor of Name.ident * tt_pattern list
+  | Patt_TT_GenAtom of tt_pattern
+  | Patt_TT_IsType of tt_pattern
+  | Patt_TT_IsTerm of tt_pattern * tt_pattern
+  | Patt_TT_EqType of tt_pattern * tt_pattern
+  | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern
+  | Patt_TT_Abstraction of Name.ident option * tt_pattern * tt_pattern
+
+type ml_pattern = ml_pattern' located
+and ml_pattern' =
+  | Patt_Anonymous
+  | Patt_Var of Name.ident
+  | Patt_As of ml_pattern * ml_pattern
+  | Patt_Judgement of tt_pattern
+  | Patt_Constr of Name.ident * ml_pattern list
+  | Patt_Tuple of ml_pattern list
+
 (** Desugared computations *)
 type comp = comp' located
 and comp' =
-  | Type
   | Bound of bound
   | Function of Name.ident * arg_annotation * comp
   | Handler of handler
-  | Constructor of Name.ident * comp list
+  | AMLConstructor of Name.ident * comp list
   | Tuple of comp list
   | Operation of Name.ident * comp list
   | With of comp * comp
@@ -53,32 +85,22 @@ and comp' =
   | Ref of comp
   | Sequence of comp * comp
   | Assume of (Name.ident * comp) * comp
-  | Where of comp * comp * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | Constant of Name.ident
-  | Lambda of Name.ident * comp option * comp
+  | TT_Constructor of Name.ident * comp list
   | Apply of comp * comp
-  | Prod of Name.ident * comp * comp
-  | Eq of comp * comp
-  | Refl of comp
+  | Abstract of Name.ident * comp option * comp
   | Yield of comp
-  | CongrProd of comp * comp * comp
-  | CongrApply of comp * comp * comp * comp * comp
-  | CongrLambda of comp * comp * comp * comp
-  | CongrEq of comp * comp * comp
-  | CongrRefl of comp * comp
-  | BetaStep of comp * comp * comp * comp * comp
   | String of string
   | Occurs of comp * comp
   | Context of comp
   | Natural of comp
 
 and let_clause =
-  | Let_clause_ML of Name.ident * let_annotation * comp
-  | Let_clause_patt of Name.ident list * Pattern.pattern * let_annotation * comp
+  | Let_clause of ml_pattern * let_annotation * comp (* [let (?p :> t) = c] *)
 
-and letrec_clause = Name.ident * (Name.ident * arg_annotation) * let_annotation * comp
+and letrec_clause =
+  | Letrec_clause of Name.ident * (Name.ident * arg_annotation) * let_annotation * comp
 
 and handler = {
   handler_val: match_case list;
@@ -86,14 +108,14 @@ and handler = {
   handler_finally : match_case list;
 }
 
-and match_case = Name.ident list * Pattern.pattern * comp
+and match_case = ml_pattern * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
-and match_op_case = Name.ident list * Pattern.pattern list * Pattern.pattern option * comp
+and match_op_case = ml_pattern list * tt_pattern option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 
-type constructor_decl = Name.constructor * ml_ty list
+type constructor_decl = Name.aml_constructor * ml_ty list
 
 type ml_tydef =
   | ML_Sum of constructor_decl list
@@ -105,7 +127,6 @@ and toplevel' =
   | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
   | DeclOperation of Name.operation * (ml_ty list * ml_ty)
-  | DeclConstants of Name.constant list * comp
   | DeclExternal of Name.ident * ml_schema * string
   | TopHandle of (Name.operation * top_op_case) list
   | TopLet of let_clause list

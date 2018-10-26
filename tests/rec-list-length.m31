@@ -6,7 +6,7 @@ mltype rec nat =
 let rec length lst =
   match lst with
   | [] => z
-  | _ :: ?lst => s (length lst)
+  | _ :: lst => s (length lst)
   end
 
 let mylist = "foo" :: ("bar" :: ("baz" :: []))

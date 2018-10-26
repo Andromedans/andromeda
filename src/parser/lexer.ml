@@ -2,22 +2,15 @@
 open Parser
 
 let reserved = [
-  ("Type", TYPE) ;
-  ("judgement", JUDGMENT) ;
-  ("judgment", JUDGMENT) ;
+  ("is_type", MLISTYPE) ;
+  ("is_term", MLISTERM) ;
+  ("eq_type", MLEQTYPE) ;
+  ("eq_term", MLEQTERM) ;
   ("_", UNDERSCORE) ;
   ("_atom", UATOM) ;
-  ("_constant", UCONSTANT) ;
   ("and", AND) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
-  ("beta_step", BETA_STEP) ;
-  ("congr_prod", CONGR_PROD) ;
-  ("congr_apply", CONGR_APPLY) ;
-  ("congr_lambda", CONGR_LAMBDA) ;
-  ("congr_eq", CONGR_EQ) ;
-  ("congr_refl", CONGR_REFL) ;
-  ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
   ("current", CURRENT) ;
   ("do", DO) ;
@@ -31,7 +24,6 @@ let reserved = [
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
   ("in", IN) ;
-  ("lambda", LAMBDA) ;
   ("let", LET) ;
   ("match", MATCH) ;
   ("mlstring", MLSTRING) ;
@@ -44,15 +36,13 @@ let reserved = [
   ("operation", OPERATION) ;
   ("rec", REC) ;
   ("ref", REF) ;
-  ("refl", REFL) ;
+  ("type", TYPE) ;
   ("require", REQUIRE) ;
   ("val", VAL) ;
   ("verbosity", VERBOSITY) ;
-  ("where", WHERE) ;
   ("with", WITH) ;
   ("yield", YIELD) ;
   ("Π", PROD) ;
-  ("λ", LAMBDA) ;
   ("∀", PROD) ;
   ("∏", PROD) ;
   ("⊢", VDASH) ;
@@ -119,13 +109,12 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ')'                      -> f (); RPAREN
   | '['                      -> f (); LBRACK
   | ']'                      -> f (); RBRACK
+  | '{'                      -> f (); LBRACE
+  | '}'                      -> f (); RBRACE
   | "="                      -> f (); EQ
   | ':'                      -> f (); COLON
   | ":>"                     -> f (); COLONGT
   | ','                      -> f (); COMMA
-  | '?', name                -> f (); PATTVAR (let s = Ulexbuf.lexeme lexbuf in
-                                               let s = String.sub s 1 (String.length s - 1) in
-                                               Name.make s)
   | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
   | "->" | 8594 | 10230      -> f (); ARROW
@@ -134,7 +123,8 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | '!'                      -> f (); BANG
   | ":="                     -> f (); COLONEQ
   | ';'                      -> f (); SEMICOLON
-  (* Comes before prefixop because it also matches prefixop *)
+  (* Comes before prefixop because it also matches prefixop. It's a hack to allow
+     '?' as an identifier, which may not be so smart. *)
   | '?'                      -> f (); NAME (Name.make ~fixity:Name.Word "?")
   (* We record the location of operators here because menhir cannot handle %infix and
      mark_location simultaneously, it seems. *)

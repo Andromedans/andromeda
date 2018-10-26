@@ -1,124 +1,226 @@
-(** Abstract syntax of value types and terms *)
+(** Abstract syntax of type-theoretic types and terms *)
 
-(** An [('a, 'b) abstraction] is a ['b] bound by (x, 'a) *)
-type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
-
+(** The type of bound variables. This type must necessarily be abstract and it must have
+   no constructors. We rely on this fact in the [instantiate_XYZ] functions below so that
+   from the outside nobody can even pass in any level other than the default one. *)
 type bound
 
-(** The type of TT terms.
-    (For details on the mutual definition with [term'], see module Location.)
+val equal_bound : bound -> bound -> bool
 
-    We use locally nameless syntax: names for free variables and deBruijn
-    indices for bound variables. In terms of type [term], bound variables are
-    not allowed to appear "bare", i.e., without an associated binder.
-*)
-type term = { term : term' ; assumptions : Assumption.t; loc : Location.t}
-and term' = private
-  (** term denoting the type of types *)
-  | Type
+(** We use locally nameless syntax: names for free variables and deBruijn
+   indices for bound variables. *)
 
+(** The type of TT types. *)
+type ty = private
+  (** a type constructor *)
+  | TypeConstructor of Name.constant * argument list
+
+and term = private
   (** a free variable *)
-  | Atom of Name.atom
+  | TermAtom of ty atom
 
   (** a bound variable *)
-  | Bound of bound
+  | TermBound of bound
 
-  (** a constant *)
-  | Constant of Name.constant
+  (** a term constructor *)
+  | TermConstructor of Name.constant * argument list
 
-  (** a lambda abstraction [fun (x1 : t1) -> e : t] *)
-  | Lambda of (term * ty) ty_abstraction
+  (** a term conversion from the natural type of the term to the given type, we do not
+     allow two consecutive conversions *)
+  | TermConvert of term * assumption * ty
 
-  (** an application tagged with the type at wich it happens *)
-  | Apply of term * ty ty_abstraction * term
+and eq_type = private EqType of assumption * ty * ty
 
-  (** a dependent product [forall (x1 : t1), t] *)
-  | Prod of ty ty_abstraction
+and eq_term = private EqTerm of assumption * term * term * ty
 
-  (** strict equality type [e1 == e2] where [e1] and [e2] have type [t]. *)
-  | Eq of ty * term * term
+and assumption = ty Assumption.t
 
-  (** reflexivity [refl e] where [e] has type [t]. *)
-  | Refl of ty * term
+and 't atom = private { atom_name : Name.atom ; atom_type : 't }
 
-(** Since we have [Type : Type] we do not distinguish terms from types,
-    so the type of type [ty] is just a synonym for the type of terms.
-    However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
-and ty = private
-    | Ty of term
+(** An argument of a term or type constructor. *)
+and argument = private
+  | ArgIsTerm of term abstraction
+  | ArgIsType of ty abstraction
+  | ArgEqType of eq_type abstraction
+  | ArgEqTerm of eq_term abstraction
 
-(** A ['a ty_abstraction] is a n abstraction where the [a1, ..., an] are types *)
-and 'a ty_abstraction = (ty, 'a) abstraction
+(** An abstracted entity. *)
+and 'a abstraction = private
+  | Abstract of Name.ident * ty * 'a abstraction
+  | NotAbstract of 'a
+
 
 (** Term constructors, these do not check for legality of constructions. *)
-val mk_atom: loc:Location.t -> Name.atom -> term
-val mk_constant: loc:Location.t -> Name.ident -> term
-val mk_lambda: loc:Location.t -> Name.ident -> ty -> term -> ty -> term
-val mk_apply: loc:Location.t -> term -> Name.ident -> ty -> ty -> term -> term
-val mk_type: loc:Location.t -> term
-val mk_type_ty: loc:Location.t -> ty
-val mk_prod: loc:Location.t -> Name.ident -> ty -> ty -> term
-val mk_prod_ty: loc:Location.t -> Name.ident -> ty -> ty -> ty
-val mk_eq: loc:Location.t -> ty -> term -> term -> term
-val mk_eq_ty: loc:Location.t -> ty -> term -> term -> ty
-val mk_refl: loc:Location.t -> ty -> term -> term
 
-(** Coerce a value to a type (does not check whether this is legal). *)
-val ty : term -> ty
+(** Create a fresh atom of the given type. *)
+val fresh_atom : Name.ident -> 't -> 't atom
 
-(** The type Type *)
-val typ : ty
+(** Create the judgement that an atom has its type. *)
+val mk_atom : ty atom -> term
 
-(** Add the given set of atoms as assumption to a term. *)
-val mention_atoms : Name.AtomSet.t -> term -> term
+(** Create a bound variable (it's a hole in a derivation?) *)
+val mk_bound : bound -> term
 
-val mention_atoms_ty : Name.AtomSet.t -> ty -> ty
+(** Create a fully applied type constructor *)
+val mk_type_constructor : Name.constructor -> argument list -> ty
 
-(** Add an assumption to a term. *)
-val mention : Assumption.t -> term -> term
+(** Create a fully applied term constructor *)
+val mk_term_constructor : Name.constructor -> argument list -> term
 
-(** [instantiate [e0,...,e{n-1}] k e] replaces bound variables indexed by [k, ..., k+n-1]
-    with terms [e0, ..., e{n-1}]. *)
-val instantiate: term list -> ?lvl:int -> term -> term
+val mk_arg_is_type : ty abstraction -> argument
+val mk_arg_is_term : term abstraction -> argument
+val mk_arg_eq_type : eq_type abstraction -> argument
+val mk_arg_eq_term : eq_term abstraction -> argument
 
-val instantiate_ty: term list -> ?lvl:int -> ty -> ty
+val mk_eq_type : assumption -> ty -> ty -> eq_type
+val mk_eq_term : assumption -> term -> term -> ty -> eq_term
 
-(** [unabstract [x0,...,x{n-1}] k e] replaces bound variables in [e] indexed by [k, ..., k+n-1]
-    with names [x0, ..., x{n-1}]. *)
-val unabstract: Name.atom list -> ?lvl:int -> term -> term
+(** Make a term conversion. It is illegal to pile a term conversion on top of another term
+   conversion. *)
+val mk_term_convert : term -> assumption -> ty -> term
 
-(** [unabstract_ty [x0,...,x{n-1}] k t] replaces bound variables in [t] indexed by [k, ..., k+n-1]
-    with names [x0, ..., x{n-1}]. *)
-val unabstract_ty: Name.atom list -> ?lvl:int -> ty -> ty
+(** Make a non-abstracted constructor argument *)
+val mk_not_abstract : 'a -> 'a abstraction
 
-(** [abstract xs k e] replaces names [xs] in term [e] with bound variables [k, ..., k+n-1] where
-    [xs] is the list [x0,...,x{n-1}]. *)
-val abstract : Name.atom list -> ?lvl:int -> term -> term
+(** Abstract a term argument *)
+val mk_abstract : Name.ident -> ty -> 'a abstraction -> 'a abstraction
 
-val abstract_ty : Name.atom list -> ?lvl:int -> ty -> ty
+(** [instantiate_term e0 ~lvl:k e] replaces bound variable [k] (defualt [0]) with term
+   [e0] in term [e]. Even though [lvl] is an optional argument here, it is of abstract
+   type [bound] which prevents us from passing in any value of [lvl] other than the
+   default one. *)
+val instantiate_term: term -> ?lvl:bound -> term -> term
+
+(** [instantiate_term e0 ~lvl:k t] replaces bound variable [k] (default [0]) with term [e0] in type [t]. *)
+val instantiate_type: term -> ?lvl:bound -> ty -> ty
+
+(** [instantiate_eq_type e0 ~lvl:k eq] replaces bound variable [k] (default [0])
+   with term [e0] in equation [eq]. *)
+val instantiate_eq_type : term -> ?lvl:bound -> eq_type -> eq_type
+
+(** [instantiate_eq_term e0 ~lvl:k eq] replaces bound variable [k] (default [0])
+   with term [e0] in equation [eq]. *)
+val instantiate_eq_term : term -> ?lvl:bound -> eq_term -> eq_term
+
+(** [instantiate_abstraction inst_u e0 ~lvl:k abstr] instantiates bound variable [k]
+   (default [0]) with term [e0] in the given abstraction. *)
+val instantiate_abstraction :
+  (term -> ?lvl:bound -> 'a -> 'a) ->
+  term -> ?lvl:bound -> 'a abstraction -> 'a abstraction
+
+(** [fully_instantiate_abstraction inst_u ~lvl:k es abstr] fully instantiates abstraction [abstr] with the given terms
+    [es]. All bound variables are eliminated. *)
+val fully_instantiate_abstraction : (?lvl:bound -> term list -> 'a -> 'a) -> ?lvl:bound -> term list -> 'a abstraction -> 'a abstraction
+
+(** [fully_instantiate_type ~lvl:k es t] fully instantiates type [t] with the given [es]. All bound variables are eliminated. *)
+val fully_instantiate_type : ?lvl:bound -> term list -> ty -> ty
+
+(** [fully_instantiate_term ~lvl:k es e] fully instantiates term [e] with the given [es]. All bound variables are eliminated. *)
+val fully_instantiate_term : ?lvl:bound -> term list -> term -> term
+
+(** [unabstract_type x t1 t2] instantiates bound variable [0] in [t2] with a fresh atom of type [t1].
+    The freshly generated atom is returned, as well as the type. *)
+val unabstract_type : Name.ident -> ty ->  ty -> ty atom * ty
+
+(** [unabstract_term x t e] instantiates bound variable [0] in [e] with a fresh atom of type [t].
+    The freshly generated atom is returned, as well as the type. *)
+val unabstract_term : Name.ident -> ty ->  term -> ty atom * term
+
+(** [unabstract_eq_type x t eq] instantiates bound variable [0] in [eq] with a fresh atom of type [t].
+    The freshly generated atom is returned, as well as the type. *)
+val unabstract_eq_type : Name.ident -> ty ->  eq_type -> ty atom * eq_type
+
+(** [unabstract_eq_term x t eq] instantiates bound variable [0] in [eq] with a fresh atom of type [t].
+    The freshly generated atom is returned, as well as the type. *)
+val unabstract_eq_term : Name.ident -> ty ->  eq_term -> ty atom * eq_term
+
+(** [unabstract_abstraction inst_u x t abstr] instantiates bond variable [0] in [abstr] with a fresh atom of type [t].
+    The freshly generated atom is returned, as well as the type. *)
+val unabstract_abstraction :
+  (term -> ?lvl:bound -> 'a -> 'a) -> Name.ident -> ty -> 'a abstraction -> ty atom * 'a abstraction
+
+(** [abstract_term x0 ~lvl:k t] replaces atom [x0] in type [t] with bound variable [k] (default [0]). *)
+val abstract_type : Name.atom -> ?lvl:bound -> ty -> ty
+
+(** [abstract_term x0 ~lvl:k e] replaces atom [x0] in term [e] with bound variable [k] (default [0]). *)
+val abstract_term : Name.atom -> ?lvl:bound -> term -> term
+
+(** [abstract_eq_type x0 ~lvl:k eq] replaces atom [x0] in equation [eq] with bound variable [k] (default [0]). *)
+val abstract_eq_type : Name.atom -> ?lvl:bound -> eq_type -> eq_type
+
+(** [abstract_eq_term x0 ~lvl:k eq] replaces atom [x0] in equation [eq] with bound variable [k] (default [0]). *)
+val abstract_eq_term : Name.atom -> ?lvl:bound -> eq_term -> eq_term
+
+(** [abstract_abstraaction abstract_u x0 ~lvl:k abstr] replaces atom [x0] in
+   abstraction [abstr] with bound variable [k] (default [0]). *)
+val abstract_abstraction :
+  (Name.atom -> ?lvl:bound -> 'a -> 'a) ->
+  Name.atom -> ?lvl:bound -> 'a abstraction -> 'a abstraction
 
 (** abstract followed by instantiate *)
-val substitute : Name.atom list -> term list -> term -> term
+val substitute_term : term -> Name.atom -> term -> term
 
-val substitute_ty : Name.atom list -> term list -> ty -> ty
+val substitute_type : term -> Name.atom -> ty -> ty
 
-(** The asssumptions used by a term. *)
-val assumptions_term : term -> Name.AtomSet.t
+(** The asssumptions used by a term. Caveat: alpha-equal terms may have different assumptions. *)
+val assumptions_term : ?lvl:bound -> term -> assumption
 
-(** The assumptions used by a type. *)
-val assumptions_ty : ty -> Name.AtomSet.t
+(** The assumptions used by a type. Caveat: alpha-equal types may have different assumptions. *)
+val assumptions_type : ?lvl:bound -> ty -> assumption
 
-(** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
-val alpha_equal: term -> term -> bool
+val assumptions_eq_type : ?lvl:bound -> eq_type -> assumption
 
-(** [alpha_equal_ty t1 t2] returns [true] if types [t1] and [t2] are alpha equal. *)
-val alpha_equal_ty: ty -> ty -> bool
+val assumptions_eq_term : ?lvl:bound -> eq_term -> assumption
 
+val assumptions_arguments : argument list -> assumption
+
+val assumptions_abstraction :
+  (?lvl:bound -> 'a -> assumption) -> ?lvl:bound -> 'a abstraction -> assumption
+
+(** Compute the list of atoms occurring in an abstraction. Similar to
+    assumptions_XYZ functions, but allows use of the assumptions as atoms.
+    May only be called on closed terms. *)
+val context_abstraction :
+  (?lvl:bound -> 'a -> assumption) -> 'a abstraction -> ty atom list
+
+(** [alpha_equal_term e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
+val alpha_equal_term : term -> term -> bool
+
+(** [alpha_equal_type t1 t2] returns [true] if types [t1] and [t2] are alpha equal. *)
+val alpha_equal_type : ty -> ty -> bool
+
+val alpha_equal_abstraction
+  : ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
+
+val occurs_term : bound -> term -> bool
+
+val occurs_type : bound -> ty -> bool
+
+val occurs_eq_type : bound -> eq_type -> bool
+
+val occurs_eq_term : bound -> eq_term -> bool
+
+(* XXX Printing names is a trusted activity, thus the atom printing and all
+   trusted parts of name management should probably be moved to the nucleus,
+   at which time print_env can be made abstract. *)
 type print_env =
   { forbidden : Name.ident list ;
     atoms : Name.atom_printer ; }
 
-val print_ty : ?max_level:Level.t -> penv:print_env -> ty -> Format.formatter -> unit
+(** Forbid the given identifier from being used as a bound variable. *)
+val add_forbidden : Name.ident -> print_env -> print_env
+
+(** [print_abstraction occurs_v print_v ?max_level ~penv abstr ppf] prints an abstraction using formatter [ppf]. *)
+val print_abstraction :
+   (bound -> 'a -> bool) ->
+   (?max_level:Level.t -> penv:print_env -> 'a -> Format.formatter -> unit) ->
+   ?max_level:Level.t ->
+   penv:print_env ->
+   'a abstraction ->
+   Format.formatter -> unit
+
+val print_type : ?max_level:Level.t -> penv:print_env -> ty -> Format.formatter -> unit
+
 val print_term : ?max_level:Level.t -> penv:print_env -> term -> Format.formatter -> unit
 
 module Json :

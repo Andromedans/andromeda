@@ -13,50 +13,51 @@ type atom = private Atom of string * fixity * int
 
 (** Aliases with different semantics *)
 type constant = ident
-type operation = ident
-
-type ty = ident
 type constructor = ident
+
+type operation = ident
+type ty = ident
+type aml_constructor = ident
 
 module Predefined : sig
   (** The name of the list type *)
   val list : ty
 
   (** The name [[]] constructor *)
-  val nil : constructor
+  val nil : aml_constructor
 
   (** The name of the [::] constructor *)
-  val cons : constructor
+  val cons : aml_constructor
 
   (** The name of the option type *)
   val option : ty
 
   (** The name of the [Some] constructor *)
-  val some : constructor
+  val some : aml_constructor
 
   (** The name of the [None] constructor *)
-  val none : constructor
+  val none : aml_constructor
 
-  (** The name of the [equal] operation *)
-  val equal : operation
+  (** The name of the [equal_term] operation *)
+  val equal_term : operation
+
+  (** The name of the [equal_type] operation *)
+  val equal_type : operation
 
   (** The name of the [as_prod] operation *)
   val as_prod : operation
-
-  (** The name of the [as_eq] operation *)
-  val as_eq : operation
 
   (** The name of the [coercible] type *)
   val coercible_ty : ty
 
   (** The name of the [Coercible] constructor *)
-  val coercible_constructor : constructor
+  val coercible_constructor : aml_constructor
 
   (** The name of the [Convertible] constructor *)
-  val convertible : constructor
+  val convertible : aml_constructor
 
   (** The name of the [NotCoercible] constructor *)
-  val notcoercible : constructor
+  val notcoercible : aml_constructor
 
   (** The name of the [coerce] operation *)
   val coerce : operation
@@ -108,6 +109,7 @@ val eq_ident : ident -> ident -> bool
 (** Compare identifiers. *)
 val compare_ident : ident -> ident -> int
 
+module IdentSet : Set.S with type elt = ident
 module IdentMap : Map.S with type key = ident
 
 (** Compare atoms for equality. *)
@@ -143,4 +145,7 @@ sig
 
   (** Convert a set of atoms to JSON. *)
   val atomset : AtomSet.t -> Json.t
+
+  (** Convert a map of atoms to JSON (dropping the values). *)
+  val atommap : 'a AtomMap.t -> Json.t
 end

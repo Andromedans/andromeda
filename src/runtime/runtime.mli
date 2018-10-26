@@ -10,16 +10,19 @@ type dyn
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
 type value = private
-  | Term of Jdg.term                 (** A *typing* judgment built by the nucleus *)
-  | Closure of (value,value) closure (** An AML function *)
-  | Handler of handler               (** Handler value *)
-  | Tag of Name.ident * value list   (** Application of a data constructor *)
-  | Tuple of value list              (** Tuple of values *)
-  | Ref of ref                       (** Ref cell *)
-  | Dyn of dyn                       (** Dynamic variable *)
-  | String of string                 (** String constant (opaque, not a list) *)
+  | IsTerm of Jdg.is_term_abstraction    (** A term judgment *)
+  | IsType of Jdg.is_type_abstraction    (** A type judgment *)
+  | EqTerm of Jdg.eq_term_abstraction    (** A term equality *)
+  | EqType of Jdg.eq_type_abstraction    (** A type equality *)
+  | Closure of (value,value) closure     (** An AML function *)
+  | Handler of handler                   (** Handler value *)
+  | Tag of Name.ident * value list       (** Application of a data constructor *)
+  | Tuple of value list                  (** Tuple of values *)
+  | Ref of ref                           (** Ref cell *)
+  | Dyn of dyn                           (** Dynamic variable *)
+  | String of string                     (** String constant (opaque, not a list) *)
 
-and operation_args = { args : value list; checking : Jdg.ty option}
+and operation_args = { args : value list; checking : Jdg.is_type_abstraction option }
 
 (** A handler contains AML code for handling zero or more operations,
     plus the default case *)
@@ -33,20 +36,72 @@ val name_of : value -> string
 
 (** {b Value construction} *)
 
-val mk_term    : Jdg.term   -> value                (** Builds a [Term] value *)
-val mk_handler : handler    -> value                (** Builds a [Handler] value *)
-val mk_tag     : Name.ident -> value list -> value  (** Builds a [Tag] value *)
-val mk_tuple   : value list -> value                (** Builds a [Tuple] value *)
-val mk_string  : string     -> value                (** Builds a [String] value *)
+(** Build an [IsTerm] value *)
+val mk_is_term : Jdg.is_term_abstraction -> value
+
+(** Build an [IsType] value *)
+val mk_is_type : Jdg.is_type_abstraction -> value
+
+(** Build an [EqTerm] value *)
+val mk_eq_term : Jdg.eq_term_abstraction -> value
+
+(** Build an [EqType] value *)
+val mk_eq_type : Jdg.eq_type_abstraction -> value
+
+(** Build a [Handler] value *)
+val mk_handler : handler -> value
+
+(** Build a [Tag] value *)
+val mk_tag     : Name.ident -> value list -> value
+
+(** Build a [Tuple] value *)
+val mk_tuple   : value list -> value
+
+(** Build a [String] value *)
+val mk_string  : string -> value
+
 
 (** {b Value extraction} *)
 
-val as_term : loc:Location.t -> value -> Jdg.term   (** Fails with [TermExpected] *)
-val as_closure : loc:Location.t -> value -> (value,value) closure (** Fails with [ClosureExpected] *)
-val as_handler : loc:Location.t -> value -> handler (** Fails with [HandlerExpected] *)
-val as_ref : loc:Location.t -> value -> ref         (** Fails with [RefExpected] *)
-val as_dyn : loc:Location.t -> value -> dyn         (** Fails with [DynExpected] *)
-val as_string : loc:Location.t -> value -> string   (** Fails with [StringExpected] *)
+(** Convert, or fail with [IsTermExpected] *)
+val as_is_term : loc:Location.t -> value -> Jdg.is_term
+
+(** Convert, or fail with [IsTypeExpected] *)
+val as_is_type : loc:Location.t -> value -> Jdg.is_type
+
+(** Convert, or fail with [EqTermExpected] *)
+val as_eq_term : loc:Location.t -> value -> Jdg.eq_term
+
+(** Convert, or fail with [EqTypeExpected] *)
+val as_eq_type : loc:Location.t -> value -> Jdg.eq_type
+
+(** Convert, or fail with [IsTermAbstractionExpected] *)
+val as_is_term_abstraction : loc:Location.t -> value -> Jdg.is_term_abstraction
+
+(** Convert, or fail with [IsTypeAbstractionExpected] *)
+val as_is_type_abstraction : loc:Location.t -> value -> Jdg.is_type_abstraction
+
+(** Convert, or fail with [EqTermAbstractionExpected] *)
+val as_eq_term_abstraction : loc:Location.t -> value -> Jdg.eq_term_abstraction
+
+(** Convert, or fail with [EqTypeAbstractionExpected] *)
+val as_eq_type_abstraction : loc:Location.t -> value -> Jdg.eq_type_abstraction
+
+(** Convert, or fail with [ClosureExpected] *)
+val as_closure : loc:Location.t -> value -> (value,value) closure
+
+(** Convert, or fail with [HandlerExpected] *)
+val as_handler : loc:Location.t -> value -> handler
+
+(** Convert, or fail with [RefExpected] *)
+val as_ref : loc:Location.t -> value -> ref
+
+(** Convert, or fail with [DynExpected] *)
+val as_dyn : loc:Location.t -> value -> dyn
+
+(** Convert, or fail with [StringExpected] *)
+val as_string : loc:Location.t -> value -> string
+
 
 (** {b Other operations} *)
 
@@ -64,35 +119,39 @@ val print_value : ?max_level:Level.t -> penv:TT.print_env -> value -> Format.for
 
 (** The runtime errors *)
 type error =
-  | ExpectedAtom of Jdg.term
+  | ExpectedAtom of Jdg.is_term
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | AnnotationMismatch of Jdg.ty * Jdg.ty
-  | TypeMismatchCheckingMode of Jdg.term * Jdg.ty
-  | EqualityFail of Jdg.term * Jdg.term
-  | UnannotatedLambda of Name.ident
+  | AnnotationMismatch of Jdg.is_type * Jdg.is_type_abstraction
+  | TypeMismatchCheckingMode of Jdg.is_term_abstraction * Jdg.is_type_abstraction
+  | UnexpectedAbstraction of Jdg.is_type
+  | TermEqualityFail of Jdg.is_term * Jdg.is_term
+  | TypeEqualityFail of Jdg.is_type * Jdg.is_type
+  | UnannotatedAbstract of Name.ident
   | MatchFail of value
   | FailureFail of value
-  | InvalidEqual of Jdg.ty
-  | EqualityTypeExpected of Jdg.ty
-  | InvalidAsEquality of Jdg.ty
-  | ProductExpected of Jdg.ty
-  | InvalidAsProduct of Jdg.ty
+  | InvalidEqualTerm of Jdg.is_term * Jdg.is_term
+  | InvalidEqualType of Jdg.is_type * Jdg.is_type
   | ListExpected of value
   | OptionExpected of value
-  | TermExpected of value
+  | IsTypeExpected of value
+  | IsTermExpected of value
+  | EqTypeExpected of value
+  | EqTermExpected of value
+  | IsTypeAbstractionExpected of value
+  | IsTermAbstractionExpected of value
+  | EqTypeAbstractionExpected of value
+  | EqTermAbstractionExpected of value
+  | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
-  | FunctionExpected of Jdg.term
   | RefExpected of value
   | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
-  | InvalidConvertible of Jdg.ty * Jdg.ty * Jdg.eq_ty
-  | InvalidCoerce of Jdg.ty * Jdg.term
-  | InvalidFunConvertible of Jdg.ty * Jdg.eq_ty
-  | InvalidFunCoerce of Jdg.term
+  | InvalidConvertible of Jdg.is_type_abstraction * Jdg.is_type_abstraction * Jdg.eq_type_abstraction
+  | InvalidCoerce of Jdg.is_type_abstraction * Jdg.is_term_abstraction
   | UnhandledOperation of Name.operation * value list
 
 (** The exception that is raised on runtime error *)
@@ -122,7 +181,11 @@ val return : 'a -> 'a comp
 
 val return_unit : value comp
 
-val return_term : Jdg.term -> value comp
+val return_is_term : Jdg.is_term_abstraction -> value comp
+val return_is_type : Jdg.is_type_abstraction -> value comp
+val return_eq_term : Jdg.eq_term_abstraction -> value comp
+val return_eq_type : Jdg.eq_type_abstraction -> value comp
+
 val return_closure : (value -> value comp) -> value comp
 val return_handler :
    (value -> value comp) option ->
@@ -146,7 +209,7 @@ val lookup_ref : ref -> value comp
 val update_ref : ref -> value -> unit comp
 
 (** A computation that invokes the specified operation. *)
-val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
+val operation : Name.operation -> ?checking:Jdg.is_type_abstraction -> value list -> value comp
 
 (** Wrap the given computation with a handler. *)
 val handle_comp : handler -> value comp -> value comp
@@ -160,8 +223,8 @@ val continue : loc:Location.t -> value -> value comp
 (** Get the printing environment from the monad *)
 val lookup_penv : TT.print_env comp
 
-(** Gets the current constants *)
-val lookup_typing_signature : Jdg.Signature.t comp
+(** Gets the current rules of inference. *)
+val lookup_signature : Jdg.Signature.t comp
 
 (** Bound and free variable stuff *)
 
@@ -174,11 +237,10 @@ val add_bound_rec :
 (** [index_of_level n] gives the De Bruijn index of the variable whose De Bruijn level is [n]. *)
 val index_of_level : Rsyntax.level -> Rsyntax.bound comp
 
-(** [add_free ~loc x (ctx,t) f] generates a fresh atom [y] from identifier [x],
-    then it extends [ctx] to [ctx' = ctx, y : t]
-    and runs [f (ctx' |- y : t)] in the environment with [x] bound to [ctx' |- y : t].
+(** [add_free ~loc x t f] generates a fresh atom [a] from identifier [x],
+    and runs [f a] in the environment extended with [a : t].
     NB: This is an effectful computation, as it increases a global counter. *)
-val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Jdg.atom -> 'a comp) -> 'a comp
+val add_free: Name.ident -> Jdg.is_type -> (Jdg.is_atom -> 'a comp) -> 'a comp
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> int -> value comp
@@ -204,9 +266,6 @@ val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 
 (** {b Monadic interface} *)
 
-(** Add a constant of a given type to the environment. *)
-val add_constant : loc:Location.t -> Name.ident -> Jdg.closed_ty -> unit toplevel
-
 (** Add a bound variable with the given name to the environment. *)
 val add_topbound : value -> unit toplevel
 
@@ -217,7 +276,8 @@ val add_topbound_rec : (value -> value comp) list -> unit toplevel
 val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
 
 (** Add a top-level handler case to the environment. *)
-val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel
+val add_handle : Name.ident -> (value list * Jdg.is_type_abstraction option, value) closure
+                 -> unit toplevel
 
 (** Modify the value bound by a dynamic variable *)
 val top_now : dyn -> value -> unit toplevel
@@ -231,10 +291,10 @@ val top_lookup_penv : TT.print_env toplevel
 type 'a caught =
   | CaughtJdg of Jdg.error Location.located
   | CaughtRuntime of error Location.located
-  | Value of 'a
+  | Result of 'a
 
 (** Catch Error exceptions. The state is not changed if an exception occurs. *)
-val catch : 'a toplevel Lazy.t -> 'a caught toplevel
+val catch : loc:Location.t -> 'a toplevel Lazy.t -> 'a caught toplevel
 
 (** {6 Running a toplevel computation} *)
 
@@ -258,7 +318,7 @@ val get_env : env comp
 (** Get the toplevel environment from the toplevel monad *)
 val top_get_env : env toplevel
 
-val get_typing_signature : env -> Jdg.Signature.t
+val get_signature : env -> Jdg.Signature.t
 
 (** For matching *)
 val get_bound : loc:Location.t -> int -> env -> value

@@ -12,6 +12,7 @@
             ;; m31 tags file
             (when m31-root-directory
               (setq tags-file-name (concat m31-root-directory "TAGS"))
+              (make-local-variable 'compilation-search-path)
               (add-to-list 'compilation-search-path m31-root-directory)
               ;; Setting the compilation directory to m31 root. This is
               ;; mutually exclusive with the setting of default-directory

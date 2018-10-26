@@ -3,60 +3,76 @@ module BoundSet = Set.Make (struct
                     let compare = compare
                   end)
 
-module AtomSet = Name.AtomSet
+module AtomMap = Name.AtomMap
 
-type t = { free : AtomSet.t; bound : BoundSet.t }
+type 'a t = { free : 'a AtomMap.t; bound : BoundSet.t }
 
-let empty = {free = AtomSet.empty; bound = BoundSet.empty; }
+let empty = { free = AtomMap.empty; bound = BoundSet.empty }
 
 let is_empty {free;bound} =
-  AtomSet.is_empty free && BoundSet.is_empty bound
+  AtomMap.is_empty free && BoundSet.is_empty bound
 
-let mem_atom x s = AtomSet.mem x s.free
+let unpack {free; bound} = free, bound
 
-let singleton x =
-  let free = AtomSet.add x AtomSet.empty in
-  {free;bound=BoundSet.empty;}
+let mem_atom x s = AtomMap.mem x s.free
 
-let add_atoms a {free;bound;} =
-  {free=AtomSet.union free a;bound;}
+let mem_bound k s = BoundSet.mem k s.bound
+
+let at_level ~lvl s =
+  { s with
+    bound = BoundSet.fold
+              (fun k s -> if k < lvl then s else BoundSet.add (k - lvl) s)
+              s.bound BoundSet.empty }
+
+let shift ~lvl k s =
+  { s with
+    bound =
+      BoundSet.fold
+        (fun j s -> BoundSet.add (if j < lvl then j else j + k) s)
+        s.bound
+        BoundSet.empty }
+
+let singleton_free x t =
+  {free = AtomMap.add x t AtomMap.empty; bound = BoundSet.empty}
+
+let singleton_bound k =
+  {free = AtomMap.empty; bound = BoundSet.singleton k}
+
+let add_free x t asmp = {asmp with free = AtomMap.add x t asmp.free}
+
+let add_bound k asmp = {asmp with bound = BoundSet.add k asmp.bound}
 
 let union a1 a2 =
-  {free=AtomSet.union a1.free a2.free; bound=BoundSet.union a1.bound a2.bound}
+  { free = AtomMap.union (fun _ t1 t2 -> assert (t1 == t2) ; Some t1) a1.free a2.free
+  ; bound = BoundSet.union a1.bound a2.bound
+  }
 
-let instantiate l lvl {free;bound;} =
-  let acc, n = List.fold_left (fun (acc,n) an ->
-      if BoundSet.mem (n+lvl) bound
-      then
-        let free = AtomSet.union acc.free an.free
-        and bound = BoundSet.union acc.bound an.bound in
-        ({free;bound;},n+1)
-      else (acc,n+1))
-    (empty,0) l
-  in
-  let bound = BoundSet.fold (fun k bound ->
-      if k < lvl
-      then BoundSet.add k bound
-      else if k < lvl+n
-      then bound
-      else BoundSet.add (k-n) bound)
-    bound BoundSet.empty
-  in
-  let free = AtomSet.union free acc.free
-  and bound = BoundSet.union bound acc.bound in
-  {free;bound;}
+let instantiate asmp0 ~lvl asmp =
+  match BoundSet.mem lvl asmp.bound with
+  | false -> asmp
+  | true ->
+     let bound0 = BoundSet.map (fun k -> lvl + k) asmp0.bound
+     in
+     { free = AtomMap.union (fun _ t1 t2 -> assert (t1 == t2) ; Some t1) asmp.free asmp0.free
+     ; bound = BoundSet.union (BoundSet.remove lvl asmp.bound) bound0 }
 
-let abstract l lvl a =
-  let acc,_ = List.fold_left (fun (acc,n) xn ->
-      if AtomSet.mem xn acc.free
-      then
-        let free = AtomSet.remove xn acc.free
-        and bound = BoundSet.add (lvl+n) acc.bound in
-        ({free;bound;},n+1)
-      else (acc,n+1))
-    (a,0) l
+let fully_instantiate asmps ~lvl asmp =
+  let rec fold asmp = function
+    | [] -> asmp
+    | asmp0 :: asmps ->
+       let asmp = instantiate asmp0 ~lvl asmp
+       in fold asmp asmps
   in
-  acc
+  fold asmp asmps
+
+let abstract x ~lvl abstr =
+  if AtomMap.mem x abstr.free
+  then
+    { free = AtomMap.remove x abstr.free
+    ; bound = BoundSet.add lvl abstr.bound
+    }
+  else
+    abstr
 
 let bind1 {free;bound} =
   let bound = BoundSet.fold (fun n bound ->
@@ -67,21 +83,17 @@ let bind1 {free;bound} =
   in
   {free;bound}
 
-let as_atom_set ~loc {free;bound;} =
-  assert (BoundSet.is_empty bound) ;
-  free
-
 let equal {free=free1;bound=bound1} {free=free2;bound=bound2} =
-  AtomSet.equal free1 free2 && BoundSet.equal bound1 bound2
+  AtomMap.equal (fun t1 t2 -> assert (t1 == t2) ; true) free1 free2 && BoundSet.equal bound1 bound2
 
 module Json =
 struct
 
   let assumptions {free; bound} =
     let free =
-      if AtomSet.is_empty free
+      if AtomMap.is_empty free
       then []
-      else [("free", Name.Json.atomset free)]
+      else [("free", Name.Json.atommap free)]
     and bound =
       if BoundSet.is_empty bound
       then []

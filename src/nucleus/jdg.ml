@@ -1,865 +1,813 @@
-module AtomSet = Name.AtomSet
-module AtomMap = Name.AtomMap
+type 'a abstraction = 'a TT.abstraction
 
-(** Start with the types. *)
+(** Every judgement enforces that its context is minimal (strengthened). *)
 
-(* A Ctx is a map which assigns to an atom its type and the dependencies and dependants respectively.
-   We can think of it as a directed graph whose vertices are the atoms, labelled by
-   the type, and the sets of atoms are the two directions of edges. *)
+type is_term = TT.term
 
-(* XXX rename this to entry *)
-type node =
-  { ty : TT.ty; (* type of x *)
-    needed_by : AtomSet.t } (* atoms which depend on x *)
+type is_type = TT.ty
 
-type ctx = node AtomMap.t
+type is_atom = is_type TT.atom
 
-(* Every judgement except the judgement that something is a valid context enforces that its context is minimal. *)
+type eq_type = TT.eq_type
 
-type term = Term of ctx * TT.term * TT.ty
+type eq_term = TT.eq_term
 
-type atom = JAtom of ctx * Name.atom * TT.ty
+type is_term_abstraction = is_term abstraction
+type is_type_abstraction = is_type abstraction
+type eq_type_abstraction = eq_type abstraction
+type eq_term_abstraction = eq_term abstraction
 
-type ty = Ty of ctx * TT.ty
+(** Stumps (defined below) are used to construct and invert judgements. The
+   [form_XYZ] functions below take a stump and construct a judgement from it,
+   whereas the [invert_XYZ] functions do the opposite. We can think of stumps as
+   "stumps", i.e., the lowest level of a derivation tree. *)
 
-type closed_ty = TT.ty
+(** Premises of a constructor. *)
+type premise =
+  | PremiseIsType of is_type abstraction
+  | PremiseIsTerm of is_term abstraction
+  | PremiseEqType of eq_type abstraction
+  | PremiseEqTerm of eq_term abstraction
 
-type eq_term = EqTerm of ctx * TT.term * TT.term * TT.ty
+type assumption = is_type Assumption.t
 
-type eq_ty = EqTy of ctx * TT.ty * TT.ty
+type stump_is_type =
+  | TypeConstructor of Name.constructor * premise list
 
-(* The following do not guarantee a minimal context. *)
-(* XXX: can we have a single type 'a term with some value for 'a guaranteeing strength? Then some functions like typeof can be polymorphic. *)
-type weakty = WeakTy of ctx * TT.ty
+type stump_is_term =
+  | TermAtom of is_atom
+  | TermConstructor of Name.constructor * premise list
+  | TermConvert of is_term * eq_type
 
-type weakterm = WeakTerm of ctx * TT.term * TT.ty
+type stump_eq_type =
+  | EqType of TT.assumption * is_type * is_type
 
-type weakatom = WeakAtom of ctx * Name.atom * TT.ty
+type stump_eq_term =
+  | EqTerm of TT.assumption * is_term * is_term * is_type
+
+type 'a stump_abstraction =
+  | NotAbstract of 'a
+  | Abstract of is_atom * 'a abstraction
+
+type congruence_premise =
+  | CongrIsType of is_type abstraction * is_type abstraction * eq_type abstraction
+  | CongrIsTerm of is_term abstraction * is_term abstraction * eq_term abstraction
+  | CongrEqType of eq_type abstraction * eq_type abstraction
+  | CongrEqTerm of eq_term abstraction * eq_term abstraction
+
+(** Error messages emitted by this module. *)
 
 type error =
-  | ConstantDependency
-  | AbstractDependency of ctx * Name.atom * Name.atom list
-  | AbstractInvalidType of Name.atom * TT.ty * TT.ty
-  | InvalidJoin of ctx * ctx * Name.atom
-  | SubstitutionDependency of Name.atom * TT.term * Name.atom
-  | SubstitutionInvalidType of Name.atom * TT.ty * TT.ty
-  | InvalidApplication
-  | InvalidEquality
-  | NotAType
-  | EqualityWitnessExpected of term
-  | TypeEqualityWitnessExpected of term
-  | InvalidConvert of TT.ty * TT.ty
   | AlphaEqualTypeMismatch of TT.ty * TT.ty
-  | NotATypeEquality of TT.ty
-  | RuleInputMismatch of string * TT.ty * string * TT.ty * string
-  | RuleInputMismatchTerm of string * TT.term * string * TT.term * string
+  | AlphaEqualTermMismatch of TT.term * TT.term
+  | InvalidConvert of TT.ty * TT.ty
 
-exception Error of error Location.located
+exception Error of error
 
-let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
+let error err = Pervasives.raise (Error err)
 
-module Ctx = struct
-  type t = ctx
-
-  let empty = AtomMap.empty
-
-  let is_empty = AtomMap.is_empty
-
-  let print_entry ~penv ppf x {ty; needed_by;} =
-    Format.fprintf ppf "%t : @[<hov>%t@]@ "
-      (Name.print_atom ~printer:(penv.TT.atoms) x)
-      (TT.print_ty ~penv ty)
-
-  let print ~penv ctx ppf =
-    Format.pp_open_vbox ppf 0 ;
-    AtomMap.iter (print_entry ~penv ppf) ctx ;
-    Format.pp_close_box ppf ()
-
-  let as_set ctx =
-    AtomMap.fold (fun x _ acc -> AtomSet.add x acc) ctx AtomSet.empty
-
-  let lookup x (ctx : t) =
-    try Some (AtomMap.find x ctx)
-    with Not_found -> None
-
-  let recursive_assumptions ctx aset =
-    let rec fold visited = function
-      | [] -> visited
-      | x::rem ->
-        if AtomSet.mem x visited
-        then fold visited rem
-        else
-          let visited = AtomSet.add x visited in
-          let {ty;_} = AtomMap.find x ctx in
-          let aset = TT.assumptions_ty ty in
-          let rem = List.rev_append (AtomSet.elements aset) rem in
-          fold visited rem
-    in
-    fold AtomSet.empty (AtomSet.elements aset)
-
-  let restrict ctx aset =
-    let domain = recursive_assumptions ctx aset in
-    let res = AtomMap.fold (fun x node res ->
-        if AtomSet.mem x domain
-        then
-          AtomMap.add x {node with needed_by = AtomSet.inter node.needed_by domain} res
-        else res)
-      ctx empty
-    in
-    res
-
-  let lookup_atom x ctx =
-    match lookup x ctx with
-      | None -> None
-      | Some {ty;_} ->
-        let ctx = restrict ctx (AtomSet.singleton x) in
-        Some (JAtom (ctx, x, ty))
-
-  let add_fresh (Ty (ctx, ty)) x =
-    let y = Name.fresh x in
-    let ctx = AtomMap.mapi
-      (fun z node -> {node with needed_by = AtomSet.add y node.needed_by})
-      ctx
-    in
-    let ctx = AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx in
-    JAtom (ctx, y, ty)
-
-  let add_weak (WeakTy (ctx, ty)) x =
-    let y = Name.fresh x in
-    let aset = TT.assumptions_ty ty in
-    let needs = recursive_assumptions ctx aset in
-    let ctx = AtomMap.mapi (fun z node ->
-                            if AtomSet.mem z needs
-                            then {node with needed_by = AtomSet.add y node.needed_by}
-                            else node)
-                           ctx
-    in
-    let ctx = AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx in
-    WeakAtom (ctx, y, ty)
-
-  let abstract ~loc (ctx : t) x ty =
-    match lookup x ctx with
-    | None ->
-       ctx
-    | Some node ->
-      if TT.alpha_equal_ty node.ty ty
-      then
-        if AtomSet.is_empty node.needed_by
-        then
-          let ctx = AtomMap.remove x ctx in
-          let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in
-          ctx
-        else
-          let needed_by_l = AtomSet.elements node.needed_by in
-          error ~loc (AbstractDependency (ctx, x, needed_by_l))
-      else
-        error ~loc (AbstractInvalidType (x, ty, node.ty))
-
-  let join ~loc ctx1 ctx2 =
-    AtomMap.fold (fun x node res ->
-        match lookup x res with
-          | Some node' ->
-            if TT.alpha_equal_ty node.ty node'.ty
-            then
-              (* for every node which needs x and is only in ctx2, we need to add it as a dependent. *)
-              let extra = AtomSet.fold (fun y extra ->
-                  if AtomMap.mem y ctx1
-                  then extra
-                  else AtomSet.add y extra)
-                node.needed_by AtomSet.empty
-              in
-              if AtomSet.is_empty extra
-              then res
-              else AtomMap.add x {node' with needed_by = AtomSet.union node'.needed_by extra} res
-            else
-              error ~loc (InvalidJoin (ctx1, ctx2, x))
-          | None ->
-            (* dependencies are handled above *)
-            AtomMap.add x node res)
-      ctx2 ctx1
-
-  (* substitute x by e in ctx *)
-  let substitute ~loc ctx x (Term (ctxe, e, t)) =
-    let ctx = join ~loc ctx ctxe in
-    match lookup x ctx with
-      | None -> ctx
-      | Some xnode ->
-        if not (TT.alpha_equal_ty xnode.ty t)
-        then
-          error ~loc (SubstitutionInvalidType (x, xnode.ty, t))
-        else
-          let deps = recursive_assumptions ctx (TT.assumptions_term e) in
-          let ctx = AtomSet.fold (fun y ctx ->
-              let ynode = AtomMap.find y ctx in
-              if AtomSet.mem y deps
-              then
-                error ~loc (SubstitutionDependency (x, e, y))
-              else
-                let ty = TT.substitute_ty [x] [e] ynode.ty in
-                AtomMap.add y {ynode with ty} ctx)
-            xnode.needed_by ctx
-          in
-          let ctx = AtomSet.fold (fun z ctx ->
-              let znode = AtomMap.find z ctx in
-              let needed_by = AtomSet.union znode.needed_by xnode.needed_by in
-              AtomMap.add z {znode with needed_by} ctx)
-            deps ctx
-          in
-          if AtomSet.mem x deps
-          then ctx
-          else
-            (* we can remove x *)
-            let ctx = AtomMap.remove x ctx in
-            let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in
-            ctx
-
-
-  let elements ctx =
-    let rec process x ((handled, _) as handled_ys) =
-      if AtomSet.mem x handled
-      then handled_ys
-      else
-        let {needed_by;ty} = AtomMap.find x ctx in
-        let (handled, xts) = AtomSet.fold process needed_by handled_ys  in
-        (AtomSet.add x handled, (JAtom (restrict ctx (AtomSet.singleton x), x, ty)) :: xts)
-    in
-    let _, xts = AtomMap.fold (fun x _ -> process x) ctx (AtomSet.empty, []) in
-    xts
-
-end
 
 module Signature = struct
-  module ConstantMap = Name.IdentMap
+  module RuleMap = Name.IdentMap
 
-  type t = {
-    constants : TT.ty ConstantMap.t;
-  }
+  type t =
+    { is_type : Rule.is_type_rule RuleMap.t
+    ; is_term : Rule.is_term_rule RuleMap.t
+    ; eq_type : Rule.eq_type_rule RuleMap.t
+    ; eq_term : Rule.eq_term_rule RuleMap.t
+    }
 
-  let empty = {
-    constants = ConstantMap.empty;
-  }
+  let empty =
+    { is_type = RuleMap.empty
+    ; is_term = RuleMap.empty
+    ; eq_type = RuleMap.empty
+    ; eq_term = RuleMap.empty
+    }
 
-  let constant_type c env =
-    ConstantMap.find c env.constants
-
-  let add_constant c t env =
-    {constants = ConstantMap.add c t env.constants}
-
+  let lookup_is_type_rule c sgn = RuleMap.find c sgn.is_type
+  let lookup_is_term_rule c sgn = RuleMap.find c sgn.is_term
+  let lookup_eq_type_rule c sgn = RuleMap.find c sgn.eq_type
+  let lookup_eq_term_rule c sgn = RuleMap.find c sgn.eq_term
 end
 
-(** Judgements *)
+(** Manipulation of rules of inference. *)
 
-let strengthen (WeakTerm (ctx, e, t)) =
-  let hyps = AtomSet.union (TT.assumptions_term e) (TT.assumptions_ty t) in
-  let ctx = Ctx.restrict ctx hyps in
-  Term (ctx,e,t)
+(** [fully_apply_abstraction inst_u abstr args] fully applies an abstraction to the given arguments. *)
+let fully_apply_abstraction inst_u abstr args =
+  let rec fold es abstr args =
+    match abstr, args with
+    | TT.NotAbstract u, [] -> inst_u es u
+    | TT.Abstract (_, _, abstr), e :: args -> fold (e :: es) abstr args
+    | TT.Abstract _, [] -> failwith "too few arguments"
+    | TT.NotAbstract _, _::_ -> failwith "too many arguments"
+  in
+  fold [] abstr args
 
-let strengthen_ty (WeakTy (ctx, t)) =
-  let hyps = TT.assumptions_ty t in
-  let ctx = Ctx.restrict ctx hyps in
-  Ty (ctx, t)
+let lookup_term_meta k metas =
+  match List.nth metas k with
+  | TT.ArgIsTerm e_abstr -> e_abstr
+  | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> failwith "term expected"
 
-let strengthen_atom (WeakAtom (ctx, x, t)) =
-  let hyps = AtomSet.singleton x in
-  let ctx = Ctx.restrict ctx hyps in
-  JAtom (ctx, x, t)
+let lookup_type_meta k metas =
+  match List.nth metas k with
+  | TT.ArgIsType t_abstr -> t_abstr
+  | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> failwith "type expected"
 
-let typeof (Term (ctx, _, t)) =
-  strengthen_ty (WeakTy (ctx, t))
+let rec meta_instantiate_is_type ~lvl metas = function
+  | Rule.TypeConstructor (c, args) ->
+     let args = meta_instantiate_args ~lvl metas args
+     in TT.mk_type_constructor c args
 
-let atom_ty (JAtom (ctx,x,t)) =
-  strengthen_ty (WeakTy (ctx, t))
+  | Rule.TypeMeta (k, es_schema) ->
+     let t_abstr = lookup_type_meta k metas in
+     let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
+     fully_apply_abstraction (TT.fully_instantiate_type ?lvl:None) t_abstr es
 
-let atom_term ~loc (JAtom (ctx,x,t)) =
-  Term (ctx, TT.mk_atom ~loc x, t)
+and meta_instantiate_is_term ~lvl metas = function
+  | Rule.TermBound k -> TT.mk_bound k
 
-let term_of_ty (Ty (ctx,TT.Ty ({TT.loc=loc;_} as t))) = Term (ctx,t,TT.mk_type_ty ~loc)
+  | Rule.TermConstructor (c, args) ->
+     let args = meta_instantiate_args ~lvl metas args
+     in TT.mk_term_constructor c args
 
-let ty_ty = Ty (Ctx.empty, TT.typ)
+  | Rule.TermMeta (k, es_schema) ->
+     let e_abstr = lookup_term_meta k metas in
+     let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
+     fully_apply_abstraction (TT.fully_instantiate_term ?lvl:None) e_abstr es
 
-let is_closed_ty ~loc (Ty (ctx, t)) =
-  if Ctx.is_empty ctx
-  then t
-  else error ~loc ConstantDependency
+and meta_instantiate_eq_type ~lvl metas (Rule.EqType (asmp, t1, t2)) =
+  let asmp = meta_instantiate_assumptions ~lvl metas asmp
+  and t1 = meta_instantiate_is_type ~lvl metas t1
+  and t2 = meta_instantiate_is_type ~lvl metas t2 in
+  TT.mk_eq_type asmp t1 t2
 
-let occurs (JAtom (_, x, _)) (Term (ctx, _, _)) =
-  Ctx.lookup_atom x ctx
+and meta_instantiate_eq_term ~lvl metas (Rule.EqTerm (asmp, e1, e2, t)) =
+  let asmp = meta_instantiate_assumptions ~lvl metas asmp
+  and e1 = meta_instantiate_is_term ~lvl metas e1
+  and e2 = meta_instantiate_is_term ~lvl metas e2
+  and t = meta_instantiate_is_type ~lvl metas t in
+  TT.mk_eq_term asmp e1 e2 t
 
-let contextof (Term (ctx, _, _)) =
-  ctx
+and meta_instantiate_assumptions ~lvl metas asmp =
+  failwith "todo"
 
-let print_term ~penv ?max_level (Term (ctx, e, t)) ppf =
+and meta_instantiate_args ~lvl metas args =
+  List.map (meta_instantiate_arg ~lvl metas) args
+
+and meta_instantiate_arg ~lvl metas = function
+  | Rule.ArgIsType abstr ->
+     let abstr = meta_instantiate_abstraction meta_instantiate_is_type ~lvl metas abstr
+     in TT.mk_arg_is_type abstr
+
+  | Rule.ArgIsTerm abstr ->
+     let abstr = meta_instantiate_abstraction meta_instantiate_is_term ~lvl metas abstr
+     in TT.mk_arg_is_term abstr
+
+  | Rule.ArgEqType abstr ->
+     (* XXX could do this lazily so that it's discarded when it's an
+            argument in a premise, and computed only when it's an argument in
+            a constructor in the output of a rule *)
+     let abstr = meta_instantiate_abstraction meta_instantiate_eq_type ~lvl metas abstr
+     in TT.mk_arg_eq_type abstr
+
+  | Rule.ArgEqTerm abstr ->
+     let abstr = meta_instantiate_abstraction meta_instantiate_eq_term ~lvl metas abstr
+     in TT.mk_arg_eq_term abstr
+
+and meta_instantiate_abstraction
+    : 'a 'b . (lvl:int -> TT.argument list -> 'a -> 'b) ->
+      lvl:int -> TT.argument list -> 'a Rule.abstraction -> 'b TT.abstraction
+  = fun inst_u ~lvl metas -> function
+
+                          | Rule.NotAbstract u ->
+                             let u = inst_u ~lvl metas u
+                             in TT.mk_not_abstract u
+
+                          | Rule.Abstract (x, t, abstr) ->
+                             let t = meta_instantiate_is_type ~lvl metas t
+                             and abstr = meta_instantiate_abstraction inst_u ~lvl:(lvl+1) metas abstr
+                             in TT.mk_abstract x t abstr
+
+let meta_instantiate_terms metas es_schema =
+  List.map
+    (fun e_schema -> meta_instantiate_is_term ~lvl:0 metas e_schema)
+    es_schema
+
+
+let rec check_type (metas : TT.argument list) (schema : Rule.ty) (premise : TT.ty) =
+  match schema, premise with
+
+  | Rule.TypeConstructor (c_schema, args_schema), TT.TypeConstructor (c, args) ->
+     if Name.eq_ident c_schema c then
+       check_args metas args_schema args
+     else
+       failwith "some mismatch"
+
+  | Rule.TypeMeta (k, es_schema), ty ->
+     begin
+       (* XXX TODO List.nth could fail miserably here *)
+       match List.nth metas k with
+
+       | TT.ArgIsType abstr ->
+          let es = meta_instantiate_terms metas es_schema in
+          let ty' = fully_apply_abstraction (TT.fully_instantiate_type ?lvl:None) abstr es in
+          if not (TT.alpha_equal_type ty ty') then
+            failwith "type mismatch"
+
+       | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ ->
+          failwith "expected a type meta-variable but got something else"
+     end
+
+and check_term (metas : TT.argument list) (schema : Rule.term) (premise : TT.term) =
+  match schema, premise with
+
+  | Rule.TermBound k, TT.TermBound n ->
+     if not (TT.equal_bound k n) then
+       failwith "mismatch"
+
+  | Rule.TermConstructor (c, args_schema), TT.TermConstructor (c', args) ->
+     if Name.eq_ident c c' then
+       check_args metas args_schema args
+     else
+       failwith "mismatch"
+
+  | Rule.TermMeta (k, es_schema), e ->
+     begin
+       (* XXX TODO List.nth could fail miserably here *)
+       match List.nth metas k with
+
+       | TT.ArgIsTerm abstr ->
+          let es = meta_instantiate_terms metas es_schema in
+          let e' = fully_apply_abstraction (TT.fully_instantiate_term ?lvl:None) abstr es in
+          if not (TT.alpha_equal_term e e') then
+            failwith "term mismatch"
+
+       | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ ->
+          failwith "expected a term meta-variable but got something else"
+     end
+
+  | _, _ -> failwith "other cases are errors"
+
+
+and check_args metas args_schema args =
+  match args_schema, args with
+
+  | [], [] -> ()
+
+  | arg_schema :: args_schema, arg :: args ->
+     check_arg metas arg_schema arg ;
+     check_args metas args_schema args
+
+  | [], _::_ | _::_, [] -> failwith "too many or too few arguments"
+
+and check_arg metas arg_schema arg =
+  match arg_schema, arg with
+  | Rule.ArgIsType t_schema, TT.ArgIsType t -> check_abstraction check_type metas t_schema t
+  | Rule.ArgIsTerm e_schema, TT.ArgIsTerm e -> check_abstraction check_term metas e_schema e
+  | Rule.ArgEqType _, TT.ArgEqType _ -> ()
+  | Rule.ArgEqTerm _, TT.ArgEqTerm _ -> ()
+  | _, _ -> failwith "check_arg failed"
+
+and check_abstraction
+    : 'a 'b . (TT.argument list -> 'a -> 'b -> unit) ->
+      TT.argument list ->
+      'a Rule.abstraction -> 'b TT.abstraction -> unit
+  =  fun check_u metas s_abstr p_abstr ->
+  match s_abstr, p_abstr with
+
+  | Rule.NotAbstract u_schema, TT.NotAbstract u ->
+     check_u metas u_schema u
+
+  | Rule.Abstract (_, t_schema, s_abstr), TT.Abstract (_, t, p_abstr) ->
+     check_type metas t_schema t ;
+     check_abstraction check_u metas s_abstr p_abstr
+
+  | _, _ -> failwith "TODO please reasonable error in Jdg.check_abstraction"
+
+
+let atom_name {TT.atom_name=n;_} = n
+
+(** [type_of_term sgn e] gives a type judgment [t], where [t] is the type of [e].
+      Note that [t] itself gives no evidence that [e] actually has type [t].
+      However, the assumptions of [e] are sufficient to show that [e] has
+      type [t].  *)
+let type_of_term sgn = function
+  | TT.TermAtom {TT.atom_type=t; _} -> t
+
+  | TT.TermBound k ->
+     (* We should never get here. If ever we need to compute the type of a
+        term with bound variables, then we should have unabstracted the term
+        beforehand, and asked about the type of the unabstracted version. *)
+     assert false
+
+  | TT.TermConstructor (c, args) ->
+     let (_premises_schema, t_schema) = Signature.lookup_is_term_rule c sgn in
+     (* we need not re-check that the premises match the arguments because
+        we are computing the type of a term that was previously determined
+        to be valid. *)
+     meta_instantiate_is_type ~lvl:0 args t_schema
+
+  | TT.TermConvert (e, _, t) -> t
+
+
+let rec type_of_term_abstraction sgn = function
+  | TT.NotAbstract e ->
+     let t = type_of_term sgn e in
+     TT.mk_not_abstract t
+
+  | TT.Abstract (x, t, abstr) ->
+     let a, abstr = TT.unabstract_abstraction TT.instantiate_term x t abstr in
+     let t_abstr = type_of_term_abstraction sgn abstr in
+     let t_abstr = TT.abstract_abstraction TT.abstract_type a.TT.atom_name t_abstr in
+     TT.mk_abstract x t t_abstr
+
+(** [natural_type sgn e] gives the judgment that the natural type [t] of [e] is derivable.
+    We maintain the invariant that no further assumptions are needed (apart from those
+    already present in [e]) to derive that [e] actually has type [t]. *)
+let natural_type sgn = function
+  | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _) as e ->
+     type_of_term sgn e
+
+  | TT.TermConvert (e, _, _) -> type_of_term sgn e
+
+let natural_type_eq sgn e =
+  let natural = natural_type sgn e
+  and given = type_of_term sgn e in
+  TT.mk_eq_type Assumption.empty natural given
+
+let check_premise sgn metas s p =
+  match s, p with
+
+  | Rule.PremiseIsType (_, s_abstr), PremiseIsType p_abstr ->
+     check_abstraction
+       (fun _ _ _ -> ())
+       metas s_abstr p_abstr
+
+  | Rule.PremiseIsTerm (_, s_abstr), PremiseIsTerm p_abstr ->
+     check_abstraction
+       (fun metas t_schema e -> check_type metas t_schema (type_of_term sgn e))
+       metas s_abstr p_abstr
+
+  | Rule.PremiseEqType s_abstr, PremiseEqType p_abstr ->
+     check_abstraction
+       (fun metas (t1_schema, t2_schema) (TT.EqType (_asmp, t1, t2)) ->
+         check_type metas t1_schema t1 ;
+         check_type metas t2_schema t2)
+       metas s_abstr p_abstr
+
+  | Rule.PremiseEqTerm s_abstr, PremiseEqTerm p_abstr ->
+     check_abstraction
+       (fun metas (e1_schema, e2_schema, t_schema) (TT.EqTerm (_asmp, e1, e2, t)) ->
+         check_term metas e1_schema e1 ;
+         check_term metas e2_schema e2 ;
+         check_type metas t_schema t)
+       metas
+       s_abstr p_abstr
+
+  | _, _ -> failwith "TODO better error in check_premise"
+
+let arg_of_premise = function
+  | PremiseIsType t -> TT.mk_arg_is_type t
+  | PremiseIsTerm e -> TT.mk_arg_is_term e
+  | PremiseEqType eq -> TT.mk_arg_eq_type eq
+  | PremiseEqTerm eq-> TT.mk_arg_eq_term eq
+
+let match_premise sgn metas (s : Rule.premise) (p : premise) : TT.argument =
+  check_premise sgn metas s p ;
+  arg_of_premise p
+
+let match_premises sgn (schema_premises : Rule.premise list) (premises : premise list) =
+  let rec fold args = function
+    | [], [] -> List.rev args
+    | [], _::_ -> failwith "too many arguments"
+    | _::_, [] -> failwith "too few arguments"
+    | s :: ss, p :: ps ->
+       let metas = args in (* args also serves as the list of collected metas *)
+       let arg = match_premise sgn metas s p in
+       fold (arg :: args) (ss, ps)
+  in
+  fold [] (schema_premises, premises)
+
+(** Judgement formation *)
+
+(** Formation of judgements from rules *)
+
+let form_is_type_rule sgn c premises =
+  let schema_premises = Signature.lookup_is_type_rule c sgn in
+  let args = match_premises sgn schema_premises premises in
+  TT.mk_type_constructor c args
+
+let form_is_term_rule sgn c premises =
+  let (schema_premises, _) = Signature.lookup_is_term_rule c sgn in
+  let args = match_premises sgn schema_premises premises in
+  TT.mk_term_constructor c args
+
+let form_eq_type_rule sgn c premises =
+  let (schema_premises, (lhs_schema, rhs_schema)) =
+    Signature.lookup_eq_type_rule c sgn in
+  let args = match_premises sgn schema_premises premises in
+  let asmp = TT.assumptions_arguments args
+  and lhs = meta_instantiate_is_type ~lvl:0 args lhs_schema
+  and rhs = meta_instantiate_is_type ~lvl:0 args rhs_schema
+  in TT.mk_eq_type asmp lhs rhs
+
+let form_eq_term_rule sgn c premises =
+  let (schema_premises, (e1_schema, e2_schema, t_schema)) =
+    Signature.lookup_eq_term_rule c sgn in
+  let args = match_premises sgn schema_premises premises in
+  let asmp = TT.assumptions_arguments args
+  and e1 = meta_instantiate_is_term ~lvl:0 args e1_schema
+  and e2 = meta_instantiate_is_term ~lvl:0 args e2_schema
+  and t = meta_instantiate_is_type ~lvl:0 args t_schema
+  in TT.mk_eq_term asmp e1 e2 t
+
+let type_of_atom {TT.atom_type=t;_} = t
+
+(** Construct judgements *)
+
+let form_is_term_atom = TT.mk_atom
+
+let fresh_atom = TT.fresh_atom
+
+let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
+  match e with
+  | TT.TermConvert (e, asmp0, t0) ->
+     if TT.alpha_equal_type t0 t1 then
+       (* here we rely on transitivity of equality *)
+       let asmp = Assumption.union asmp0 (Assumption.union asmp (TT.assumptions_type t1))
+       (* we could have used the assumptions of [t0] instead, because [t0] and [t1] are
+            alpha equal, and so either can derive the type. Possible optimizations:
+              (i) pick the smaller of the assumptions of [t0] or of [t1],
+             (ii) pick the asumptions that are included in [t2]
+            (iii) remove assumptions already present in [t2] from the assumption set
+        *)
+       in
+       (* [e] itself is not a [TermConvert] by the maintained invariant. *)
+       TT.mk_term_convert e asmp t2
+     else
+       error (InvalidConvert (t0, t1))
+
+  | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _) as e ->
+     let t0 = natural_type sgn e in
+     if TT.alpha_equal_type t0 t1 then
+       (* We need not include assumptions of [t1] because [t0] is alpha-equal
+            to [t1] so we can use [t0] in place of [t1] if so desired. *)
+       (* [e] is not a [TermConvert] by the above pattern-check *)
+       TT.mk_term_convert e asmp t2
+     else
+       error (InvalidConvert (t0, t1))
+
+let form_not_abstract u = TT.mk_not_abstract u
+
+let form_is_type_abstract {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction TT.abstract_type x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
+
+let form_is_term_abstract {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction TT.abstract_term x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
+
+let form_eq_type_abstract {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction TT.abstract_eq_type x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
+
+let form_eq_term_abstract {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction TT.abstract_eq_term x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
+
+
+(** Destructors *)
+
+let invert_arg = function
+  | TT.ArgIsTerm abstr -> PremiseIsTerm abstr
+  | TT.ArgIsType abstr -> PremiseIsType abstr
+  | TT.ArgEqType abstr -> PremiseEqType abstr
+  | TT.ArgEqTerm abstr -> PremiseEqTerm abstr
+
+let invert_args args = List.map invert_arg args
+
+let invert_is_term sgn = function
+
+  | TT.TermAtom a -> TermAtom a
+
+  | TT.TermBound _ -> assert false
+
+  | TT.TermConstructor (c, args) ->
+     let premises = invert_args args in
+     TermConstructor (c, premises)
+
+  | TT.TermConvert (e, asmp, t) ->
+     let t' = natural_type sgn e in
+     let eq = TT.mk_eq_type asmp t' t in
+     TermConvert (e, eq)
+
+let invert_is_type = function
+  | TT.TypeConstructor (c, args) ->
+     let premises = invert_args args in
+     TypeConstructor (c, premises)
+
+let invert_eq_type (TT.EqType (asmp, t1, t2)) = EqType (asmp, t1, t2)
+
+let invert_eq_term (TT.EqTerm (asmp, e1, e2, t)) = EqTerm (asmp, e1, e2, t)
+
+let invert_abstraction ?atom_name inst_v = function
+  | TT.Abstract (x, t, abstr) ->
+     let x = (match atom_name with None -> x | Some y -> y) in
+     let a = TT.fresh_atom x t in
+     let abstr = TT.instantiate_abstraction inst_v (TT.mk_atom a) abstr in
+     Abstract (a, abstr)
+  | TT.NotAbstract v -> NotAbstract v
+
+let invert_is_type_abstraction ?atom_name t =
+  invert_abstraction ?atom_name TT.instantiate_type t
+
+let invert_is_term_abstraction ?atom_name e =
+  invert_abstraction ?atom_name TT.instantiate_term e
+
+let invert_eq_type_abstraction ?atom_name eq =
+  invert_abstraction ?atom_name TT.instantiate_eq_type eq
+
+let invert_eq_term_abstraction ?atom_name eq =
+  invert_abstraction ?atom_name TT.instantiate_eq_term eq
+
+let context_is_type_abstraction = TT.context_abstraction TT.assumptions_type
+let context_is_term_abstraction = TT.context_abstraction TT.assumptions_term
+let context_eq_type_abstraction = TT.context_abstraction TT.assumptions_eq_type
+let context_eq_term_abstraction = TT.context_abstraction TT.assumptions_eq_term
+
+let occurs_abstraction assumptions_u a abstr =
+  let asmp = TT.(assumptions_abstraction assumptions_u abstr) in
+  Assumption.mem_atom a.TT.atom_name asmp
+
+let occurs_is_type_abstraction = occurs_abstraction TT.assumptions_type
+let occurs_is_term_abstraction = occurs_abstraction TT.assumptions_term
+let occurs_eq_type_abstraction = occurs_abstraction TT.assumptions_eq_type
+let occurs_eq_term_abstraction = occurs_abstraction TT.assumptions_eq_term
+
+
+let apply_abstraction inst_u sgn abstr e0 =
+  match abstr with
+  | TT.NotAbstract _ -> failwith "foo"
+  | TT.Abstract (x, t, abstr) ->
+     begin match TT.alpha_equal_type t (type_of_term sgn e0) with
+     | false -> failwith "bar"
+     | true ->  TT.instantiate_abstraction inst_u e0 abstr
+     end
+
+let apply_is_type_abstraction sgn abstr e0 =
+  apply_abstraction TT.instantiate_type sgn abstr e0
+
+let apply_is_term_abstraction sgn abstr e0 =
+  apply_abstraction TT.instantiate_term sgn abstr e0
+
+let apply_eq_type_abstraction sgn abstr e0 =
+  apply_abstraction TT.instantiate_eq_type sgn abstr e0
+
+let apply_eq_term_abstraction sgn abstr e0 =
+  apply_abstraction TT.instantiate_eq_term sgn abstr e0
+
+(** Conversion *)
+
+let convert_eq_term (TT.EqTerm (asmp1, e1, e2, t0)) (TT.EqType (asmp2, t1, t2)) =
+  if TT.alpha_equal_type t0 t1 then
+    (* We could have used the assumptions of [t0] instead of [t1], see comments in [form_is_term]
+       about possible optimizations. *)
+    let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT.assumptions_type t1)) in
+    TT.mk_eq_term asmp e1 e2 t2
+  else
+    error (InvalidConvert (t0, t1))
+
+(** Constructors *)
+
+let reflexivity_term sgn e =
+  let t = type_of_term sgn e in
+  TT.mk_eq_term Assumption.empty e e t
+
+let reflexivity_type t =
+  TT.mk_eq_type Assumption.empty t t
+
+let alpha_equal_term = TT.alpha_equal_term
+
+let alpha_equal_type = TT.alpha_equal_type
+
+let alpha_equal_abstraction = TT.alpha_equal_abstraction
+
+let mk_alpha_equal_type t1 t2 =
+  match TT.alpha_equal_type t1 t2 with
+  | false -> None
+  | true -> Some (TT.mk_eq_type Assumption.empty t1 t2)
+
+(** Compare two terms for alpha equality. *)
+let mk_alpha_equal_term sgn e1 e2 =
+  let t1 = type_of_term sgn e1
+  and t2 = type_of_term sgn e2
+  in
+  (* XXX if e1 and e2 are α-equal, we may apply uniqueness of typing to
+     conclude that their types are equal, so we don't have to compute t1, t2,
+     and t1 =α= t2. *)
+  match TT.alpha_equal_type t1 t2 with
+  | false -> error (AlphaEqualTypeMismatch (t1, t2))
+  | true ->
+     begin match TT.alpha_equal_term e1 e2 with
+     | false -> None
+     | true ->
+        (* We may keep the assumptions empty here. One might worry
+           that the assumptions needed for [e2 : t2] have to be included,
+           but this does not seem to be the case: we have [e2 : t2] and
+           [t1 == t2] (without assumptions as they are alpha-equal!),
+           hence by conversion [e2 : t1], and whatever assumptions are
+           required for [e2 : t2], they're already present in [e2]. *)
+        Some (TT.mk_eq_term Assumption.empty e1 e2 t1)
+     end
+
+let rec mk_alpha_equal_abstraction equal_u abstr1 abstr2 =
+  match abstr1, abstr2 with
+  | TT.NotAbstract u1, TT.NotAbstract u2 ->
+     begin match equal_u u1 u2 with
+     | None -> None
+     | Some eq -> Some (TT.mk_not_abstract eq)
+     end
+  | TT.Abstract (x1, t1, abstr1), TT.Abstract (_x2, t2, abstr2) ->
+     begin match alpha_equal_type t1 t2 with
+     | false -> None
+     | true ->
+        begin match mk_alpha_equal_abstraction equal_u abstr1 abstr2 with
+        | None -> None
+        | Some eq -> Some (TT.mk_abstract x1 t1 eq)
+        end
+     end
+  | (TT.NotAbstract _, TT.Abstract _)
+  | (TT.Abstract _, TT.NotAbstract _) -> None
+
+let symmetry_term (TT.EqTerm (asmp, e1, e2, t)) = TT.mk_eq_term asmp e2 e1 t
+
+let symmetry_type (TT.EqType (asmp, t1, t2)) = TT.mk_eq_type asmp t2 t1
+
+let transitivity_term (TT.EqTerm (asmp, e1, e2, t)) (TT.EqTerm (asmp', e1', e2', t')) =
+  match TT.alpha_equal_type t t' with
+  | false -> error (AlphaEqualTypeMismatch (t, t'))
+  | true ->
+     begin match TT.alpha_equal_term e2 e1' with
+     | false -> error (AlphaEqualTermMismatch (e2, e1'))
+     | true ->
+        (* XXX could use assumptions of [e1'] instead, or whichever is better. *)
+        let asmp = Assumption.union asmp (Assumption.union asmp' (TT.assumptions_term e2))
+        in TT.mk_eq_term asmp e1 e2' t
+     end
+
+let transitivity_type (TT.EqType (asmp1, t1, t2)) (TT.EqType (asmp2, u1, u2)) =
+  begin match TT.alpha_equal_type t2 u1 with
+  | false -> error (AlphaEqualTypeMismatch (t2, u1))
+  | true ->
+     (* XXX could use assumptions of [u1] instead, or whichever is better. *)
+     let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT.assumptions_type t2))
+     in TT.mk_eq_type asmp t1 u2
+  end
+
+(** Congruence rules *)
+
+let process_congruence_args args =
+
+  let rec check_endpoints check t1 t2 eq =
+    match t1, t2, eq with
+    | TT.NotAbstract t1, TT.NotAbstract t2, TT.NotAbstract eq ->
+       if not (check t1 t2 eq) then failwith "some error"
+    | TT.Abstract (_x1, u1, t1), TT.Abstract (_x2, u2, t2), TT.Abstract (_x', u', eq) ->
+       if TT.alpha_equal_type u1 u' || TT.alpha_equal_type u2 u' then
+         check_endpoints check t1 t2 eq
+       else
+         failwith "mismatch"
+    | _, _, _ -> failwith "wrong lengths"
+
+  in
+  let rec fold asmp_out lhs rhs = function
+
+    | [] -> (asmp_out, List.rev lhs, List.rev rhs)
+
+    | CongrIsType (t1, t2, eq) :: eqs ->
+       check_endpoints
+         (fun t1 t2 (TT.EqType (_, t1', t2')) ->
+           TT.alpha_equal_type t1 t1' && TT.alpha_equal_type t2 t2')
+         t1 t2 eq ;
+       let asmp_out = Assumption.union asmp_out (TT.assumptions_abstraction TT.assumptions_eq_type eq)
+       in fold asmp_out (PremiseIsType t1 :: lhs) (PremiseIsType t2 :: rhs) eqs
+
+    | CongrIsTerm (e1, e2, eq) :: eqs ->
+       check_endpoints
+         (fun e1 e2 (TT.EqTerm (_, e1', e2', _)) ->
+           TT.alpha_equal_term e1 e1' && TT.alpha_equal_term e2 e2')
+         e1 e2 eq ;
+       let asmp_out = Assumption.union asmp_out (TT.assumptions_abstraction TT.assumptions_eq_term eq)
+       in fold asmp_out (PremiseIsTerm e1 :: lhs) (PremiseIsTerm e2 :: rhs) eqs
+
+    | CongrEqType (eq1, eq2) :: eqs ->
+       let l = PremiseEqType eq1
+       and r = PremiseEqType eq2
+       in fold asmp_out (l :: lhs) (r :: rhs) eqs
+
+    | CongrEqTerm (eq1, eq2) :: eqs ->
+       let l = PremiseEqTerm eq1
+       and r = PremiseEqTerm eq2
+       in fold asmp_out (l :: lhs) (r :: rhs) eqs
+
+  in fold Assumption.empty [] [] args
+
+
+let congruence_type_constructor sgn c eqs =
+  let (asmp, lhs, rhs) = process_congruence_args eqs in
+  let t1 = form_is_type_rule sgn c lhs
+  and t2 = form_is_type_rule sgn c rhs
+  in TT.mk_eq_type asmp t1 t2
+
+let congruence_term_constructor sgn c eqs =
+  let (asmp, lhs, rhs) = process_congruence_args eqs in
+  let e1 = form_is_term_rule sgn c lhs
+  and e2 = form_is_term_rule sgn c rhs in
+  let t = type_of_term sgn e1
+  in TT.mk_eq_term asmp e1 e2 t
+
+(** Printing functions *)
+
+let print_is_term ?max_level ~penv e ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%t%s @[<hv>@[<hov>%t@]@;<1 -2>: @[<hov>%t@]@]"
-              (Ctx.print ~penv ctx)
+              "%s @[<hv>@[<hov>%t@]@;<1 -2>@]"
               (Print.char_vdash ())
-              (TT.print_term ~penv ~max_level:Level.highest e)
-              (TT.print_ty ~penv ~max_level:Level.highest t)
+              (TT.print_term ~max_level:Level.highest ~penv e)
+              (* XXX print the type of the term also *)
 
-let print_ty ~penv ?max_level (Ty (ctx, t)) ppf =
+let print_is_type ?max_level ~penv t ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%t%s @[<hov>%t@] @ type"
-              (Ctx.print ~penv ctx)
+              "%s @[<hv>@[<hov>%t@]@;<1 -2> type@]"
               (Print.char_vdash ())
-              (TT.print_ty ~penv ~max_level:Level.highest t)
+              (TT.print_type ~max_level:Level.highest ~penv t)
 
-let print_eq_term ~penv ?max_level (EqTerm (ctx, e1, e2, t)) ppf =
+let print_eq_type ?max_level ~penv (TT.EqType (_asmp, t1, t2)) ppf =
+  (* TODO: print _asmp? *)
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%t%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]@]"
-              (Ctx.print ~penv ctx)
+              "%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@]"
+              (Print.char_vdash ())
+              (TT.print_type ~penv t1)
+              (Print.char_equal ())
+              (TT.print_type ~penv t2)
+
+let print_eq_term ?max_level ~penv (TT.EqTerm (_asmp, e1, e2, t)) ppf =
+  (* TODO: print _asmp? *)
+  Print.print ?max_level ~at_level:Level.jdg ppf
+              "%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]@]"
               (Print.char_vdash ())
               (TT.print_term ~penv e1)
               (Print.char_equal ())
               (TT.print_term ~penv e2)
-              (TT.print_ty ~penv t)
+              (TT.print_type ~penv t)
 
-let print_eq_ty ~penv ?max_level (EqTy (ctx, t1, t2)) ppf =
-  Print.print ?max_level ~at_level:Level.jdg ppf
-              "%t%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@]"
-              (Ctx.print ~penv ctx)
-              (Print.char_vdash ())
-              (TT.print_ty ~penv t1)
-              (Print.char_equal ())
-              (TT.print_ty ~penv t2)
 
-let print_error ~penv err ppf = match err with
-  | ConstantDependency ->
-     Format.fprintf ppf "constants may not depend on assumptions"
+let print_is_term_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  TT.print_abstraction TT.occurs_term print_is_term ?max_level ~penv abstr ppf
 
-  | InvalidApplication -> Format.fprintf ppf "Invalid application."
+let print_is_type_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  TT.print_abstraction TT.occurs_type print_is_type ?max_level ~penv abstr ppf
 
-  | InvalidEquality -> Format.fprintf ppf "Invalid equality."
+let print_eq_type_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  TT.print_abstraction TT.occurs_eq_type print_eq_type ?max_level ~penv abstr ppf
 
-  | NotAType -> Format.fprintf ppf "Not a type."
+let print_eq_term_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  TT.print_abstraction TT.occurs_eq_term print_eq_term ?max_level ~penv abstr ppf
 
-  | AbstractDependency (ctx, x, needed_by_l) ->
-     Format.fprintf ppf "@[<hov>cannot abstract@ %t@ because@ %t@ depend%s on it, in context@,   @[<hov>%t@]@]"
-          (Name.print_atom ~printer:penv.TT.atoms x)
-          (Print.sequence (Name.print_atom ~printer:penv.TT.atoms ~parentheses:true) "," needed_by_l)
-           (match needed_by_l with [_] -> "s" | _ -> "")
-          (Ctx.print ~penv ctx)
-
-  | AbstractInvalidType (x, t1, t2) ->
-     Format.fprintf ppf "cannot abstract@ %t@ with type@ %t@ because it must have type@ %t"
-        (Name.print_atom ~printer:penv.TT.atoms x)
-        (TT.print_ty ~penv t1)
-        (TT.print_ty ~penv t2)
-
-  | InvalidJoin (ctx1, ctx2, x) ->
-     Format.fprintf ppf "cannot join contexts@ %t and@ %t at %t"
-                    (Ctx.print ~penv ctx1)
-                    (Ctx.print ~penv ctx2)
-                    (Name.print_atom ~printer:penv.TT.atoms x ~parentheses:true)
-
-  | SubstitutionDependency (x, e, y) ->
-     Format.fprintf ppf "cannot substitute@ %t@ with@ %t,@ dependency cycle at@ %t"
-                (Name.print_atom ~printer:penv.TT.atoms x)
-                (TT.print_term ~penv e)
-                (Name.print_atom ~printer:penv.TT.atoms y)
-
-  | SubstitutionInvalidType (x, x_ty, t) ->
-     Format.fprintf ppf "cannot substitute term of type %t for %t of type %t"
-                    (TT.print_ty ~penv t)
-                    (Name.print_atom ~printer:penv.TT.atoms x)
-                    (TT.print_ty ~penv x_ty)
-
-  | EqualityWitnessExpected j ->
-    Format.fprintf ppf "@[<v>Expected a witness to a term equality but got@,   @[<hov>%t@]@]@."
-                   (print_term ~penv j)
-
-  | TypeEqualityWitnessExpected j ->
-    Format.fprintf ppf  "@[<v>Expected a witness to a type equality but got@,   @[<hov>%t@]@]@."
-                   (print_term ~penv j)
+let print_error ~penv err ppf =
+  match err with
 
   | InvalidConvert (t1, t2) ->
-    Format.fprintf ppf "Trying to convert something at@ %t@ using an equality on@ %t@."
-      (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
+     Format.fprintf ppf "Trying to convert something at@ %t@ using an equality on@ %t@."
+                    (TT.print_type ~penv t1) (TT.print_type ~penv t2)
 
   | AlphaEqualTypeMismatch (t1, t2) ->
-    Format.fprintf ppf "Alpha equality only produces witnesses of equality between terms at alpha equal types, but got@ %t@ and@ %t@."
-      (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
-
-  | NotATypeEquality t ->
-    Format.fprintf ppf "Expected a type equality judgement, but got an equality at @%t@."
-      (TT.print_ty ~penv t)
-
-  | RuleInputMismatch (rule, t1, desc1, t2, desc2) ->
-    Format.fprintf ppf "@[<v>In the %s rule, the following types should be identical\
-:@,   @[<hov>%t@]@ (%s) and@,   @[<hov>%t@]@ (%s)@]@."
-      rule (TT.print_ty ~penv t1) desc1 (TT.print_ty ~penv t2) desc2
-
-  | RuleInputMismatchTerm (rule, e1, desc1, e2, desc2) ->
-    Format.fprintf ppf "@[<v>In the %s rule, the following terms should be identical\
-:@,   @[<hov>%t@]@ (%s) and@,   @[<hov>%t@]@ (%s)@]@."
-      rule (TT.print_term ~penv e1) desc1 (TT.print_term ~penv e2) desc2
-
-(** Destructors *)
-type 'a abstraction = atom * 'a
-
-type shape =
-  | Type
-  | Atom of atom
-  | Constant of Name.constant
-  | Prod of ty abstraction
-  | Lambda of term abstraction
-  | Apply of term * term
-  | Eq of term * term
-  | Refl of term
-
-let shape (Term (ctx,e,t)) =
-  match e.TT.term with
-    | TT.Type -> Type
-
-    | TT.Atom x ->
-      begin match Ctx.lookup_atom x ctx with
-        | Some j -> Atom j
-        | None -> assert false
-      end
-
-    | TT.Constant c -> Constant c
-
-    | TT.Prod ((x,a),b) ->
-      let ja = WeakTy (ctx, a) in
-      let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
-      let b = TT.unabstract_ty [y] b in
-      let jb = WeakTy (ctx, b) in
-      Prod (strengthen_atom jy, strengthen_ty jb)
-
-    | TT.Lambda ((x,a),(e,b)) ->
-      let ja = WeakTy (ctx, a) in
-      let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
-      let b = TT.unabstract_ty [y] b
-      and e = TT.unabstract [y] e in
-      let je = WeakTerm (ctx, e, b) in
-      Lambda (strengthen_atom jy, strengthen je)
-
-
-    | TT.Apply (e1,((x,a),b),e2) ->
-      let je2 = WeakTerm (ctx, e2, a) in
-      let prod = TT.mk_prod_ty ~loc:e.TT.loc x a b in
-      let je1 = WeakTerm (ctx, e1, prod) in
-      Apply (strengthen je1, strengthen je2)
-
-    | TT.Eq (a,e1,e2) ->
-      let je1 = WeakTerm (ctx, e1, a)
-      and je2 = WeakTerm (ctx, e2, a) in
-      Eq (strengthen je1, strengthen je2)
-
-    | TT.Refl (a,e) ->
-      let e = WeakTerm (ctx, e, a) in
-      Refl (strengthen e)
-
-    | TT.Bound _ -> assert false
-
-let shape_ty j = shape (term_of_ty j)
-
-let shape_prod j =
-  match shape_ty j with
-  | Prod (a, b) -> Some (a, b)
-  | (Type | Atom _ | Constant _ | Lambda _ | Apply _ | Eq _ | Refl _) -> None
-
-
-(** Construct judgements *)
-let form ~loc env = function
-  | Type ->
-    Term (Ctx.empty, TT.mk_type ~loc, TT.mk_type_ty ~loc)
-
-  | Atom x -> atom_term ~loc x
-
-  | Constant c ->
-    let t = Signature.constant_type c env in
-    Term (Ctx.empty, TT.mk_constant ~loc c,t)
-
-  | Prod ((JAtom (ctxa,x,a)),(Ty (ctxb,b))) ->
-    let ctx = Ctx.join ~loc ctxb ctxa in
-    let ctx = Ctx.abstract ~loc ctx x a in
-    let b = TT.abstract_ty [x] b in
-    Term (ctx, TT.mk_prod ~loc (Name.ident_of_atom x) a b, TT.mk_type_ty ~loc)
-
-  | Lambda ((JAtom (ctxa,x,a)),(Term (ctxe,e,b))) ->
-    let ctx = Ctx.join ~loc ctxe ctxa in
-    let ctx = Ctx.abstract ~loc ctx x a in
-    let b = TT.abstract_ty [x] b
-    and e = TT.abstract [x] e in
-    let x = Name.ident_of_atom x in
-    Term (ctx, TT.mk_lambda ~loc x a e b, TT.mk_prod_ty ~loc x a b)
-
-  | Apply (Term (ctx1,e1,t1), Term (ctx2,e2,t2)) ->
-    let ctx = Ctx.join ~loc ctx2 ctx1 in
-    let TT.Ty te1 = t1 in
-    begin match te1.TT.term with
-      | TT.Prod ((x,a),b) ->
-        if TT.alpha_equal_ty a t2
-        then
-          let out = TT.instantiate_ty [e2] b in
-          Term (ctx, TT.mk_apply ~loc e1 x a b e2, out)
-        else
-          error ~loc InvalidApplication
-      | _ -> error ~loc InvalidApplication
-    end
-
-  | Eq (Term (ctx1,e1,t1), Term (ctx2,e2,t2)) ->
-    let ctx = Ctx.join ~loc ctx2 ctx1 in
-    if TT.alpha_equal_ty t1 t2
-    then
-      Term (ctx, TT.mk_eq ~loc t1 e1 e2, TT.mk_type_ty ~loc)
-    else
-      error ~loc InvalidEquality
-
-  | Refl (Term (ctx,e,t)) ->
-    Term (ctx, TT.mk_refl ~loc t e, TT.mk_eq_ty ~loc t e e)
-
-let is_ty ~loc (Term (ctx, e, t)) =
-  if TT.alpha_equal_ty t TT.typ
-  then
-    Ty (ctx, TT.ty e)
-  else
-    error ~loc NotAType
-
-let form_ty ~loc env s =
-  is_ty ~loc (form ~loc env s)
-
-(** Substitution *)
-let substitute_ty ~loc (Ty (ctxt, t)) (JAtom (_, a, _)) (Term (_, s, _) as js) =
-  let ctxt = Ctx.substitute ~loc ctxt a js in
-  let t = TT.substitute_ty [a] [s] t in
-  strengthen_ty (WeakTy (ctxt, t))
-
-let substitute ~loc (Term (ctxe, e, t)) (JAtom (_, a, _)) (Term (_, s, _) as js) =
-  let ctxe = Ctx.substitute ~loc ctxe a js in
-  let t = TT.substitute_ty [a] [s] t
-  and e = TT.substitute [a] [s] e in
-  strengthen (WeakTerm (ctxe, e, t))
-
-(** Conversion *)
-
-type side = LEFT | RIGHT
-
-let eq_term_side side (EqTerm (ctx, lhs, rhs, ty)) =
-  let term = match side with LEFT -> lhs | RIGHT -> rhs in
-  strengthen (WeakTerm (ctx, term, ty))
-
-let eq_term_typeof (EqTerm (ctx, _, _, ty)) =
-  strengthen_ty (WeakTy (ctx, ty))
-
-let eq_ty_side side (EqTy (ctx, lhs, rhs)) : ty =
-  let ty = match side with LEFT -> lhs | RIGHT -> rhs in
-  strengthen_ty (WeakTy (ctx, ty))
-
-let convert ~loc (Term (ctx1, e, t)) (EqTy (ctx2, t1, t2)) =
-  if not (TT.alpha_equal_ty t t1)
-  then error ~loc (InvalidConvert (t, t1))
-  else
-    let ctx = Ctx.join ~loc ctx1 ctx2 in
-    let e = TT.mention_atoms (Ctx.as_set ctx2) e in
-    Term (ctx, e, t2)
-
-let convert_eq ~loc (EqTerm (ctx1, e1, e2, ty)) (EqTy (ctx2, t1, t2)) =
-  if not (TT.alpha_equal_ty ty t1)
-  then error ~loc (InvalidConvert (ty, t1))
-  else
-    let hyps2 = Ctx.as_set ctx2 in
-    let e1 = TT.mention_atoms hyps2 e1
-    and e2 = TT.mention_atoms hyps2 e2
-    and ctx = Ctx.join ~loc ctx1 ctx2 in
-    EqTerm (ctx, e1, e2, t2)
-
-(** Constructors *)
-
-let reflexivity (Term (ctx, e, t)) =
-  EqTerm (ctx, e, e, t)
-
-let reflexivity_ty (Ty (ctx, t)) =
-  EqTy (ctx, t, t)
-
-let alpha_equal (Term (_, e1, _)) (Term (_, e2, _)) =
-  TT.alpha_equal e1 e2
-
-let alpha_equal_eq_term ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
-  if not (TT.alpha_equal_ty t1 t2)
-  then error ~loc (AlphaEqualTypeMismatch (t1, t2))
-  else
-    if not (TT.alpha_equal e1 e2)
-    then
-      None
-    else
-      let ctx = Ctx.join ~loc ctx1 ctx2
-      and e2 = TT.mention_atoms (TT.assumptions_term e1) e2 in
-      (* We need to adjust the assumptions on [e2]:
-         if [e1] and [t1] use [x : empty], but [e2] and [t2] use [y : empty],
-         projecting the rhs gives us [ctx' |- e2 : t1] where [ctx'] does not contain [x],
-         then typeof fails. *)
-      Some (EqTerm (ctx, e1, e2, t1))
-
-let alpha_equal_eq_ty ~loc (Ty (ctx1, t1)) (Ty (ctx2, t2)) =
-  if not (TT.alpha_equal_ty t1 t2)
-  then
-    None
-  else
-    let ctx = Ctx.join ~loc ctx1 ctx2 in
-    Some (EqTy (ctx, t1, t2))
-
-let symmetry_ty (EqTy (ctx, t1, t2)) = EqTy (ctx, t2, t1)
-
-let is_type_equality ~loc (EqTerm (ctx, e1, e2, t)) =
-  if not (TT.alpha_equal_ty t TT.typ)
-  then error ~loc (NotATypeEquality t)
-  else
-    EqTy (ctx, TT.ty e1, TT.ty e2)
-
-let reflect ~loc (Term (ctx, term, TT.Ty t) as j) =
-  match t.TT.term with
-    | TT.Eq (a, e1, e2) -> EqTerm (ctx, e1, e2, a)
-    | _ -> error ~loc (EqualityWitnessExpected j)
-
-let reflect_ty_eq ~loc (Term (ctx, term, TT.Ty t) as j) =
-  match t.TT.term with
-    | TT.Eq (a, e1, e2) ->
-      if TT.alpha_equal_ty a TT.typ
-      then EqTy (ctx, TT.ty e1, TT.ty e2)
-      else error ~loc (TypeEqualityWitnessExpected j)
-    | _ -> error ~loc (TypeEqualityWitnessExpected j)
-
-(** Beta *)
-
-let beta ~loc (EqTy (ctxa, a1, a2))
-              (JAtom (_, x, _)) (JAtom (_, y, _))
-              (EqTy (ctxb, b1, b2))
-              (Term (ctx1, e1, t1))
-              (Term (ctx2, e2, t2)) =
-  if not (TT.alpha_equal_ty b1 t1)
-  then error ~loc (RuleInputMismatch ("beta",
-          b1, "the given type family ('B')",
-          t1, "the type of the expression being substituted into ('e1')"))
-  else if not (TT.alpha_equal_ty a2 t2)
-  then error ~loc (RuleInputMismatch ("beta",
-          a2, "the given parameter type ('A')",
-          t2, "the type of the expression to be substituted ('e2')"))
-  else
-    let ctxa = Ctx.join ~loc ctxa ctx2
-    and ctxb = Ctx.abstract ~loc (Ctx.join ~loc ctxb ctx1) x a1 in
-
-    let hypsa = Ctx.as_set ctxa
-    and hypsb = Ctx.as_set ctxb in
-
-    let b1 = TT.abstract_ty [x] b1
-    and e1 = TT.abstract [x] e1
-    and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mention_atoms hypsa (TT.mk_atom ~loc y)] b2) in
-    let ctx = Ctx.join ~loc ctxa ctxb
-    and lam = TT.mk_lambda ~loc (Name.ident_of_atom x) a1 e1 b1
-    and e_s = TT.mention_atoms hypsb (TT.instantiate [TT.mention_atoms hypsa e2] e1) in
-    let app = TT.mk_apply ~loc lam (Name.ident_of_atom y) a2 b2 e2
-    and ty = TT.instantiate_ty [e2] b2 in
-    EqTerm (ctx, app, e_s, ty)
-
-
-(** Congruence *)
-
-let congr_prod ~loc (EqTy (ctxa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) (EqTy (ctxb, b1, b2)) =
-  let ctxb = Ctx.abstract ~loc ctxb x ta1 in
-
-  let hypsa = Ctx.as_set ctxa in
-
-  let b1 = TT.abstract_ty [x] b1
-  and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mention_atoms hypsa (TT.mk_atom ~loc y)] b2) in
-  let ctx = Ctx.join ~loc ctxa ctxb in
-  let lhs = TT.mk_prod ~loc (Name.ident_of_atom x) ta1 b1
-  and rhs = TT.mk_prod ~loc (Name.ident_of_atom y) ta2 b2 in
-  EqTerm (ctx, lhs, rhs, TT.typ)
-
-let congr_prod_ty ~loc eq_a x y eq_b =
-  is_type_equality ~loc (congr_prod ~loc eq_a x y eq_b)
-
-let congr_lambda ~loc (EqTy (ctxa, ta1, ta2))
-                 (JAtom (_, x, _)) (JAtom (_, y, _))
-                 (EqTy (ctxb, b1, b2))
-                 (EqTerm (ctxe, e1, e2, ty_e)) =
-  if not (TT.alpha_equal_ty b1 ty_e)
-  then error ~loc (RuleInputMismatch ("congr-lambda",
-            b1, "The left-hand-side in the equality between body types",
-            ty_e, "The type at which the body terms are compared"))
-  else
-    let ctx = Ctx.join ~loc ctxa (Ctx.abstract ~loc (Ctx.join ~loc ctxb ctxe) x ta1) in
-
-    let hypsa = Ctx.as_set ctxa
-    and hypsb = AtomSet.remove x (Ctx.as_set ctxb) in
-    let hypsab = AtomSet.union hypsa hypsb in
-
-    let y_mentions = TT.mention_atoms hypsa (TT.mk_atom ~loc y) in
-    let e1 = TT.abstract [x] e1
-    and e2 = TT.abstract [y] (TT.substitute [x] [y_mentions] e2)
-    and b1 = TT.abstract_ty [x] b1
-    and b2 = TT.abstract_ty [x] (TT.substitute_ty [x] [y_mentions] b2) in
-    let lhs = TT.mk_lambda ~loc (Name.ident_of_atom x) ta1 e1 b1
-    and rhs = TT.mention_atoms hypsab (TT.mk_lambda ~loc (Name.ident_of_atom y) ta2 e2 b2)
-    and ty = TT.mk_prod_ty ~loc (Name.ident_of_atom x) ta1 b1 in
-    EqTerm (ctx, lhs, rhs, ty)
-
-let congr_apply ~loc (EqTy (ctxa, ta1, ta2))
-                (JAtom (_, x, _)) (JAtom (_, y, _))
-                (EqTy (ctxb, b1, b2))
-                (EqTerm (ctxh, h1, h2, ty_h))
-                (EqTerm (ctxe, e1, e2, ty_e)) =
-  let b1 = TT.abstract_ty [x] b1 in
-  let prod1 = TT.mk_prod_ty ~loc (Name.ident_of_atom x) ta1 b1 in
-  if not (TT.alpha_equal_ty prod1 ty_h)
-  then error ~loc (RuleInputMismatch ("congr-apply", prod1,
-       "the Pi inferred from the left-hand-sides of the type equalities",
-       ty_h,
-       "the type at which the functions are equal"))
-  else if not (TT.alpha_equal_ty ta1 ty_e)
-  then error ~loc (RuleInputMismatch ("congr-apply", ta1,
-       "the parameter type on the left-hand-side of the type equality",
-       ty_e,
-       "the type at which the arguments are equal"))
-  else
-    let ctxb = Ctx.abstract ~loc ctxb x ta1 in
-
-    let hypsa = Ctx.as_set ctxa
-    and hypsb = Ctx.as_set ctxb
-    and hypse = Ctx.as_set ctxe in
-    let hypsab = AtomSet.union hypsa hypsb in
-    let hypsabe = AtomSet.union hypsab hypse in
-
-    let y_mentions = TT.mention_atoms hypsa (TT.mk_atom ~loc y) in
-    let b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [y_mentions] b2) in
-    let ctx = Ctx.join ~loc ctxa (Ctx.join ~loc ctxb (Ctx.join ~loc ctxh ctxe)) in
-    let lhs = TT.mk_apply ~loc h1 (Name.ident_of_atom x) ta1 b1 e1
-    and rhs = TT.mk_apply ~loc (TT.mention_atoms hypsab h2) (Name.ident_of_atom y) ta2 (TT.mention_atoms_ty hypsa b2) (TT.mention_atoms hypsa e2)
-    and ty = TT.instantiate_ty [e1] b1 in
-    let rhs = TT.mention_atoms hypsabe rhs in
-    EqTerm (ctx, lhs, rhs, ty)
-
-let congr_eq ~loc (EqTy (ctxt, t1, t2))
-             (EqTerm (ctxl, l1, l2, ty_l))
-             (EqTerm (ctxr, r1, r2, ty_r)) =
-  if not (TT.alpha_equal_ty t1 ty_l)
-  then error ~loc (RuleInputMismatch ("congr-eq",
-       t1, "the left-hand-side of the type equality",
-       ty_l, "the type at which the first pair of terms are being compared"))
-  else if not (TT.alpha_equal_ty t1 ty_r)
-  then error ~loc (RuleInputMismatch ("congr-eq",
-       t1, "the left-hand-side of the type equality",
-       ty_r,  "the type at which the second pair of terms are being compared"))
-  else
-    let ctx = Ctx.join ~loc ctxt (Ctx.join ~loc ctxl ctxr) in
-
-    let hypst = Ctx.as_set ctxt in
-
-    let lhs = TT.mk_eq ~loc t1 l1 (TT.mention_atoms hypst r1)
-    and rhs = TT.mk_eq ~loc t2 l2 (TT.mention_atoms hypst r2) in
-    EqTerm (ctx, lhs, rhs, TT.typ)
-
-let congr_eq_ty ~loc eq_ty eq_l eq_r =
-  is_type_equality ~loc (congr_eq ~loc eq_ty eq_l eq_r)
-
-let congr_refl ~loc (EqTy (ctxt, t1, t2))
-               (EqTerm (ctxe, e1, e2, ty_e)) =
-  if not (TT.alpha_equal_ty t1 ty_e)
-  then error ~loc (RuleInputMismatch ("congr-refl",
-         t1, "the left-hand-side of the type equality",
-         ty_e, "the type at which the two terms are being compared"))
-  else
-    let ctx = Ctx.join ~loc ctxt ctxe in
-
-    let hypst = Ctx.as_set ctxt
-    and hypse = Ctx.as_set ctxe in
-    let hyps = AtomSet.union hypst hypse in
-
-    let lhs = TT.mk_refl ~loc t1 e1
-    and rhs = TT.mention_atoms hyps (TT.mk_refl ~loc t2 (TT.mention_atoms hypst e2))
-    and ty = TT.mk_eq_ty ~loc t1 e1 e1 in
-    EqTerm (ctx, lhs, rhs, ty)
-
-(** Derivables *)
-
-let natural_ty ~loc env ctx e =
-  match e.TT.term with
-    | TT.Type ->
-      TT.typ
-
-    | TT.Atom x ->
-      begin match Ctx.lookup_atom x ctx with
-        | Some (JAtom (_, _, t)) -> t
-        | None -> assert false
-      end
-
-    | TT.Constant c ->
-      Signature.constant_type c env
-
-    | TT.Prod _ ->
-      TT.typ
-
-    | TT.Lambda ((x,a),(_,b)) ->
-      TT.mk_prod_ty ~loc x a b
-
-    | TT.Apply (_,(_,b),e2) ->
-      TT.instantiate_ty [e2] b
-
-    | TT.Eq _ ->
-      TT.typ
-
-    | TT.Refl (a,e) ->
-      TT.mk_eq_ty ~loc a e e
-
-    | TT.Bound _ -> assert false
-
-let natural_eq ~loc env (Term (ctx, e, derived)) =
-  let natural = natural_ty ~loc env ctx e in
-  EqTy (ctx, natural, derived)
-
-let mk_refl ~loc (EqTerm (ctx1, lhs1, rhs1, t1)) (EqTerm (ctx2, lhs2, rhs2, t2)) =
-  if not (TT.alpha_equal_ty t1 t2)
-  then error ~loc (RuleInputMismatch ("mk-refl",
-     t1, "the type at which the first equality holds",
-     t2, "the type at which the second equality holds"))
-  else if not (TT.alpha_equal lhs1 lhs2)
-  then error ~loc (RuleInputMismatchTerm ("mk-refl",
-     lhs1, "the left-hand term in the first equality",
-     lhs2, "the left-hand term in the second equality"))
-  else
-    let hyps1 = Ctx.as_set ctx1
-    and hyps2 = Ctx.as_set ctx2 in
-    let hyps = AtomSet.union hyps1 hyps2 in
-
-    let ctx = Ctx.join ~loc ctx1 ctx2 in
-    let term = TT.mk_refl ~loc t1 lhs1 in
-    let term = TT.mention_atoms hyps term in
-    Term (ctx, term, TT.mk_eq_ty ~loc t1 rhs1 rhs2)
-
-let refl_of_eq ~loc (EqTerm (ctx, lhs, rhs, ty)) =
-  let hyps = Ctx.as_set ctx in
-  let term = TT.mk_refl ~loc ty lhs in
-  let term = TT.mention_atoms hyps term in
-  Term (ctx, term, TT.mk_eq_ty ~loc ty lhs rhs)
-
-let refl_of_eq_ty ~loc (EqTy (ctx, TT.Ty lhs, TT.Ty rhs)) =
-  let hyps = Ctx.as_set ctx in
-  let term = TT.mk_refl ~loc TT.typ lhs in
-  let term = TT.mention_atoms hyps term in
-  Term (ctx, term, TT.mk_eq_ty ~loc TT.typ lhs rhs)
-
+     Format.fprintf ppf "The types@ %t@ and@ %t@ should be alpha equal."
+                    (TT.print_type ~penv t1) (TT.print_type ~penv t2)
+
+  | AlphaEqualTermMismatch (e1, e2) ->
+     Format.fprintf ppf "The terms@ %t@ and@ %t@ should be alpha equal."
+                    (TT.print_term ~penv e1) (TT.print_term ~penv e2)
 
 module Json =
-struct
+  struct
 
-  let context ctx =
-    let dict =
-      AtomMap.fold
-        (fun x {ty; needed_by} dict ->
-         (Name.Json.atom x,
-          Json.tuple [TT.Json.ty ty; Name.Json.atomset needed_by]) :: dict)
-        ctx
-        []
-    in
-    Json.Dict dict
+    let rec abstraction json_u = function
+      | TT.NotAbstract u -> Json.tag "NotAbstract" [json_u u]
+      | TT.Abstract (x, t, abstr) ->
+         Json.tag "Abstract" [Name.Json.ident x; TT.Json.ty t; abstraction json_u abstr]
 
-  let term (Term (ctx, e, ty)) =
-    Json.record [("context", context ctx);
-                 ("term", TT.Json.term e);
-                 ("ty", TT.Json.ty ty)]
+    let is_term e = Json.tag "IsTerm" [TT.Json.term e]
 
-  let ty (Ty (ctx, ty)) =
-    Json.record [("context", context ctx);
-                 ("ty", TT.Json.ty ty)]
-end
+    let is_type t = Json.tag "IsType" [TT.Json.ty t]
+
+    let eq_term (TT.EqTerm (asmp, e1, e2, t)) =
+      Json.tag "EqTerm" [Assumption.Json.assumptions asmp; TT.Json.term e1; TT.Json.term e2; TT.Json.ty t]
+
+    let eq_type (TT.EqType (asmp, t1, t2)) =
+      Json.tag "EqType" [Assumption.Json.assumptions asmp; TT.Json.ty t1; TT.Json.ty t2]
+
+  end
