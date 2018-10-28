@@ -22,6 +22,7 @@ type error =
   | OperationExpected : Name.ident * 'a info -> error
   | OperationAlreadyDeclared of Name.ident
   | AMLConstructorAlreadyDeclared of Name.ident
+  | TTConstructorAlreadyDeclared of Name.ident
   | InvalidTermPatternName : Name.ident * 'a info -> error
   | InvalidPatternName : Name.ident * 'a info -> error
   | InvalidAppliedPatternName : Name.ident * 'a info -> error
@@ -38,6 +39,7 @@ let print_error err ppf = match err with
   | OperationExpected (x, info) -> Format.fprintf ppf "%t should be an operation, but is %t." (Name.print_ident x) (print_info info)
   | OperationAlreadyDeclared x -> Format.fprintf ppf "An operation %t is already declared." (Name.print_ident x)
   | AMLConstructorAlreadyDeclared x -> Format.fprintf ppf "The AML constructor %t is already declared." (Name.print_ident x)
+  | TTConstructorAlreadyDeclared x -> Format.fprintf ppf "The rule %t is already declared." (Name.print_ident x)
   | InvalidTermPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a term pattern as it is %t." (Name.print_ident x) (print_info info)
   | InvalidPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a pattern as it is %t." (Name.print_ident x) (print_info info)
   | InvalidAppliedPatternName (x, info) -> Format.fprintf ppf "%t cannot be applied in a pattern as it is %t." (Name.print_ident x) (print_info info)
@@ -113,6 +115,12 @@ module Ctx = struct
     else
       { ctx with bound = (c, AMLConstructor k) :: ctx.bound }
 
+  let add_tt_constructor ~loc c k ctx =
+    if List.exists (function (c', TTConstructor _) -> Name.eq_ident c c' | _ -> false) ctx.bound
+    then
+      error ~loc (TTConstructorAlreadyDeclared c)
+    else
+      { ctx with bound = (c, TTConstructor k) :: ctx.bound }
 
   (* Add to the context the fact that [ty] is a type constructor with
      [k] parameters. *)
@@ -969,19 +977,23 @@ let rec premises ctx = function
 
 let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
   match cmd with
+
   | Input.RuleIsType (rname, prems) ->
      let prems = premises ctx prems in
+     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
      (ctx, locate (Dsyntax.RuleIsType (rname, prems)) loc)
 
   | Input.RuleIsTerm (rname, prems, c) ->
      let prems = premises ctx prems in
      let c = comp ~yield:false ctx c in
+     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
      (ctx, locate (Dsyntax.RuleIsTerm (rname, prems, c)) loc)
 
   | Input.RuleEqType (rname, prems, (c1, c2)) ->
      let prems = premises ctx prems in
      let c1 = comp ~yield:false ctx c1 in
      let c2 = comp ~yield:false ctx c2 in
+     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
      (ctx, locate (Dsyntax.RuleEqType (rname, prems, (c1, c2))) loc)
 
   | Input.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
@@ -989,6 +1001,7 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
      let c1 = comp ~yield:false ctx c1 in
      let c2 = comp ~yield:false ctx c2 in
      let c3 = comp ~yield:false ctx c3 in
+     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
      (ctx, locate (Dsyntax.RuleEqTerm (rname, prems, (c1, c2, c3))) loc)
 
   | Input.DeclOperation (op, (args, res)) ->
