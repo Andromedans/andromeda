@@ -33,10 +33,13 @@ val lookup_op : Name.operation -> (Mlty.ty list * Mlty.ty) tyenvM
 val lookup_aml_constructor : Name.constructor -> (Mlty.ty list * Mlty.ty) tyenvM
 
 (** Lookup a TT constructor, returning its expected form. *)
-val lookup_tt_constructor : Name.constructor -> Mlty.tt_constructor_ty tyenvM
+val lookup_tt_constructor : Name.constructor -> Mlty.tt_constructor tyenvM
 
 (** Lookup the continuation, returning the expected type of its argument and the type it returns. *)
 val lookup_continuation : (Mlty.ty * Mlty.ty) tyenvM
+
+(** Add a TT constructor to the typing context, globally forever. *)
+val add_tt_constructor : Name.constructor -> Mlty.tt_constructor -> unit tyenvM
 
 (** [add_equation ~loc t1 t2] try to unify the actual type [t1] with the expected type
     [t2]. If successful, retry to solve the current unsolved constraints. *)

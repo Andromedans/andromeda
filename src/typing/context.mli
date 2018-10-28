@@ -17,10 +17,13 @@ val lookup_op : Name.operation -> t -> Mlty.ty list * Mlty.ty
 val lookup_aml_constructor : Name.constructor -> t -> Mlty.ty list * Mlty.ty
 
 (** Lookup an TT constructor, returning the expected types of its arguments and the type it returns. *)
-val lookup_tt_constructor : Name.constructor -> t -> Mlty.tt_constructor_ty
+val lookup_tt_constructor : Name.constructor -> t -> Mlty.tt_constructor
 
 (** Lookup the continuation, returning the expected type of its argument and the type it returns. *)
 val lookup_continuation : t -> Mlty.ty * Mlty.ty
+
+(** Define a new TT constructor. *)
+val add_tt_constructor : Name.constructor -> Mlty.tt_constructor -> t -> t
 
 (** Define a new type. The type definition may refer to not-yet-defined types, relying on the caller to add them afterwards. *)
 val add_tydef : Name.ident -> Mlty.ty_def -> t -> t

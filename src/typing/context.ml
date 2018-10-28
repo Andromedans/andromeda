@@ -5,7 +5,7 @@ type t = {
   types : (Name.ident * Mlty.ty_def) list; (* types are accessed by De Bruijn level, the name is for printing *)
   variables : (Name.ident * Mlty.ty_schema) list; (* variables are accessed by De Bruijn index, the name is for printing *)
   operations : (Mlty.ty list * Mlty.ty) OperationMap.t;
-  tt_constructors : Mlty.tt_constructor_ty Name.IdentMap.t ; (* constructors are accessed by their names *)
+  tt_constructors : Mlty.tt_constructor Name.IdentMap.t ; (* constructors are accessed by their names *)
   continuation : (Mlty.ty * Mlty.ty) option;
 }
 
@@ -50,6 +50,10 @@ let lookup_continuation {continuation;_} =
   match continuation with
     | Some cont -> cont
     | None -> assert false
+
+let add_tt_constructor c t ctx =
+  let tt_constructors = Name.IdentMap.add c t ctx.tt_constructors in
+  {ctx with tt_constructors}
 
 let add_tydef t d ctx =
   let types = (t, d) :: ctx.types in

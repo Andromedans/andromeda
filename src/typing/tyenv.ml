@@ -203,6 +203,10 @@ let rec unifiable ctx s t t' =
      Mlty.Param _ | Mlty.Arrow _ | Mlty.Handler _ | Mlty.App _), _ ->
      None
 
+let add_tt_constructor c t env =
+  let context = Context.add_tt_constructor c t env.context in
+  (), {env with context}
+
 let rec add_equation ~loc t t' env =
   match unifiable env.context env.substitution t t' with
 

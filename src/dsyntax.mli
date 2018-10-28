@@ -122,7 +122,6 @@ type ml_tydef =
   | ML_Sum of constructor_decl list
   | ML_Alias of ml_ty
 
-
 type local_context = (Name.ident * comp) list
 
 type premise = premise' located

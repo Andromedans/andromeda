@@ -80,9 +80,22 @@ type constructor_decl = Name.aml_constructor * ml_ty list
 
 type ml_tydef = Dsyntax.ml_tydef
 
+type local_context = (Name.ident * comp) list
+
+type premise = premise' located
+and premise' =
+  | PremiseIsType of Name.ident * local_context
+  | PremiseIsTerm of Name.ident * local_context * comp
+  | PremiseEqType of Name.ident option * local_context * (comp * comp)
+  | PremiseEqTerm of Name.ident option * local_context * (comp * comp * comp)
+
 (** Toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
+  | RuleIsType of Name.ident * premise list
+  | RuleIsTerm of Name.ident * premise list * comp
+  | RuleEqType of Name.ident * premise list * (comp * comp)
+  | RuleEqTerm of Name.ident * premise list * (comp * comp * comp)
   | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
   | DeclOperation of Name.operation * (ml_ty list * ml_ty)

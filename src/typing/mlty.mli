@@ -42,7 +42,16 @@ type ty =
   | Dynamic of ty
 
 (** The AML type of a TT constructor. *)
-type tt_constructor_ty = abstracted_judgement list * judgement
+type tt_constructor = abstracted_judgement list * judgement
+
+(** Non-abstracted type judgement *)
+val is_type : ty
+
+(** Non-abstracted term judgement *)
+val is_term : ty
+
+(** Non-abstracted equality type judgement *)
+val eq_type : ty
 
 (** The unit type encoded as an empty product. *)
 val unit_ty : ty

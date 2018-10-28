@@ -49,7 +49,13 @@ type ty =
   | Ref of ty
   | Dynamic of ty
 
-type tt_constructor_ty = abstracted_judgement list * judgement
+type tt_constructor = abstracted_judgement list * judgement
+
+let is_type = Judgement (NotAbstract IsType)
+
+let is_term = Judgement (NotAbstract IsTerm)
+
+let eq_type = Judgement (NotAbstract EqType)
 
 let unit_ty = Prod []
 
