@@ -141,6 +141,17 @@ type ml_tydef =
   | ML_Sum of constructor_decl list
   | ML_Alias of ml_ty
 
+(** The local context of a premise to a rule. *)
+type local_context = (Name.ident * comp) list
+
+(** A premise to a rule *)
+type premise = premise' located
+and premise' =
+  | PremiseIsType of Name.ident * local_context
+  | PremiseIsTerm of Name.ident * local_context * ty
+  | PremiseEqType of Name.ident option * local_context * (ty * ty)
+  | PremiseEqTerm of Name.ident option * local_context * (term * term * ty)
+
 (** Sugared toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
@@ -161,12 +172,3 @@ and toplevel' =
   | RuleIsTerm of Name.ident * premise list * ty
   | RuleEqType of Name.ident * premise list * (ty * ty)
   | RuleEqTerm of Name.ident * premise list * (term * term * ty)
-
-and premise = premise' located
-and premise' =
-  | PremiseIsType of Name.ident * local_context
-  | PremiseIsTerm of Name.ident * local_context * ty
-  | PremiseEqType of Name.ident option * local_context * (ty * ty)
-  | PremiseEqTerm of Name.ident option * local_context * (term * term * ty)
-
-and local_context = (Name.ident * comp) list
