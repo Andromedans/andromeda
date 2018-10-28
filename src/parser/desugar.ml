@@ -933,89 +933,144 @@ let mlty_rec_defs ~loc ctx lst =
   in
   fold ctx [] lst
 
+let local_context ctx lst =
+  List.map (fun (x, c) -> (x, comp ~yield:false ctx c)) lst
+
+let premise ctx {Location.thing=prem;loc} =
+  match prem with
+  | Input.PremiseIsType (rname, local_ctx) ->
+     let local_ctx = local_context ctx local_ctx in
+     locate (Dsyntax.PremiseIsType (rname, local_ctx)) loc
+
+  | Input.PremiseIsTerm (rname, local_ctx, c) ->
+     let local_ctx = local_context ctx local_ctx in
+     let c = comp ~yield:false ctx c in
+     locate (Dsyntax.PremiseIsTerm (rname, local_ctx, c)) loc
+
+  | Input.PremiseEqType (rname, local_ctx, (c1, c2)) ->
+     let local_ctx = local_context ctx local_ctx in
+     let c1 = comp ~yield:false ctx c1 in
+     let c2 = comp ~yield:false ctx c2 in
+     locate (Dsyntax.PremiseEqType (rname, local_ctx, (c1, c2))) loc
+
+  | Input.PremiseEqTerm (rname, local_ctx, (c1, c2, c3)) ->
+     let local_ctx = local_context ctx local_ctx in
+     let c1 = comp ~yield:false ctx c1 in
+     let c2 = comp ~yield:false ctx c2 in
+     let c3 = comp ~yield:false ctx c3 in
+     locate (Dsyntax.PremiseEqTerm (rname, local_ctx, (c1, c2, c3))) loc
+
+let rec premises ctx = function
+  | [] -> []
+  | prem :: prems ->
+     let prem = premise ctx prem in
+     let prems = premises ctx prems in
+     prem :: prems
+
 let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
   match cmd with
+  | Input.RuleIsType (rname, prems) ->
+     let prems = premises ctx prems in
+     (ctx, locate (Dsyntax.RuleIsType (rname, prems)) loc)
 
-    | Input.DeclOperation (op, (args, res)) ->
-       let args, res = decl_operation ~loc ctx args res in
-       let ctx = Ctx.add_operation ~loc op (List.length args) ctx in
-       (ctx, locate (Dsyntax.DeclOperation (op, (args, res))) loc)
+  | Input.RuleIsTerm (rname, prems, c) ->
+     let prems = premises ctx prems in
+     let c = comp ~yield:false ctx c in
+     (ctx, locate (Dsyntax.RuleIsTerm (rname, prems, c)) loc)
 
-    | Input.DefMLType lst ->
-       let ctx, lst = mlty_defs ~loc ctx lst in
-       (ctx, locate (Dsyntax.DefMLType lst) loc)
+  | Input.RuleEqType (rname, prems, (c1, c2)) ->
+     let prems = premises ctx prems in
+     let c1 = comp ~yield:false ctx c1 in
+     let c2 = comp ~yield:false ctx c2 in
+     (ctx, locate (Dsyntax.RuleEqType (rname, prems, (c1, c2))) loc)
 
-    | Input.DefMLTypeRec lst ->
-       let ctx, lst = mlty_rec_defs ~loc ctx lst in
-       (ctx, locate (Dsyntax.DefMLTypeRec lst) loc)
+  | Input.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
+     let prems = premises ctx prems in
+     let c1 = comp ~yield:false ctx c1 in
+     let c2 = comp ~yield:false ctx c2 in
+     let c3 = comp ~yield:false ctx c3 in
+     (ctx, locate (Dsyntax.RuleEqTerm (rname, prems, (c1, c2, c3))) loc)
 
-    | Input.DeclExternal (x, sch, s) ->
-       let sch = ml_schema ctx sch in
-       let ctx = Ctx.add_variable x ctx in
-       (ctx, locate (Dsyntax.DeclExternal (x, sch, s)) loc)
+  | Input.DeclOperation (op, (args, res)) ->
+     let args, res = decl_operation ~loc ctx args res in
+     let ctx = Ctx.add_operation ~loc op (List.length args) ctx in
+     (ctx, locate (Dsyntax.DeclOperation (op, (args, res))) loc)
 
-    | Input.TopHandle lst ->
-       let lst =
-         List.map
-           (fun (op, (xs, y, c)) ->
-              let k = Ctx.get_operation ~loc op ctx in
-              let n = List.length xs in
-              if n <> k
-              then
-                error ~loc (ArityMismatch (op, n, k))
-              else
-                let rec fold ctx xs' = function
-                  | [] -> ctx, List.rev xs'
-                  | None :: xs ->
-                     let x = Name.anonymous () in
-                     fold (Ctx.add_variable x ctx) (x::xs') xs
-                  | Some x :: xs ->
-                    if List.exists (function None -> false | Some y -> Name.eq_ident x y) xs
-                    then error ~loc (ParallelShadowing x)
-                    else fold (Ctx.add_variable x ctx) (x::xs') xs
-                in
-                let ctx, xs = fold ctx [] xs in
-                let ctx = match y with | Some y -> Ctx.add_variable y ctx | None -> ctx in
-                op, (xs, y, comp ~yield:false ctx c)
-           )
-           lst
-       in
-       (ctx, locate (Dsyntax.TopHandle lst) loc)
+  | Input.DefMLType lst ->
+     let ctx, lst = mlty_defs ~loc ctx lst in
+     (ctx, locate (Dsyntax.DefMLType lst) loc)
 
-    | Input.TopLet lst ->
-       let ctx, lst = let_clauses ~loc ~yield:false ctx lst in
-       (ctx, locate (Dsyntax.TopLet lst) loc)
+  | Input.DefMLTypeRec lst ->
+     let ctx, lst = mlty_rec_defs ~loc ctx lst in
+     (ctx, locate (Dsyntax.DefMLTypeRec lst) loc)
 
-    | Input.TopLetRec lst ->
-       let ctx, lst = letrec_clauses ~loc ~yield:false ctx lst in
-       (ctx, locate (Dsyntax.TopLetRec lst) loc)
+  | Input.DeclExternal (x, sch, s) ->
+     let sch = ml_schema ctx sch in
+     let ctx = Ctx.add_variable x ctx in
+     (ctx, locate (Dsyntax.DeclExternal (x, sch, s)) loc)
 
-    | Input.TopDynamic (x, annot, c) ->
-       let c = comp ~yield:false ctx c in
-       let ctx = Ctx.add_variable x ctx in
-       let annot = arg_annotation ctx annot in
-       (ctx, locate (Dsyntax.TopDynamic (x, annot, c)) loc)
+  | Input.TopHandle lst ->
+     let lst =
+       List.map
+         (fun (op, (xs, y, c)) ->
+           let k = Ctx.get_operation ~loc op ctx in
+           let n = List.length xs in
+           if n <> k
+           then
+             error ~loc (ArityMismatch (op, n, k))
+           else
+             let rec fold ctx xs' = function
+               | [] -> ctx, List.rev xs'
+               | None :: xs ->
+                  let x = Name.anonymous () in
+                  fold (Ctx.add_variable x ctx) (x::xs') xs
+               | Some x :: xs ->
+                  if List.exists (function None -> false | Some y -> Name.eq_ident x y) xs
+                  then error ~loc (ParallelShadowing x)
+                  else fold (Ctx.add_variable x ctx) (x::xs') xs
+             in
+             let ctx, xs = fold ctx [] xs in
+             let ctx = match y with | Some y -> Ctx.add_variable y ctx | None -> ctx in
+             op, (xs, y, comp ~yield:false ctx c)
+         )
+         lst
+     in
+     (ctx, locate (Dsyntax.TopHandle lst) loc)
 
-    | Input.TopNow (x, c) ->
-       let x = comp ~yield:false ctx x in
-       let c = comp ~yield:false ctx c in
-       (ctx, locate (Dsyntax.TopNow (x, c)) loc)
+  | Input.TopLet lst ->
+     let ctx, lst = let_clauses ~loc ~yield:false ctx lst in
+     (ctx, locate (Dsyntax.TopLet lst) loc)
 
-    | Input.TopDo c ->
-       let c = comp ~yield:false ctx c in
-       (ctx, locate (Dsyntax.TopDo c) loc)
+  | Input.TopLetRec lst ->
+     let ctx, lst = letrec_clauses ~loc ~yield:false ctx lst in
+     (ctx, locate (Dsyntax.TopLetRec lst) loc)
 
-    | Input.TopFail c ->
-       let c = comp ~yield:false ctx c in
-       (ctx, locate (Dsyntax.TopFail c) loc)
+  | Input.TopDynamic (x, annot, c) ->
+     let c = comp ~yield:false ctx c in
+     let ctx = Ctx.add_variable x ctx in
+     let annot = arg_annotation ctx annot in
+     (ctx, locate (Dsyntax.TopDynamic (x, annot, c)) loc)
 
-    | Input.Verbosity n ->
-       (ctx, locate (Dsyntax.Verbosity n) loc)
+  | Input.TopNow (x, c) ->
+     let x = comp ~yield:false ctx x in
+     let c = comp ~yield:false ctx c in
+     (ctx, locate (Dsyntax.TopNow (x, c)) loc)
 
-    | Input.Require fs ->
-      let rec fold ctx res = function
-        | [] -> (ctx, locate (Dsyntax.Included (List.rev res)) loc)
-        | fn::fs ->
+  | Input.TopDo c ->
+     let c = comp ~yield:false ctx c in
+     (ctx, locate (Dsyntax.TopDo c) loc)
+
+  | Input.TopFail c ->
+     let c = comp ~yield:false ctx c in
+     (ctx, locate (Dsyntax.TopFail c) loc)
+
+  | Input.Verbosity n ->
+     (ctx, locate (Dsyntax.Verbosity n) loc)
+
+  | Input.Require fs ->
+     let rec fold ctx res = function
+       | [] -> (ctx, locate (Dsyntax.Included (List.rev res)) loc)
+       | fn::fs ->
           let fn =
             if Filename.is_relative fn
             then Filename.concat basedir fn
@@ -1026,13 +1081,13 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
             fold ctx res fs
           else
             begin if Sys.file_exists fn then
-                let ctx, cmds = file ctx fn in
-                fold ctx ((fn, cmds)::res) fs
-              else
-                error ~loc (RequiredFileMissing fn)
+                    let ctx, cmds = file ctx fn in
+                    fold ctx ((fn, cmds)::res) fs
+                  else
+                    error ~loc (RequiredFileMissing fn)
             end
-      in
-      fold ctx [] fs
+     in
+     fold ctx [] fs
 
 and file ctx fn =
   if Ctx.included fn ctx
@@ -1043,8 +1098,8 @@ and file ctx fn =
     let ctx = Ctx.push_file fn ctx in
     let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
     let ctx, cmds = List.fold_left (fun (ctx,cmds) cmd ->
-        let ctx, cmd = toplevel ~basedir ctx cmd in
-        (ctx, cmd::cmds))
-      (ctx,[]) cmds
+                        let ctx, cmd = toplevel ~basedir ctx cmd in
+                        (ctx, cmd::cmds))
+                      (ctx,[]) cmds
     in
     ctx, List.rev cmds
