@@ -146,6 +146,10 @@ and premise' =
 (** Sugared toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
+  | RuleIsType of Name.ident * premise list
+  | RuleIsTerm of Name.ident * premise list * comp
+  | RuleEqType of Name.ident * premise list * (comp * comp)
+  | RuleEqTerm of Name.ident * premise list * (comp * comp * comp)
   | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
   | DeclOperation of Name.ident * (ml_ty list * ml_ty)
@@ -159,7 +163,3 @@ and toplevel' =
   | TopFail of comp
   | Verbosity of int
   | Require of string list
-  | RuleIsType of Name.ident * premise list
-  | RuleIsTerm of Name.ident * premise list * comp
-  | RuleEqType of Name.ident * premise list * (comp * comp)
-  | RuleEqTerm of Name.ident * premise list * (comp * comp * comp)
