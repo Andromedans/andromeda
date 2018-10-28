@@ -116,7 +116,7 @@ plain_topcomp:
   | RULE r=plain_rule                                 { r }
 
 plain_rule:
-  | c=var_name ps=premises COLON TYPE
+  | c=var_name ps=premises TYPE
     { RuleIsType (c, ps) }
   | c=var_name ps=premises COLON ty=term
     { RuleIsTerm (c, ps, ty) }
