@@ -73,13 +73,13 @@ and pattern' =
   | Patt_Tuple of pattern list
 
 (** Sugared terms *)
-type term = term' located
-and term' =
+type comp = comp' located
+and comp' =
   | Var of Name.ident
   | Function of ml_arg list * comp
   | Handler of handle_case list
   | Handle of comp * handle_case list
-  | With of expr * comp
+  | With of comp * comp
   | List of comp list
   | Tuple of comp list
   | Match of comp * match_case list
@@ -93,7 +93,7 @@ and term' =
   | Ref of comp
   | Sequence of comp * comp
   | Assume of (Name.ident * comp) * comp
-  | Ascribe of comp * ty
+  | Ascribe of comp * comp
   | Abstract of (Name.ident * comp option) list * comp
   (* Multi-argument substitutions are *not* treated as parallel substitutions
      but desugared to consecutive substitutions. *)
@@ -105,18 +105,9 @@ and term' =
   | Occurs of comp * comp
   | Natural of comp
 
-(** Sugared types *)
-and ty = term
-
-(** Sugared computations *)
-and comp = term
-
-(** Sugared expressions *)
-and expr = term
-
 and let_clause =
   | Let_clause_ML of Name.ident * ml_arg list * let_annotation * comp
-  | Let_clause_tt of Name.ident * ty * comp
+  | Let_clause_tt of Name.ident * comp * comp
   | Let_clause_patt of pattern * let_annotation * comp
 
 (* XXX we should be able to destruct the first argument of a recursive function with an
@@ -148,9 +139,9 @@ type local_context = (Name.ident * comp) list
 type premise = premise' located
 and premise' =
   | PremiseIsType of Name.ident * local_context
-  | PremiseIsTerm of Name.ident * local_context * ty
-  | PremiseEqType of Name.ident option * local_context * (ty * ty)
-  | PremiseEqTerm of Name.ident option * local_context * (term * term * ty)
+  | PremiseIsTerm of Name.ident * local_context * comp
+  | PremiseEqType of Name.ident option * local_context * (comp * comp)
+  | PremiseEqTerm of Name.ident option * local_context * (comp * comp * comp)
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' located
@@ -169,6 +160,6 @@ and toplevel' =
   | Verbosity of int
   | Require of string list
   | RuleIsType of Name.ident * premise list
-  | RuleIsTerm of Name.ident * premise list * ty
-  | RuleEqType of Name.ident * premise list * (ty * ty)
-  | RuleEqTerm of Name.ident * premise list * (term * term * ty)
+  | RuleIsTerm of Name.ident * premise list * comp
+  | RuleEqType of Name.ident * premise list * (comp * comp)
+  | RuleEqTerm of Name.ident * premise list * (comp * comp * comp)
