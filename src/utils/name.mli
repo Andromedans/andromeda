@@ -11,6 +11,8 @@ type ident = private Ident of string * fixity
 
 type atom = private Atom of string * fixity * int
 
+type meta = atom
+
 (** Aliases with different semantics *)
 type constant = ident
 type constructor = ident

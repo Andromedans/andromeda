@@ -17,7 +17,7 @@ type ty = private
 
 and term = private
   (** a free variable *)
-  | TermAtom of ty atom
+  | TermAtom of atom
 
   (** a bound variable *)
   | TermBound of bound
@@ -35,28 +35,28 @@ and eq_term = private EqTerm of assumption * term * term * ty
 
 and assumption = ty Assumption.t
 
-and 't atom = private { atom_name : Name.atom ; atom_type : 't }
+and atom = private { atom_name : Name.atom ; atom_type : ty }
 
 (** An argument of a term or type constructor. *)
 and argument = private
-  | ArgIsTerm of term abstraction
   | ArgIsType of ty abstraction
+  | ArgIsTerm of term abstraction
   | ArgEqType of eq_type abstraction
   | ArgEqTerm of eq_term abstraction
 
 (** An abstracted entity. *)
 and 'a abstraction = private
-  | Abstract of Name.ident * ty * 'a abstraction
   | NotAbstract of 'a
+  | Abstract of Name.ident * ty * 'a abstraction
 
 
 (** Term constructors, these do not check for legality of constructions. *)
 
 (** Create a fresh atom of the given type. *)
-val fresh_atom : Name.ident -> 't -> 't atom
+val fresh_atom : Name.ident -> ty -> atom
 
 (** Create the judgement that an atom has its type. *)
-val mk_atom : ty atom -> term
+val mk_atom : atom -> term
 
 (** Create a bound variable (it's a hole in a derivation?) *)
 val mk_bound : bound -> term
@@ -120,24 +120,24 @@ val fully_instantiate_term : ?lvl:bound -> term list -> term -> term
 
 (** [unabstract_type x t1 t2] instantiates bound variable [0] in [t2] with a fresh atom of type [t1].
     The freshly generated atom is returned, as well as the type. *)
-val unabstract_type : Name.ident -> ty ->  ty -> ty atom * ty
+val unabstract_type : Name.ident -> ty ->  ty -> atom * ty
 
 (** [unabstract_term x t e] instantiates bound variable [0] in [e] with a fresh atom of type [t].
     The freshly generated atom is returned, as well as the type. *)
-val unabstract_term : Name.ident -> ty ->  term -> ty atom * term
+val unabstract_term : Name.ident -> ty ->  term -> atom * term
 
 (** [unabstract_eq_type x t eq] instantiates bound variable [0] in [eq] with a fresh atom of type [t].
     The freshly generated atom is returned, as well as the type. *)
-val unabstract_eq_type : Name.ident -> ty ->  eq_type -> ty atom * eq_type
+val unabstract_eq_type : Name.ident -> ty ->  eq_type -> atom * eq_type
 
 (** [unabstract_eq_term x t eq] instantiates bound variable [0] in [eq] with a fresh atom of type [t].
     The freshly generated atom is returned, as well as the type. *)
-val unabstract_eq_term : Name.ident -> ty ->  eq_term -> ty atom * eq_term
+val unabstract_eq_term : Name.ident -> ty ->  eq_term -> atom * eq_term
 
 (** [unabstract_abstraction inst_u x t abstr] instantiates bond variable [0] in [abstr] with a fresh atom of type [t].
     The freshly generated atom is returned, as well as the type. *)
 val unabstract_abstraction :
-  (term -> ?lvl:bound -> 'a -> 'a) -> Name.ident -> ty -> 'a abstraction -> ty atom * 'a abstraction
+  (term -> ?lvl:bound -> 'a -> 'a) -> Name.ident -> ty -> 'a abstraction -> atom * 'a abstraction
 
 (** [abstract_term x0 ~lvl:k t] replaces atom [x0] in type [t] with bound variable [k] (default [0]). *)
 val abstract_type : Name.atom -> ?lvl:bound -> ty -> ty
@@ -181,7 +181,7 @@ val assumptions_abstraction :
     assumptions_XYZ functions, but allows use of the assumptions as atoms.
     May only be called on closed terms. *)
 val context_abstraction :
-  (?lvl:bound -> 'a -> assumption) -> 'a abstraction -> ty atom list
+  (?lvl:bound -> 'a -> assumption) -> 'a abstraction -> atom list
 
 (** [alpha_equal_term e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal_term : term -> term -> bool

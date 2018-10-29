@@ -6,7 +6,7 @@ type ty =
   | TypeConstructor of Name.constructor * argument list
 
 and term =
-  | TermAtom of ty atom
+  | TermAtom of atom
   | TermBound of bound
   | TermConstructor of Name.constructor * argument list
   | TermConvert of term * assumption * ty
@@ -17,12 +17,12 @@ and eq_term = EqTerm of assumption * term * term * ty
 
 and assumption = ty Assumption.t
 
-and 't atom = { atom_name : Name.atom ; atom_type : 't }
+and atom = { atom_name : Name.atom ; atom_type : ty }
 
 (** An argument of a term or a type constructor *)
 and argument =
-  | ArgIsTerm of term abstraction
   | ArgIsType of ty abstraction
+  | ArgIsTerm of term abstraction
   | ArgEqType of eq_type abstraction
   | ArgEqTerm of eq_term abstraction
 
@@ -30,8 +30,8 @@ and argument =
    to constructors. Thus we do not carry any type information for the abstracted
    variable, as it can be recovered from the constructor. *)
 and 'a abstraction =
-  | Abstract of Name.ident * ty * 'a abstraction
   | NotAbstract of 'a
+  | Abstract of Name.ident * ty * 'a abstraction
 
 
 let equal_bound (i : bound) (j : bound) = (i = j)

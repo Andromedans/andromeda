@@ -10,6 +10,9 @@ type ident = Ident of string * fixity
 
 type atom = Atom of string * fixity * int
 
+(* We equate meta names and atoms because we forsee their merging. *)
+type meta = atom
+
 type constant = ident
 type constructor = ident
 

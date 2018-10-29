@@ -6,7 +6,7 @@ type is_term = TT.term
 
 type is_type = TT.ty
 
-type is_atom = is_type TT.atom
+type is_atom = TT.atom
 
 type eq_type = TT.eq_type
 
