@@ -956,21 +956,21 @@ let local_context ctx xcs m =
 
 let premise ctx {Location.thing=prem;loc} =
   match prem with
-  | Input.PremiseIsType (rname, local_ctx) ->
+  | Input.PremiseIsType (mvar, local_ctx) ->
      let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
-     let ctx = Ctx.add_variable rname ctx in
-     ctx, locate (Dsyntax.PremiseIsType (rname, local_ctx)) loc
+     let ctx = Ctx.add_variable mvar ctx in
+     ctx, locate (Dsyntax.PremiseIsType (mvar, local_ctx)) loc
 
-  | Input.PremiseIsTerm (rname, local_ctx, c) ->
+  | Input.PremiseIsTerm (mvar, local_ctx, c) ->
      let c, local_ctx =
        local_context
          ctx local_ctx
          (fun ctx -> comp ~yield:false ctx c)
      in
-     let ctx = Ctx.add_variable rname ctx in
-     ctx, locate (Dsyntax.PremiseIsTerm (rname, local_ctx, c)) loc
+     let ctx = Ctx.add_variable mvar ctx in
+     ctx, locate (Dsyntax.PremiseIsTerm (mvar, local_ctx, c)) loc
 
-  | Input.PremiseEqType (rname, local_ctx, (c1, c2)) ->
+  | Input.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
      let c12, local_ctx =
        local_context
          ctx local_ctx
@@ -979,13 +979,13 @@ let premise ctx {Location.thing=prem;loc} =
            comp ~yield:false ctx c2)
      in
      let ctx =
-       match rname with
+       match mvar with
        | None -> ctx
        | Some x -> Ctx.add_variable x ctx
      in
-     ctx, locate (Dsyntax.PremiseEqType (rname, local_ctx, c12)) loc
+     ctx, locate (Dsyntax.PremiseEqType (mvar, local_ctx, c12)) loc
 
-  | Input.PremiseEqTerm (rname, local_ctx, (c1, c2, c3)) ->
+  | Input.PremiseEqTerm (mvar, local_ctx, (c1, c2, c3)) ->
      let c123, local_ctx =
        local_context ctx local_ctx
        (fun ctx ->
@@ -994,11 +994,11 @@ let premise ctx {Location.thing=prem;loc} =
          comp ~yield:false ctx c3)
      in
      let ctx =
-       match rname with
+       match mvar with
        | None -> ctx
        | Some x -> Ctx.add_variable x ctx
      in
-     ctx, locate (Dsyntax.PremiseEqTerm (rname, local_ctx, c123)) loc
+     ctx, locate (Dsyntax.PremiseEqTerm (mvar, local_ctx, c123)) loc
 
 let premises ctx prems m =
   let rec fold ctx prems_out = function

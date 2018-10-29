@@ -734,16 +734,20 @@ let print_error err ppf =
 let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   Runtime.catch ~loc (lazy (match c with
     | Rsyntax.RuleIsType (x, prems) ->
-       failwith "evaluation of RuleIsType"
+       Print.error "evaluation of RuleIsType" ;
+       return ()
 
     | Rsyntax.RuleIsTerm (x, prems, c) ->
-       failwith "evaluation of RuleIsTerm"
+       Print.error "evaluation of RuleIsTerm" ;
+       return ()
 
     | Rsyntax.RuleEqType (x, prems, (c1, c2)) ->
-       failwith "evaluation of RuleEqType"
+       Print.error "evaluation of RuleEqType" ;
+       return ()
 
     | Rsyntax.RuleEqTerm (x, prems, (c1, c2, c3)) ->
-       failwith "evaluation of RuleEqTerm"
+       Print.error "evaluation of RuleEqTerm" ;
+       return ()
 
     | Rsyntax.DefMLType lst
 

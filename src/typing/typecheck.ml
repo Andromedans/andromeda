@@ -872,6 +872,13 @@ let premise {Location.thing=prem;loc} =
     | [] -> Mlty.NotAbstract t
     | _ :: lst -> Mlty.Abstract (abstractify t lst)
   in
+  let return_premise x p t =
+    begin match x with
+      | None -> return ()
+      | Some x -> Tyenv.add_var x (Mlty.Judgement t)
+    end >>= fun () ->
+    return (p, t)
+  in
 
   match prem with
 
@@ -879,13 +886,13 @@ let premise {Location.thing=prem;loc} =
      local_context lctx (return ()) >>= fun (lctx, ()) ->
      let p = locate ~loc (Rsyntax.PremiseIsType (x, lctx))
      and t = abstractify Mlty.IsType lctx in
-     return (p, t)
+     return_premise (Some x) p t
 
   | Dsyntax.PremiseIsTerm (x, lctx, c) ->
      local_context lctx (check_comp c Mlty.is_type) >>= fun (lctx, c) ->
      let p = locate ~loc (Rsyntax.PremiseIsTerm (x, lctx, c))
-     and t = abstractify Mlty.IsType lctx in
-     return (p, t)
+     and t = abstractify Mlty.IsTerm lctx in
+     return_premise (Some x) p t
 
   | Dsyntax.PremiseEqType (x, lctx, (c1, c2)) ->
      local_context lctx
@@ -894,8 +901,8 @@ let premise {Location.thing=prem;loc} =
         return (c1, c2))
      >>= fun (lctx, c12) ->
      let p = locate ~loc (Rsyntax.PremiseEqType (x, lctx, c12))
-     and t = abstractify Mlty.IsType lctx in
-     return (p, t)
+     and t = abstractify Mlty.EqType lctx in
+     return_premise x p t
 
   | Dsyntax.PremiseEqTerm (x, lctx, (c1, c2, c3)) ->
      local_context lctx
@@ -905,8 +912,8 @@ let premise {Location.thing=prem;loc} =
         return (c1, c2, c3))
      >>= fun (lctx, c123) ->
      let p = locate ~loc (Rsyntax.PremiseEqTerm (x, lctx, c123))
-     and t = abstractify Mlty.IsType lctx in
-     return (p, t)
+     and t = abstractify Mlty.EqTerm lctx in
+     return_premise x p t
 
 let premises prems m =
   let rec fold ps = function
