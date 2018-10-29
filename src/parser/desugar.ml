@@ -941,68 +941,117 @@ let mlty_rec_defs ~loc ctx lst =
   in
   fold ctx [] lst
 
-let local_context ctx lst =
-  List.map (fun (x, c) -> (x, comp ~yield:false ctx c)) lst
+let local_context ctx xcs m =
+  let rec fold ctx xcs_out = function
+    | [] ->
+       let xcs_out = List.rev xcs_out in
+       let v = m ctx in
+       v, xcs_out
+    | (x, c) :: xcs ->
+       let c = comp ~yield:false ctx c in
+       let ctx = Ctx.add_variable x ctx in
+       fold ctx ((x,c) :: xcs_out) xcs
+  in
+  fold ctx [] xcs
 
 let premise ctx {Location.thing=prem;loc} =
   match prem with
   | Input.PremiseIsType (rname, local_ctx) ->
-     let local_ctx = local_context ctx local_ctx in
-     locate (Dsyntax.PremiseIsType (rname, local_ctx)) loc
+     let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
+     let ctx = Ctx.add_variable rname ctx in
+     ctx, locate (Dsyntax.PremiseIsType (rname, local_ctx)) loc
 
   | Input.PremiseIsTerm (rname, local_ctx, c) ->
-     let local_ctx = local_context ctx local_ctx in
-     let c = comp ~yield:false ctx c in
-     locate (Dsyntax.PremiseIsTerm (rname, local_ctx, c)) loc
+     let c, local_ctx =
+       local_context
+         ctx local_ctx
+         (fun ctx -> comp ~yield:false ctx c)
+     in
+     let ctx = Ctx.add_variable rname ctx in
+     ctx, locate (Dsyntax.PremiseIsTerm (rname, local_ctx, c)) loc
 
   | Input.PremiseEqType (rname, local_ctx, (c1, c2)) ->
-     let local_ctx = local_context ctx local_ctx in
-     let c1 = comp ~yield:false ctx c1 in
-     let c2 = comp ~yield:false ctx c2 in
-     locate (Dsyntax.PremiseEqType (rname, local_ctx, (c1, c2))) loc
+     let c12, local_ctx =
+       local_context
+         ctx local_ctx
+         (fun ctx ->
+           comp ~yield:false ctx c1,
+           comp ~yield:false ctx c2)
+     in
+     let ctx =
+       match rname with
+       | None -> ctx
+       | Some x -> Ctx.add_variable x ctx
+     in
+     ctx, locate (Dsyntax.PremiseEqType (rname, local_ctx, c12)) loc
 
   | Input.PremiseEqTerm (rname, local_ctx, (c1, c2, c3)) ->
-     let local_ctx = local_context ctx local_ctx in
-     let c1 = comp ~yield:false ctx c1 in
-     let c2 = comp ~yield:false ctx c2 in
-     let c3 = comp ~yield:false ctx c3 in
-     locate (Dsyntax.PremiseEqTerm (rname, local_ctx, (c1, c2, c3))) loc
+     let c123, local_ctx =
+       local_context ctx local_ctx
+       (fun ctx ->
+         comp ~yield:false ctx c1,
+         comp ~yield:false ctx c2,
+         comp ~yield:false ctx c3)
+     in
+     let ctx =
+       match rname with
+       | None -> ctx
+       | Some x -> Ctx.add_variable x ctx
+     in
+     ctx, locate (Dsyntax.PremiseEqTerm (rname, local_ctx, c123)) loc
 
-let rec premises ctx = function
-  | [] -> []
-  | prem :: prems ->
-     let prem = premise ctx prem in
-     let prems = premises ctx prems in
-     prem :: prems
+let premises ctx prems m =
+  let rec fold ctx prems_out = function
+    | [] ->
+       let v = m ctx in
+       let prems_out = List.rev prems_out in
+       v, prems_out
+
+    | prem :: prems ->
+       let ctx, prem = premise ctx prem in
+       fold ctx (prem :: prems_out) prems
+  in
+  fold ctx [] prems
 
 let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
   match cmd with
 
   | Input.RuleIsType (rname, prems) ->
-     let prems = premises ctx prems in
+     let (), prems = premises ctx prems (fun _ -> ()) in
      let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
      (ctx, locate (Dsyntax.RuleIsType (rname, prems)) loc)
 
   | Input.RuleIsTerm (rname, prems, c) ->
-     let prems = premises ctx prems in
-     let c = comp ~yield:false ctx c in
+     let c, prems =
+       premises
+         ctx prems
+         (fun ctx -> comp ~yield:false ctx c)
+     in
      let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
      (ctx, locate (Dsyntax.RuleIsTerm (rname, prems, c)) loc)
 
   | Input.RuleEqType (rname, prems, (c1, c2)) ->
-     let prems = premises ctx prems in
-     let c1 = comp ~yield:false ctx c1 in
-     let c2 = comp ~yield:false ctx c2 in
+     let c12, prems =
+       premises
+         ctx prems
+         (fun ctx ->
+           comp ~yield:false ctx c1,
+           comp ~yield:false ctx c2)
+     in
      let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate (Dsyntax.RuleEqType (rname, prems, (c1, c2))) loc)
+     (ctx, locate (Dsyntax.RuleEqType (rname, prems, c12)) loc)
 
   | Input.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
-     let prems = premises ctx prems in
-     let c1 = comp ~yield:false ctx c1 in
-     let c2 = comp ~yield:false ctx c2 in
-     let c3 = comp ~yield:false ctx c3 in
+     let c123, prems =
+       premises
+         ctx prems
+         (fun ctx ->
+          comp ~yield:false ctx c1,
+          comp ~yield:false ctx c2,
+          comp ~yield:false ctx c3)
+     in
      let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate (Dsyntax.RuleEqTerm (rname, prems, (c1, c2, c3))) loc)
+     (ctx, locate (Dsyntax.RuleEqTerm (rname, prems, c123)) loc)
 
   | Input.DeclOperation (op, (args, res)) ->
      let args, res = decl_operation ~loc ctx args res in
