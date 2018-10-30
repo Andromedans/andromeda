@@ -7,7 +7,7 @@ type ty =
   | TypeMeta of ty_meta * argument list
 
 and term =
-  | TermAtom of ty atom
+  | TermAtom of atom
   | TermBound of bound
   | TermConstructor of Name.constructor * argument list
   | TermMeta of term_meta * argument list
@@ -19,7 +19,7 @@ and eq_term = EqTerm of assumption * term * term * ty
 
 and assumption = (ty, boundary) Assumption.t
 
-and 't atom = { atom_name : Name.atom ; atom_type : 't }
+and atom = { atom_name : Name.atom ; atom_type : ty }
 
 (** A meta variable describes the local context and the boundary of its
    judgement, which depends on the judgement form. *)
