@@ -36,7 +36,7 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
         begin match Jdg.invert_is_term sgn e with
         | Jdg.TermConstructor (c', args) when Name.eq_ident c c' ->
            collect_args env xvs ps args
-        | (Jdg.TermConstructor _ | Jdg.TermAtom _ | Jdg.TermConvert _) ->
+        | (Jdg.TermConstructor _ | Jdg.TermMeta _ | Jdg.TermAtom _ | Jdg.TermConvert _) ->
            raise Match_fail
         end
      end
@@ -49,7 +49,7 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
         begin match Jdg.invert_is_term sgn e with
         | Jdg.TermAtom a ->
            collect_is_term env xvs p v
-        | (Jdg.TermConstructor  _ | Jdg.TermConvert _) ->
+        | (Jdg.TermConstructor _ | Jdg.TermMeta _ | Jdg.TermConvert _) ->
            raise Match_fail
         end
      end
@@ -104,6 +104,7 @@ and collect_is_type env xvs {Location.thing=p';loc} v =
              collect_args env xvs ps args
            else
              raise Match_fail
+        | Jdg.TypeMeta _ -> raise Match_fail
         end
      end
 

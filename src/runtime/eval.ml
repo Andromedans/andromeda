@@ -10,7 +10,7 @@ let as_atom ~loc v =
   let j = Runtime.as_is_term ~loc v in
   match Jdg.invert_is_term sgn j with
     | Jdg.TermAtom x -> return x
-    | (Jdg.TermConstructor _ | Jdg.TermConvert _) -> Runtime.(error ~loc (ExpectedAtom j))
+    | (Jdg.TermConstructor _ | Jdg.TermMeta _ | Jdg.TermConvert _) -> Runtime.(error ~loc (ExpectedAtom j))
 
 (* as_handler: loc:Location.t -> Runtime.value -> Runtime.handler Runtime.comp *)
 let as_handler ~loc v =
