@@ -14,7 +14,7 @@ val equal_bound : bound -> bound -> bool
 type ty = private
   (** a type constructor *)
   | TypeConstructor of Name.constant * argument list
-  | TypeMeta of type_meta * argument list
+  | TypeMeta of type_meta * term list
 
 and term = private
   (** a free variable *)
@@ -26,7 +26,7 @@ and term = private
   (** a term constructor *)
   | TermConstructor of Name.constant * argument list
 
-  | TermMeta of term_meta * argument list
+  | TermMeta of term_meta * term list
 
   (** a term conversion from the natural type of the term to the given type, we do not
      allow two consecutive conversions *)

@@ -4,13 +4,13 @@ type bound = int
 
 type ty =
   | TypeConstructor of Name.constructor * argument list
-  | TypeMeta of type_meta * argument list
+  | TypeMeta of type_meta * term list
 
 and term =
   | TermAtom of atom
   | TermBound of bound
   | TermConstructor of Name.constructor * argument list
-  | TermMeta of term_meta * argument list
+  | TermMeta of term_meta * term list
   | TermConvert of term * assumption * ty
 
 and eq_type = EqType of assumption * ty * ty
@@ -64,8 +64,8 @@ let rec assumptions_term ?(lvl=0) = function
      assumptions_arguments ~lvl args
 
   | TermMeta (mv, args) ->
-     let args = assumptions_arguments ~lvl args
-     and mv = assumptions_term_meta ~lvl mv in
+     let mv = assumptions_term_meta ~lvl mv
+     and args = assumptions_term_args ~lvl args in
      Assumption.union mv args
 
   | TermConvert (e, asmp', t) ->
@@ -77,18 +77,24 @@ and assumptions_term_meta ~lvl {meta_name; meta_type} =
   let asmp = assumptions_abstraction assumptions_type ~lvl meta_type in
   Assumption.add_meta meta_name (BoundaryTerm meta_type) asmp
 
+and assumptions_type ?(lvl=0) = function
+  | TypeConstructor (_, args) -> assumptions_arguments ~lvl args
+  | TypeMeta (mv, args) ->
+     let args = assumptions_term_args ~lvl args
+     and mv = assumptions_type_meta ~lvl mv in
+     Assumption.union mv args
+
 and assumptions_type_meta ~lvl {meta_name; meta_type} =
   let asmp =
     assumptions_abstraction (fun ?lvl () -> Assumption.empty) ~lvl meta_type
   in
   Assumption.add_meta meta_name (BoundaryType meta_type) asmp
 
-and assumptions_type ?(lvl=0) = function
-  | TypeConstructor (_, args) -> assumptions_arguments ~lvl args
-  | TypeMeta (mv, args) ->
-     let args = assumptions_arguments ~lvl args
-     and mv = assumptions_type_meta ~lvl mv in
-     Assumption.union mv args
+and assumptions_term_args ~lvl ts =
+  List.fold_left
+    (fun acc arg -> Assumption.union acc (assumptions_term ~lvl arg))
+    Assumption.empty
+    ts
 
 and assumptions_arguments ~lvl args =
   let rec fold asmp = function
@@ -186,7 +192,7 @@ let rec shift_term ~lvl k = function
      TermConstructor (c, args)
 
   | TermMeta (mv, args) ->
-     let args = shift_args ~lvl k args
+     let args = shift_term_args ~lvl k args
      and mv = shift_term_meta ~lvl k mv in
      TermMeta (mv, args)
 
@@ -210,7 +216,7 @@ and shift_type ~lvl k = function
      TypeConstructor (c, args)
 
   | TypeMeta (mv, args) ->
-     let args = shift_args ~lvl k args
+     let args = shift_term_args ~lvl k args
      and mv = shift_type_meta ~lvl k mv in
      TypeMeta (mv, args)
 
@@ -234,6 +240,9 @@ and shift_eq_term ~lvl k (EqTerm (asmp, e1, e2, t)) =
   and e2 = shift_term ~lvl k e2
   and t = shift_type ~lvl k t in
   EqTerm (asmp, e1, e2, t)
+
+and shift_term_args ~lvl k args =
+  List.map (shift_term ~lvl k) args
 
 and shift_args ~lvl k args =
   List.map (shift_arg ~lvl k) args
@@ -296,7 +305,7 @@ and instantiate_term e0 ?(lvl=0) = function
 
     | TermMeta (mv, args) ->
        (* there are no bound variables in the type of a meta *)
-       let args = instantiate_arguments e0 ~lvl args in
+       let args = instantiate_term_arguments e0 ~lvl args in
        TermMeta (mv, args)
 
     | TermConvert (e, asmp, t) ->
@@ -321,11 +330,14 @@ and instantiate_type e0 ?(lvl=0) = function
 
   | TypeMeta (mv, args) ->
      (* there are no bound variables in the type of a meta *)
-     let args = instantiate_arguments e0 ~lvl args in
+     let args = instantiate_term_arguments e0 ~lvl args in
      TypeMeta (mv, args)
 
 and instantiate_arguments e0 ~lvl args =
   List.map (instantiate_argument e0 ~lvl) args
+
+and instantiate_term_arguments e0 ~lvl args =
+  List.map (instantiate_term e0 ~lvl) args
 
 and instantiate_argument e0 ?(lvl=0) = function
 
@@ -367,7 +379,7 @@ let rec fully_instantiate_type ?(lvl=0) es = function
      let args = fully_instantiate_args ~lvl es args in
      TypeConstructor (c, args)
   | TypeMeta (mv, args) ->
-     let args = fully_instantiate_args ~lvl es args in
+     let args = fully_instantiate_term_args ~lvl es args in
      (* there are no bound variables in the type of a meta *)
      TypeMeta (mv, args)
 
@@ -388,7 +400,7 @@ and fully_instantiate_term ?(lvl=0) es = function
      TermConstructor (c, args)
 
   | TermMeta (mv, args) ->
-     let args = fully_instantiate_args ~lvl es args in
+     let args = fully_instantiate_term_args ~lvl es args in
      (* there are no bound variables in the type of a meta *)
      TermMeta (mv, args)
 
@@ -418,6 +430,9 @@ and fully_instantiate_assumptions ~lvl es asmp =
 
 and fully_instantiate_args ?(lvl=0) es args =
   List.map (fully_instantiate_arg ~lvl es) args
+
+and fully_instantiate_term_args ?(lvl=0) es args =
+  List.map (fully_instantiate_term ~lvl es) args
 
 and fully_instantiate_arg ?(lvl=0) es = function
   | ArgIsType abstr ->
@@ -495,7 +510,7 @@ let rec abstract_term x ?(lvl=0) = function
      TermConstructor (c, args)
 
   | TermMeta (mv, args) ->
-     let args = abstract_arguments x ~lvl args
+     let args = abstract_term_arguments x ~lvl args
      and mv = abstract_term_meta x ~lvl mv in
      TermMeta (mv, args)
 
@@ -509,7 +524,7 @@ and abstract_type x ?(lvl=0) = function
      let args = abstract_arguments x ~lvl args in
      TypeConstructor (c, args)
   | TypeMeta (mv, args) ->
-     let args = abstract_arguments x ~lvl args
+     let args = abstract_term_arguments x ~lvl args
      and mv = abstract_type_meta x ~lvl mv in
      TypeMeta (mv, args)
 
@@ -531,6 +546,9 @@ and abstract_type_meta x ~lvl mv =
 
 and abstract_arguments x ?(lvl=0) args =
   List.map (abstract_argument x ~lvl) args
+
+and abstract_term_arguments x ?(lvl=0) args =
+  List.map (abstract_term x ~lvl) args
 
 and abstract_argument x ?(lvl=0) = function
 
@@ -589,16 +607,21 @@ let substitute_type e0 x t =
 let rec occurs_term k = function
   | TermAtom _ -> false
   | TermBound m -> k = m
-  | TermMeta (_, args)
+  | TermMeta (_, args) -> occurs_term_args k args
   | TermConstructor (_, args) -> occurs_args k args
   | TermConvert (e, asmp, t) -> occurs_term k e || occurs_assumptions k asmp || occurs_type k t
 
 and occurs_type k = function
-  | TypeConstructor (_, args) | TypeMeta (_, args) -> occurs_args k args
+  | TypeConstructor (_, args) -> occurs_args k args
+  | TypeMeta (_, args) -> occurs_term_args k args
 
 and occurs_args k = function
   | [] -> false
   | arg :: args -> occurs_arg k arg || occurs_args k args
+
+and occurs_term_args k = function
+  | [] -> false
+  | arg :: args -> occurs_term k arg || occurs_term_args k args
 
 and occurs_arg k = function
   | ArgIsType t  -> occurs_abstraction occurs_type k t
@@ -637,7 +660,7 @@ let rec alpha_equal_term e1 e2 =
        Name.eq_ident c c' && alpha_equal_args args args'
 
     | TermMeta (mv, args), TermMeta (mv', args') ->
-       Name.eq_meta mv.meta_name mv'.meta_name && alpha_equal_args args args'
+       Name.eq_meta mv.meta_name mv'.meta_name && alpha_equal_term_args args args'
 
     | TermConvert (e1, _, _), TermConvert (e2, _, _) ->
        alpha_equal_term e1 e2
@@ -653,9 +676,17 @@ and alpha_equal_type t1 t2 =
      Name.eq_ident c c' && alpha_equal_args args args'
 
   | TypeMeta (mv, args), TypeMeta (mv', args') ->
-     Name.eq_meta mv.meta_name mv'.meta_name && alpha_equal_args args args'
+     Name.eq_meta mv.meta_name mv'.meta_name && alpha_equal_term_args args args'
 
   | (TypeConstructor _ | TypeMeta _), _ -> false
+
+and alpha_equal_term_args args args' =
+  match args, args' with
+  | [], [] -> true
+  | arg::args, arg'::args' ->
+     alpha_equal_term arg arg' && alpha_equal_term_args args args'
+  | (_::_), []
+  | [], (_::_) -> assert false
 
 and alpha_equal_args args args' =
   match args, args' with
@@ -762,12 +793,12 @@ and print_type ?max_level ~penv t ppf =
 
 and print_meta :
   type a . ?max_level:Level.t -> penv:print_env
-            -> a meta -> argument list -> Format.formatter -> unit
+            -> a meta -> term list -> Format.formatter -> unit
   = fun ?max_level ~penv {meta_name;_} args ppf ->
   Format.pp_open_hovbox ppf 2 ;
   Print.print ~at_level:Level.app ?max_level ppf "%t@ %t"
     (Name.print_meta ~printer:penv.metas meta_name)
-    (Print.sequence (print_arg ~penv) "" args) ;
+    (Print.sequence (print_term ?max_level ~penv) "" args) ;
   Format.pp_close_box ppf ()
 
 and print_constructor ?max_level ~penv c args ppf =
@@ -805,14 +836,14 @@ struct
       | TermConstructor (c, lst) -> Json.tag "TermConstructor" (Name.Json.ident c :: args lst)
 
       | TermMeta ({meta_name; _}, lst) ->
-         Json.tag "TermMeta" (Name.Json.meta meta_name :: args lst)
+         Json.tag "TermMeta" (Name.Json.meta meta_name :: (List.map term lst))
 
       | TermConvert (e, asmp, t) -> Json.tag "TermConvert" [term e; Assumption.Json.assumptions asmp; ty t]
 
   and ty = function
       | TypeConstructor (c, lst) -> Json.tag "TypeConstructor" (Name.Json.ident c :: args lst)
       | TypeMeta ({meta_name; _}, lst) ->
-         Json.tag "TypeMeta" (Name.Json.meta meta_name :: args lst)
+         Json.tag "TypeMeta" (Name.Json.meta meta_name :: (List.map term lst))
 
   and args lst =
     (List.map
