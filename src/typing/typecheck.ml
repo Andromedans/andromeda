@@ -539,8 +539,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
      begin match t1 with
      | Mlty.NotAbstract t1 -> Mlty.(error ~loc:c1.Location.loc (AbstractionExpected t1))
      | Mlty.Abstract t1 ->
-        let t2 = Mlty.is_term in
-        check_comp c2 t2 >>= fun c2 ->
+        check_comp c2 Mlty.is_term >>= fun c2 ->
         return (locate ~loc (Rsyntax.Substitute (c1, c2)), Mlty.Judgement t1)
      end
 
@@ -862,7 +861,7 @@ let local_context lctx m =
        m >>= fun x -> return (xcs, x)
     | (x, c) :: lctx ->
        check_comp c Mlty.is_type >>= fun c ->
-       Tyenv.add_var x Mlty.is_type >>= fun () ->
+       Tyenv.add_var x Mlty.is_term >>= fun () ->
        fold ((x, c) :: xcs) lctx
   in
   Tyenv.locally (fold [] lctx)
