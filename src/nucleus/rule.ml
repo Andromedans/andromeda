@@ -3,14 +3,14 @@
 type meta = int  (* meta-variables appearing in rules *)
 type bound = TT.bound
 
-type term =
+type ty =
+  | TypeConstructor of Name.constructor * argument list
+  | TypeMeta of meta * term list
+
+and term =
   | TermBound of bound
   | TermConstructor of Name.constructor * argument list
   | TermMeta of meta * term list
-
-and ty =
-  | TypeConstructor of Name.constructor * argument list
-  | TypeMeta of meta * term list
 
 and eq_type = EqType of assumption * ty * ty
 
