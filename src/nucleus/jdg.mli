@@ -32,16 +32,20 @@ type premise =
 
 (** A stump is obtained when we invert a judgement. *)
 
+type boundary
 type assumption = (is_type, boundary) Assumption.t
 
-and boundary = BoundaryType | BoundaryTerm of is_type
+type is_type_meta
+type is_term_meta
 
 type stump_is_type =
   | TypeConstructor of Name.constructor * premise list
+  | TypeMeta of is_type_meta * is_term list
 
 type stump_is_term =
   | TermAtom of is_atom
   | TermConstructor of Name.constructor * premise list
+  | TermMeta of is_term_meta * is_term list
   | TermConvert of is_term * eq_type
 
 type stump_eq_type =

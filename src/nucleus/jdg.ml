@@ -8,6 +8,9 @@ type is_type = TT.ty
 
 type is_atom = TT.atom
 
+type is_type_meta = TT.type_meta
+type is_term_meta = TT.term_meta
+
 type eq_type = TT.eq_type
 
 type eq_term = TT.eq_term
@@ -29,23 +32,24 @@ type premise =
   | PremiseEqType of eq_type abstraction
   | PremiseEqTerm of eq_term abstraction
 
-type assumption = (is_type, boundary) Assumption.t
-
-and boundary = BoundaryType | BoundaryTerm of is_type
+type boundary = TT.boundary
+type assumption = TT.assumption
 
 type stump_is_type =
   | TypeConstructor of Name.constructor * premise list
+  | TypeMeta of TT.type_meta * is_term list
 
 type stump_is_term =
   | TermAtom of is_atom
   | TermConstructor of Name.constructor * premise list
+  | TermMeta of TT.term_meta * is_term list
   | TermConvert of is_term * eq_type
 
 type stump_eq_type =
-  | EqType of TT.assumption * is_type * is_type
+  | EqType of assumption * is_type * is_type
 
 type stump_eq_term =
-  | EqTerm of TT.assumption * is_term * is_term * is_type
+  | EqTerm of assumption * is_term * is_term * is_type
 
 type 'a stump_abstraction =
   | NotAbstract of 'a
@@ -220,6 +224,8 @@ let rec check_type (metas : TT.argument list) (schema : Rule.ty) (premise : TT.t
           failwith "expected a type meta-variable but got something else"
      end
 
+  | Rule.TypeConstructor _, TT.TypeMeta _ -> failwith "rule wants a constructor but got a meta"
+
 and check_term (metas : TT.argument list) (schema : Rule.term) (premise : TT.term) =
   match schema, premise with
 
@@ -309,6 +315,9 @@ let type_of_term sgn = function
         to be valid. *)
      meta_instantiate_is_type ~lvl:0 args t_schema
 
+  | TT.TermMeta ({TT.meta_type;_}, args) ->
+     fully_apply_abstraction (TT.fully_instantiate_type ?lvl:None) meta_type args
+
   | TT.TermConvert (e, _, t) -> t
 
 
@@ -327,7 +336,7 @@ let rec type_of_term_abstraction sgn = function
     We maintain the invariant that no further assumptions are needed (apart from those
     already present in [e]) to derive that [e] actually has type [t]. *)
 let natural_type sgn = function
-  | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _) as e ->
+  | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _ | TT.TermMeta _) as e ->
      type_of_term sgn e
 
   | TT.TermConvert (e, _, _) -> type_of_term sgn e
@@ -449,7 +458,7 @@ let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
      else
        error (InvalidConvert (t0, t1))
 
-  | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _) as e ->
+  | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _ | TT.TermMeta _) as e ->
      let t0 = natural_type sgn e in
      if TT.alpha_equal_type t0 t1 then
        (* We need not include assumptions of [t1] because [t0] is alpha-equal
@@ -499,6 +508,9 @@ let invert_is_term sgn = function
      let premises = invert_args args in
      TermConstructor (c, premises)
 
+  | TT.TermMeta (mv, args) ->
+     TermMeta (mv, args)
+
   | TT.TermConvert (e, asmp, t) ->
      let t' = natural_type sgn e in
      let eq = TT.mk_eq_type asmp t' t in
@@ -508,6 +520,7 @@ let invert_is_type = function
   | TT.TypeConstructor (c, args) ->
      let premises = invert_args args in
      TypeConstructor (c, premises)
+  | TT.TypeMeta (mv, args) -> TypeMeta (mv, args)
 
 let invert_eq_type (TT.EqType (asmp, t1, t2)) = EqType (asmp, t1, t2)
 
