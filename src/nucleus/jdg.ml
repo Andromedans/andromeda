@@ -460,6 +460,7 @@ let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
 let form_not_abstract u = TT.mk_not_abstract u
 
 let form_is_type_abstract {TT.atom_name=x; atom_type=t} abstr =
+  (* XXX occurs check?! *)
   let abstr = TT.abstract_abstraction TT.abstract_type x abstr in
   TT.mk_abstract (Name.ident_of_atom x) t abstr
 

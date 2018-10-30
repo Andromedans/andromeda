@@ -11,6 +11,8 @@ type ident = private Ident of string * fixity
 
 type atom = private Atom of string * fixity * int
 
+type meta = private Meta of string * fixity * int
+
 (** Aliases with different semantics *)
 type constant = ident
 type constructor = ident
@@ -121,6 +123,20 @@ val compare_atom : atom -> atom -> int
 module AtomSet : Set.S with type elt = atom
 module AtomMap : Map.S with type key = atom
 
+(** Generate a variant of a given name that is guaranteed to not yet exist. *)
+val fresh_meta : ident -> meta
+
+val ident_of_meta : meta -> ident
+
+(** Compare metas for equality. *)
+val eq_meta : meta -> meta -> bool
+
+(** Compare metas. *)
+val compare_meta : meta -> meta -> int
+
+module MetaSet : Set.S with type elt = meta
+module MetaMap : Map.S with type key = meta
+
 (** [index_of_atom x xs] finds the index of [x] in list [xs] if it's there. *)
 val index_of_atom : atom -> atom list -> int option
 
@@ -148,4 +164,7 @@ sig
 
   (** Convert a map of atoms to JSON (dropping the values). *)
   val atommap : 'a AtomMap.t -> Json.t
+
+  (** Convert a map of metas to JSON (dropping the values). *)
+  val metamap : 'a MetaMap.t -> Json.t
 end

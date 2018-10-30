@@ -10,6 +10,8 @@ type ident = Ident of string * fixity
 
 type atom = Atom of string * fixity * int
 
+type meta = Meta of string * fixity * int
+
 type constant = ident
 type constructor = ident
 
@@ -140,6 +142,29 @@ module AtomMap = Map.Make (struct
                     let compare = compare_atom
                   end)
 
+let fresh_meta =
+  let counter = ref (-1) in
+  function Ident (s, fixity) ->
+    incr counter;
+    Meta (s, fixity, !counter)
+
+let ident_of_meta (Meta (s, fixity, _)) = Ident (s, fixity)
+
+let eq_meta (Meta (_, _, k)) (Meta (_, _, m)) = (k = m)
+
+let compare_meta (Meta (_, _, x)) (Meta (_, _, y)) =
+  if x < y then -1 else if x > y then 1 else 0
+
+module MetaSet = Set.Make (struct
+                    type t = meta
+                    let compare = compare_meta
+                  end)
+
+module MetaMap = Map.Make (struct
+                    type t = meta
+                    let compare = compare_meta
+                  end)
+
 let index_of_atom x ys =
   let rec fold k = function
     | [] -> None
@@ -234,8 +259,12 @@ struct
 
   let atom (Atom (s, _, k)) = Json.tuple [Json.String s; Json.Int k]
 
+  let meta (Meta (s, _, k)) = Json.tuple [Json.String s; Json.Int k]
+
   let atomset s = Json.List (List.map atom (AtomSet.elements s))
 
   let atommap s = Json.List (List.map (fun (x, _) -> atom x) (AtomMap.bindings s))
+
+  let metamap s = Json.List (List.map (fun (x, _) -> meta x) (MetaMap.bindings s))
 
 end

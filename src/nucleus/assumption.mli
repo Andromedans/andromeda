@@ -2,51 +2,44 @@
 module BoundSet : Set.S with type elt = int
 
 (** A pair of sets, corresponding to free and bound assumptions *)
-type 'a t
+type ('a, 'b) t
 
-val empty : 'a t
+val empty : ('a, 'b) t
 
-val is_empty : 'a t -> bool
+val is_empty : ('a, 'b) t -> bool
 
-val unpack : 'a t -> 'a Name.AtomMap.t * BoundSet.t
+val unpack : ('a, 'b) t -> 'a Name.AtomMap.t * 'a Name.MetaMap.t * BoundSet.t
 
-val mem_atom : Name.atom -> 'a t -> bool
+val mem_atom : Name.atom -> ('a, 'b) t -> bool
 
-val mem_bound : int -> 'a t -> bool
+val mem_bound : int -> ('a, 'b) t -> bool
 
 (** [at_level ~lvl asmp] removes bound variables below [lvl] and subtracts [lvl] from the other ones. *)
-val at_level : lvl:int -> 'a t -> 'a t
+val at_level : lvl:int -> ('a, 'b) t -> ('a, 'b) t
 
 (** [shift ~lvl k asmp] shifts bound variables above [lvl] by [k]. *)
-val shift : lvl:int -> int -> 'a t -> 'a t
+val shift : lvl:int -> int -> ('a, 'b) t -> ('a, 'b) t
 
-val singleton_free : Name.atom -> 'a -> 'a t
+val singleton_bound : int -> ('a, 'b) t
 
-val singleton_bound : int -> 'a t
+val add_free : Name.atom -> 'a -> ('a, 'b) t -> ('a, 'b) t
 
-val add_free : Name.atom -> 'a -> 'a t -> 'a t
+val add_bound : int -> ('a, 'b) t -> ('a, 'b) t
 
-val add_bound : int -> 'a t -> 'a t
-
-val union : 'a t -> 'a t -> 'a t
+val union : ('a, 'b) t -> ('a, 'b) t -> ('a, 'b) t
 
 (** [instantiate asmp0 ~lvl:k asmp] replaces bound variable [k] with the assumptions [asmp0] in [asmp]. *)
-val instantiate : 'a t -> lvl:int -> 'a t -> 'a t
+val instantiate : ('a, 'b) t -> lvl:int -> ('a, 'b) t -> ('a, 'b) t
 
 (** [fully_instantiate asmps ~lvl:k asmp] replaces bound variables in [asmp] with assumptions [asmps]. *)
-val fully_instantiate : 'a t list -> lvl:int -> 'a t -> 'a t
+val fully_instantiate : ('a, 'b) t list -> lvl:int -> ('a, 'b) t -> ('a, 'b) t
 
-(** [abstract x k l] replaces the free variable [x] by the bound variables [k]. *)
-val abstract : Name.atom -> lvl:int -> 'a t -> 'a t
-
-(** If [hyps] are the assumptions on a term, [bind hyps] are the assumptions after putting the term under a binder. *)
-val bind1 : 'a t -> 'a t
-
-val equal : 'a t -> 'a t -> bool
+(** [abstract x ~lvl:k l] replaces the free variable [x] by the bound variable [k]. *)
+val abstract : Name.atom -> lvl:int -> ('a, 'b) t -> ('a, 'b) t
 
 module Json :
 sig
 
-  val assumptions : 'a t -> Json.t
+  val assumptions : ('a, 'b) t -> Json.t
 
 end

@@ -4,25 +4,35 @@ type bound = int
 
 type ty =
   | TypeConstructor of Name.constructor * argument list
+  | TypeMeta of ty_meta * argument list
 
 and term =
   | TermAtom of ty atom
   | TermBound of bound
   | TermConstructor of Name.constructor * argument list
+  | TermMeta of term_meta * argument list
   | TermConvert of term * assumption * ty
 
 and eq_type = EqType of assumption * ty * ty
 
 and eq_term = EqTerm of assumption * term * term * ty
 
-and assumption = ty Assumption.t
+and assumption = (ty, boundary) Assumption.t
 
 and 't atom = { atom_name : Name.atom ; atom_type : 't }
 
+(** A meta variable describes the local context and the boundary of its
+   judgement, which depends on the judgement form. *)
+and 't meta = { meta_name : Name.meta ; meta_type : 't abstraction }
+
+and ty_meta = unit meta
+
+and term_meta = ty meta
+
 (** An argument of a term or a type constructor *)
 and argument =
-  | ArgIsTerm of term abstraction
   | ArgIsType of ty abstraction
+  | ArgIsTerm of term abstraction
   | ArgEqType of eq_type abstraction
   | ArgEqTerm of eq_term abstraction
 
@@ -30,8 +40,8 @@ and argument =
    to constructors. Thus we do not carry any type information for the abstracted
    variable, as it can be recovered from the constructor. *)
 and 'a abstraction =
-  | Abstract of Name.ident * ty * 'a abstraction
   | NotAbstract of 'a
+  | Abstract of Name.ident * ty * 'a abstraction
 
 
 let equal_bound (i : bound) (j : bound) = (i = j)
@@ -100,7 +110,7 @@ let assumptions_arguments = assumptions_arguments ~lvl:0
 
 let context_u assumptions_u t =
   let asmp = assumptions_u t in
-  let free, bound = Assumption.unpack asmp in
+  let free, _meta, bound = Assumption.unpack asmp in
   assert (Assumption.BoundSet.is_empty bound) ;
   let free = Name.AtomMap.bindings free in
   List.map (fun (atom_name, atom_type) -> {atom_name; atom_type}) free

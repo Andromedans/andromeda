@@ -39,15 +39,15 @@ and 't atom = private { atom_name : Name.atom ; atom_type : 't }
 
 (** An argument of a term or type constructor. *)
 and argument = private
-  | ArgIsTerm of term abstraction
   | ArgIsType of ty abstraction
+  | ArgIsTerm of term abstraction
   | ArgEqType of eq_type abstraction
   | ArgEqTerm of eq_term abstraction
 
 (** An abstracted entity. *)
 and 'a abstraction = private
-  | Abstract of Name.ident * ty * 'a abstraction
   | NotAbstract of 'a
+  | Abstract of Name.ident * ty * 'a abstraction
 
 
 (** Term constructors, these do not check for legality of constructions. *)

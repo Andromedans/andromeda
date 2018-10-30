@@ -5,14 +5,16 @@ module BoundSet = Set.Make (struct
 
 module AtomMap = Name.AtomMap
 
-type 'a t = { free : 'a AtomMap.t; bound : BoundSet.t }
+module MetaMap = Name.MetaMap
 
-let empty = { free = AtomMap.empty; bound = BoundSet.empty }
+type ('a, 'b) t = { free : 'a AtomMap.t; meta : 'b MetaMap.t ; bound : BoundSet.t }
 
-let is_empty {free;bound} =
-  AtomMap.is_empty free && BoundSet.is_empty bound
+let empty = { free = AtomMap.empty; meta = MetaMap.empty; bound = BoundSet.empty }
 
-let unpack {free; bound} = free, bound
+let is_empty {free;meta;bound} =
+  AtomMap.is_empty free && MetaMap.is_empty meta && BoundSet.is_empty bound
+
+let unpack {free; meta; bound} = free, meta, bound
 
 let mem_atom x s = AtomMap.mem x s.free
 
@@ -32,11 +34,8 @@ let shift ~lvl k s =
         s.bound
         BoundSet.empty }
 
-let singleton_free x t =
-  {free = AtomMap.add x t AtomMap.empty; bound = BoundSet.empty}
-
 let singleton_bound k =
-  {free = AtomMap.empty; bound = BoundSet.singleton k}
+  {empty with bound = BoundSet.singleton k}
 
 let add_free x t asmp = {asmp with free = AtomMap.add x t asmp.free}
 
@@ -44,6 +43,7 @@ let add_bound k asmp = {asmp with bound = BoundSet.add k asmp.bound}
 
 let union a1 a2 =
   { free = AtomMap.union (fun _ t1 t2 -> assert (t1 == t2) ; Some t1) a1.free a2.free
+  ; meta = MetaMap.union (fun _ t1 t2 -> assert (t1 == t2) ; Some t1) a1.meta a2.meta
   ; bound = BoundSet.union a1.bound a2.bound
   }
 
@@ -52,9 +52,11 @@ let instantiate asmp0 ~lvl asmp =
   | false -> asmp
   | true ->
      let bound0 = BoundSet.map (fun k -> lvl + k) asmp0.bound
+     and bound = BoundSet.remove lvl asmp.bound
      in
-     { free = AtomMap.union (fun _ t1 t2 -> assert (t1 == t2) ; Some t1) asmp.free asmp0.free
-     ; bound = BoundSet.union (BoundSet.remove lvl asmp.bound) bound0 }
+     let asmp0 = {asmp0 with bound = bound0}
+     and asmp = {asmp with bound} in
+     union asmp asmp0
 
 let fully_instantiate asmps ~lvl asmp =
   let rec fold asmp = function
@@ -69,36 +71,29 @@ let abstract x ~lvl abstr =
   if AtomMap.mem x abstr.free
   then
     { free = AtomMap.remove x abstr.free
+    ; meta = abstr.meta
     ; bound = BoundSet.add lvl abstr.bound
     }
   else
     abstr
 
-let bind1 {free;bound} =
-  let bound = BoundSet.fold (fun n bound ->
-      if n = 0
-      then bound
-      else BoundSet.add (n - 1) bound)
-    bound BoundSet.empty
-  in
-  {free;bound}
-
-let equal {free=free1;bound=bound1} {free=free2;bound=bound2} =
-  AtomMap.equal (fun t1 t2 -> assert (t1 == t2) ; true) free1 free2 && BoundSet.equal bound1 bound2
-
 module Json =
 struct
 
-  let assumptions {free; bound} =
+  let assumptions {free; meta; bound} =
     let free =
       if AtomMap.is_empty free
       then []
       else [("free", Name.Json.atommap free)]
+    and meta =
+      if MetaMap.is_empty meta
+      then []
+      else [("meta", Name.Json.metamap meta)]
     and bound =
       if BoundSet.is_empty bound
       then []
       else [("bound", Json.List (List.map (fun k -> Json.Int k) (BoundSet.elements bound)))]
     in
-      Json.record (free @ bound)
+      Json.record (free @ meta @ bound)
 
 end

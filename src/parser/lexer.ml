@@ -58,8 +58,6 @@ let name =
 let digit = [%sedlex.regexp? '0'..'9']
 let numeral = [%sedlex.regexp? Plus digit]
 
-let project = [%sedlex.regexp? '.', (name | numeral)]
-
 let symbolchar = [%sedlex.regexp?  ('!' | '$' | '%' | '&' | '*' | '+' | '-' | '.' | '/' | ':' | '<' | '=' | '>' | '?' | '@' | '^' | '|' | '~')]
 
 let prefixop = [%sedlex.regexp? ('~' | '?' | '!'), Star symbolchar ]
