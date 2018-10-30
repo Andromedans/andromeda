@@ -14,6 +14,7 @@ val equal_bound : bound -> bound -> bool
 type ty = private
   (** a type constructor *)
   | TypeConstructor of Name.constant * argument list
+  | TypeMeta of type_meta * argument list
 
 and term = private
   (** a free variable *)
@@ -25,6 +26,8 @@ and term = private
   (** a term constructor *)
   | TermConstructor of Name.constant * argument list
 
+  | TermMeta of term_meta * argument list
+
   (** a term conversion from the natural type of the term to the given type, we do not
      allow two consecutive conversions *)
   | TermConvert of term * assumption * ty
@@ -33,9 +36,19 @@ and eq_type = private EqType of assumption * ty * ty
 
 and eq_term = private EqTerm of assumption * term * term * ty
 
-and assumption = ty Assumption.t
+and assumption = (ty, boundary) Assumption.t
 
 and atom = private { atom_name : Name.atom ; atom_type : ty }
+
+(** A meta variable describes the local context and the boundary of its
+   judgement, which depends on the judgement form. *)
+and 't meta = private { meta_name : Name.meta ; meta_type : 't abstraction }
+
+and type_meta = unit meta
+
+and term_meta = ty meta
+
+and boundary = BoundaryType of unit abstraction | BoundaryTerm of ty abstraction
 
 (** An argument of a term or type constructor. *)
 and argument = private
@@ -204,8 +217,10 @@ val occurs_eq_term : bound -> eq_term -> bool
    trusted parts of name management should probably be moved to the nucleus,
    at which time print_env can be made abstract. *)
 type print_env =
-  { forbidden : Name.ident list ;
-    atoms : Name.atom_printer ; }
+  { forbidden : Name.ident list
+  ; metas : Name.meta_printer
+  ; atoms : Name.atom_printer
+  }
 
 (** Forbid the given identifier from being used as a bound variable. *)
 val add_forbidden : Name.ident -> print_env -> print_env

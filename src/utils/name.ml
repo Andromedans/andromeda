@@ -251,6 +251,43 @@ let print_atom ?parentheses ~printer x ppf =
   print_atom_subs ?parentheses y ppf
 
 
+type meta_printer = { mutable reindex_meta : meta MetaMap.t; mutable next_meta : int }
+
+let global_meta_printer = { reindex_meta = MetaMap.empty; next_meta = 0 }
+
+let meta_printer () =
+  if !Config.global_meta_printer
+  then global_meta_printer
+  else { reindex_meta = MetaMap.empty; next_meta = 0 }
+
+let print_meta_subs ?(parentheses=true) x ppf =
+  match x with
+  | Meta (s, Word, k) ->
+     Format.fprintf ppf "%s%s" s (subscript k)
+
+  | Meta (_, Anonymous j, k) ->
+     Format.fprintf ppf "anon%d%s" j (subscript k)
+
+  | Meta (s, (Prefix|Infix _), k) ->
+     if parentheses then
+       Format.fprintf ppf "( %s%s )" s (subscript k)
+     else
+       Format.fprintf ppf "%s%s" s (subscript k)
+
+let print_meta ?parentheses ~printer x ppf =
+  let y =
+    try
+      MetaMap.find x printer.reindex_meta
+    with
+      Not_found ->
+        let n = printer.next_meta in
+        let y = match x with Meta (s,fixity,_) -> Meta (s,fixity,n) in
+        printer.reindex_meta <- MetaMap.add x y printer.reindex_meta;
+        printer.next_meta <- n + 1;
+        y
+  in
+  print_meta_subs ?parentheses y ppf
+
 module Json =
 struct
   let ident = function

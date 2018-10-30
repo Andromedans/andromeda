@@ -39,6 +39,8 @@ let singleton_bound k =
 
 let add_free x t asmp = {asmp with free = AtomMap.add x t asmp.free}
 
+let add_meta x t asmp = {asmp with meta = MetaMap.add x t asmp.meta}
+
 let add_bound k asmp = {asmp with bound = BoundSet.add k asmp.bound}
 
 let union a1 a2 =

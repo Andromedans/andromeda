@@ -32,7 +32,9 @@ type premise =
 
 (** A stump is obtained when we invert a judgement. *)
 
-type assumption = is_type Assumption.t
+type assumption = (is_type, boundary) Assumption.t
+
+and boundary = BoundaryType | BoundaryTerm of is_type
 
 type stump_is_type =
   | TypeConstructor of Name.constructor * premise list

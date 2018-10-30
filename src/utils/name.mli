@@ -85,6 +85,13 @@ val atom_printer : unit -> atom_printer
 (** Effectful: atoms are reindexed as they are encountered. *)
 val print_atom : ?parentheses:bool -> printer:atom_printer -> atom -> Format.formatter -> unit
 
+(** Print a meta *)
+type meta_printer
+val meta_printer : unit -> meta_printer
+
+(** Effectful: metas are reindexed as they are encountered. *)
+val print_meta : ?parentheses:bool -> printer:meta_printer -> meta -> Format.formatter -> unit
+
 (** Print an operation name. *)
 val print_op : ident -> Format.formatter -> unit
 
@@ -158,6 +165,9 @@ sig
 
   (** Convert an atom to JSON. *)
   val atom : atom -> Json.t
+
+  (** Convert a meta to JSON. *)
+  val meta : meta -> Json.t
 
   (** Convert a set of atoms to JSON. *)
   val atomset : AtomSet.t -> Json.t

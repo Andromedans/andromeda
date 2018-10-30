@@ -29,7 +29,9 @@ type premise =
   | PremiseEqType of eq_type abstraction
   | PremiseEqTerm of eq_term abstraction
 
-type assumption = is_type Assumption.t
+type assumption = (is_type, boundary) Assumption.t
+
+and boundary = BoundaryType | BoundaryTerm of is_type
 
 type stump_is_type =
   | TypeConstructor of Name.constructor * premise list

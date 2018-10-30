@@ -8,7 +8,7 @@ val empty : ('a, 'b) t
 
 val is_empty : ('a, 'b) t -> bool
 
-val unpack : ('a, 'b) t -> 'a Name.AtomMap.t * 'a Name.MetaMap.t * BoundSet.t
+val unpack : ('a, 'b) t -> 'a Name.AtomMap.t * 'b Name.MetaMap.t * BoundSet.t
 
 val mem_atom : Name.atom -> ('a, 'b) t -> bool
 
@@ -23,6 +23,8 @@ val shift : lvl:int -> int -> ('a, 'b) t -> ('a, 'b) t
 val singleton_bound : int -> ('a, 'b) t
 
 val add_free : Name.atom -> 'a -> ('a, 'b) t -> ('a, 'b) t
+
+val add_meta : Name.meta -> 'b -> ('a, 'b) t -> ('a, 'b) t
 
 val add_bound : int -> ('a, 'b) t -> ('a, 'b) t
 

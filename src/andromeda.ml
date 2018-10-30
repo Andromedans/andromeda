@@ -22,6 +22,10 @@ let options = Arg.align [
      Arg.Set Config.global_atom_printer,
      " Do print the freshness-index subscripts of atoms on a global basis");
 
+    ("--global-meta-printer",
+     Arg.Set Config.global_meta_printer,
+     " Do print the freshness-index subscripts of metas on a global basis");
+
     ("--max-boxes",
      Arg.Set_int Config.max_boxes,
      " Set the maximum depth of pretty printing");
