@@ -49,6 +49,7 @@ and term_meta = term_boundary meta
 and eq_type_meta = eq_type_boundary meta
 and eq_term_meta = eq_term_boundary meta
 
+(* XXX improve the name of this type *)
 and premise_boundary =
     | BoundaryType of type_boundary
     | BoundaryTerm of term_boundary

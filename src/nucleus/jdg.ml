@@ -10,6 +10,8 @@ type is_atom = TT.atom
 
 type is_type_meta = TT.type_meta
 type is_term_meta = TT.term_meta
+type eq_type_meta = TT.eq_type_meta
+type eq_term_meta = TT.eq_term_meta
 
 type eq_type = TT.eq_type
 
@@ -446,6 +448,11 @@ let type_of_atom {TT.atom_type=t;_} = t
 let form_is_term_atom = TT.mk_atom
 
 let fresh_atom = TT.fresh_atom
+
+let fresh_is_type_meta = TT.fresh_type_meta
+let fresh_is_term_meta = TT.fresh_term_meta
+let fresh_eq_type_meta = TT.fresh_eq_type_meta
+let fresh_eq_term_meta = TT.fresh_eq_term_meta
 
 let rec check_term_arguments sgn abstr args = match (abstr, args) with
   | TT.NotAbstract u, [] -> ()

@@ -37,6 +37,8 @@ type assumption = (is_type, boundary) Assumption.t
 
 type is_type_meta
 type is_term_meta
+type eq_type_meta
+type eq_term_meta
 
 type stump_is_type =
   | TypeConstructor of Name.constructor * argument list
@@ -86,7 +88,10 @@ end
    judgement corresponding to the conclusion of the rule. *)
 val form_is_type_rule : Signature.t -> Name.constructor -> argument list -> is_type
 
-val form_is_type_meta : Signature.t -> Name.ident -> TT.type_boundary abstraction -> is_type_meta
+(** [form_is_type_meta sgn a args] creates a is_type judgement by applying the
+    meta-variable [a] = `x : A, ..., y : B ⊢ jdg` to a list of terms [args] of
+    matching types. *)
+val form_is_type_meta : Signature.t -> is_type_meta -> is_term list -> is_type
 
 (** Given a term rule and a list of arguments, match the rule against the given
     arguments, make sure they fit the rule, and return the list of arguments that
@@ -97,12 +102,10 @@ val form_is_term_rule : Signature.t -> Name.constructor -> argument list -> is_t
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
 
-val atom_name : is_atom -> Name.atom
-
-val form_is_term_meta : Signature.t -> Name.ident -> TT.type_boundary abstraction -> is_term_meta
-
-(** [fresh_atom x t] Create a fresh atom from name [x] with type [t] *)
-val fresh_atom : Name.ident -> is_type -> is_atom
+(** [form_is_term_meta sgn a args] creates a is_term judgement by applying the
+    meta-variable [a] = `x : A, ..., y : B ⊢ jdg` to a list of terms [args] of
+    matching types. *)
+val form_is_term_meta : Signature.t -> is_term_meta -> is_term list -> is_term
 
 val form_is_term_convert : Signature.t -> is_term -> eq_type -> is_term
 
@@ -110,6 +113,10 @@ val form_is_term_convert : Signature.t -> is_term -> eq_type -> is_term
     the given arguments, make sure they fit the rule, and return the conclusion
     of the instance of the rule so obtained. *)
 val form_eq_type_rule : Signature.t -> Name.constructor -> argument list -> eq_type
+
+val form_eq_type_meta : Signature.t -> eq_type_meta -> TT.term list -> TT.eq_type
+
+val form_eq_term_meta : Signature.t -> eq_term_meta -> TT.term list -> TT.eq_term
 
 (** Given an terms equality type rule and a list of arguments, match the rule
     against the given arguments, make sure they fit the rule, and return the
@@ -125,6 +132,14 @@ val form_is_term_abstract : is_atom -> is_term_abstraction -> is_term_abstractio
 val form_eq_type_abstract : is_atom -> eq_type_abstraction -> eq_type_abstraction
 val form_eq_term_abstract : is_atom -> eq_term_abstraction -> eq_term_abstraction
 
+(** [fresh_atom x t] Create a fresh atom from name [x] with type [t] *)
+val fresh_atom : Name.ident -> is_type -> is_atom
+
+(** [fresh_is_type_meta x abstr] creates a fresh type meta-variable of type [abstr] *)
+val fresh_is_type_meta : Name.ident -> TT.type_boundary -> is_type_meta
+val fresh_is_term_meta : Name.ident -> TT.term_boundary -> is_term_meta
+val fresh_eq_type_meta : Name.ident -> TT.eq_type_boundary -> eq_type_meta
+val fresh_eq_term_meta : Name.ident -> TT.eq_term_boundary -> eq_term_meta
 
 val invert_is_type : is_type -> stump_is_type
 
@@ -133,6 +148,8 @@ val invert_is_term : Signature.t -> is_term -> stump_is_term
 val invert_eq_type : eq_type -> stump_eq_type
 
 val invert_eq_term : eq_term -> stump_eq_term
+
+val atom_name : is_atom -> Name.atom
 
 val invert_is_term_abstraction :
   ?atom_name:Name.ident -> is_term_abstraction -> is_term stump_abstraction
