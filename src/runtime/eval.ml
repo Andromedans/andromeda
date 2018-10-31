@@ -54,31 +54,31 @@ let rec infer {Location.thing=c'; loc} =
        return v
 
     | Rsyntax.IsTypeConstructor (c, cs) ->
-       (* XXX premises should really be run in checking mode!!! *)
-       infer_premises cs >>= fun premises ->
+       (* XXX arguments should really be run in checking mode!!! *)
+       infer_arguments cs >>= fun arguments ->
        Runtime.lookup_signature >>= fun sgn ->
-       let e = Jdg.form_is_type_rule sgn c premises in
+       let e = Jdg.form_is_type_rule sgn c arguments in
        let v = Runtime.mk_is_type (Jdg.form_not_abstract e) in
        return v
 
     | Rsyntax.IsTermConstructor (c, cs) ->
-       infer_premises cs >>= fun premises ->
+       infer_arguments cs >>= fun arguments ->
        Runtime.lookup_signature >>= fun sgn ->
-       let e = Jdg.form_is_term_rule sgn c premises in
+       let e = Jdg.form_is_term_rule sgn c arguments in
        let v = Runtime.mk_is_term (Jdg.form_not_abstract e) in
        return v
 
     | Rsyntax.EqTypeConstructor (c, cs) ->
-       infer_premises cs >>= fun premises ->
+       infer_arguments cs >>= fun arguments ->
        Runtime.lookup_signature >>= fun sgn ->
-       let e = Jdg.form_eq_type_rule sgn c premises in
+       let e = Jdg.form_eq_type_rule sgn c arguments in
        let v = Runtime.mk_eq_type (Jdg.form_not_abstract e) in
        return v
 
     | Rsyntax.EqTermConstructor (c, cs) ->
-       infer_premises cs >>= fun premises ->
+       infer_arguments cs >>= fun arguments ->
        Runtime.lookup_signature >>= fun sgn ->
-       let e = Jdg.form_eq_term_rule sgn c premises in
+       let e = Jdg.form_eq_term_rule sgn c arguments in
        let v = Runtime.mk_eq_term (Jdg.form_not_abstract e) in
        return v
 
@@ -339,13 +339,13 @@ let rec infer {Location.thing=c'; loc} =
     let eq = Jdg.natural_type_eq signature j in
     Runtime.return_eq_type (Jdg.form_not_abstract eq)
 
-(* XXX premises should really be run in checking mode!!! *)
-and infer_premises ps =
-  let rec infer_premises ps_out = function
+(* XXX arguments should really be run in checking mode!!! *)
+and infer_arguments ps =
+  let rec infer_arguments ps_out = function
   | [] -> return (List.rev ps_out)
-  | p :: ps -> infer p >>= as_premise >>= fun p ->
-     infer_premises (p :: ps_out) ps
-  in infer_premises [] ps
+  | p :: ps -> infer p >>= as_argument >>= fun p ->
+     infer_arguments (p :: ps_out) ps
+  in infer_arguments [] ps
 
 and occurs
   : 'a . (Jdg.is_atom -> 'a Jdg.abstraction -> bool)
@@ -371,11 +371,11 @@ and check_default ~loc v t_check =
       | Some e -> return e
     end
 
-and as_premise = function
-  | Runtime.IsType t -> return (Jdg.PremiseIsType t)
-  | Runtime.IsTerm e -> return (Jdg.PremiseIsTerm e)
-  | Runtime.EqType eq -> return (Jdg.PremiseEqType eq)
-  | Runtime.EqTerm eq -> return (Jdg.PremiseEqTerm eq)
+and as_argument = function
+  | Runtime.IsType t -> return (Jdg.ArgumentIsType t)
+  | Runtime.IsTerm e -> return (Jdg.ArgumentIsTerm e)
+  | Runtime.EqType eq -> return (Jdg.ArgumentEqType eq)
+  | Runtime.EqTerm eq -> return (Jdg.ArgumentEqTerm eq)
   | (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
      Runtime.Ref _| Runtime.Dyn _| Runtime.String _) ->
      assert false

@@ -24,11 +24,11 @@ type eq_term_abstraction = eq_term abstraction
 
 
 (** An argument to a term or type constructor *)
-type premise =
-  | PremiseIsType of is_type_abstraction
-  | PremiseIsTerm of is_term_abstraction
-  | PremiseEqType of eq_type_abstraction
-  | PremiseEqTerm of eq_term_abstraction
+type argument =
+  | ArgumentIsType of is_type_abstraction
+  | ArgumentIsTerm of is_term_abstraction
+  | ArgumentEqType of eq_type_abstraction
+  | ArgumentEqTerm of eq_term_abstraction
 
 (** A stump is obtained when we invert a judgement. *)
 
@@ -39,12 +39,12 @@ type is_type_meta
 type is_term_meta
 
 type stump_is_type =
-  | TypeConstructor of Name.constructor * premise list
+  | TypeConstructor of Name.constructor * argument list
   | TypeMeta of is_type_meta * is_term list
 
 type stump_is_term =
   | TermAtom of is_atom
-  | TermConstructor of Name.constructor * premise list
+  | TermConstructor of Name.constructor * argument list
   | TermMeta of is_term_meta * is_term list
   | TermConvert of is_term * eq_type
 
@@ -62,7 +62,7 @@ type 'a stump_abstraction =
 (** An auxiliary type for providing arguments to a congruence rule. Each arguments is like
    two endpoints with a path between them, except that no paths between equalities are
    needed. *)
-type congruence_premise =
+type congruence_argument =
   | CongrIsType of is_type_abstraction * is_type_abstraction * eq_type_abstraction
   | CongrIsTerm of is_term_abstraction * is_term_abstraction * eq_term_abstraction
   | CongrEqType of eq_type_abstraction * eq_type_abstraction
@@ -81,16 +81,16 @@ module Signature : sig
 
 end
 
-(** Given a type formation rule and a list of premises, match the rule
-   against the given premises, make sure they fit the rule, and return the
+(** Given a type formation rule and a list of arguments, match the rule
+   against the given arguments, make sure they fit the rule, and return the
    judgement corresponding to the conclusion of the rule. *)
-val form_is_type_rule : Signature.t -> Name.constructor -> premise list -> is_type
+val form_is_type_rule : Signature.t -> Name.constructor -> argument list -> is_type
 
-(** Given a term rule and a list of premises, match the rule against the given
-    premises, make sure they fit the rule, and return the list of arguments that
+(** Given a term rule and a list of arguments, match the rule against the given
+    arguments, make sure they fit the rule, and return the list of arguments that
     the term constructor should be applied to, together with the natural type of
     the resulting term. *)
-val form_is_term_rule : Signature.t -> Name.constructor -> premise list -> is_term
+val form_is_term_rule : Signature.t -> Name.constructor -> argument list -> is_term
 
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
@@ -102,15 +102,15 @@ val fresh_atom : Name.ident -> is_type -> is_atom
 
 val form_is_term_convert : Signature.t -> is_term -> eq_type -> is_term
 
-(** Given an equality type rule and a list of premises, match the rule against
-    the given premises, make sure they fit the rule, and return the conclusion
+(** Given an equality type rule and a list of arguments, match the rule against
+    the given arguments, make sure they fit the rule, and return the conclusion
     of the instance of the rule so obtained. *)
-val form_eq_type_rule : Signature.t -> Name.constructor -> premise list -> eq_type
+val form_eq_type_rule : Signature.t -> Name.constructor -> argument list -> eq_type
 
-(** Given an terms equality type rule and a list of premises, match the rule
-    against the given premises, make sure they fit the rule, and return the
+(** Given an terms equality type rule and a list of arguments, match the rule
+    against the given arguments, make sure they fit the rule, and return the
     conclusion of the instance of the rule so obtained. *)
-val form_eq_term_rule : Signature.t -> Name.constructor -> premise list -> eq_term
+val form_eq_term_rule : Signature.t -> Name.constructor -> argument list -> eq_term
 
 (** Form a non-abstracted abstraction *)
 val form_not_abstract : 'a -> 'a abstraction
@@ -227,10 +227,10 @@ val natural_type_eq : Signature.t -> is_term -> eq_type
 (** Congruence rules *)
 
 val congruence_type_constructor :
-  Signature.t -> Name.constructor -> congruence_premise list -> eq_type
+  Signature.t -> Name.constructor -> congruence_argument list -> eq_type
 
 val congruence_term_constructor :
-  Signature.t -> Name.constructor -> congruence_premise list -> eq_term
+  Signature.t -> Name.constructor -> congruence_argument list -> eq_term
 
 (** Printing routines *)
 

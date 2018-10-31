@@ -25,23 +25,23 @@ type eq_term_abstraction = eq_term abstraction
    whereas the [invert_XYZ] functions do the opposite. We can think of stumps as
    "stumps", i.e., the lowest level of a derivation tree. *)
 
-(** Premises of a constructor. *)
-type premise =
-  | PremiseIsType of is_type abstraction
-  | PremiseIsTerm of is_term abstraction
-  | PremiseEqType of eq_type abstraction
-  | PremiseEqTerm of eq_term abstraction
+(** Arguments of a constructor. *)
+type argument =
+  | ArgumentIsType of is_type abstraction
+  | ArgumentIsTerm of is_term abstraction
+  | ArgumentEqType of eq_type abstraction
+  | ArgumentEqTerm of eq_term abstraction
 
 type boundary = TT.boundary
 type assumption = TT.assumption
 
 type stump_is_type =
-  | TypeConstructor of Name.constructor * premise list
+  | TypeConstructor of Name.constructor * argument list
   | TypeMeta of TT.type_meta * is_term list
 
 type stump_is_term =
   | TermAtom of is_atom
-  | TermConstructor of Name.constructor * premise list
+  | TermConstructor of Name.constructor * argument list
   | TermMeta of TT.term_meta * is_term list
   | TermConvert of is_term * eq_type
 
@@ -55,7 +55,7 @@ type 'a stump_abstraction =
   | NotAbstract of 'a
   | Abstract of is_atom * 'a abstraction
 
-type congruence_premise =
+type congruence_argument =
   | CongrIsType of is_type abstraction * is_type abstraction * eq_type abstraction
   | CongrIsTerm of is_term abstraction * is_term abstraction * eq_term abstraction
   | CongrEqType of eq_type abstraction * eq_type abstraction
@@ -103,7 +103,7 @@ module Signature = struct
   let lookup_eq_term_rule c sgn = RuleMap.find c sgn.eq_term
 end
 
-(* let form_is_type_rule premises = () *)
+(* let form_is_type_rule arguments = () *)
 
 (** Manipulation of rules of inference. *)
 
@@ -209,8 +209,8 @@ let meta_instantiate_terms metas es_schema =
     es_schema
 
 
-let rec check_type (metas : TT.argument list) (schema : Rule.ty) (premise : TT.ty) =
-  match schema, premise with
+let rec check_type (metas : TT.argument list) (schema : Rule.ty) (argument : TT.ty) =
+  match schema, argument with
 
   | Rule.TypeConstructor (c_schema, args_schema), TT.TypeConstructor (c, args) ->
      if Name.eq_ident c_schema c then
@@ -235,8 +235,8 @@ let rec check_type (metas : TT.argument list) (schema : Rule.ty) (premise : TT.t
 
   | Rule.TypeConstructor _, TT.TypeMeta _ -> failwith "rule wants a constructor but got a meta"
 
-and check_term (metas : TT.argument list) (schema : Rule.term) (premise : TT.term) =
-  match schema, premise with
+and check_term (metas : TT.argument list) (schema : Rule.term) (argument : TT.term) =
+  match schema, argument with
 
   | Rule.TermBound k, TT.TermBound n ->
      if not (TT.equal_bound k n) then
@@ -318,7 +318,7 @@ let type_of_term sgn = function
      assert false
 
   | TT.TermConstructor (c, args) ->
-     let (_premises_schema, t_schema) = Signature.lookup_is_term_rule c sgn in
+     let (_premises, t_schema) = Signature.lookup_is_term_rule c sgn in
      (* we need not re-check that the premises match the arguments because
         we are computing the type of a term that was previously determined
         to be valid. *)
@@ -355,27 +355,27 @@ let natural_type_eq sgn e =
   and given = type_of_term sgn e in
   TT.mk_eq_type Assumption.empty natural given
 
-let check_premise sgn metas s p =
+let check_argument sgn metas s p =
   match s, p with
 
-  | Rule.PremiseIsType (_, s_abstr), PremiseIsType p_abstr ->
+  | Rule.PremiseIsType (_, s_abstr), ArgumentIsType p_abstr ->
      check_abstraction
        (fun _ _ _ -> ())
        metas s_abstr p_abstr
 
-  | Rule.PremiseIsTerm (_, s_abstr), PremiseIsTerm p_abstr ->
+  | Rule.PremiseIsTerm (_, s_abstr), ArgumentIsTerm p_abstr ->
      check_abstraction
        (fun metas t_schema e -> check_type metas t_schema (type_of_term sgn e))
        metas s_abstr p_abstr
 
-  | Rule.PremiseEqType s_abstr, PremiseEqType p_abstr ->
+  | Rule.PremiseEqType s_abstr, ArgumentEqType p_abstr ->
      check_abstraction
        (fun metas (t1_schema, t2_schema) (TT.EqType (_asmp, t1, t2)) ->
          check_type metas t1_schema t1 ;
          check_type metas t2_schema t2)
        metas s_abstr p_abstr
 
-  | Rule.PremiseEqTerm s_abstr, PremiseEqTerm p_abstr ->
+  | Rule.PremiseEqTerm s_abstr, ArgumentEqTerm p_abstr ->
      check_abstraction
        (fun metas (e1_schema, e2_schema, t_schema) (TT.EqTerm (_asmp, e1, e2, t)) ->
          check_term metas e1_schema e1 ;
@@ -384,57 +384,57 @@ let check_premise sgn metas s p =
        metas
        s_abstr p_abstr
 
-  | _, _ -> failwith "TODO better error in check_premise"
+  | _, _ -> failwith "TODO better error in check_argument"
 
-let arg_of_premise = function
-  | PremiseIsType t -> TT.mk_arg_is_type t
-  | PremiseIsTerm e -> TT.mk_arg_is_term e
-  | PremiseEqType eq -> TT.mk_arg_eq_type eq
-  | PremiseEqTerm eq-> TT.mk_arg_eq_term eq
+let arg_of_argument = function
+  | ArgumentIsType t -> TT.mk_arg_is_type t
+  | ArgumentIsTerm e -> TT.mk_arg_is_term e
+  | ArgumentEqType eq -> TT.mk_arg_eq_type eq
+  | ArgumentEqTerm eq-> TT.mk_arg_eq_term eq
 
-let match_premise sgn metas (s : Rule.premise) (p : premise) : TT.argument =
-  check_premise sgn metas s p ;
-  arg_of_premise p
+let match_argument sgn metas (s : Rule.premise) (p : argument) : TT.argument =
+  check_argument sgn metas s p ;
+  arg_of_argument p
 
-let match_premises sgn (schema_premises : Rule.premise list) (premises : premise list) =
-  let rec fold args = function
-    | [], [] -> List.rev args
+let match_arguments sgn (premises : Rule.premise list) (arguments : argument list) =
+  let rec fold args_out = function
+    | [], [] -> List.rev args_out
     | [], _::_ -> failwith "too many arguments"
     | _::_, [] -> failwith "too few arguments"
-    | s :: ss, p :: ps ->
-       let metas = args in (* args also serves as the list of collected metas *)
-       let arg = match_premise sgn metas s p in
-       fold (arg :: args) (ss, ps)
+    | premise :: premises, argument :: arguments ->
+       let metas = args_out in (* args also serves as the list of collected metas *)
+       let argument = match_argument sgn metas premise argument in
+       fold (argument :: args_out) (premises, arguments)
   in
-  fold [] (schema_premises, premises)
+  fold [] (premises, arguments)
 
 (** Judgement formation *)
 
 (** Formation of judgements from rules *)
 
-let form_is_type_rule sgn c premises =
-  let schema_premises = Signature.lookup_is_type_rule c sgn in
-  let args = match_premises sgn schema_premises premises in
-  TT.mk_type_constructor c args
+let form_is_type_rule sgn c arguments =
+  let premises = Signature.lookup_is_type_rule c sgn in
+  let arguments = match_arguments sgn premises arguments in
+  TT.mk_type_constructor c arguments
 
-let form_is_term_rule sgn c premises =
-  let (schema_premises, _) = Signature.lookup_is_term_rule c sgn in
-  let args = match_premises sgn schema_premises premises in
-  TT.mk_term_constructor c args
+let form_is_term_rule sgn c arguments =
+  let (premises, _boundary) = Signature.lookup_is_term_rule c sgn in
+  let arguments = match_arguments sgn premises arguments in
+  TT.mk_term_constructor c arguments
 
-let form_eq_type_rule sgn c premises =
-  let (schema_premises, (lhs_schema, rhs_schema)) =
+let form_eq_type_rule sgn c arguments =
+  let (premises, (lhs_schema, rhs_schema)) =
     Signature.lookup_eq_type_rule c sgn in
-  let args = match_premises sgn schema_premises premises in
-  let asmp = TT.assumptions_arguments args
-  and lhs = meta_instantiate_is_type ~lvl:0 args lhs_schema
-  and rhs = meta_instantiate_is_type ~lvl:0 args rhs_schema
+  let arguments = match_arguments sgn premises arguments in
+  let asmp = TT.assumptions_arguments arguments
+  and lhs = meta_instantiate_is_type ~lvl:0 arguments lhs_schema
+  and rhs = meta_instantiate_is_type ~lvl:0 arguments rhs_schema
   in TT.mk_eq_type asmp lhs rhs
 
-let form_eq_term_rule sgn c premises =
-  let (schema_premises, (e1_schema, e2_schema, t_schema)) =
+let form_eq_term_rule sgn c arguments =
+  let (premises, (e1_schema, e2_schema, t_schema)) =
     Signature.lookup_eq_term_rule c sgn in
-  let args = match_premises sgn schema_premises premises in
+  let args = match_arguments sgn premises arguments in
   let asmp = TT.assumptions_arguments args
   and e1 = meta_instantiate_is_term ~lvl:0 args e1_schema
   and e2 = meta_instantiate_is_term ~lvl:0 args e2_schema
@@ -500,10 +500,10 @@ let form_eq_term_abstract {TT.atom_name=x; atom_type=t} abstr =
 (** Destructors *)
 
 let invert_arg = function
-  | TT.ArgIsTerm abstr -> PremiseIsTerm abstr
-  | TT.ArgIsType abstr -> PremiseIsType abstr
-  | TT.ArgEqType abstr -> PremiseEqType abstr
-  | TT.ArgEqTerm abstr -> PremiseEqTerm abstr
+  | TT.ArgIsTerm abstr -> ArgumentIsTerm abstr
+  | TT.ArgIsType abstr -> ArgumentIsType abstr
+  | TT.ArgEqType abstr -> ArgumentEqType abstr
+  | TT.ArgEqTerm abstr -> ArgumentEqTerm abstr
 
 let invert_args args = List.map invert_arg args
 
@@ -514,8 +514,8 @@ let invert_is_term sgn = function
   | TT.TermBound _ -> assert false
 
   | TT.TermConstructor (c, args) ->
-     let premises = invert_args args in
-     TermConstructor (c, premises)
+     let arguments = invert_args args in
+     TermConstructor (c, arguments)
 
   | TT.TermMeta (mv, args) ->
      TermMeta (mv, args)
@@ -527,8 +527,8 @@ let invert_is_term sgn = function
 
 let invert_is_type = function
   | TT.TypeConstructor (c, args) ->
-     let premises = invert_args args in
-     TypeConstructor (c, premises)
+     let arguments = invert_args args in
+     TypeConstructor (c, arguments)
   | TT.TypeMeta (mv, args) -> TypeMeta (mv, args)
 
 let invert_eq_type (TT.EqType (asmp, t1, t2)) = EqType (asmp, t1, t2)
@@ -715,7 +715,7 @@ let process_congruence_args args =
            TT.alpha_equal_type t1 t1' && TT.alpha_equal_type t2 t2')
          t1 t2 eq ;
        let asmp_out = Assumption.union asmp_out (TT.assumptions_abstraction TT.assumptions_eq_type eq)
-       in fold asmp_out (PremiseIsType t1 :: lhs) (PremiseIsType t2 :: rhs) eqs
+       in fold asmp_out (ArgumentIsType t1 :: lhs) (ArgumentIsType t2 :: rhs) eqs
 
     | CongrIsTerm (e1, e2, eq) :: eqs ->
        check_endpoints
@@ -723,16 +723,16 @@ let process_congruence_args args =
            TT.alpha_equal_term e1 e1' && TT.alpha_equal_term e2 e2')
          e1 e2 eq ;
        let asmp_out = Assumption.union asmp_out (TT.assumptions_abstraction TT.assumptions_eq_term eq)
-       in fold asmp_out (PremiseIsTerm e1 :: lhs) (PremiseIsTerm e2 :: rhs) eqs
+       in fold asmp_out (ArgumentIsTerm e1 :: lhs) (ArgumentIsTerm e2 :: rhs) eqs
 
     | CongrEqType (eq1, eq2) :: eqs ->
-       let l = PremiseEqType eq1
-       and r = PremiseEqType eq2
+       let l = ArgumentEqType eq1
+       and r = ArgumentEqType eq2
        in fold asmp_out (l :: lhs) (r :: rhs) eqs
 
     | CongrEqTerm (eq1, eq2) :: eqs ->
-       let l = PremiseEqTerm eq1
-       and r = PremiseEqTerm eq2
+       let l = ArgumentEqTerm eq1
+       and r = ArgumentEqTerm eq2
        in fold asmp_out (l :: lhs) (r :: rhs) eqs
 
   in fold Assumption.empty [] [] args

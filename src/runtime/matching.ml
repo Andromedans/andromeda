@@ -221,10 +221,10 @@ and collect_args env xvs ps vs =
   | p::ps, v::vs ->
      let xvs =
        begin match v with
-       | Jdg.PremiseIsType t -> collect_is_type env xvs p t
-       | Jdg.PremiseIsTerm e -> collect_is_term env xvs p e
-       | Jdg.PremiseEqType eq -> collect_eq_type env xvs p eq
-       | Jdg.PremiseEqTerm eq -> collect_eq_term env xvs p eq
+       | Jdg.ArgumentIsType t -> collect_is_type env xvs p t
+       | Jdg.ArgumentIsTerm e -> collect_is_term env xvs p e
+       | Jdg.ArgumentEqType eq -> collect_eq_type env xvs p eq
+       | Jdg.ArgumentEqTerm eq -> collect_eq_term env xvs p eq
      end in
      collect_args env xvs ps vs
 
