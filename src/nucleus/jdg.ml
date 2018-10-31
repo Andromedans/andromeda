@@ -32,7 +32,7 @@ type argument =
   | ArgumentEqType of eq_type abstraction
   | ArgumentEqTerm of eq_term abstraction
 
-type boundary = TT.boundary
+type boundary = TT.premise_boundary
 type assumption = TT.assumption
 
 type stump_is_type =
@@ -102,8 +102,6 @@ module Signature = struct
   let lookup_eq_type_rule c sgn = RuleMap.find c sgn.eq_type
   let lookup_eq_term_rule c sgn = RuleMap.find c sgn.eq_term
 end
-
-(* let form_is_type_rule arguments = () *)
 
 (** Manipulation of rules of inference. *)
 
@@ -449,6 +447,23 @@ let form_is_term_atom = TT.mk_atom
 
 let fresh_atom = TT.fresh_atom
 
+let rec check_term_arguments sgn abstr args = match (abstr, args) with
+  | TT.NotAbstract u, [] -> ()
+  | TT.Abstract _, [] -> assert false (* not enough arguments *)
+  | TT.NotAbstract _, _::_ -> assert false (* too many arguments *)
+  | TT.Abstract (x, t, abstr), arg :: args ->
+     if TT.alpha_equal_type t (type_of_term sgn arg)
+     then check_term_arguments sgn abstr args
+     else failwith "invalid application"
+
+let form_is_type_meta sgn m args =
+  check_term_arguments sgn m.TT.meta_type args ;
+  TT.mk_type_meta m args
+
+let form_is_term_meta sgn m args =
+  check_term_arguments sgn m.TT.meta_type args ;
+  TT.mk_term_meta m args
+
 let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
   match e with
   | TT.TermConvert (e, asmp0, t0) ->
@@ -591,6 +606,16 @@ let apply_eq_type_abstraction sgn abstr e0 =
 let apply_eq_term_abstraction sgn abstr e0 =
   apply_abstraction TT.instantiate_eq_term sgn abstr e0
 
+let rec fully_apply_abstraction inst_u sgn abstr = function
+  | [] ->
+     begin match abstr with
+     | TT.NotAbstract eq -> eq
+     | TT.Abstract _ -> failwith "not enough arguments"
+     end
+  | arg :: args ->
+     let abstr = apply_abstraction inst_u sgn abstr arg in
+     fully_apply_abstraction inst_u sgn abstr args
+
 (** Conversion *)
 
 let convert_eq_term (TT.EqTerm (asmp1, e1, e2, t0)) (TT.EqType (asmp2, t1, t2)) =
@@ -601,6 +626,33 @@ let convert_eq_term (TT.EqTerm (asmp1, e1, e2, t0)) (TT.EqType (asmp2, t1, t2)) 
     TT.mk_eq_term asmp e1 e2 t2
   else
     error (InvalidConvert (t0, t1))
+
+(** Meta-variables *)
+
+let form_eq_type_meta sgn TT.{meta_name ; meta_type} args =
+  let asmp = Assumption.singleton_meta meta_name (TT.BoundaryEqType meta_type) in
+  let (lhs, rhs) =
+    let inst_eq_type_boundary e0 ?lvl (lhs, rhs) =
+      let lhs = TT.instantiate_type e0 ?lvl lhs
+      and rhs = TT.instantiate_type e0 ?lvl rhs
+      in (lhs, rhs)
+    in
+    fully_apply_abstraction inst_eq_type_boundary sgn meta_type args
+  in
+  TT.mk_eq_type asmp lhs rhs
+
+let form_eq_term_meta sgn TT.{meta_name ; meta_type} args =
+  let asmp = Assumption.singleton_meta meta_name (TT.BoundaryEqTerm meta_type) in
+  let (lhs, rhs, t) =
+    let inst_eq_term_boundary e0 ?lvl (lhs, rhs, t) =
+      let lhs = TT.instantiate_term e0 ?lvl lhs
+      and rhs = TT.instantiate_term e0 ?lvl rhs
+      and t = TT.instantiate_type e0 ?lvl t
+      in (lhs, rhs, t)
+    in
+    fully_apply_abstraction inst_eq_term_boundary sgn meta_type args
+  in
+  TT.mk_eq_term asmp lhs rhs t
 
 (** Constructors *)
 

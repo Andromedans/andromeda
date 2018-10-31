@@ -17,17 +17,27 @@ and eq_type = EqType of assumption * ty * ty
 
 and eq_term = EqTerm of assumption * term * term * ty
 
-and assumption = (ty, boundary) Assumption.t
+and assumption = (ty, premise_boundary) Assumption.t
 
 and atom = { atom_name : Name.atom ; atom_type : ty }
 
-and 't meta = { meta_name : Name.meta ; meta_type : 't abstraction }
+and 't meta = { meta_name : Name.meta ; meta_type : 't }
 
-and type_meta = unit meta
+and type_meta = type_boundary meta
+and term_meta = term_boundary meta
+and eq_type_meta = eq_type_boundary meta
+and eq_term_meta = eq_term_boundary meta
 
-and term_meta = ty meta
+and premise_boundary =
+    | BoundaryType of type_boundary
+    | BoundaryTerm of term_boundary
+    | BoundaryEqType of eq_type_boundary
+    | BoundaryEqTerm of eq_term_boundary
 
-and boundary = BoundaryType of unit abstraction | BoundaryTerm of ty abstraction
+and type_boundary = unit abstraction
+and term_boundary = ty abstraction
+and eq_type_boundary = (ty * ty) abstraction
+and eq_term_boundary = (term * term * ty) abstraction
 
 (** An argument of a term or a type constructor *)
 and argument =
@@ -151,11 +161,21 @@ let fresh_atom x t =
 
 let mk_atom a = TermAtom a
 
+let fresh_meta x abstr = { meta_name = Name.fresh_meta x ; meta_type = abstr }
+let fresh_type_meta = fresh_meta
+let fresh_term_meta = fresh_meta
+let fresh_eq_type_meta = fresh_meta
+let fresh_eq_term_meta = fresh_meta
+
 let mk_bound k = TermBound k
 
 let mk_type_constructor c args = TypeConstructor (c, args)
 
+let mk_type_meta m args = TypeMeta (m, args)
+
 let mk_term_constructor c args = TermConstructor (c, args)
+
+let mk_term_meta m args = TermMeta (m, args)
 
 let mk_term_convert e asmp t =
   match e with
@@ -464,6 +484,7 @@ and fully_instantiate_abstraction
      let t = fully_instantiate_type ~lvl es t
      and abstr = fully_instantiate_abstraction inst_u ~lvl:(lvl+1) es abstr
      in Abstract (x, t, abstr)
+
 
 (** Unabstract *)
 

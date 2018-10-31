@@ -22,6 +22,8 @@ val shift : lvl:int -> int -> ('a, 'b) t -> ('a, 'b) t
 
 val singleton_bound : int -> ('a, 'b) t
 
+val singleton_meta : Name.meta -> 'b -> ('a, 'b) t
+
 val add_free : Name.atom -> 'a -> ('a, 'b) t -> ('a, 'b) t
 
 val add_meta : Name.meta -> 'b -> ('a, 'b) t -> ('a, 'b) t

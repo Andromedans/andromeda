@@ -34,14 +34,15 @@ let shift ~lvl k s =
         s.bound
         BoundSet.empty }
 
-let singleton_bound k =
-  {empty with bound = BoundSet.singleton k}
+let singleton_bound k = {empty with bound = BoundSet.singleton k}
 
 let add_free x t asmp = {asmp with free = AtomMap.add x t asmp.free}
 
 let add_meta x t asmp = {asmp with meta = MetaMap.add x t asmp.meta}
 
 let add_bound k asmp = {asmp with bound = BoundSet.add k asmp.bound}
+
+let singleton_meta x t = add_meta x t empty
 
 let union a1 a2 =
   { free = AtomMap.union (fun _ t1 t2 -> assert (t1 == t2) ; Some t1) a1.free a2.free

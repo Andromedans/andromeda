@@ -36,19 +36,29 @@ and eq_type = private EqType of assumption * ty * ty
 
 and eq_term = private EqTerm of assumption * term * term * ty
 
-and assumption = (ty, boundary) Assumption.t
+and assumption = (ty, premise_boundary) Assumption.t
 
 and atom = private { atom_name : Name.atom ; atom_type : ty }
 
 (** A meta variable describes the local context and the boundary of its
    judgement, which depends on the judgement form. *)
-and 't meta = private { meta_name : Name.meta ; meta_type : 't abstraction }
+and 't meta = private { meta_name : Name.meta ; meta_type : 't }
 
-and type_meta = unit meta
+and type_meta = type_boundary meta
+and term_meta = term_boundary meta
+and eq_type_meta = eq_type_boundary meta
+and eq_term_meta = eq_term_boundary meta
 
-and term_meta = ty meta
+and premise_boundary =
+    | BoundaryType of type_boundary
+    | BoundaryTerm of term_boundary
+    | BoundaryEqType of eq_type_boundary
+    | BoundaryEqTerm of eq_term_boundary
 
-and boundary = BoundaryType of unit abstraction | BoundaryTerm of ty abstraction
+and type_boundary = unit abstraction
+and term_boundary = ty abstraction
+and eq_type_boundary = (ty * ty) abstraction
+and eq_term_boundary = (term * term * ty) abstraction
 
 (** An argument of a term or type constructor. *)
 and argument = private
@@ -70,6 +80,14 @@ val fresh_atom : Name.ident -> ty -> atom
 
 (** Create the judgement that an atom has its type. *)
 val mk_atom : atom -> term
+
+val fresh_type_meta : Name.ident -> type_boundary -> type_meta
+val fresh_term_meta : Name.ident -> term_boundary -> term_meta
+val fresh_eq_type_meta : Name.ident -> eq_type_boundary -> eq_type_meta
+val fresh_eq_term_meta : Name.ident -> eq_term_boundary -> eq_term_meta
+
+val mk_type_meta : type_meta -> term list -> ty
+val mk_term_meta : term_meta -> term list -> term
 
 (** Create a bound variable (it's a hole in a derivation?) *)
 val mk_bound : bound -> term

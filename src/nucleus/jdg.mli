@@ -32,7 +32,7 @@ type argument =
 
 (** A stump is obtained when we invert a judgement. *)
 
-type boundary
+type boundary = TT.premise_boundary
 type assumption = (is_type, boundary) Assumption.t
 
 type is_type_meta
@@ -86,6 +86,8 @@ end
    judgement corresponding to the conclusion of the rule. *)
 val form_is_type_rule : Signature.t -> Name.constructor -> argument list -> is_type
 
+val form_is_type_meta : Signature.t -> Name.ident -> TT.type_boundary abstraction -> is_type_meta
+
 (** Given a term rule and a list of arguments, match the rule against the given
     arguments, make sure they fit the rule, and return the list of arguments that
     the term constructor should be applied to, together with the natural type of
@@ -96,6 +98,8 @@ val form_is_term_rule : Signature.t -> Name.constructor -> argument list -> is_t
 val form_is_term_atom : is_atom -> is_term
 
 val atom_name : is_atom -> Name.atom
+
+val form_is_term_meta : Signature.t -> Name.ident -> TT.type_boundary abstraction -> is_term_meta
 
 (** [fresh_atom x t] Create a fresh atom from name [x] with type [t] *)
 val fresh_atom : Name.ident -> is_type -> is_atom
