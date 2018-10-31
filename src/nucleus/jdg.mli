@@ -73,6 +73,12 @@ module Signature : sig
   type t
 
   val empty : t
+
+  val add_is_type_rule : Name.constructor -> Rule.is_type_rule -> t -> t
+  val add_is_term_rule : Name.constructor -> Rule.is_term_rule -> t -> t
+  val add_eq_type_rule : Name.constructor -> Rule.eq_type_rule -> t -> t
+  val add_eq_term_rule : Name.constructor -> Rule.eq_term_rule -> t -> t
+
 end
 
 (** Given a type formation rule and a list of premises, match the rule

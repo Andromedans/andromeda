@@ -55,28 +55,28 @@ let rec infer {Location.thing=c'; loc} =
 
     | Rsyntax.IsTypeConstructor (c, cs) ->
        (* XXX premises should really be run in checking mode!!! *)
-       infer_premises [] cs >>= fun premises ->
+       infer_premises cs >>= fun premises ->
        Runtime.lookup_signature >>= fun sgn ->
        let e = Jdg.form_is_type_rule sgn c premises in
        let v = Runtime.mk_is_type (Jdg.form_not_abstract e) in
        return v
 
     | Rsyntax.IsTermConstructor (c, cs) ->
-       infer_premises [] cs >>= fun premises ->
+       infer_premises cs >>= fun premises ->
        Runtime.lookup_signature >>= fun sgn ->
        let e = Jdg.form_is_term_rule sgn c premises in
        let v = Runtime.mk_is_term (Jdg.form_not_abstract e) in
        return v
 
     | Rsyntax.EqTypeConstructor (c, cs) ->
-       infer_premises [] cs >>= fun premises ->
+       infer_premises cs >>= fun premises ->
        Runtime.lookup_signature >>= fun sgn ->
        let e = Jdg.form_eq_type_rule sgn c premises in
        let v = Runtime.mk_eq_type (Jdg.form_not_abstract e) in
        return v
 
     | Rsyntax.EqTermConstructor (c, cs) ->
-       infer_premises [] cs >>= fun premises ->
+       infer_premises cs >>= fun premises ->
        Runtime.lookup_signature >>= fun sgn ->
        let e = Jdg.form_eq_term_rule sgn c premises in
        let v = Runtime.mk_eq_term (Jdg.form_not_abstract e) in
@@ -340,10 +340,12 @@ let rec infer {Location.thing=c'; loc} =
     Runtime.return_eq_type (Jdg.form_not_abstract eq)
 
 (* XXX premises should really be run in checking mode!!! *)
-and infer_premises ps_out = function
+and infer_premises ps =
+  let rec infer_premises ps_out = function
   | [] -> return (List.rev ps_out)
   | p :: ps -> infer p >>= as_premise >>= fun p ->
      infer_premises (p :: ps_out) ps
+  in infer_premises [] ps
 
 and occurs
   : 'a . (Jdg.is_atom -> 'a Jdg.abstraction -> bool)

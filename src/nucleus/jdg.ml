@@ -90,11 +90,20 @@ module Signature = struct
     ; eq_term = RuleMap.empty
     }
 
+  let add_new c rule map = assert (not (RuleMap.mem c map)) ; RuleMap.add c rule map
+
+  let add_is_type_rule c rule sgn = { sgn with is_type = add_new c rule sgn.is_type }
+  let add_is_term_rule c rule sgn = { sgn with is_term = add_new c rule sgn.is_term }
+  let add_eq_type_rule c rule sgn = { sgn with eq_type = add_new c rule sgn.eq_type }
+  let add_eq_term_rule c rule sgn = { sgn with eq_term = add_new c rule sgn.eq_term }
+
   let lookup_is_type_rule c sgn = RuleMap.find c sgn.is_type
   let lookup_is_term_rule c sgn = RuleMap.find c sgn.is_term
   let lookup_eq_type_rule c sgn = RuleMap.find c sgn.eq_type
   let lookup_eq_term_rule c sgn = RuleMap.find c sgn.eq_term
 end
+
+(* let form_is_type_rule premises = () *)
 
 (** Manipulation of rules of inference. *)
 
