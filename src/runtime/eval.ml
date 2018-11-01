@@ -669,6 +669,79 @@ let comp_handle (xs,y,c) =
       in
       bind vs)
 
+(** Evaluation of rules *)
+
+(* Evaluate the computation [cmp] in local context [lctx].
+   Return the evaluated [lctx] and the result of [cmp]. *)
+let local_context lctx cmp =
+  let rec fold lctx_out = function
+    | [] ->
+       cmp >>= fun v ->
+       let lctx_out = List.rev lctx_out in
+       return (lctx_out, v)
+    | (x, c) :: lctx ->
+       check_is_type c >>= fun t ->
+       let t = Jdg.form_not_abstract t in
+       let mv = Jdg.fresh_is_term_meta x t in
+       Runtime.lookup_signature >>= fun sgn ->
+       let e = Jdg.form_not_abstract (Jdg.form_is_term_meta sgn mv []) in
+       let v = Runtime.mk_is_term e in
+       Runtime.add_bound v (fold ((x, t) :: lctx_out) lctx)
+  in
+  fold [] lctx
+
+
+let premise {Location.thing=prem;_} =
+  match prem with
+    | Rsyntax.PremiseIsType (x, lctx) ->
+       local_context lctx (return ()) >>= fun (lctx, ()) ->
+       Print.error "process the rest of premises@." ;
+       return ()
+
+    | Rsyntax.PremiseIsTerm (x, lctx, c) ->
+       local_context lctx (check_is_type c) >>= fun (lctx, t) ->
+       Print.error "process the rest of premises@." ;
+       return ()
+
+    | Rsyntax.PremiseEqType (x, lctx, (c1, c2)) ->
+       local_context lctx
+         (check_is_type c1 >>= fun t1 ->
+          check_is_type c2 >>= fun t2 ->
+          return (t1, t2))
+       >>= fun (lctx, (t1, t2)) ->
+       Print.error "process the rest of premises@." ;
+       return ()
+
+    | Rsyntax.PremiseEqTerm (x, lctx, (c1, c2, c3)) ->
+       local_context lctx
+         (check_is_type c2 >>= fun t ->
+          let t = Jdg.form_not_abstract t in
+          check c1 t >>= fun e1 ->
+          check c2 t >>= fun e2 ->
+          return (e1, e2, t))
+       >>= fun (lctx, (e1, e2, t)) ->
+       Print.error "process the rest of premises@." ;
+       return ()
+
+(** Evaluate the premises (should we call them arguments?) of a rule,
+    bind them to meta-variables, then evaluate the conclusion.
+    Return the evaulated premises and conclusion for further processing.
+*)
+let premises prems cmp =
+  let rec fold prems_out = function
+
+    | [] ->
+       cmp >>= fun v ->
+       Print.error "process the rest of premises@." ;
+       return ()
+
+    | prem :: prems ->
+       premise prem >>= fun v ->
+       fold (v :: prems_out) prems
+  in
+  fold [] prems
+
+
 (** Toplevel commands *)
 
 let (>>=) = Runtime.top_bind
@@ -733,22 +806,25 @@ let print_error err ppf =
     | RuntimeError (penv, err) -> Runtime.print_error ~penv err ppf
     | JdgError (penv, err) -> Jdg.print_error ~penv err ppf
 
+
 let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   Runtime.catch ~loc (lazy (match c with
     | Rsyntax.RuleIsType (x, prems) ->
-       Print.error "evaluation of RuleIsType" ;
+       Print.error "evaluation of RuleIsTerm, should call premises here" ;
+       (* XXX the following line is there just so that premises gets used *)
+       ignore (premises prems (Runtime.return ())) ;
        return ()
 
     | Rsyntax.RuleIsTerm (x, prems, c) ->
-       Print.error "evaluation of RuleIsTerm" ;
+       Print.error "evaluation of RuleIsTerm, should call premises here" ;
        return ()
 
     | Rsyntax.RuleEqType (x, prems, (c1, c2)) ->
-       Print.error "evaluation of RuleEqType" ;
+       Print.error "evaluation of RuleEqType, should call premises here" ;
        return ()
 
     | Rsyntax.RuleEqTerm (x, prems, (c1, c2, c3)) ->
-       Print.error "evaluation of RuleEqTerm" ;
+       Print.error "evaluation of RuleEqTerm, should call premises here" ;
        return ()
 
     | Rsyntax.DefMLType lst
