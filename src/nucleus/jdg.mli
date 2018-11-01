@@ -35,6 +35,11 @@ type argument =
 type boundary = TT.premise_boundary
 type assumption = (is_type, boundary) Assumption.t
 
+type type_boundary = unit abstraction
+type term_boundary = is_type abstraction
+type eq_type_boundary = (is_type * is_type) abstraction
+type eq_term_boundary = (is_term * is_term * is_type) abstraction
+
 type is_type_meta
 type is_term_meta
 type eq_type_meta
@@ -136,10 +141,10 @@ val form_eq_term_abstract : is_atom -> eq_term_abstraction -> eq_term_abstractio
 val fresh_atom : Name.ident -> is_type -> is_atom
 
 (** [fresh_is_type_meta x abstr] creates a fresh type meta-variable of type [abstr] *)
-val fresh_is_type_meta : Name.ident -> TT.type_boundary -> is_type_meta
-val fresh_is_term_meta : Name.ident -> TT.term_boundary -> is_term_meta
-val fresh_eq_type_meta : Name.ident -> TT.eq_type_boundary -> eq_type_meta
-val fresh_eq_term_meta : Name.ident -> TT.eq_term_boundary -> eq_term_meta
+val fresh_is_type_meta : Name.ident -> type_boundary -> is_type_meta
+val fresh_is_term_meta : Name.ident -> term_boundary -> is_term_meta
+val fresh_eq_type_meta : Name.ident -> eq_type_boundary -> eq_type_meta
+val fresh_eq_term_meta : Name.ident -> eq_term_boundary -> eq_term_meta
 
 val invert_is_type : is_type -> stump_is_type
 

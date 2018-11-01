@@ -37,6 +37,11 @@ type argument =
 type boundary = TT.premise_boundary
 type assumption = TT.assumption
 
+type type_boundary = unit abstraction
+type term_boundary = is_type abstraction
+type eq_type_boundary = (is_type * is_type) abstraction
+type eq_term_boundary = (is_term * is_term * is_type) abstraction
+
 type stump_is_type =
   | TypeConstructor of Name.constructor * argument list
   | TypeMeta of TT.type_meta * is_term list
