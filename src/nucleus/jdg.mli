@@ -103,21 +103,21 @@ val form_rule_eq_term :
 (** Given a type formation rule and a list of arguments, match the rule
    against the given arguments, make sure they fit the rule, and return the
    judgement corresponding to the conclusion of the rule. *)
-val form_is_type_rule : Signature.t -> Name.constructor -> argument list -> is_type
-
-(** [form_is_type_meta sgn a args] creates a is_type judgement by applying the
-    meta-variable [a] = `x : A, ..., y : B ⊢ jdg` to a list of terms [args] of
-    matching types. *)
-val form_is_type_meta : Signature.t -> is_type_meta -> is_term list -> is_type
+val form_is_type : Signature.t -> Name.constructor -> argument list -> is_type
 
 (** Given a term rule and a list of arguments, match the rule against the given
     arguments, make sure they fit the rule, and return the list of arguments that
     the term constructor should be applied to, together with the natural type of
     the resulting term. *)
-val form_is_term_rule : Signature.t -> Name.constructor -> argument list -> is_term
+val form_is_term : Signature.t -> Name.constructor -> argument list -> is_term
 
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
+
+(** [form_is_type_meta sgn a args] creates a is_type judgement by applying the
+    meta-variable [a] = `x : A, ..., y : B ⊢ jdg` to a list of terms [args] of
+    matching types. *)
+val form_is_type_meta : Signature.t -> is_type_meta -> is_term list -> is_type
 
 (** [form_is_term_meta sgn a args] creates a is_term judgement by applying the
     meta-variable [a] = `x : A, ..., y : B ⊢ jdg` to a list of terms [args] of
@@ -129,7 +129,7 @@ val form_is_term_convert : Signature.t -> is_term -> eq_type -> is_term
 (** Given an equality type rule and a list of arguments, match the rule against
     the given arguments, make sure they fit the rule, and return the conclusion
     of the instance of the rule so obtained. *)
-val form_eq_type_rule : Signature.t -> Name.constructor -> argument list -> eq_type
+val form_eq_type : Signature.t -> Name.constructor -> argument list -> eq_type
 
 val form_eq_type_meta : Signature.t -> eq_type_meta -> TT.term list -> TT.eq_type
 
@@ -138,7 +138,7 @@ val form_eq_term_meta : Signature.t -> eq_term_meta -> TT.term list -> TT.eq_ter
 (** Given an terms equality type rule and a list of arguments, match the rule
     against the given arguments, make sure they fit the rule, and return the
     conclusion of the instance of the rule so obtained. *)
-val form_eq_term_rule : Signature.t -> Name.constructor -> argument list -> eq_term
+val form_eq_term : Signature.t -> Name.constructor -> argument list -> eq_term
 
 (** Form a non-abstracted abstraction *)
 val form_not_abstract : 'a -> 'a abstraction

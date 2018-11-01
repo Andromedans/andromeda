@@ -592,17 +592,17 @@ let form_rule_eq_term prems (e1, e2, t) =
 
 (** Formation of judgements from rules *)
 
-let form_is_type_rule sgn c arguments =
+let form_is_type sgn c arguments =
   let prems, () = Signature.lookup_rule_is_type c sgn in
   let arguments = match_arguments sgn prems arguments in
   TT.mk_type_constructor c arguments
 
-let form_is_term_rule sgn c arguments =
+let form_is_term sgn c arguments =
   let (premises, _boundary) = Signature.lookup_rule_is_term c sgn in
   let arguments = match_arguments sgn premises arguments in
   TT.mk_term_constructor c arguments
 
-let form_eq_type_rule sgn c arguments =
+let form_eq_type sgn c arguments =
   let (premises, (lhs_schema, rhs_schema)) =
     Signature.lookup_rule_eq_type c sgn in
   let arguments = match_arguments sgn premises arguments in
@@ -611,7 +611,7 @@ let form_eq_type_rule sgn c arguments =
   and rhs = meta_instantiate_is_type ~lvl:0 arguments rhs_schema
   in TT.mk_eq_type asmp lhs rhs
 
-let form_eq_term_rule sgn c arguments =
+let form_eq_term sgn c arguments =
   let (premises, (e1_schema, e2_schema, t_schema)) =
     Signature.lookup_rule_eq_term c sgn in
   let args = match_arguments sgn premises arguments in
@@ -979,14 +979,14 @@ let process_congruence_args args =
 
 let congruence_type_constructor sgn c eqs =
   let (asmp, lhs, rhs) = process_congruence_args eqs in
-  let t1 = form_is_type_rule sgn c lhs
-  and t2 = form_is_type_rule sgn c rhs
+  let t1 = form_is_type sgn c lhs
+  and t2 = form_is_type sgn c rhs
   in TT.mk_eq_type asmp t1 t2
 
 let congruence_term_constructor sgn c eqs =
   let (asmp, lhs, rhs) = process_congruence_args eqs in
-  let e1 = form_is_term_rule sgn c lhs
-  and e2 = form_is_term_rule sgn c rhs in
+  let e1 = form_is_term sgn c lhs
+  and e2 = form_is_term sgn c rhs in
   let t = type_of_term sgn e1
   in TT.mk_eq_term asmp e1 e2 t
 
