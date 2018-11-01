@@ -79,7 +79,6 @@ exception Error of error
 
 let error err = Pervasives.raise (Error err)
 
-
 module Signature = struct
   module RuleMap = Name.IdentMap
 
@@ -108,7 +107,12 @@ module Signature = struct
   let lookup_is_term_rule c sgn = RuleMap.find c sgn.is_term
   let lookup_eq_type_rule c sgn = RuleMap.find c sgn.eq_type
   let lookup_eq_term_rule c sgn = RuleMap.find c sgn.eq_term
-end
+
+end (* module Signature *)
+
+(** Creation of rules of inference from judgements. *)
+
+
 
 (** Manipulation of rules of inference. *)
 
@@ -414,6 +418,112 @@ let match_arguments sgn (premises : Rule.premise list) (arguments : argument lis
   fold [] (premises, arguments)
 
 (** Judgement formation *)
+
+(** Lookup the index of a meta-variable *)
+let lookup_meta mv mvs =
+  let rec search k = function
+    | [] -> assert false
+    | mv' :: mvs ->
+       if Name.eq_meta mv mv' then
+         k
+       else
+         search (k+1) mvs
+  in
+  search 0 mvs
+
+
+let rec form_rule_is_type metas = function
+  | TT.TypeConstructor (c, args) ->
+     let args = form_rule_args metas args in
+     Rule.TypeConstructor (c, args)
+
+  | TT.TypeMeta (mv, args) ->
+     let args = List.map (form_rule_is_term metas) args in
+     let k = lookup_meta mv.TT.meta_name metas in
+     Rule.TypeMeta (k, args)
+
+and form_rule_is_term metas = function
+  | TT.TermAtom _ ->
+     (* this will be gone when we eliminate atoms *)
+     failwith "an free atom cannot appear in a rule"
+
+  | TT.TermMeta (mv, args) ->
+     let args = List.map (form_rule_is_term metas) args in
+     let k = lookup_meta mv.TT.meta_name metas in
+     Rule.TermMeta (k, args)
+
+  | TT.TermConstructor (c, args) ->
+     let args = form_rule_args metas args in
+     Rule.TermConstructor (c, args)
+
+  | TT.TermBound k ->
+     Rule.TermBound k
+
+  | TT.TermConvert (e, asmp, t) ->
+     (* XXX TODO do something about the assumption set. I think it needs to be a subset of metas. *)
+     Print.error "should do someting about assumptions sets, hello?@." ;
+     form_rule_is_term metas e
+
+and form_rule_eq_type metas (TT.EqType (asmp, t1, t2)) =
+    let asmp = form_rule_assumptions metas asmp
+    and t1 = form_rule_is_type metas t1
+    and t2 = form_rule_is_type metas t2 in
+    Rule.EqType (asmp, t1, t2)
+
+and form_rule_eq_term metas (TT.EqTerm (asmp, e1, e2, t)) =
+    let asmp = form_rule_assumptions metas asmp
+    and e1 = form_rule_is_term metas e1
+    and e2 = form_rule_is_term metas e2
+    and t = form_rule_is_type metas t in
+    Rule.EqTerm (asmp, e1, e2, t)
+
+and form_rule_assumptions metas asmp =
+  failwith "should check that asmp is a subset of metas or some such"
+
+and form_rule_arg metas = function
+
+  | TT.ArgIsType abstr ->
+     let abstr = form_rule_abstraction form_rule_is_type metas abstr in
+     Rule.ArgIsType abstr
+
+  | TT.ArgIsTerm abstr ->
+     let abstr = form_rule_abstraction form_rule_is_term metas abstr in
+     Rule.ArgIsTerm abstr
+
+  | TT.ArgEqType abstr ->
+     let abstr = form_rule_abstraction form_rule_eq_type metas abstr in
+     Rule.ArgEqType abstr
+
+  | TT.ArgEqTerm abstr ->
+     let abstr = form_rule_abstraction form_rule_eq_term metas abstr in
+     Rule.ArgEqTerm abstr
+
+and form_rule_args metas args =
+  List.map (form_rule_arg metas) args
+
+and form_rule_abstraction
+ : 'a 'b . (Name.meta list -> 'a -> 'b) -> Name.meta list -> 'a TT.abstraction -> 'b Rule.abstraction
+ = fun form_u metas -> function
+
+  | TT.NotAbstract u ->
+     let u = form_u metas u in
+     Rule.NotAbstract u
+
+  | TT.Abstract (x, t, abstr) ->
+     let t = form_rule_is_type metas t in
+     let abstr = form_rule_abstraction form_u metas abstr in
+     Rule.Abstract (x, t, abstr)
+
+let rec form_rule_premise metas x = function
+  | TT.ArgIsType abstr ->
+     let abstr = form_rule_abstraction (fun _ () -> ()) metas abstr in
+     Rule.PremiseIsType (x, abstr)
+
+let rec form_rule_premises prems =
+  List.map form_rule_premise prems
+
+let form_rule_is_type arguments =
+
 
 (** Formation of judgements from rules *)
 
