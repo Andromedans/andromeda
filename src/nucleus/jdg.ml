@@ -83,10 +83,10 @@ module Signature = struct
   module RuleMap = Name.IdentMap
 
   type t =
-    { is_type : Rule.is_type_rule RuleMap.t
-    ; is_term : Rule.is_term_rule RuleMap.t
-    ; eq_type : Rule.eq_type_rule RuleMap.t
-    ; eq_term : Rule.eq_term_rule RuleMap.t
+    { is_type : Rule.rule_is_type RuleMap.t
+    ; is_term : Rule.rule_is_term RuleMap.t
+    ; eq_type : Rule.rule_eq_type RuleMap.t
+    ; eq_term : Rule.rule_eq_term RuleMap.t
     }
 
   let empty =
@@ -98,15 +98,15 @@ module Signature = struct
 
   let add_new c rule map = assert (not (RuleMap.mem c map)) ; RuleMap.add c rule map
 
-  let add_is_type_rule c rule sgn = { sgn with is_type = add_new c rule sgn.is_type }
-  let add_is_term_rule c rule sgn = { sgn with is_term = add_new c rule sgn.is_term }
-  let add_eq_type_rule c rule sgn = { sgn with eq_type = add_new c rule sgn.eq_type }
-  let add_eq_term_rule c rule sgn = { sgn with eq_term = add_new c rule sgn.eq_term }
+  let add_rule_is_type c rule sgn = { sgn with is_type = add_new c rule sgn.is_type }
+  let add_rule_is_term c rule sgn = { sgn with is_term = add_new c rule sgn.is_term }
+  let add_rule_eq_type c rule sgn = { sgn with eq_type = add_new c rule sgn.eq_type }
+  let add_rule_eq_term c rule sgn = { sgn with eq_term = add_new c rule sgn.eq_term }
 
-  let lookup_is_type_rule c sgn = RuleMap.find c sgn.is_type
-  let lookup_is_term_rule c sgn = RuleMap.find c sgn.is_term
-  let lookup_eq_type_rule c sgn = RuleMap.find c sgn.eq_type
-  let lookup_eq_term_rule c sgn = RuleMap.find c sgn.eq_term
+  let lookup_rule_is_type c sgn = RuleMap.find c sgn.is_type
+  let lookup_rule_is_term c sgn = RuleMap.find c sgn.is_term
+  let lookup_rule_eq_type c sgn = RuleMap.find c sgn.eq_type
+  let lookup_rule_eq_term c sgn = RuleMap.find c sgn.eq_term
 
 end (* module Signature *)
 
@@ -327,7 +327,7 @@ let type_of_term sgn = function
      assert false
 
   | TT.TermConstructor (c, args) ->
-     let (_premises, t_schema) = Signature.lookup_is_term_rule c sgn in
+     let (_premises, t_schema) = Signature.lookup_rule_is_term c sgn in
      (* we need not re-check that the premises match the arguments because
         we are computing the type of a term that was previously determined
         to be valid. *)
@@ -367,12 +367,12 @@ let natural_type_eq sgn e =
 let check_argument sgn metas s p =
   match s, p with
 
-  | Rule.PremiseIsType (_, s_abstr), ArgumentIsType p_abstr ->
+  | Rule.PremiseIsType s_abstr, ArgumentIsType p_abstr ->
      check_abstraction
        (fun _ _ _ -> ())
        metas s_abstr p_abstr
 
-  | Rule.PremiseIsTerm (_, s_abstr), ArgumentIsTerm p_abstr ->
+  | Rule.PremiseIsTerm s_abstr, ArgumentIsTerm p_abstr ->
      check_abstraction
        (fun metas t_schema e -> check_type metas t_schema (type_of_term sgn e))
        metas s_abstr p_abstr
@@ -431,29 +431,32 @@ let lookup_meta mv mvs =
   in
   search 0 mvs
 
+(** The [mk_rule_XYZ] functions are auxiliary functions that should not be
+   exposed. The external interface exopses the [form_rule_XYZ] functions defined
+   below. *)
 
-let rec form_rule_is_type metas = function
+let rec mk_rule_is_type metas = function
   | TT.TypeConstructor (c, args) ->
-     let args = form_rule_args metas args in
+     let args = mk_rule_args metas args in
      Rule.TypeConstructor (c, args)
 
   | TT.TypeMeta (mv, args) ->
-     let args = List.map (form_rule_is_term metas) args in
+     let args = List.map (mk_rule_is_term metas) args in
      let k = lookup_meta mv.TT.meta_name metas in
      Rule.TypeMeta (k, args)
 
-and form_rule_is_term metas = function
+and mk_rule_is_term metas = function
   | TT.TermAtom _ ->
      (* this will be gone when we eliminate atoms *)
      failwith "an free atom cannot appear in a rule"
 
   | TT.TermMeta (mv, args) ->
-     let args = List.map (form_rule_is_term metas) args in
+     let args = List.map (mk_rule_is_term metas) args in
      let k = lookup_meta mv.TT.meta_name metas in
      Rule.TermMeta (k, args)
 
   | TT.TermConstructor (c, args) ->
-     let args = form_rule_args metas args in
+     let args = mk_rule_args metas args in
      Rule.TermConstructor (c, args)
 
   | TT.TermBound k ->
@@ -462,46 +465,46 @@ and form_rule_is_term metas = function
   | TT.TermConvert (e, asmp, t) ->
      (* XXX TODO do something about the assumption set. I think it needs to be a subset of metas. *)
      Print.error "should do someting about assumptions sets, hello?@." ;
-     form_rule_is_term metas e
+     mk_rule_is_term metas e
 
-and form_rule_eq_type metas (TT.EqType (asmp, t1, t2)) =
-    let asmp = form_rule_assumptions metas asmp
-    and t1 = form_rule_is_type metas t1
-    and t2 = form_rule_is_type metas t2 in
+and mk_rule_eq_type metas (TT.EqType (asmp, t1, t2)) =
+    let asmp = mk_rule_assumptions metas asmp
+    and t1 = mk_rule_is_type metas t1
+    and t2 = mk_rule_is_type metas t2 in
     Rule.EqType (asmp, t1, t2)
 
-and form_rule_eq_term metas (TT.EqTerm (asmp, e1, e2, t)) =
-    let asmp = form_rule_assumptions metas asmp
-    and e1 = form_rule_is_term metas e1
-    and e2 = form_rule_is_term metas e2
-    and t = form_rule_is_type metas t in
+and mk_rule_eq_term metas (TT.EqTerm (asmp, e1, e2, t)) =
+    let asmp = mk_rule_assumptions metas asmp
+    and e1 = mk_rule_is_term metas e1
+    and e2 = mk_rule_is_term metas e2
+    and t = mk_rule_is_type metas t in
     Rule.EqTerm (asmp, e1, e2, t)
 
-and form_rule_assumptions metas asmp =
+and mk_rule_assumptions metas asmp =
   failwith "should check that asmp is a subset of metas or some such"
 
-and form_rule_arg metas = function
+and mk_rule_arg metas = function
 
   | TT.ArgIsType abstr ->
-     let abstr = form_rule_abstraction form_rule_is_type metas abstr in
+     let abstr = mk_rule_abstraction mk_rule_is_type metas abstr in
      Rule.ArgIsType abstr
 
   | TT.ArgIsTerm abstr ->
-     let abstr = form_rule_abstraction form_rule_is_term metas abstr in
+     let abstr = mk_rule_abstraction mk_rule_is_term metas abstr in
      Rule.ArgIsTerm abstr
 
   | TT.ArgEqType abstr ->
-     let abstr = form_rule_abstraction form_rule_eq_type metas abstr in
+     let abstr = mk_rule_abstraction mk_rule_eq_type metas abstr in
      Rule.ArgEqType abstr
 
   | TT.ArgEqTerm abstr ->
-     let abstr = form_rule_abstraction form_rule_eq_term metas abstr in
+     let abstr = mk_rule_abstraction mk_rule_eq_term metas abstr in
      Rule.ArgEqTerm abstr
 
-and form_rule_args metas args =
-  List.map (form_rule_arg metas) args
+and mk_rule_args metas args =
+  List.map (mk_rule_arg metas) args
 
-and form_rule_abstraction
+and mk_rule_abstraction
  : 'a 'b . (Name.meta list -> 'a -> 'b) -> Name.meta list -> 'a TT.abstraction -> 'b Rule.abstraction
  = fun form_u metas -> function
 
@@ -510,36 +513,98 @@ and form_rule_abstraction
      Rule.NotAbstract u
 
   | TT.Abstract (x, t, abstr) ->
-     let t = form_rule_is_type metas t in
-     let abstr = form_rule_abstraction form_u metas abstr in
+     let t = mk_rule_is_type metas t in
+     let abstr = mk_rule_abstraction form_u metas abstr in
      Rule.Abstract (x, t, abstr)
 
-let rec form_rule_premise metas x = function
-  | TT.ArgIsType abstr ->
-     let abstr = form_rule_abstraction (fun _ () -> ()) metas abstr in
-     Rule.PremiseIsType (x, abstr)
+let mk_rule_premise metas = function
 
-let rec form_rule_premises prems =
-  List.map form_rule_premise prems
+  | TT.BoundaryType abstr ->
+     let abstr = mk_rule_abstraction (fun _ () -> ()) metas abstr in
+     Rule.PremiseIsType abstr
 
-let form_rule_is_type arguments =
+  | TT.BoundaryTerm abstr ->
+     let abstr =
+       mk_rule_abstraction (fun metas t -> mk_rule_is_type metas t) metas abstr
+     in
+     Rule.PremiseIsTerm abstr
 
+  | TT.BoundaryEqType abstr ->
+     let abstr =
+       mk_rule_abstraction
+         (fun metas (t1, t2) ->
+           let t1 = mk_rule_is_type metas t1
+           and t2 = mk_rule_is_type metas t2 in
+           (t1, t2))
+         metas abstr
+     in
+     Rule.PremiseEqType abstr
+
+  | TT.BoundaryEqTerm abstr ->
+     let abstr =
+       mk_rule_abstraction
+         (fun metas (e1, e2, t) ->
+           let e1 = mk_rule_is_term metas e1
+           and e2 = mk_rule_is_term metas e2
+           and t = mk_rule_is_type metas t in
+           (e1, e2, t))
+         metas abstr
+     in
+     Rule.PremiseEqTerm abstr
+
+let mk_rule_premises form_u prems u =
+  let rec fold metas prems_out = function
+    | [] ->
+       let u = form_u metas u in
+       let prems_out = List.rev prems_out in
+       prems_out, u
+
+    | (mv, prem) :: prems ->
+       let prem = mk_rule_premise metas prem in
+       fold (mv :: metas) (prem :: prems_out) prems
+  in
+  fold [] [] prems
+
+let form_rule_is_type prems =
+  mk_rule_premises (fun _ () -> ()) prems ()
+
+let form_rule_is_term prems t =
+  mk_rule_premises mk_rule_is_type prems t
+
+let form_rule_eq_type prems (t1, t2) =
+  mk_rule_premises
+    (fun metas (t1, t2) ->
+      let t1 = mk_rule_is_type metas t1
+      and t2 = mk_rule_is_type metas t2 in
+      (t1, t2))
+    prems
+    (t1, t2)
+
+let form_rule_eq_term prems (e1, e2, t) =
+  mk_rule_premises
+    (fun metas (e1, e2, t) ->
+      let e1 = mk_rule_is_term metas e1
+      and e2 = mk_rule_is_term metas e2
+      and t = mk_rule_is_type metas t in
+      (e1, e2, t))
+    prems
+    (e1, e2, t)
 
 (** Formation of judgements from rules *)
 
 let form_is_type_rule sgn c arguments =
-  let premises = Signature.lookup_is_type_rule c sgn in
-  let arguments = match_arguments sgn premises arguments in
+  let prems, () = Signature.lookup_rule_is_type c sgn in
+  let arguments = match_arguments sgn prems arguments in
   TT.mk_type_constructor c arguments
 
 let form_is_term_rule sgn c arguments =
-  let (premises, _boundary) = Signature.lookup_is_term_rule c sgn in
+  let (premises, _boundary) = Signature.lookup_rule_is_term c sgn in
   let arguments = match_arguments sgn premises arguments in
   TT.mk_term_constructor c arguments
 
 let form_eq_type_rule sgn c arguments =
   let (premises, (lhs_schema, rhs_schema)) =
-    Signature.lookup_eq_type_rule c sgn in
+    Signature.lookup_rule_eq_type c sgn in
   let arguments = match_arguments sgn premises arguments in
   let asmp = TT.assumptions_arguments arguments
   and lhs = meta_instantiate_is_type ~lvl:0 arguments lhs_schema
@@ -548,7 +613,7 @@ let form_eq_type_rule sgn c arguments =
 
 let form_eq_term_rule sgn c arguments =
   let (premises, (e1_schema, e2_schema, t_schema)) =
-    Signature.lookup_eq_term_rule c sgn in
+    Signature.lookup_rule_eq_term c sgn in
   let args = match_arguments sgn premises arguments in
   let asmp = TT.assumptions_arguments args
   and e1 = meta_instantiate_is_term ~lvl:0 args e1_schema

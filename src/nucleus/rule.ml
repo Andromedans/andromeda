@@ -29,12 +29,12 @@ and 'a abstraction =
 and assumption = ()
 
 type premise =
-  | PremiseIsType of Name.ident * unit abstraction
-  | PremiseIsTerm of Name.ident * ty abstraction
+  | PremiseIsType of unit abstraction
+  | PremiseIsTerm of ty abstraction
   | PremiseEqType of (ty * ty) abstraction
   | PremiseEqTerm of (term * term * ty) abstraction
 
-type is_type_rule = premise list
-type is_term_rule = premise list * ty
-type eq_type_rule = premise list * (ty * ty)
-type eq_term_rule = premise list * (term * term * ty)
+type rule_is_type = premise list * unit
+type rule_is_term = premise list * ty
+type rule_eq_type = premise list * (ty * ty)
+type rule_eq_term = premise list * (term * term * ty)

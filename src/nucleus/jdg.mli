@@ -81,12 +81,24 @@ module Signature : sig
 
   val empty : t
 
-  val add_is_type_rule : Name.constructor -> Rule.is_type_rule -> t -> t
-  val add_is_term_rule : Name.constructor -> Rule.is_term_rule -> t -> t
-  val add_eq_type_rule : Name.constructor -> Rule.eq_type_rule -> t -> t
-  val add_eq_term_rule : Name.constructor -> Rule.eq_term_rule -> t -> t
+  val add_rule_is_type : Name.constructor -> Rule.rule_is_type -> t -> t
+  val add_rule_is_term : Name.constructor -> Rule.rule_is_term -> t -> t
+  val add_rule_eq_type : Name.constructor -> Rule.rule_eq_type -> t -> t
+  val add_rule_eq_term : Name.constructor -> Rule.rule_eq_term -> t -> t
 
 end
+
+val form_rule_is_type :
+  (Name.meta * TT.premise_boundary) list -> Rule.rule_is_type
+
+val form_rule_is_term :
+  (Name.meta * TT.premise_boundary) list -> TT.ty -> Rule.rule_is_term
+
+val form_rule_eq_type :
+  (Name.meta * TT.premise_boundary) list -> TT.ty * TT.ty -> Rule.rule_eq_type
+
+val form_rule_eq_term :
+  (Name.meta * TT.premise_boundary) list -> TT.term * TT.term * TT.ty -> Rule.rule_eq_term
 
 (** Given a type formation rule and a list of arguments, match the rule
    against the given arguments, make sure they fit the rule, and return the
