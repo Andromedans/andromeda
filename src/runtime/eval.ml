@@ -673,43 +673,52 @@ let comp_handle (xs,y,c) =
 
 (* Evaluate the computation [cmp] in local context [lctx].
    Return the evaluated [lctx] and the result of [cmp]. *)
-let local_context lctx cmp =
-  let rec fold lctx_out = function
+let local_context abstr_u lctx cmp =
+  let rec fold = function
     | [] ->
        cmp >>= fun v ->
-       let lctx_out = List.rev lctx_out in
-       return (lctx_out, v)
+       return (Jdg.form_not_abstract v)
     | (x, c) :: lctx ->
        check_is_type c >>= fun t ->
        Runtime.add_free x t
          (fun a ->
             Predefined.add_abstracting
               (Jdg.form_not_abstract (Jdg.form_is_term_atom a))
-              (fold ((a, t) :: lctx_out) lctx))
+              (fold lctx >>= fun abstr ->
+               return (abstr_u a abstr)
+         ))
   in
-  fold [] lctx
-
+  fold lctx
 
 let premise {Location.thing=prem;_} =
   match prem with
     | Rsyntax.PremiseIsType (x, lctx) ->
-       local_context lctx (return ()) >>= fun (lctx, ()) ->
-       Print.error "process the rest of premises@." ;
-       return ()
+       local_context
+         Jdg.abstract_boundary_is_type
+         lctx
+         (return ())
+       >>= fun abstr ->
+       let mv = Jdg.fresh_is_type_meta x abstr in
+       Runtime.lookup_signature >>= fun sgn ->
+       let v = Runtime.mk_is_type (Jdg.is_type_meta_eta_expanded sgn mv) in
+       return ((mv.TT.meta_name, TT.BoundaryType abstr), v)
 
     | Rsyntax.PremiseIsTerm (x, lctx, c) ->
-       local_context lctx (check_is_type c) >>= fun (lctx, t) ->
-       Print.error "process the rest of premises@." ;
-       return ()
+       local_context
+         Jdg.abstract_bondary_is_term
+         lctx
+         (check_is_type c)
+       >>= fun abstr ->
+       return (Jdg.fresh_is_term_meta x abstr)
 
     | Rsyntax.PremiseEqType (x, lctx, (c1, c2)) ->
-       local_context lctx
+       local_context
+         Jdg.abstract_boundary_eq_type
+         lctx
          (check_is_type c1 >>= fun t1 ->
           check_is_type c2 >>= fun t2 ->
           return (t1, t2))
-       >>= fun (lctx, (t1, t2)) ->
-       Print.error "process the rest of premises@." ;
-       return ()
+       >>= fun abstr -> (??)
 
     | Rsyntax.PremiseEqTerm (x, lctx, (c1, c2, c3)) ->
        local_context lctx
@@ -723,7 +732,7 @@ let premise {Location.thing=prem;_} =
        return ()
 
 (** Evaluate the premises (should we call them arguments?) of a rule,
-    bind them to meta-variables, then evaluate the conclusion.
+    bind them to meta-variables, then evaluate the conclusion [cmp].
     Return the evaulated premises and conclusion for further processing.
 *)
 let premises prems cmp =
@@ -735,7 +744,7 @@ let premises prems cmp =
        return (prems_out, v)
 
     | prem :: prems ->
-       premise prem >>= fun v ->
+       premise prem >>= fun abstr ->
        fold (v :: prems_out) prems
   in
   fold [] prems
