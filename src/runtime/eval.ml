@@ -681,12 +681,11 @@ let local_context lctx cmp =
        return (lctx_out, v)
     | (x, c) :: lctx ->
        check_is_type c >>= fun t ->
-       let t = Jdg.form_not_abstract t in
-       let mv = Jdg.fresh_is_term_meta x t in
-       Runtime.lookup_signature >>= fun sgn ->
-       let e = Jdg.form_not_abstract (Jdg.form_is_term_meta sgn mv []) in
-       let v = Runtime.mk_is_term e in
-       Runtime.add_bound v (fold ((x, t) :: lctx_out) lctx)
+       Runtime.add_free x t
+         (fun a ->
+            Predefined.add_abstracting
+              (Jdg.form_not_abstract (Jdg.form_is_term_atom a))
+              (fold ((a, t) :: lctx_out) lctx))
   in
   fold [] lctx
 
