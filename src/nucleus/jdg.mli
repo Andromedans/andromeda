@@ -98,13 +98,13 @@ val form_rule_is_type :
   (Name.meta * boundary) list -> Rule.rule_is_type
 
 val form_rule_is_term :
-  (Name.meta * boundary) list -> TT.ty -> Rule.rule_is_term
+  (Name.meta * boundary) list -> is_type -> Rule.rule_is_term
 
 val form_rule_eq_type :
-  (Name.meta * boundary) list -> TT.ty * TT.ty -> Rule.rule_eq_type
+  (Name.meta * boundary) list -> is_type * is_type -> Rule.rule_eq_type
 
 val form_rule_eq_term :
-  (Name.meta * boundary) list -> TT.term * TT.term * TT.ty -> Rule.rule_eq_term
+  (Name.meta * boundary) list -> is_term * is_term * is_type -> Rule.rule_eq_term
 
 (** Given a type formation rule and a list of arguments, match the rule
    against the given arguments, make sure they fit the rule, and return the
@@ -137,9 +137,9 @@ val form_is_term_convert : Signature.t -> is_term -> eq_type -> is_term
     of the instance of the rule so obtained. *)
 val form_eq_type : Signature.t -> Name.constructor -> argument list -> eq_type
 
-val form_eq_type_meta : Signature.t -> eq_type_meta -> TT.term list -> TT.eq_type
+val form_eq_type_meta : Signature.t -> eq_type_meta -> is_term list -> eq_type
 
-val form_eq_term_meta : Signature.t -> eq_term_meta -> TT.term list -> TT.eq_term
+val form_eq_term_meta : Signature.t -> eq_term_meta -> is_term list -> eq_term
 
 (** Given an terms equality type rule and a list of arguments, match the rule
     against the given arguments, make sure they fit the rule, and return the
