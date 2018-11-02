@@ -342,7 +342,9 @@ let rec infer {Location.thing=c'; loc} =
 (* XXX arguments should really be run in checking mode!!! *)
 and infer_arguments ps =
   let rec infer_arguments ps_out = function
-  | [] -> return (List.rev ps_out)
+  | [] ->
+     let ps_out = List.rev ps_out in
+     return ps_out
   | p :: ps -> infer p >>= as_argument >>= fun p ->
      infer_arguments (p :: ps_out) ps
   in infer_arguments [] ps

@@ -119,8 +119,6 @@ end (* module Signature *)
 
 (** Creation of rules of inference from judgements. *)
 
-
-
 (** Manipulation of rules of inference. *)
 
 (** [fully_apply_abstraction inst_u abstr args] fully applies an abstraction to the given arguments. *)
@@ -426,8 +424,20 @@ let match_arguments sgn (premises : Rule.premise list) (arguments : argument lis
 
 (** Judgement formation *)
 
-(** Lookup the index of a meta-variable *)
-let lookup_meta mv mvs =
+(** Lookup the de Bruijn level of a meta-variable.
+
+    There is a certain trickiness to this function:
+
+    * the list of metavariables [mvs] is given in the reverse order, i.e.,
+      de Bruijn level 0 is the last element of the list.
+
+    * we want de Bruijn levels rather than indices because when a rule is
+      applied we get the arguments in the order of premises
+    NB: for meta-variables we use de Bruijn levels rather than indices becuase
+    the arguments of a rule instance are given as a list, so it is easier to
+    use indices.
+ *)
+let lookup_meta_index mv mvs =
   let rec search k = function
     | [] -> assert false
     | mv' :: mvs ->
@@ -436,7 +446,7 @@ let lookup_meta mv mvs =
        else
          search (k+1) mvs
   in
-  search 0 mvs
+  List.length mvs - 1 - search 0 mvs
 
 (** The [mk_rule_XYZ] functions are auxiliary functions that should not be
    exposed. The external interface exopses the [form_rule_XYZ] functions defined
@@ -449,7 +459,7 @@ let rec mk_rule_is_type metas = function
 
   | TT.TypeMeta (mv, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     let k = lookup_meta mv.TT.meta_name metas in
+     let k = lookup_meta_index mv.TT.meta_name metas in
      Rule.TypeMeta (k, args)
 
 and mk_rule_is_term metas = function
@@ -459,7 +469,7 @@ and mk_rule_is_term metas = function
 
   | TT.TermMeta (mv, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     let k = lookup_meta mv.TT.meta_name metas in
+     let k = lookup_meta_index mv.TT.meta_name metas in
      Rule.TermMeta (k, args)
 
   | TT.TermConstructor (c, args) ->
