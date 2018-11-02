@@ -34,13 +34,18 @@ type argument =
   | ArgumentEqType of eq_type abstraction
   | ArgumentEqTerm of eq_term abstraction
 
-type boundary = TT.premise_boundary
-type assumption = TT.assumption
-
-type type_boundary = unit abstraction
-type term_boundary = is_type abstraction
+type is_type_boundary = unit abstraction
+type is_term_boundary = is_type abstraction
 type eq_type_boundary = (is_type * is_type) abstraction
 type eq_term_boundary = (is_term * is_term * is_type) abstraction
+
+type boundary =
+    | BoundaryType of is_type_boundary
+    | BoundaryTerm of is_term_boundary
+    | BoundaryEqType of eq_type_boundary
+    | BoundaryEqTerm of eq_term_boundary
+
+type assumption = (is_type, TT.premise_boundary) Assumption.t
 
 type stump_is_type =
   | TypeConstructor of Name.constructor * argument list
@@ -519,17 +524,17 @@ and mk_rule_abstraction
 
 let mk_rule_premise metas = function
 
-  | TT.BoundaryType abstr ->
+  | BoundaryType abstr ->
      let abstr = mk_rule_abstraction (fun _ () -> ()) metas abstr in
      Rule.PremiseIsType abstr
 
-  | TT.BoundaryTerm abstr ->
+  | BoundaryTerm abstr ->
      let abstr =
        mk_rule_abstraction (fun metas t -> mk_rule_is_type metas t) metas abstr
      in
      Rule.PremiseIsTerm abstr
 
-  | TT.BoundaryEqType abstr ->
+  | BoundaryEqType abstr ->
      let abstr =
        mk_rule_abstraction
          (fun metas (t1, t2) ->
@@ -540,7 +545,7 @@ let mk_rule_premise metas = function
      in
      Rule.PremiseEqType abstr
 
-  | TT.BoundaryEqTerm abstr ->
+  | BoundaryEqTerm abstr ->
      let abstr =
        mk_rule_abstraction
          (fun metas (e1, e2, t) ->

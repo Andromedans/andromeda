@@ -32,13 +32,18 @@ type argument =
 
 (** A stump is obtained when we invert a judgement. *)
 
-type boundary = TT.premise_boundary
-type assumption = (is_type, boundary) Assumption.t
-
-type type_boundary = unit abstraction
-type term_boundary = is_type abstraction
+type is_type_boundary = unit abstraction
+type is_term_boundary = is_type abstraction
 type eq_type_boundary = (is_type * is_type) abstraction
 type eq_term_boundary = (is_term * is_term * is_type) abstraction
+
+type boundary =
+    | BoundaryType of is_type_boundary
+    | BoundaryTerm of is_term_boundary
+    | BoundaryEqType of eq_type_boundary
+    | BoundaryEqTerm of eq_term_boundary
+
+type assumption
 
 type is_type_meta
 type is_term_meta
@@ -89,16 +94,16 @@ module Signature : sig
 end
 
 val form_rule_is_type :
-  (Name.meta * TT.premise_boundary) list -> Rule.rule_is_type
+  (Name.meta * boundary) list -> Rule.rule_is_type
 
 val form_rule_is_term :
-  (Name.meta * TT.premise_boundary) list -> TT.ty -> Rule.rule_is_term
+  (Name.meta * boundary) list -> TT.ty -> Rule.rule_is_term
 
 val form_rule_eq_type :
-  (Name.meta * TT.premise_boundary) list -> TT.ty * TT.ty -> Rule.rule_eq_type
+  (Name.meta * boundary) list -> TT.ty * TT.ty -> Rule.rule_eq_type
 
 val form_rule_eq_term :
-  (Name.meta * TT.premise_boundary) list -> TT.term * TT.term * TT.ty -> Rule.rule_eq_term
+  (Name.meta * boundary) list -> TT.term * TT.term * TT.ty -> Rule.rule_eq_term
 
 (** Given a type formation rule and a list of arguments, match the rule
    against the given arguments, make sure they fit the rule, and return the
@@ -153,8 +158,8 @@ val form_eq_term_abstract : is_atom -> eq_term_abstraction -> eq_term_abstractio
 val fresh_atom : Name.ident -> is_type -> is_atom
 
 (** [fresh_is_type_meta x abstr] creates a fresh type meta-variable of type [abstr] *)
-val fresh_is_type_meta : Name.ident -> type_boundary -> is_type_meta
-val fresh_is_term_meta : Name.ident -> term_boundary -> is_term_meta
+val fresh_is_type_meta : Name.ident -> is_type_boundary -> is_type_meta
+val fresh_is_term_meta : Name.ident -> is_term_boundary -> is_term_meta
 val fresh_eq_type_meta : Name.ident -> eq_type_boundary -> eq_type_meta
 val fresh_eq_term_meta : Name.ident -> eq_term_boundary -> eq_term_meta
 
