@@ -45,10 +45,11 @@ type boundary =
 
 type assumption
 
-type is_type_meta
-type is_term_meta
-type eq_type_meta
-type eq_term_meta
+type 'a meta = 'a TT.meta
+type is_type_meta = is_type_boundary meta
+type is_term_meta = is_term_boundary meta
+type eq_type_meta = eq_type_boundary meta
+type eq_term_meta = eq_term_boundary meta
 
 type stump_is_type =
   | TypeConstructor of Name.constructor * argument list
@@ -146,13 +147,18 @@ val form_eq_term_meta : Signature.t -> eq_term_meta -> TT.term list -> TT.eq_ter
 val form_eq_term : Signature.t -> Name.constructor -> argument list -> eq_term
 
 (** Form a non-abstracted abstraction *)
-val form_not_abstract : 'a -> 'a abstraction
+val abstract_not_abstract : 'a -> 'a abstraction
 
 (** Form an abstracted abstraction *)
-val form_is_type_abstract : is_atom -> is_type_abstraction -> is_type_abstraction
-val form_is_term_abstract : is_atom -> is_term_abstraction -> is_term_abstraction
-val form_eq_type_abstract : is_atom -> eq_type_abstraction -> eq_type_abstraction
-val form_eq_term_abstract : is_atom -> eq_term_abstraction -> eq_term_abstraction
+val abstract_is_type : is_atom -> is_type_abstraction -> is_type_abstraction
+val abstract_is_term : is_atom -> is_term_abstraction -> is_term_abstraction
+val abstract_eq_type : is_atom -> eq_type_abstraction -> eq_type_abstraction
+val abstract_eq_term : is_atom -> eq_term_abstraction -> eq_term_abstraction
+
+val abstract_boundary_is_type : is_atom -> is_type_boundary -> is_type_boundary
+val abstract_boundary_is_term : is_atom -> is_term_boundary -> is_term_boundary
+val abstract_boundary_eq_type : is_atom -> eq_type_boundary -> eq_type_boundary
+val abstract_boundary_eq_term : is_atom -> eq_term_boundary -> eq_term_boundary
 
 (** [fresh_atom x t] Create a fresh atom from name [x] with type [t] *)
 val fresh_atom : Name.ident -> is_type -> is_atom
@@ -162,6 +168,11 @@ val fresh_is_type_meta : Name.ident -> is_type_boundary -> is_type_meta
 val fresh_is_term_meta : Name.ident -> is_term_boundary -> is_term_meta
 val fresh_eq_type_meta : Name.ident -> eq_type_boundary -> eq_type_meta
 val fresh_eq_term_meta : Name.ident -> eq_term_boundary -> eq_term_meta
+
+val is_type_meta_eta_expanded : is_type_meta -> is_type_abstraction
+val is_term_meta_eta_expanded : is_term_meta -> is_term_abstraction
+val eq_type_meta_eta_expanded : eq_type_meta -> eq_type_abstraction
+val eq_term_meta_eta_expanded : eq_term_meta -> eq_term_abstraction
 
 val invert_is_type : is_type -> stump_is_type
 

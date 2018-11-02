@@ -34,6 +34,8 @@ type argument =
   | ArgumentEqType of eq_type abstraction
   | ArgumentEqTerm of eq_term abstraction
 
+type 'a meta = 'a TT.meta
+
 type is_type_boundary = unit abstraction
 type is_term_boundary = is_type abstraction
 type eq_type_boundary = (is_type * is_type) abstraction
@@ -639,6 +641,15 @@ let fresh_is_term_meta = TT.fresh_term_meta
 let fresh_eq_type_meta = TT.fresh_eq_type_meta
 let fresh_eq_term_meta = TT.fresh_eq_term_meta
 
+let is_type_meta_eta_expanded {TT.meta_name = x ; TT.meta_type = abstr} =
+  failwith "XXX todo"
+let is_term_meta_eta_expanded {TT.meta_name = x ; TT.meta_type = abstr} =
+  failwith "XXX todo"
+let eq_type_meta_eta_expanded {TT.meta_name = x ; TT.meta_type = abstr} =
+  failwith "XXX todo"
+let eq_term_meta_eta_expanded {TT.meta_name = x ; TT.meta_type = abstr} =
+  failwith "XXX todo"
+
 let rec check_term_arguments sgn abstr args = match (abstr, args) with
   | TT.NotAbstract u, [] -> ()
   | TT.Abstract _, [] -> assert false (* not enough arguments *)
@@ -684,23 +695,50 @@ let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
      else
        error (InvalidConvert (t0, t1))
 
-let form_not_abstract u = TT.mk_not_abstract u
+let abstract_not_abstract u = TT.mk_not_abstract u
 
-let form_is_type_abstract {TT.atom_name=x; atom_type=t} abstr =
+let abstract_is_type {TT.atom_name=x; atom_type=t} abstr =
   (* XXX occurs check?! *)
   let abstr = TT.abstract_abstraction TT.abstract_type x abstr in
   TT.mk_abstract (Name.ident_of_atom x) t abstr
 
-let form_is_term_abstract {TT.atom_name=x; atom_type=t} abstr =
+let abstract_is_term {TT.atom_name=x; atom_type=t} abstr =
   let abstr = TT.abstract_abstraction TT.abstract_term x abstr in
   TT.mk_abstract (Name.ident_of_atom x) t abstr
 
-let form_eq_type_abstract {TT.atom_name=x; atom_type=t} abstr =
+let abstract_eq_type {TT.atom_name=x; atom_type=t} abstr =
   let abstr = TT.abstract_abstraction TT.abstract_eq_type x abstr in
   TT.mk_abstract (Name.ident_of_atom x) t abstr
 
-let form_eq_term_abstract {TT.atom_name=x; atom_type=t} abstr =
+let abstract_eq_term {TT.atom_name=x; atom_type=t} abstr =
   let abstr = TT.abstract_abstraction TT.abstract_eq_term x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
+
+let abstract_boundary_is_type {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction (fun _a ?lvl t -> ()) x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
+
+let abstract_boundary_is_term {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction TT.abstract_type x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
+
+let abstract_boundary_eq_type {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction
+      (fun a ?lvl (lhs, rhs) ->
+         let lhs = TT.abstract_type ?lvl a lhs
+         and rhs = TT.abstract_type ?lvl a rhs in
+      (lhs, rhs))
+      x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
+
+let abstract_boundary_eq_term {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction
+      (fun a ?lvl (lhs, rhs, t) ->
+         let lhs = TT.abstract_term ?lvl a lhs
+         and rhs = TT.abstract_term ?lvl a rhs
+         and t = TT.abstract_type ?lvl a t in
+      (lhs, rhs, t))
+      x abstr in
   TT.mk_abstract (Name.ident_of_atom x) t abstr
 
 

@@ -66,13 +66,13 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
      begin match Jdg.invert_is_term_abstraction v with
      | Jdg.NotAbstract _ -> raise Match_fail
      | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.form_not_abstract (Jdg.type_of_atom a) in
+        let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.form_not_abstract (Jdg.form_is_term_atom a) in
+             let e = Jdg.abstract_not_abstract (Jdg.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_is_term env xvs p2 v
@@ -112,13 +112,13 @@ and collect_is_type env xvs {Location.thing=p';loc} v =
      begin match Jdg.invert_is_type_abstraction v with
      | Jdg.NotAbstract _ -> raise Match_fail
      | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.form_not_abstract (Jdg.type_of_atom a) in
+        let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.form_not_abstract (Jdg.form_is_term_atom a) in
+             let e = Jdg.abstract_not_abstract (Jdg.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_is_type env xvs p2 v
@@ -145,13 +145,13 @@ and collect_eq_type env xvs {Location.thing=p';loc} v =
      begin match Jdg.invert_eq_type_abstraction v with
      | Jdg.NotAbstract _ -> raise Match_fail
      | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.form_not_abstract (Jdg.type_of_atom a) in
+        let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.form_not_abstract (Jdg.form_is_term_atom a) in
+             let e = Jdg.abstract_not_abstract (Jdg.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_eq_type env xvs p2 v
@@ -162,8 +162,8 @@ and collect_eq_type env xvs {Location.thing=p';loc} v =
      | Jdg.Abstract _ -> raise Match_fail
      | Jdg.NotAbstract eq ->
         let (Jdg.EqType (_asmp, t1, t2)) = Jdg.invert_eq_type eq in
-        let xvs = collect_is_type env xvs p1 (Jdg.form_not_abstract t1) in
-        collect_is_type env xvs p2 (Jdg.form_not_abstract t2)
+        let xvs = collect_is_type env xvs p1 (Jdg.abstract_not_abstract t1) in
+        collect_is_type env xvs p2 (Jdg.abstract_not_abstract t2)
      end
 
   | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqTerm _ | Pattern.TTIsType _ |
@@ -187,13 +187,13 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
      begin match Jdg.invert_eq_term_abstraction v with
      | Jdg.NotAbstract _ -> raise Match_fail
      | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.form_not_abstract (Jdg.type_of_atom a) in
+        let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.form_not_abstract (Jdg.form_is_term_atom a) in
+             let e = Jdg.abstract_not_abstract (Jdg.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_eq_term env xvs p2 v
@@ -204,9 +204,9 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
      | Jdg.Abstract _ -> raise Match_fail
      | Jdg.NotAbstract eq ->
         let (Jdg.EqTerm (_asmp, e1, e2, t)) = Jdg.invert_eq_term eq in
-        let xvs = collect_is_term env xvs p1 (Jdg.form_not_abstract e1) in
-        let xvs = collect_is_term env xvs p2 (Jdg.form_not_abstract e2) in
-        collect_is_type env xvs p2 (Jdg.form_not_abstract t)
+        let xvs = collect_is_term env xvs p1 (Jdg.abstract_not_abstract e1) in
+        let xvs = collect_is_term env xvs p2 (Jdg.abstract_not_abstract e2) in
+        collect_is_type env xvs p2 (Jdg.abstract_not_abstract t)
      end
 
   | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqType _ | Pattern.TTIsType _ |

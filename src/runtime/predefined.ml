@@ -140,14 +140,14 @@ let as_eq_type_option ~loc v =
 let (>>=) = Runtime.bind
 
 let operation_equal_term ~loc e1 e2 =
-  let v1 = Runtime.mk_is_term (Jdg.form_not_abstract e1)
-  and v2 = Runtime.mk_is_term (Jdg.form_not_abstract e2) in
+  let v1 = Runtime.mk_is_term (Jdg.abstract_not_abstract e1)
+  and v2 = Runtime.mk_is_term (Jdg.abstract_not_abstract e2) in
   Runtime.operation Name.Predefined.equal_term [v1;v2] >>= fun v ->
   Runtime.return (as_eq_term_option ~loc v)
 
 let operation_equal_type ~loc t1 t2 =
-  let v1 = Runtime.mk_is_type (Jdg.form_not_abstract t1)
-  and v2 = Runtime.mk_is_type (Jdg.form_not_abstract t2) in
+  let v1 = Runtime.mk_is_type (Jdg.abstract_not_abstract t1)
+  and v2 = Runtime.mk_is_type (Jdg.abstract_not_abstract t2) in
   Runtime.operation Name.Predefined.equal_type [v1;v2] >>= fun v ->
   Runtime.return (as_eq_type_option ~loc v)
 

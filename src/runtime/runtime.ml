@@ -360,7 +360,7 @@ let add_bound0 v env = {env with lexical = { env.lexical with
 
 let add_free x jt m env =
   let jy = Jdg.fresh_atom x jt in
-  let y_val = mk_is_term (Jdg.form_not_abstract (Jdg.form_is_term_atom jy)) in
+  let y_val = mk_is_term (Jdg.abstract_not_abstract (Jdg.form_is_term_atom jy)) in
   let env = add_bound0 y_val env in
   m jy env
 
