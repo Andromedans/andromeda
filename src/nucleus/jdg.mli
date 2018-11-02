@@ -169,10 +169,10 @@ val fresh_is_term_meta : Name.ident -> is_term_boundary -> is_term_meta
 val fresh_eq_type_meta : Name.ident -> eq_type_boundary -> eq_type_meta
 val fresh_eq_term_meta : Name.ident -> eq_term_boundary -> eq_term_meta
 
-val is_type_meta_eta_expanded : is_type_meta -> is_type_abstraction
-val is_term_meta_eta_expanded : is_term_meta -> is_term_abstraction
-val eq_type_meta_eta_expanded : eq_type_meta -> eq_type_abstraction
-val eq_term_meta_eta_expanded : eq_term_meta -> eq_term_abstraction
+val is_type_meta_eta_expanded : Signature.t -> is_type_meta -> is_type_abstraction
+val is_term_meta_eta_expanded : Signature.t -> is_term_meta -> is_term_abstraction
+val eq_type_meta_eta_expanded : Signature.t -> eq_type_meta -> eq_type_abstraction
+val eq_term_meta_eta_expanded : Signature.t -> eq_term_meta -> eq_term_abstraction
 
 val invert_is_type : is_type -> stump_is_type
 

@@ -713,8 +713,9 @@ let premise {Location.thing=prem;_} =
          lctx
          (return ())
        >>= fun abstr ->
+       Runtime.lookup_signature >>= fun sgn ->
        let mv = Jdg.fresh_is_type_meta x abstr in
-       let v = Runtime.mk_is_type (Jdg.is_type_meta_eta_expanded mv) in
+       let v = Runtime.mk_is_type (Jdg.is_type_meta_eta_expanded sgn mv) in
        return ((mv.TT.meta_name, Jdg.BoundaryType abstr), Some v)
 
     | Rsyntax.PremiseIsTerm (x, lctx, c) ->
@@ -723,8 +724,9 @@ let premise {Location.thing=prem;_} =
          lctx
          (check_is_type c)
        >>= fun abstr ->
+       Runtime.lookup_signature >>= fun sgn ->
        let mv = Jdg.fresh_is_term_meta x abstr in
-       let v = Runtime.mk_is_term (Jdg.is_term_meta_eta_expanded mv) in
+       let v = Runtime.mk_is_term (Jdg.is_term_meta_eta_expanded sgn mv) in
        return ((mv.TT.meta_name, Jdg.BoundaryTerm abstr), Some v)
 
 
@@ -734,6 +736,7 @@ let premise {Location.thing=prem;_} =
          lctx
          (check_eq_type_boundary boundary)
        >>= fun abstr ->
+       Runtime.lookup_signature >>= fun sgn ->
        let (mv_name, v) =
          begin match x with
          | None -> let x = Name.anonymous () in
@@ -741,7 +744,7 @@ let premise {Location.thing=prem;_} =
             (mv.TT.meta_name, None)
          | Some x ->
             let mv = Jdg.fresh_eq_type_meta x abstr in
-            let v = Runtime.mk_eq_type (Jdg.eq_type_meta_eta_expanded mv) in
+            let v = Runtime.mk_eq_type (Jdg.eq_type_meta_eta_expanded sgn mv) in
             (mv.TT.meta_name, Some v)
          end in
        return ((mv_name, Jdg.BoundaryEqType abstr), v)
@@ -752,6 +755,7 @@ let premise {Location.thing=prem;_} =
          lctx
          (check_eq_term_boundary boundary)
        >>= fun abstr ->
+       Runtime.lookup_signature >>= fun sgn ->
        let (mv_name, v) =
          begin match x with
          | None -> let x = Name.anonymous () in
@@ -759,7 +763,7 @@ let premise {Location.thing=prem;_} =
             (mv.TT.meta_name, None)
          | Some x ->
             let mv = Jdg.fresh_eq_term_meta x abstr in
-            let v = Runtime.mk_eq_term (Jdg.eq_term_meta_eta_expanded mv) in
+            let v = Runtime.mk_eq_term (Jdg.eq_term_meta_eta_expanded sgn mv) in
             (mv.TT.meta_name, Some v)
          end in
        return ((mv_name, Jdg.BoundaryEqTerm abstr), v)

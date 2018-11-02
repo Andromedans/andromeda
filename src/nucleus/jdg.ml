@@ -124,7 +124,7 @@ end (* module Signature *)
 (** Manipulation of rules of inference. *)
 
 (** [fully_apply_abstraction inst_u abstr args] fully applies an abstraction to the given arguments. *)
-let fully_apply_abstraction inst_u abstr args =
+let fully_instantiate_abstraction inst_u abstr args =
   let rec fold es abstr args =
     match abstr, args with
     | TT.NotAbstract u, [] -> inst_u es u
@@ -152,7 +152,7 @@ let rec meta_instantiate_is_type ~lvl metas = function
   | Rule.TypeMeta (k, es_schema) ->
      let t_abstr = lookup_type_meta k metas in
      let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
-     fully_apply_abstraction (TT.fully_instantiate_type ?lvl:None) t_abstr es
+     fully_instantiate_abstraction (TT.fully_instantiate_type ?lvl:None) t_abstr es
 
 and meta_instantiate_is_term ~lvl metas = function
   | Rule.TermBound k -> TT.mk_bound k
@@ -164,7 +164,7 @@ and meta_instantiate_is_term ~lvl metas = function
   | Rule.TermMeta (k, es_schema) ->
      let e_abstr = lookup_term_meta k metas in
      let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
-     fully_apply_abstraction (TT.fully_instantiate_term ?lvl:None) e_abstr es
+     fully_instantiate_abstraction (TT.fully_instantiate_term ?lvl:None) e_abstr es
 
 and meta_instantiate_eq_type ~lvl metas (Rule.EqType (asmp, t1, t2)) =
   let asmp = meta_instantiate_assumptions ~lvl metas asmp
@@ -241,7 +241,7 @@ let rec check_type (metas : TT.argument list) (schema : Rule.ty) (argument : TT.
 
        | TT.ArgIsType abstr ->
           let es = meta_instantiate_terms metas es_schema in
-          let ty' = fully_apply_abstraction (TT.fully_instantiate_type ?lvl:None) abstr es in
+          let ty' = fully_instantiate_abstraction (TT.fully_instantiate_type ?lvl:None) abstr es in
           if not (TT.alpha_equal_type ty ty') then
             failwith "type mismatch"
 
@@ -271,7 +271,7 @@ and check_term (metas : TT.argument list) (schema : Rule.term) (argument : TT.te
 
        | TT.ArgIsTerm abstr ->
           let es = meta_instantiate_terms metas es_schema in
-          let e' = fully_apply_abstraction (TT.fully_instantiate_term ?lvl:None) abstr es in
+          let e' = fully_instantiate_abstraction (TT.fully_instantiate_term ?lvl:None) abstr es in
           if not (TT.alpha_equal_term e e') then
             failwith "term mismatch"
 
@@ -341,7 +341,7 @@ let type_of_term sgn = function
      meta_instantiate_is_type ~lvl:0 args t_schema
 
   | TT.TermMeta ({TT.meta_type;_}, args) ->
-     fully_apply_abstraction (TT.fully_instantiate_type ?lvl:None) meta_type args
+     fully_instantiate_abstraction (TT.fully_instantiate_type ?lvl:None) meta_type args
 
   | TT.TermConvert (e, _, t) -> t
 
@@ -641,15 +641,6 @@ let fresh_is_term_meta = TT.fresh_term_meta
 let fresh_eq_type_meta = TT.fresh_eq_type_meta
 let fresh_eq_term_meta = TT.fresh_eq_term_meta
 
-let is_type_meta_eta_expanded {TT.meta_name = x ; TT.meta_type = abstr} =
-  failwith "XXX todo"
-let is_term_meta_eta_expanded {TT.meta_name = x ; TT.meta_type = abstr} =
-  failwith "XXX todo"
-let eq_type_meta_eta_expanded {TT.meta_name = x ; TT.meta_type = abstr} =
-  failwith "XXX todo"
-let eq_term_meta_eta_expanded {TT.meta_name = x ; TT.meta_type = abstr} =
-  failwith "XXX todo"
-
 let rec check_term_arguments sgn abstr args = match (abstr, args) with
   | TT.NotAbstract u, [] -> ()
   | TT.Abstract _, [] -> assert false (* not enough arguments *)
@@ -658,14 +649,6 @@ let rec check_term_arguments sgn abstr args = match (abstr, args) with
      if TT.alpha_equal_type t (type_of_term sgn arg)
      then check_term_arguments sgn abstr args
      else failwith "invalid application"
-
-let form_is_type_meta sgn m args =
-  check_term_arguments sgn m.TT.meta_type args ;
-  TT.mk_type_meta m args
-
-let form_is_term_meta sgn m args =
-  check_term_arguments sgn m.TT.meta_type args ;
-  TT.mk_term_meta m args
 
 let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
   match e with
@@ -859,6 +842,14 @@ let convert_eq_term (TT.EqTerm (asmp1, e1, e2, t0)) (TT.EqType (asmp2, t1, t2)) 
 
 (** Meta-variables *)
 
+let form_is_type_meta sgn m args =
+  check_term_arguments sgn m.TT.meta_type args ;
+  TT.mk_type_meta m args
+
+let form_is_term_meta sgn m args =
+  check_term_arguments sgn m.TT.meta_type args ;
+  TT.mk_term_meta m args
+
 let form_eq_type_meta sgn TT.{meta_name ; meta_type} args =
   let asmp = Assumption.singleton_meta meta_name (TT.BoundaryEqType meta_type) in
   let (lhs, rhs) =
@@ -883,6 +874,46 @@ let form_eq_term_meta sgn TT.{meta_name ; meta_type} args =
     fully_apply_abstraction inst_eq_term_boundary sgn meta_type args
   in
   TT.mk_eq_term asmp lhs rhs t
+
+let meta_eta_expanded instantiate_meta form_meta abstract_meta sgn mv =
+  let rec fold args = function
+  | TT.NotAbstract u -> TT.mk_not_abstract (form_meta sgn mv (List.rev args))
+  | TT.Abstract (x, ty, abstr) ->
+     let a, abstr =
+       TT.unabstract_abstraction instantiate_meta x ty abstr in
+     let abstr = fold ((form_is_term_atom a) :: args) abstr in
+     TT.abstract_abstraction abstract_meta a.TT.atom_name abstr
+  in fold [] mv.TT.meta_type
+
+let is_type_meta_eta_expanded =
+  meta_eta_expanded
+    (fun _e0 ?lvl () -> ())
+    form_is_type_meta
+    TT.abstract_type
+
+let is_term_meta_eta_expanded =
+  meta_eta_expanded
+    TT.instantiate_type
+    form_is_term_meta
+    TT.abstract_term
+
+let eq_type_meta_eta_expanded =
+  meta_eta_expanded
+    (fun e0 ?lvl (lhs, rhs) ->
+       TT.instantiate_type e0 ?lvl lhs,
+       TT.instantiate_type e0 ?lvl rhs)
+    form_eq_type_meta
+    TT.abstract_eq_type
+
+let eq_term_meta_eta_expanded =
+  meta_eta_expanded
+    (fun e0 ?lvl (lhs, rhs, t) ->
+       TT.instantiate_term e0 ?lvl lhs,
+       TT.instantiate_term e0 ?lvl rhs,
+       TT.instantiate_type e0 ?lvl t)
+    form_eq_term_meta
+    TT.abstract_eq_term
+
 
 (** Constructors *)
 
