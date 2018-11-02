@@ -283,6 +283,18 @@ val add_handle : Name.ident -> (value list * Jdg.is_type_abstraction option, val
 (** Modify the value bound by a dynamic variable *)
 val top_now : dyn -> value -> unit toplevel
 
+(** Extend the signature with a new is_type rule *)
+val add_rule_is_type : Name.constructor -> Rule.rule_is_type -> unit toplevel
+
+(** Extend the signature with a new is_term rule *)
+val add_rule_is_term : Name.constructor -> Rule.rule_is_term -> unit toplevel
+
+(** Extend the signature with a new is_type rule *)
+val add_rule_eq_type : Name.constructor -> Rule.rule_eq_type -> unit toplevel
+
+(** Extend the signature with a new is_term rule *)
+val add_rule_eq_term : Name.constructor -> Rule.rule_eq_term -> unit toplevel
+
 (** Handle a computation at the toplevel. *)
 val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
 

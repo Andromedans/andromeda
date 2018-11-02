@@ -341,6 +341,20 @@ let get_signature env = env.dynamic.signature
 let lookup_signature env =
   Return env.dynamic.signature, env.state
 
+let add_rule add_rule_to_signature rname rule env =
+  let signature = add_rule_to_signature rname rule env.dynamic.signature
+  and forbidden = rname :: env.lexical.forbidden in
+  let env = { env
+              with dynamic = { env.dynamic with signature }
+                 ; lexical = { env.lexical with forbidden }
+            } in
+  (), env
+
+let add_rule_is_type = add_rule Jdg.Signature.add_rule_is_type
+let add_rule_is_term = add_rule Jdg.Signature.add_rule_is_term
+let add_rule_eq_type = add_rule Jdg.Signature.add_rule_eq_type
+let add_rule_eq_term = add_rule Jdg.Signature.add_rule_eq_term
+
 let index_of_level k env =
   let n = List.length env.lexical.bound - k - 1 in
   Return n, env.state
@@ -363,15 +377,6 @@ let add_free x jt m env =
   let y_val = mk_is_term (Jdg.abstract_not_abstract (Jdg.form_is_term_atom jy)) in
   let env = add_bound0 y_val env in
   m jy env
-
-(* XXX This will get fancier once we have rules and we want to add them to the signature
-let add_constant0 ~loc x t env =
-  { env with dynamic = {env.dynamic with signature =
-                           Jdg.Signature.add_constant x t env.dynamic.signature };
-             lexical = {env.lexical with forbidden = x :: env.lexical.forbidden } }
-
-let add_constant ~loc x t env = (), add_constant0 ~loc x t env
-*)
 
 
 (* XXX rename to bind_value *)

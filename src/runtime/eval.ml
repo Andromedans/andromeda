@@ -690,6 +690,21 @@ let local_context abstr_u lctx cmp =
   in
   fold lctx
 
+let check_eq_type_boundary (c1, c2) =
+  check_is_type c1 >>= fun t1 ->
+  check_is_type c2 >>= fun t2 ->
+  return (t1, t2)
+
+let check_eq_term_boundary (c1, c2, c3) =
+  check_is_type c3 >>= fun t ->
+  let t = Jdg.abstract_not_abstract t in
+  check c1 t >>= fun e1 ->
+  let e1 = Runtime.as_is_term ~loc:c1.Location.loc (Runtime.mk_is_term e1) in
+  check c2 t >>= fun e2 ->
+  let e2 = Runtime.as_is_term ~loc:c2.Location.loc (Runtime.mk_is_term e2) in
+  let t = Runtime.as_is_type ~loc:c2.Location.loc (Runtime.mk_is_type t) in
+  return (e1, e2, t)
+
 let premise {Location.thing=prem;_} =
   match prem with
     | Rsyntax.PremiseIsType (x, lctx) ->
@@ -700,7 +715,7 @@ let premise {Location.thing=prem;_} =
        >>= fun abstr ->
        let mv = Jdg.fresh_is_type_meta x abstr in
        let v = Runtime.mk_is_type (Jdg.is_type_meta_eta_expanded mv) in
-       return ((mv.TT.meta_name, Jdg.BoundaryType abstr), v)
+       return ((mv.TT.meta_name, Jdg.BoundaryType abstr), Some v)
 
     | Rsyntax.PremiseIsTerm (x, lctx, c) ->
        local_context
@@ -710,34 +725,44 @@ let premise {Location.thing=prem;_} =
        >>= fun abstr ->
        let mv = Jdg.fresh_is_term_meta x abstr in
        let v = Runtime.mk_is_term (Jdg.is_term_meta_eta_expanded mv) in
-       return ((mv.TT.meta_name, Jdg.BoundaryTerm abstr), v)
+       return ((mv.TT.meta_name, Jdg.BoundaryTerm abstr), Some v)
 
 
-    | Rsyntax.PremiseEqType (x, lctx, (c1, c2)) ->
+    | Rsyntax.PremiseEqType (x, lctx, boundary) ->
        local_context
          Jdg.abstract_boundary_eq_type
          lctx
-         (check_is_type c1 >>= fun t1 ->
-          check_is_type c2 >>= fun t2 ->
-          return (t1, t2))
+         (check_eq_type_boundary boundary)
        >>= fun abstr ->
-       let mv = Jdg.fresh_eq_type_meta x abstr in
-       let v = Runtime.mk_eq_type (Jdg.eq_type_meta_eta_expanded mv) in
-       return ((mv.TT.meta_name, Jdg.BoundaryEqType abstr), v)
+       let (mv_name, v) =
+         begin match x with
+         | None -> let x = Name.anonymous () in
+            let mv = Jdg.fresh_eq_type_meta x abstr in
+            (mv.TT.meta_name, None)
+         | Some x ->
+            let mv = Jdg.fresh_eq_type_meta x abstr in
+            let v = Runtime.mk_eq_type (Jdg.eq_type_meta_eta_expanded mv) in
+            (mv.TT.meta_name, Some v)
+         end in
+       return ((mv_name, Jdg.BoundaryEqType abstr), v)
 
-    | Rsyntax.PremiseEqTerm (x, lctx, (c1, c2, c3)) ->
+    | Rsyntax.PremiseEqTerm (x, lctx, boundary) ->
        local_context
          Jdg.abstract_boundary_eq_term
          lctx
-         (check_is_type c3 >>= fun t ->
-          let t = Jdg.abstract_not_abstract t in
-          check c1 t >>= fun e1 ->
-          check c2 t >>= fun e2 ->
-          return (e1, e2, t))
+         (check_eq_term_boundary boundary)
        >>= fun abstr ->
-       let mv = Jdg.fresh_eq_term_meta x abstr in
-       let v = Runtime.mk_eq_term (Jdg.eq_term_meta_eta_expanded mv) in
-       return ((mv.TT.meta_name, Jdg.BoundaryEqType abstr), v)
+       let (mv_name, v) =
+         begin match x with
+         | None -> let x = Name.anonymous () in
+            let mv = Jdg.fresh_eq_term_meta x abstr in
+            (mv.TT.meta_name, None)
+         | Some x ->
+            let mv = Jdg.fresh_eq_term_meta x abstr in
+            let v = Runtime.mk_eq_term (Jdg.eq_term_meta_eta_expanded mv) in
+            (mv.TT.meta_name, Some v)
+         end in
+       return ((mv_name, Jdg.BoundaryEqTerm abstr), v)
 
 (** Evaluate the premises (should we call them arguments?) of a rule,
     bind them to meta-variables, then evaluate the conclusion [cmp].
@@ -748,12 +773,16 @@ let premises prems cmp =
 
     | [] ->
        cmp >>= fun v ->
-       Print.error "process the rest of premises@." ;
        return (prems_out, v)
 
     | prem :: prems ->
-       premise prem >>= fun abstr ->
-       fold (v :: prems_out) prems
+       premise prem >>= fun ((x_boundary), vopt) ->
+       let bind_maybe vopt cmp =
+         match vopt with
+         | None -> cmp
+         | Some v -> Runtime.add_bound v cmp
+       in
+       bind_maybe vopt (fold (x_boundary :: prems_out) prems)
   in
   fold [] prems
 
@@ -826,27 +855,28 @@ let print_error err ppf =
 let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   Runtime.catch ~loc (lazy (match c with
     | Rsyntax.RuleIsType (x, prems) ->
-       Print.error "evaluation of RuleIsType, should call premises here" ;
-       (* XXX the following line is there just so that premises gets used *)
        let r = premises prems (Runtime.return ()) in
-       Runtime.top_handle ~loc r >>= fun (premises, head) ->
-       ignore (r) ;
-       return ()
+       Runtime.top_handle ~loc r >>= fun (premises, ()) ->
+       let rule = Jdg.form_rule_is_type premises in
+       Runtime.add_rule_is_type x rule
 
     | Rsyntax.RuleIsTerm (x, prems, c) ->
-       Print.error "evaluation of RuleIsTerm, should call premises here" ;
-       let r = premises prems (Runtime.return ()) in
+       let r = premises prems (check_is_type c) in
        Runtime.top_handle ~loc r >>= fun (premises, head) ->
-       ignore (r) ;
-       return ()
+       let rule = Jdg.form_rule_is_term premises head in
+       Runtime.add_rule_is_term x rule
 
-    | Rsyntax.RuleEqType (x, prems, (c1, c2)) ->
-       Print.error "evaluation of RuleEqType, should call premises here" ;
-       return ()
+    | Rsyntax.RuleEqType (x, prems, boundary) ->
+       let r = premises prems (check_eq_type_boundary boundary) in
+       Runtime.top_handle ~loc r >>= fun (premises, head) ->
+       let rule = Jdg.form_rule_eq_type premises head in
+       Runtime.add_rule_eq_type x rule
 
-    | Rsyntax.RuleEqTerm (x, prems, (c1, c2, c3)) ->
-       Print.error "evaluation of RuleEqTerm, should call premises here" ;
-       return ()
+    | Rsyntax.RuleEqTerm (x, prems, boundary) ->
+       let r = premises prems (check_eq_term_boundary boundary) in
+       Runtime.top_handle ~loc r >>= fun (premises, head) ->
+       let rule = Jdg.form_rule_eq_term premises head in
+       Runtime.add_rule_eq_term x rule
 
     | Rsyntax.DefMLType lst
 
