@@ -733,7 +733,7 @@ let premises prems cmp =
     | [] ->
        cmp >>= fun v ->
        Print.error "process the rest of premises@." ;
-       return ()
+       return (prems_out, v)
 
     | prem :: prems ->
        premise prem >>= fun v ->
@@ -810,13 +810,18 @@ let print_error err ppf =
 let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   Runtime.catch ~loc (lazy (match c with
     | Rsyntax.RuleIsType (x, prems) ->
-       Print.error "evaluation of RuleIsTerm, should call premises here" ;
+       Print.error "evaluation of RuleIsType, should call premises here" ;
        (* XXX the following line is there just so that premises gets used *)
-       ignore (premises prems (Runtime.return ())) ;
+       let r = premises prems (Runtime.return ()) in
+       Runtime.top_handle ~loc r >>= fun (premises, head) ->
+       ignore (r) ;
        return ()
 
     | Rsyntax.RuleIsTerm (x, prems, c) ->
        Print.error "evaluation of RuleIsTerm, should call premises here" ;
+       let r = premises prems (Runtime.return ()) in
+       Runtime.top_handle ~loc r >>= fun (premises, head) ->
+       ignore (r) ;
        return ()
 
     | Rsyntax.RuleEqType (x, prems, (c1, c2)) ->
