@@ -777,6 +777,7 @@ let premises prems cmp =
 
     | [] ->
        cmp >>= fun v ->
+       let prems_out = List.rev prems_out in
        return (prems_out, v)
 
     | prem :: prems ->
