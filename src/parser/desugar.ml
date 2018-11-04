@@ -254,7 +254,7 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
 
   | Input.Patt_TT_Constructor (c, ps) ->
      begin match Ctx.find ~loc c ctx with
-     | TTConstructor k -> tt_constructor ~loc ctx c k ps
+     | TTConstructor k -> pattern_tt_constructor ~loc ctx c k ps
      | (AMLConstructor _ | Operation _ | Variable _) as info ->
         error ~loc (InvalidTermPatternName (c, info))
      end
@@ -308,7 +308,7 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
      in
      fold ctx abstr
 
-and tt_constructor ~loc ctx c k ps =
+and pattern_tt_constructor ~loc ctx c k ps =
   let k' = List.length ps in
   if k <> k' then
     error ~loc (ArityMismatch (c, k, k'))
