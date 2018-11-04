@@ -171,7 +171,6 @@ plain_term:
   | e1=binop_term SEMICOLON e2=term                              { Sequence (e1, e2) }
   | CONTEXT c=prefix_term                                        { Context c }
   | OCCURS c1=prefix_term c2=prefix_term                         { Occurs (c1,c2) }
-  | e=prefix_term s=substitution                                 { Substitute (e, s) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
@@ -192,6 +191,7 @@ plain_binop_term:
 app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
   | e=plain_prefix_term                             { e }
+  | e=prefix_term s=substitution                    { Substitute (e, s) }
   | e=prefix_term es=nonempty_list(prefix_term)     { Spine (e, es) }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
