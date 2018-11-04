@@ -764,13 +764,13 @@ and spine ~yield ctx ({Location.thing=c';loc} as c) cs =
   (* Auxiliary function which splits a list into two parts with k
      elements in the first part. *)
   let split_at constr k lst =
-    let rec split acc k lst =
-      if k = 0 then
+    let rec split acc m lst =
+      if m = 0 then
         List.rev acc, lst
       else
         match lst with
         | [] -> error ~loc (ArityMismatch (constr, List.length acc, k))
-        | x :: lst -> split (x :: acc) (k - 1) lst
+        | x :: lst -> split (x :: acc) (m - 1) lst
     in
     split [] k lst
   in

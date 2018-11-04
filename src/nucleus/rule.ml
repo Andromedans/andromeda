@@ -1,6 +1,8 @@
 (** The datatypes for describing the user-definable rules of type theory. *)
 
-type meta = int  (* meta-variables appearing in rules *)
+(** Meta-variables appearing in rules are referred to by their de Bruijn _indices_. *)
+type meta = int
+
 type bound = TT.bound
 
 type ty =

@@ -119,8 +119,6 @@ end (* module Signature *)
 
 (** Creation of rules of inference from judgements. *)
 
-
-
 (** Manipulation of rules of inference. *)
 
 (** [fully_apply_abstraction inst_u abstr args] fully applies an abstraction to the given arguments. *)
@@ -414,7 +412,10 @@ let match_argument sgn metas (s : Rule.premise) (p : argument) : TT.argument =
 
 let match_arguments sgn (premises : Rule.premise list) (arguments : argument list) =
   let rec fold args_out = function
-    | [], [] -> List.rev args_out
+    | [], [] ->
+       (* The arguments must _not_ be reversed because we refer to them by meta-variable
+          de Bruijn indices, and therefore the last argument must have index 0. *)
+       args_out
     | [], _::_ -> failwith "too many arguments"
     | _::_, [] -> failwith "too few arguments"
     | premise :: premises, argument :: arguments ->
@@ -426,8 +427,12 @@ let match_arguments sgn (premises : Rule.premise list) (arguments : argument lis
 
 (** Judgement formation *)
 
-(** Lookup the index of a meta-variable *)
-let lookup_meta mv mvs =
+(** Lookup the de Bruijn level of a meta-variable.
+
+    We want de Bruijn levels rather than indices because when a rule is
+    applied we get the arguments in the order of premises.
+ *)
+let lookup_meta_index mv mvs =
   let rec search k = function
     | [] -> assert false
     | mv' :: mvs ->
@@ -449,7 +454,7 @@ let rec mk_rule_is_type metas = function
 
   | TT.TypeMeta (mv, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     let k = lookup_meta mv.TT.meta_name metas in
+     let k = lookup_meta_index mv.TT.meta_name metas in
      Rule.TypeMeta (k, args)
 
 and mk_rule_is_term metas = function
@@ -459,7 +464,7 @@ and mk_rule_is_term metas = function
 
   | TT.TermMeta (mv, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     let k = lookup_meta mv.TT.meta_name metas in
+     let k = lookup_meta_index mv.TT.meta_name metas in
      Rule.TermMeta (k, args)
 
   | TT.TermConstructor (c, args) ->
