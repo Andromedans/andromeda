@@ -412,7 +412,10 @@ let match_argument sgn metas (s : Rule.premise) (p : argument) : TT.argument =
 
 let match_arguments sgn (premises : Rule.premise list) (arguments : argument list) =
   let rec fold args_out = function
-    | [], [] -> List.rev args_out
+    | [], [] ->
+       (* The arguments must _not_ be reversed because we refer to them by meta-variable
+          de Bruijn indices, and therefore the last argument must have index 0. *)
+       args_out
     | [], _::_ -> failwith "too many arguments"
     | _::_, [] -> failwith "too few arguments"
     | premise :: premises, argument :: arguments ->
@@ -426,16 +429,8 @@ let match_arguments sgn (premises : Rule.premise list) (arguments : argument lis
 
 (** Lookup the de Bruijn level of a meta-variable.
 
-    There is a certain trickiness to this function:
-
-    * the list of metavariables [mvs] is given in the reverse order, i.e.,
-      de Bruijn level 0 is the last element of the list.
-
-    * we want de Bruijn levels rather than indices because when a rule is
-      applied we get the arguments in the order of premises
-    NB: for meta-variables we use de Bruijn levels rather than indices becuase
-    the arguments of a rule instance are given as a list, so it is easier to
-    use indices.
+    We want de Bruijn levels rather than indices because when a rule is
+    applied we get the arguments in the order of premises.
  *)
 let lookup_meta_index mv mvs =
   let rec search k = function
@@ -446,7 +441,7 @@ let lookup_meta_index mv mvs =
        else
          search (k+1) mvs
   in
-  List.length mvs - 1 - search 0 mvs
+  search 0 mvs
 
 (** The [mk_rule_XYZ] functions are auxiliary functions that should not be
    exposed. The external interface exopses the [form_rule_XYZ] functions defined
