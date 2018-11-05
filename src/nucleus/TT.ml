@@ -758,14 +758,6 @@ type print_env =
 
 let add_forbidden x penv = { penv with forbidden = x :: penv.forbidden }
 
-let print_sequence_with_space_terminator print_u sep seq ppf =
-  if not (seq = []) then
-    Format.fprintf ppf "%t@ " (Print.sequence print_u sep seq)
-
-let print_sequence_with_space_start print_u sep seq ppf =
-  if not (seq = []) then
-    Format.fprintf ppf "@ %t" (Print.sequence print_u sep seq)
-
 let rec print_abstraction
    : 'b . (bound -> 'b -> bool) ->
           (?max_level:Level.t -> penv:print_env -> 'b -> Format.formatter -> unit) ->
@@ -778,9 +770,14 @@ let rec print_abstraction
 
     | NotAbstract v ->
        let xus = List.rev xus in
-       Print.print ?max_level ppf ~at_level:Level.binder "@[<hov 2>%t%t@]"
-              (print_sequence_with_space_terminator (print_binder ~penv) "" xus)
-              (print_v ~penv v)
+       begin match xus with
+       | [] ->
+          print_v ~penv v ppf
+       | _::_ ->
+         Print.print ?max_level ppf ~at_level:Level.binder "@[<hov 2>%t@ %t@]"
+           (Print.sequence (print_binder ~penv) "" xus)
+           (print_v ~penv v)
+       end
 
     | Abstract (x, u, abstr) ->
        let x =
@@ -847,14 +844,22 @@ and print_meta :
   type a . ?max_level:Level.t -> penv:print_env
             -> a meta -> term list -> Format.formatter -> unit
   = fun ?max_level ~penv {meta_name;_} args ppf ->
-  Print.print ~at_level:Level.app ?max_level ppf "@[<hov 2>%t%t@]"
+  match args with
+  | [] ->
+     Name.print_meta ~parentheses:true ~printer:penv.metas meta_name ppf
+  | _::_ ->
+     Print.print ~at_level:Level.app ?max_level ppf "@[<hov 2>%t@ %t@]"
     (Name.print_meta ~printer:penv.metas meta_name)
-    (print_sequence_with_space_start (print_term ?max_level ~penv) "" args) ;
+    (Print.sequence (print_term ?max_level ~penv) "" args) ;
 
 and print_constructor ?max_level ~penv c args ppf =
-  Print.print ~at_level:Level.app ?max_level ppf "@[<hov 2>%t%t@]"
-    (Name.print_ident c)
-    (print_sequence_with_space_start (print_arg ~penv) "" args) ;
+  match args with
+  | [] ->
+     Name.print_ident ~parentheses:true c ppf
+  | _::_ ->
+     Print.print ~at_level:Level.app ?max_level ppf "@[<hov 2>%t@ %t@]"
+       (Name.print_ident c)
+       (Print.sequence (print_arg ~penv) "" args) ;
 
 and print_arg ~penv arg ppf =
   match arg with
@@ -869,7 +874,7 @@ and print_arg ~penv arg ppf =
 
 
 and print_binder ~penv (x,t) ppf =
-  Print.print ppf "(%t@ :@ %t)"
+  Print.print ppf "{%t@ :@ %t}"
     (Name.print_ident ~parentheses:true x)
     (print_type ~penv t)
 
