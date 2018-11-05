@@ -1037,12 +1037,11 @@ let print_is_type ?max_level ~penv t ppf =
               (Print.char_vdash ())
               (TT.print_type ~max_level:Level.highest ~penv t)
 
-let print_is_term ?max_level ~penv ~sgn e ppf =
+let print_is_term ?max_level ~penv e ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hov 4>%t@;: %t@]"
+              "%s @[<hov 4>%t@]"
               (Print.char_vdash ())
               (TT.print_term ~max_level:Level.highest ~penv e)
-              (TT.print_type ~max_level:Level.highest ~penv (type_of_term sgn e))
 
 let print_eq_type ?max_level ~penv eq ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
@@ -1060,9 +1059,9 @@ let print_is_type_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
   TT.print_abstraction TT.occurs_type print_is_type ?max_level ~penv abstr ppf
 
-let print_is_term_abstraction ?max_level ~penv ~sgn abstr ppf =
+let print_is_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  TT.print_abstraction TT.occurs_term (print_is_term ~sgn) ?max_level ~penv abstr ppf
+  TT.print_abstraction TT.occurs_term print_is_term ?max_level ~penv abstr ppf
 
 let print_eq_type_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)

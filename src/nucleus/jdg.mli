@@ -290,7 +290,7 @@ val congruence_term_constructor :
 (** Printing routines *)
 
 val print_is_term :
-  ?max_level:Level.t -> penv:TT.print_env -> sgn:Signature.t -> is_term -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:TT.print_env -> is_term -> Format.formatter -> unit
 
 val print_is_type :
   ?max_level:Level.t -> penv:TT.print_env -> is_type -> Format.formatter -> unit
@@ -302,7 +302,7 @@ val print_eq_type :
   ?max_level:Level.t -> penv:TT.print_env -> eq_type -> Format.formatter -> unit
 
 val print_is_term_abstraction :
-  ?max_level:Level.t -> penv:TT.print_env -> sgn:Signature.t -> is_term_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:TT.print_env -> is_term_abstraction -> Format.formatter -> unit
 
 val print_is_type_abstraction :
   ?max_level:Level.t -> penv:TT.print_env -> is_type_abstraction -> Format.formatter -> unit

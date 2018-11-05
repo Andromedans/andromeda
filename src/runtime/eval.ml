@@ -539,10 +539,9 @@ and sequence ~loc v =
     | Runtime.Tuple [] -> return ()
     | _ ->
       Runtime.lookup_penv >>= fun penv ->
-      Runtime.lookup_signature >>= fun sgn ->
       Print.warning "%t: Sequence:@ The value %t should be ()"
         (Location.print loc)
-        (Runtime.print_value ~penv ~sgn v) ;
+        (Runtime.print_value ~penv v) ;
       return ()
 
 and let_bind
@@ -838,7 +837,7 @@ let topletrec_bind ~loc ~quiet ~print_annot fxcs =
   return ()
 
 type error =
-  | RuntimeError of TT.print_env * Jdg.Signature.t * Runtime.error
+  | RuntimeError of TT.print_env * Runtime.error
   | JdgError of TT.print_env * Jdg.error
 
 exception Error of error Location.located
@@ -847,7 +846,7 @@ let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 
 let print_error err ppf =
   match err with
-    | RuntimeError (penv, sgn, err) -> Runtime.print_error ~penv ~sgn err ppf
+    | RuntimeError (penv, err) -> Runtime.print_error ~penv err ppf
     | JdgError (penv, err) -> Jdg.print_error ~penv err ppf
 
 
@@ -934,9 +933,8 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
     | Rsyntax.TopDo c ->
        comp_value c >>= fun v ->
        Runtime.top_lookup_penv >>= fun penv ->
-       Runtime.top_lookup_signature >>= fun sgn ->
        (begin if not quiet then
-            Format.printf "%t@.@." (Runtime.print_value ~penv ~sgn v)
+            Format.printf "%t@.@." (Runtime.print_value ~penv v)
         end;
         return ())
 
@@ -945,10 +943,9 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
-         Runtime.top_lookup_signature >>= fun sgn ->
          (if not quiet then Format.printf "Successfully failed command with runtime error:@.%t:@ %t@.@."
                                           (Location.print loc)
-                                          (Runtime.print_error ~penv ~sgn err));
+                                          (Runtime.print_error ~penv err));
          return ()
 
        | Runtime.CaughtJdg {Location.thing=err; loc}  ->
@@ -978,7 +975,6 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
   | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
     Runtime.top_lookup_penv >>= fun penv ->
-    Runtime.top_lookup_signature >>= fun sgn ->
-    error ~loc (RuntimeError (penv, sgn, err))
+    error ~loc (RuntimeError (penv, err))
 
   | Runtime.Result r -> return r

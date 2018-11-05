@@ -412,8 +412,14 @@ and fully_instantiate_term ?(lvl=0) es = function
        e
      else
        (* XXX can fail here, should we report an error or die? *)
-       let e = List.nth es (k - lvl)
-       in shift_term ~lvl:0 lvl e
+       begin try
+         let e = List.nth es (k - lvl)
+         in shift_term ~lvl:0 lvl e
+       with
+         Failure _ ->
+          Print.error "shit k = %d, lvl = %d, es = %d@." k lvl (List.length es) ;
+          assert false
+       end
 
   | TermConstructor (c, args) ->
      let args = fully_instantiate_args ~lvl es args in

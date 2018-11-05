@@ -476,10 +476,10 @@ let rec as_list_opt = function
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
      None
 
-let rec print_value ?max_level ~penv ~sgn v ppf =
+let rec print_value ?max_level ~penv v ppf =
   match v with
 
-  | IsTerm e -> Jdg.print_is_term_abstraction ~penv:penv ~sgn ?max_level e ppf
+  | IsTerm e -> Jdg.print_is_term_abstraction ~penv:penv ?max_level e ppf
 
   | IsType t -> Jdg.print_is_type_abstraction ~penv:penv ?max_level t ppf
 
@@ -495,12 +495,12 @@ let rec print_value ?max_level ~penv ~sgn v ppf =
      begin
        match as_list_opt v with
        | Some lst -> Format.fprintf ppf "@[<hov 1>[%t]@]"
-                       (Print.sequence (print_value ~max_level:Level.highest ~penv ~sgn) "," lst)
-       | None ->  print_tag ?max_level ~penv ~sgn t lst ppf
+                       (Print.sequence (print_value ~max_level:Level.highest ~penv) "," lst)
+       | None ->  print_tag ?max_level ~penv t lst ppf
      end
 
   | Tuple lst -> Format.fprintf ppf "(%t)"
-                  (Print.sequence (print_value ~max_level:Level.highest ~penv ~sgn) "," lst)
+                  (Print.sequence (print_value ~max_level:Level.highest ~penv) "," lst)
 
   | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref<%t>"
                   (Store.Ref.print_key v)
@@ -510,7 +510,7 @@ let rec print_value ?max_level ~penv ~sgn v ppf =
 
   | String s -> Format.fprintf ppf "\"%s\"" s
 
-and print_tag ?max_level ~penv ~sgn t lst ppf =
+and print_tag ?max_level ~penv t lst ppf =
   match t, lst with
 
   | Name.Ident (_, Name.Prefix), [v] ->
@@ -524,15 +524,15 @@ and print_tag ?max_level ~penv ~sgn t lst ppf =
         Level.prefix and Level.prefix_arg *)
      Print.print ppf ?max_level ~at_level:Level.app "%t@ %t"
                  (Name.print_ident ~parentheses:false t)
-                 (print_value ~max_level:Level.app_right ~penv ~sgn v)
+                 (print_value ~max_level:Level.app_right ~penv v)
 
   | Name.Ident (_, Name.Infix fixity), [v1; v2] ->
      (* infix tag applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
-                 (print_value ~max_level:lvl_left ~penv ~sgn v1)
+                 (print_value ~max_level:lvl_left ~penv v1)
                  (Name.print_ident ~parentheses:false t)
-                 (print_value ~max_level:lvl_right ~penv ~sgn v2)
+                 (print_value ~max_level:lvl_right ~penv v2)
 
   | _ ->
      (* print as application *)
@@ -541,25 +541,25 @@ and print_tag ?max_level ~penv ~sgn t lst ppf =
        | [] -> Name.print_ident t ppf
        | (_::_) -> Print.print ?max_level ~at_level:Level.app ppf "@[<hov 2>%t@ %t@]"
                      (Name.print_ident t)
-                     (Print.sequence (print_value ~max_level:Level.app_right ~penv ~sgn) "" lst)
+                     (Print.sequence (print_value ~max_level:Level.app_right ~penv) "" lst)
      end
 
-let print_operation ~penv ~sgn op vs ppf =
+let print_operation ~penv op vs ppf =
   match op, vs with
 
   | Name.Ident (_, Name.Prefix), [v] ->
      (* prefix op applied to one argument *)
      Print.print ppf ~at_level:Level.prefix "%t@ %t"
        (Name.print_ident ~parentheses:false op)
-       (print_value ~max_level:Level.prefix_arg ~penv ~sgn v)
+       (print_value ~max_level:Level.prefix_arg ~penv v)
 
   | Name.Ident (_, Name.Infix fixity), [v1; v2] ->
      (* infix op applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ~at_level:lvl_op "%t@ %t@ %t"
-       (print_value ~max_level:lvl_left ~penv ~sgn v1)
+       (print_value ~max_level:lvl_left ~penv v1)
        (Name.print_ident ~parentheses:false op)
-       (print_value ~max_level:lvl_right ~penv ~sgn v2)
+       (print_value ~max_level:lvl_right ~penv v2)
 
   | _ ->
      (* print as application *)
@@ -568,15 +568,15 @@ let print_operation ~penv ~sgn op vs ppf =
        | [] -> Name.print_ident op ppf
        | (_::_) -> Print.print ~at_level:Level.app ppf "%t@ %t"
                      (Name.print_ident op)
-                     (Print.sequence (print_value ~max_level:Level.app_right ~penv ~sgn) "" vs)
+                     (Print.sequence (print_value ~max_level:Level.app_right ~penv) "" vs)
      end
 
-let print_error ~penv ~sgn err ppf =
+let print_error ~penv err ppf =
   match err with
 
   | ExpectedAtom j ->
      Format.fprintf ppf "expected an atom but got %t"
-       (Jdg.print_is_term ~penv:penv ~sgn j)
+       (Jdg.print_is_term ~penv:penv j)
 
   | UnknownExternal s ->
      Format.fprintf ppf "unknown external %s" s
@@ -596,7 +596,7 @@ let print_error ~penv ~sgn err ppf =
 
   | TypeMismatchCheckingMode (v, t) ->
       Format.fprintf ppf "The term@, @[<hov>%t@]@ is expected by its surroundings to have type@, @[<hov>%t@]"
-                    (Jdg.print_is_term_abstraction ~penv:penv ~sgn v)
+                    (Jdg.print_is_term_abstraction ~penv:penv v)
                     (Jdg.print_is_type_abstraction ~penv:penv t)
 
   | UnexpectedAbstraction t ->
@@ -605,8 +605,8 @@ let print_error ~penv ~sgn err ppf =
 
   | TermEqualityFail (e1, e2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
-                    (Jdg.print_is_term ~penv:penv ~sgn e1)
-                    (Jdg.print_is_term ~penv:penv ~sgn e2)
+                    (Jdg.print_is_term ~penv:penv e1)
+                    (Jdg.print_is_term ~penv:penv e2)
 
   | TypeEqualityFail (t1, t2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
@@ -618,16 +618,16 @@ let print_error ~penv ~sgn err ppf =
 
   | MatchFail v ->
      Format.fprintf ppf "@[<v>No matching pattern found for value@,   @[<hov>%t@]@]@."
-                    (print_value ~penv ~sgn v)
+                    (print_value ~penv v)
 
   | FailureFail v ->
      Format.fprintf ppf "expected to fail but computed@ %t"
-                    (print_value ~penv ~sgn v)
+                    (print_value ~penv v)
 
   | InvalidEqualTerm (e1, e2) ->
      Format.fprintf ppf "@[<v 2>this should be equality of terms@ %t@;<1 -2>and@ %t"
-                    (Jdg.print_is_term ~penv:penv ~sgn e1)
-                    (Jdg.print_is_term ~penv:penv ~sgn e2)
+                    (Jdg.print_is_term ~penv:penv e1)
+                    (Jdg.print_is_term ~penv:penv e2)
 
   | InvalidEqualType (t1, t2) ->
      Format.fprintf ppf "this should be equality of types %t@ and@ %t"
@@ -698,11 +698,11 @@ let print_error ~penv ~sgn err ppf =
   | InvalidCoerce (t, e) ->
      Format.fprintf ppf "expected a term of type %t but got %t"
                     (Jdg.print_is_type_abstraction ~penv t)
-                    (Jdg.print_is_term_abstraction ~penv ~sgn e)
+                    (Jdg.print_is_term_abstraction ~penv e)
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "@[<v>Unhandled operation:@.   @[<hov>%t@]@]@."
-                    (print_operation ~penv ~sgn op vs)
+                    (print_operation ~penv op vs)
 
 
 
