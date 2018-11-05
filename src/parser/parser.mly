@@ -211,11 +211,16 @@ plain_prefix_term:
 plain_simple_term:
   | x=var_name                                          { Var x }
   | s=QUOTED_STRING                                     { String s }
-  | LBRACK lst=separated_list(COMMA, binop_term) RBRACK { List lst }
+  | LBRACK lst=list_contents RBRACK                     { List lst }
+  | LBRACK RBRACK                                       { List [] }
   | LPAREN c=term COLONGT t=ml_schema RPAREN            { MLAscribe (c, t) }
   | LPAREN lst=separated_list(COMMA, term) RPAREN       { match lst with
                                                           | [{Location.thing=e;loc=_}] -> e
                                                           | _ -> Tuple lst }
+
+list_contents:
+  | t=binop_term COMMA?                                 { [t] }
+  | t=binop_term COMMA lst=list_contents                { t::lst }
 
 var_name:
   | NAME { $1 }
