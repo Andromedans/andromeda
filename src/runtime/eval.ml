@@ -235,7 +235,7 @@ let rec infer {Location.thing=c'; loc} =
 
      infer c1 >>= fun v1 ->
 
-     let infer_substitute invert substitute return abstr =
+     let infer_substitute ~loc invert substitute return abstr =
        match invert abstr with
 
        | Jdg.NotAbstract _tm -> Runtime.(error ~loc (AbstractionExpected v1))
@@ -249,7 +249,6 @@ let rec infer {Location.thing=c'; loc} =
             | Jdg.Abstract _ -> Runtime.(error ~loc (IsTermExpected (Runtime.mk_is_term e0)))
             end in
           Runtime.lookup_signature >>= fun sgn ->
-
           let v = substitute sgn abstr e0 in
           return v
      in
@@ -257,28 +256,28 @@ let rec infer {Location.thing=c'; loc} =
      begin match v1 with
 
      | Runtime.IsType abstr ->
-        infer_substitute
+        infer_substitute ~loc:c1.Location.loc
           (Jdg.invert_is_type_abstraction ?atom_name:None)
           Jdg.apply_is_type_abstraction
           Runtime.return_is_type
           abstr
 
      | Runtime.IsTerm abstr ->
-        infer_substitute
+        infer_substitute ~loc:c1.Location.loc
           (Jdg.invert_is_term_abstraction ?atom_name:None)
           Jdg.apply_is_term_abstraction
           Runtime.return_is_term
           abstr
 
      | Runtime.EqTerm abstr ->
-        infer_substitute
+        infer_substitute ~loc:c1.Location.loc
           (Jdg.invert_eq_term_abstraction ?atom_name:None)
           Jdg.apply_eq_term_abstraction
           Runtime.return_eq_term
           abstr
 
      | Runtime.EqType abstr ->
-        infer_substitute
+        infer_substitute ~loc:c1.Location.loc
           (Jdg.invert_eq_type_abstraction ?atom_name:None)
           Jdg.apply_eq_type_abstraction
           Runtime.return_eq_type
@@ -742,7 +741,8 @@ let premise {Location.thing=prem;_} =
        Runtime.lookup_signature >>= fun sgn ->
        let (mv_name, v) =
          begin match x with
-         | None -> let x = Name.anonymous () in
+         | None ->
+            let x = Name.anonymous () in
             let mv = Jdg.fresh_eq_type_meta x abstr in
             (mv.TT.meta_name, None)
          | Some x ->
@@ -761,7 +761,8 @@ let premise {Location.thing=prem;_} =
        Runtime.lookup_signature >>= fun sgn ->
        let (mv_name, v) =
          begin match x with
-         | None -> let x = Name.anonymous () in
+         | None ->
+            let x = Name.anonymous () in
             let mv = Jdg.fresh_eq_term_meta x abstr in
             (mv.TT.meta_name, None)
          | Some x ->
@@ -785,12 +786,10 @@ let premises prems cmp =
 
     | prem :: prems ->
        premise prem >>= fun ((x_boundary), vopt) ->
-       let bind_maybe vopt cmp =
-         match vopt with
-         | None -> cmp
-         | Some v -> Runtime.add_bound v cmp
-       in
-       bind_maybe vopt (fold (x_boundary :: prems_out) prems)
+       let cmp = (fold (x_boundary :: prems_out) prems) in
+       match vopt with
+       | None -> cmp
+       | Some v -> Runtime.add_bound v cmp
   in
   fold [] prems
 
