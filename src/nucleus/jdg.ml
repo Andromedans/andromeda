@@ -882,12 +882,17 @@ let form_eq_term_meta sgn TT.{meta_name ; meta_type} args =
 
 let meta_eta_expanded instantiate_meta form_meta abstract_meta sgn mv =
   let rec fold args = function
-  | TT.NotAbstract u -> TT.mk_not_abstract (form_meta sgn mv (List.rev args))
+
+  | TT.NotAbstract u ->
+     TT.mk_not_abstract (form_meta sgn mv (List.rev args))
+
   | TT.Abstract (x, ty, abstr) ->
      let a, abstr =
        TT.unabstract_abstraction instantiate_meta x ty abstr in
      let abstr = fold ((form_is_term_atom a) :: args) abstr in
-     TT.abstract_abstraction abstract_meta a.TT.atom_name abstr
+     let abstr = TT.abstract_abstraction abstract_meta a.TT.atom_name abstr in
+     TT.mk_abstract x ty abstr
+
   in fold [] mv.TT.meta_type
 
 let is_type_meta_eta_expanded =
