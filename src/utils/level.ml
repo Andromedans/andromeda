@@ -15,16 +15,12 @@ let least = 0
 
 let no_parens = least
 
-let proj = no_parens
-let proj_left = no_parens
-
 let prefix = 50
 let prefix_arg = 50
 
 let app = 100
 let app_left = app
 let app_right = app - 1
-let el_arg = app_right
 
 let infix = function
   | Infix4 -> (200, 199, 200)
@@ -43,8 +39,6 @@ let in_binder = binder
 let arr = binder
 let arr_left = arr - 1
 let arr_right = arr
-
-let ascription = 950
 
 let jdg = highest
 

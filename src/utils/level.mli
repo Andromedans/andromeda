@@ -28,12 +28,6 @@ val least : t
 (** A level which guarantees that no parentheses will ever be printed. *)
 val no_parens : t
 
-(** The level of a projection term. *)
-val proj : t
-
-(** The level of the left argument of a projection. *)
-val proj_left : t
-
 (** The level of a prefix operator applied to an argument. *)
 val prefix : t
 
@@ -44,12 +38,11 @@ val prefix_arg : t
 val app : t
 val app_left : t
 val app_right : t
-val el_arg : t
 
 (** Infix operators *)
 val infix : infix -> t * t * t
 
-(** Equality type *)
+(** Equality *)
 val eq : t
 val eq_left : t
 val eq_right : t
@@ -60,9 +53,6 @@ val in_binder : t
 val arr : t
 val arr_left : t
 val arr_right : t
-
-(** Type ascription in a binding *)
-val ascription : t
 
 (** A judgement [ctx |- e : t] *)
 val jdg : t
