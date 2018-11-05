@@ -431,11 +431,7 @@ let match_arguments sgn (premises : Rule.premise list) (arguments : argument lis
 
 (** Judgement formation *)
 
-(** Lookup the de Bruijn level of a meta-variable.
-
-    We want de Bruijn levels rather than indices because when a rule is
-    applied we get the arguments in the order of premises.
- *)
+(** Lookup the de Bruijn index of a meta-variable. *)
 let lookup_meta_index mv mvs =
   let rec search k = function
     | [] -> assert false
