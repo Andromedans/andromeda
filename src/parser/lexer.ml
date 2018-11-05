@@ -19,13 +19,13 @@ let reserved = [
   ("external", EXTERNAL) ;
   ("fail", FAIL) ;
   ("finally", FINALLY) ;
-  ("forall", PROD) ;
   ("fun", FUNCTION) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
   ("in", IN) ;
   ("let", LET) ;
   ("match", MATCH) ;
+  ("mlforall", MLFORALL) ;
   ("mlstring", MLSTRING) ;
   ("mltype", MLTYPE) ;
   ("mlunit", MLUNIT) ;
@@ -43,9 +43,6 @@ let reserved = [
   ("verbosity", VERBOSITY) ;
   ("with", WITH) ;
   ("yield", YIELD) ;
-  ("Π", PROD) ;
-  ("∀", PROD) ;
-  ("∏", PROD) ;
   ("⊢", VDASH) ;
 ]
 

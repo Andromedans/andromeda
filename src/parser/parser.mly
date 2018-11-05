@@ -2,9 +2,6 @@
   open Input
 %}
 
-(* Abstractions *)
-%token PROD
-
 (* Infix operations *)
 %token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
 
@@ -50,6 +47,7 @@
 %token MLUNIT MLSTRING
 %token MLISTYPE MLISTERM MLEQTYPE MLEQTERM
 %token MLTYPE
+%token MLFORALL
 %token OF
 
 (* REFERENCES *)
@@ -444,10 +442,10 @@ op_mlsig:
       | [] -> assert false
      }
 
-ml_schema: mark_location(plain_ml_schema) { $1 }
+ml_schema: mark_location(plain_ml_schema)  { $1 }
 plain_ml_schema:
-  | PROD params=var_name+ COMMA t=mlty    { ML_Forall (params, t) }
-  | t=mlty                                { ML_Forall ([], t) }
+  | MLFORALL params=var_name+ COMMA t=mlty { ML_Forall (params, t) }
+  | t=mlty                                 { ML_Forall ([], t) }
 
 mlty: mark_location(plain_mlty) { $1 }
 plain_mlty:

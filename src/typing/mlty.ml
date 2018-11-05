@@ -182,8 +182,7 @@ let print_ty_schema ~penv ?max_level (ms, t) ppf =
     | [] ->
       print_ty ~penv ?max_level t ppf
     | _ :: _ ->
-      Format.fprintf ppf "@[<hov>%s %t, %t@]"
-                     (Print.char_forall ())
+      Format.fprintf ppf "@[<hov>mlforall %t, %t@]"
                      (Print.sequence (print_param ~penv) "" ms)
                      (print_ty ~penv ~max_level:Level.ml_forall_r t)
 

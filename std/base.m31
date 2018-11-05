@@ -1,13 +1,13 @@
 (* External values *)
 
 (* Print an arbitrary value *)
-external print : forall a, a -> mlunit = "print"
+external print : mlforall a, a -> mlunit = "print"
 
 (* Exit (finish the process) *)
-external exit : forall a, mlunit -> a = "exit"
+external exit : mlforall a, mlunit -> a = "exit"
 
 (* Print an arbitrary value in JSON format *)
-external print_json : forall a, mlunit -> a = "print_json"
+external print_json : mlforall a, mlunit -> a = "print_json"
 
 (* Poor man's debugging mechanism. *)
 mltype debug a = (!!) of a end
@@ -22,7 +22,7 @@ handle
 end
 *)
 
-let (|>) x f :> Π α β, α → (α → β) → β = f x
+let (|>) x f :> mlforall α β, α → (α → β) → β = f x
 
 let failure x = print ("FAILURE", x); exit ()
 
