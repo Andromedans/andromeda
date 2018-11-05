@@ -780,7 +780,7 @@ let rec print_abstraction
        let xus = List.rev xus in
        Print.print ?max_level ppf ~at_level:Level.binder "@[<hov 2>%t%t@]"
               (print_sequence_with_space_terminator (print_binder ~penv) "" xus)
-              (print_v ~max_level:Level.in_binder ~penv v)
+              (print_v ~penv v)
 
     | Abstract (x, u, abstr) ->
        let x =
