@@ -243,12 +243,6 @@ val apply_eq_term_abstraction :
 (** If [e1 == e2 : A] and [A == B] then [e1 == e2 : B] *)
 val convert_eq_term : eq_term -> eq_type -> eq_term
 
-(** Construct the judgment [e == e : A] from [e : A] *)
-val reflexivity_term : Signature.t -> is_term -> eq_term
-
-(** Construct the jdugment [A == A] from [A type] *)
-val reflexivity_type : is_type -> eq_type
-
 (** Given two terms [e1 : A1] and [e2 : A2] construct [e1 == e2 : A1],
     provided [A1] and [A2] are alpha equal and [e1] and [e2] are alpha equal *)
 val mk_alpha_equal_term : Signature.t -> is_term -> is_term -> eq_term option

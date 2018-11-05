@@ -889,13 +889,6 @@ let eq_term_meta_eta_expanded =
 
 (** Constructors *)
 
-let reflexivity_term sgn e =
-  let t = type_of_term sgn e in
-  TT.mk_eq_term Assumption.empty e e t
-
-let reflexivity_type t =
-  TT.mk_eq_type Assumption.empty t t
-
 let alpha_equal_term = TT.alpha_equal_term
 
 let alpha_equal_type = TT.alpha_equal_type
