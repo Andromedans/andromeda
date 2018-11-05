@@ -164,21 +164,16 @@ and meta_instantiate_is_term ~lvl metas = function
      let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
      fully_instantiate_abstraction (TT.fully_instantiate_term ?lvl:None) e_abstr es
 
-and meta_instantiate_eq_type ~lvl metas (Rule.EqType (asmp, t1, t2)) =
-  let asmp = meta_instantiate_assumptions ~lvl metas asmp
-  and t1 = meta_instantiate_is_type ~lvl metas t1
+and meta_instantiate_eq_type ~lvl metas (Rule.EqType (t1, t2)) =
+  let t1 = meta_instantiate_is_type ~lvl metas t1
   and t2 = meta_instantiate_is_type ~lvl metas t2 in
-  TT.mk_eq_type asmp t1 t2
+  TT.mk_eq_type Assumption.empty t1 t2
 
-and meta_instantiate_eq_term ~lvl metas (Rule.EqTerm (asmp, e1, e2, t)) =
-  let asmp = meta_instantiate_assumptions ~lvl metas asmp
-  and e1 = meta_instantiate_is_term ~lvl metas e1
+and meta_instantiate_eq_term ~lvl metas (Rule.EqTerm (e1, e2, t)) =
+  let e1 = meta_instantiate_is_term ~lvl metas e1
   and e2 = meta_instantiate_is_term ~lvl metas e2
   and t = meta_instantiate_is_type ~lvl metas t in
-  TT.mk_eq_term asmp e1 e2 t
-
-and meta_instantiate_assumptions ~lvl metas asmp =
-  failwith "todo"
+  TT.mk_eq_term Assumption.empty e1 e2 t
 
 and meta_instantiate_args ~lvl metas args =
   List.map (meta_instantiate_arg ~lvl metas) args
@@ -217,105 +212,6 @@ and meta_instantiate_abstraction
                              and abstr = meta_instantiate_abstraction inst_u ~lvl:(lvl+1) metas abstr
                              in TT.mk_abstract x t abstr
 
-let meta_instantiate_terms metas es_schema =
-  List.map
-    (fun e_schema -> meta_instantiate_is_term ~lvl:0 metas e_schema)
-    es_schema
-
-
-let rec check_type (metas : TT.argument list) (schema : Rule.ty) (argument : TT.ty) =
-  match schema, argument with
-
-  | Rule.TypeConstructor (c_schema, args_schema), TT.TypeConstructor (c, args) ->
-     if Name.eq_ident c_schema c then
-       check_args metas args_schema args
-     else
-       failwith "some mismatch"
-
-  | Rule.TypeMeta (k, es_schema), ty ->
-     begin
-       (* XXX TODO List.nth could fail miserably here *)
-       match List.nth metas k with
-
-       | TT.ArgIsType abstr ->
-          let es = meta_instantiate_terms metas es_schema in
-          let ty' = fully_instantiate_abstraction (TT.fully_instantiate_type ?lvl:None) abstr es in
-          if not (TT.alpha_equal_type ty ty') then
-            failwith "type mismatch"
-
-       | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ ->
-          failwith "expected a type meta-variable but got something else"
-     end
-
-  | Rule.TypeConstructor _, TT.TypeMeta _ -> failwith "rule wants a constructor but got a meta"
-
-and check_term (metas : TT.argument list) (schema : Rule.term) (argument : TT.term) =
-  match schema, argument with
-
-  | Rule.TermBound k, TT.TermBound n ->
-     if not (TT.equal_bound k n) then
-       failwith "mismatch"
-
-  | Rule.TermConstructor (c, args_schema), TT.TermConstructor (c', args) ->
-     if Name.eq_ident c c' then
-       check_args metas args_schema args
-     else
-       failwith "mismatch"
-
-  | Rule.TermMeta (k, es_schema), e ->
-     begin
-       (* XXX TODO List.nth could fail miserably here *)
-       match List.nth metas k with
-
-       | TT.ArgIsTerm abstr ->
-          let es = meta_instantiate_terms metas es_schema in
-          let e' = fully_instantiate_abstraction (TT.fully_instantiate_term ?lvl:None) abstr es in
-          if not (TT.alpha_equal_term e e') then
-            failwith "term mismatch"
-
-       | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ ->
-          failwith "expected a term meta-variable but got something else"
-     end
-
-  | _, _ -> failwith "other cases are errors"
-
-
-and check_args metas args_schema args =
-  match args_schema, args with
-
-  | [], [] -> ()
-
-  | arg_schema :: args_schema, arg :: args ->
-     check_arg metas arg_schema arg ;
-     check_args metas args_schema args
-
-  | [], _::_ | _::_, [] -> failwith "too many or too few arguments"
-
-and check_arg metas arg_schema arg =
-  match arg_schema, arg with
-  | Rule.ArgIsType t_schema, TT.ArgIsType t -> check_abstraction check_type metas t_schema t
-  | Rule.ArgIsTerm e_schema, TT.ArgIsTerm e -> check_abstraction check_term metas e_schema e
-  | Rule.ArgEqType _, TT.ArgEqType _ -> ()
-  | Rule.ArgEqTerm _, TT.ArgEqTerm _ -> ()
-  | _, _ -> failwith "check_arg failed"
-
-and check_abstraction
-    : 'a 'b . (TT.argument list -> 'a -> 'b -> unit) ->
-      TT.argument list ->
-      'a Rule.abstraction -> 'b TT.abstraction -> unit
-  =  fun check_u metas s_abstr p_abstr ->
-  match s_abstr, p_abstr with
-
-  | Rule.NotAbstract u_schema, TT.NotAbstract u ->
-     check_u metas u_schema u
-
-  | Rule.Abstract (_, t_schema, s_abstr), TT.Abstract (_, t, p_abstr) ->
-     check_type metas t_schema t ;
-     check_abstraction check_u metas s_abstr p_abstr
-
-  | _, _ -> failwith "TODO please reasonable error in Jdg.check_abstraction"
-
-
 let atom_name {TT.atom_name=n;_} = n
 
 (** [type_of_term sgn e] gives a type judgment [t], where [t] is the type of [e].
@@ -344,6 +240,10 @@ let type_of_term sgn = function
   | TT.TermConvert (e, _, t) -> t
 
 
+let type_at_abstraction = function
+  | TT.NotAbstract _ -> None
+  | TT.Abstract (_, t, _) -> Some t
+
 let rec type_of_term_abstraction sgn = function
   | TT.NotAbstract e ->
      let t = type_of_term sgn e in
@@ -369,34 +269,62 @@ let natural_type_eq sgn e =
   and given = type_of_term sgn e in
   TT.mk_eq_type Assumption.empty natural given
 
+let rec boundary_abstraction boundary_u = function
+  | TT.NotAbstract u -> TT.mk_not_abstract (boundary_u u)
+  | TT.Abstract (x, t, abstr) ->
+     let b = boundary_abstraction boundary_u abstr in
+     TT.mk_abstract x t b
+
+let boundary_is_type_abstraction abstr =
+  boundary_abstraction (fun _ -> ()) abstr
+
+let boundary_is_term_abstraction sgn abstr =
+  (* NB: this is _not_ like the others as it actually computes the type of a term *)
+  type_of_term_abstraction sgn abstr
+
+let boundary_eq_type_abstraction abstr = abstr
+
+let boundary_eq_term_abstraction abstr = abstr
+
 let check_argument sgn metas s p =
   match s, p with
 
   | Rule.PremiseIsType s_abstr, ArgumentIsType p_abstr ->
-     check_abstraction
-       (fun _ _ _ -> ())
-       metas s_abstr p_abstr
+     let s_abstr = meta_instantiate_abstraction (fun ~lvl _ () -> ()) ~lvl:0 metas s_abstr
+     and p_abstr = boundary_is_type_abstraction p_abstr in
+     if not (TT.alpha_equal_abstraction (fun () () -> true) s_abstr p_abstr) then
+       failwith "high time to fix error messages"
 
   | Rule.PremiseIsTerm s_abstr, ArgumentIsTerm p_abstr ->
-     check_abstraction
-       (fun metas t_schema e -> check_type metas t_schema (type_of_term sgn e))
-       metas s_abstr p_abstr
+     let s = meta_instantiate_abstraction meta_instantiate_is_type ~lvl:0 metas s_abstr
+     and t = boundary_is_term_abstraction sgn p_abstr in
+     begin
+       match TT.alpha_equal_abstraction TT.alpha_equal_type t s with
+       | false -> failwith "check_argument: please fix error messages"
+       | true -> ()
+     end
 
   | Rule.PremiseEqType s_abstr, ArgumentEqType p_abstr ->
-     check_abstraction
-       (fun metas (t1_schema, t2_schema) (TT.EqType (_asmp, t1, t2)) ->
-         check_type metas t1_schema t1 ;
-         check_type metas t2_schema t2)
-       metas s_abstr p_abstr
+     let s_abstr = meta_instantiate_abstraction meta_instantiate_eq_type ~lvl:0 metas s_abstr
+     and p_abstr = boundary_eq_type_abstraction p_abstr in
+     if not (TT.alpha_equal_abstraction
+               (fun (TT.EqType (_, l1,r1)) (TT.EqType (_, l2,r2)) ->
+                 TT.alpha_equal_type l1 l2 && TT.alpha_equal_type r1 r2)
+               s_abstr p_abstr)
+     then
+       failwith "high time to fix error messages"
 
   | Rule.PremiseEqTerm s_abstr, ArgumentEqTerm p_abstr ->
-     check_abstraction
-       (fun metas (e1_schema, e2_schema, t_schema) (TT.EqTerm (_asmp, e1, e2, t)) ->
-         check_term metas e1_schema e1 ;
-         check_term metas e2_schema e2 ;
-         check_type metas t_schema t)
-       metas
-       s_abstr p_abstr
+     let s_abstr = meta_instantiate_abstraction meta_instantiate_eq_term ~lvl:0 metas s_abstr
+     and p_abstr = boundary_eq_term_abstraction p_abstr in
+     if not (TT.alpha_equal_abstraction
+               (fun (TT.EqTerm (_, e1,e2,t)) (TT.EqTerm (_, e1',e2',t')) ->
+                 TT.alpha_equal_term e1 e1'
+                 && TT.alpha_equal_term e2 e2'
+                 && TT.alpha_equal_type t t')
+               s_abstr p_abstr)
+     then
+       failwith "high time to fix error messages"
 
   | _, _ -> failwith "TODO better error in check_argument"
 
@@ -427,11 +355,7 @@ let match_arguments sgn (premises : Rule.premise list) (arguments : argument lis
 
 (** Judgement formation *)
 
-(** Lookup the de Bruijn level of a meta-variable.
-
-    We want de Bruijn levels rather than indices because when a rule is
-    applied we get the arguments in the order of premises.
- *)
+(** Lookup the de Bruijn index of a meta-variable. *)
 let lookup_meta_index mv mvs =
   let rec search k = function
     | [] -> assert false
@@ -480,20 +404,21 @@ and mk_rule_is_term metas = function
      mk_rule_is_term metas e
 
 and mk_rule_eq_type metas (TT.EqType (asmp, t1, t2)) =
-    let asmp = mk_rule_assumptions metas asmp
+    let _ = mk_rule_assumptions metas asmp
     and t1 = mk_rule_is_type metas t1
     and t2 = mk_rule_is_type metas t2 in
-    Rule.EqType (asmp, t1, t2)
+    Rule.EqType (t1, t2)
 
 and mk_rule_eq_term metas (TT.EqTerm (asmp, e1, e2, t)) =
-    let asmp = mk_rule_assumptions metas asmp
+    let _ = mk_rule_assumptions metas asmp
     and e1 = mk_rule_is_term metas e1
     and e2 = mk_rule_is_term metas e2
     and t = mk_rule_is_type metas t in
-    Rule.EqTerm (asmp, e1, e2, t)
+    Rule.EqTerm (e1, e2, t)
 
 and mk_rule_assumptions metas asmp =
-  failwith "should check that asmp is a subset of metas or some such"
+  Print.error "should check that asmp is a subset of metas or some such@." ;
+  ()
 
 and mk_rule_arg metas = function
 
@@ -547,7 +472,7 @@ let mk_rule_premise metas = function
          (fun metas (t1, t2) ->
            let t1 = mk_rule_is_type metas t1
            and t2 = mk_rule_is_type metas t2 in
-           (t1, t2))
+           Rule.EqType (t1, t2))
          metas abstr
      in
      Rule.PremiseEqType abstr
@@ -559,7 +484,7 @@ let mk_rule_premise metas = function
            let e1 = mk_rule_is_term metas e1
            and e2 = mk_rule_is_term metas e2
            and t = mk_rule_is_type metas t in
-           (e1, e2, t))
+           Rule.EqTerm (e1, e2, t))
          metas abstr
      in
      Rule.PremiseEqTerm abstr
@@ -606,31 +531,35 @@ let form_rule_eq_term prems (e1, e2, t) =
 
 let form_is_type sgn c arguments =
   let prems, () = Signature.lookup_rule_is_type c sgn in
-  let arguments = match_arguments sgn prems arguments in
-  TT.mk_type_constructor c arguments
+  (* [match_arguments] reverses the order of arguments for the benefit of instantiation *)
+  let args' = match_arguments sgn prems arguments in
+  let args = List.rev args' in
+  TT.mk_type_constructor c args
 
 let form_is_term sgn c arguments =
   let (premises, _boundary) = Signature.lookup_rule_is_term c sgn in
-  let arguments = match_arguments sgn premises arguments in
-  TT.mk_term_constructor c arguments
+  (* [match_arguments] reverses the order of arguments for the benefit of instantiation *)
+  let args' = match_arguments sgn premises arguments in
+  let args = List.rev args' in
+  TT.mk_term_constructor c args
 
 let form_eq_type sgn c arguments =
   let (premises, (lhs_schema, rhs_schema)) =
     Signature.lookup_rule_eq_type c sgn in
-  let arguments = match_arguments sgn premises arguments in
-  let asmp = TT.assumptions_arguments arguments
-  and lhs = meta_instantiate_is_type ~lvl:0 arguments lhs_schema
-  and rhs = meta_instantiate_is_type ~lvl:0 arguments rhs_schema
+  let args' = match_arguments sgn premises arguments in
+  let asmp = TT.assumptions_arguments args' (* order of arguments not important here *)
+  and lhs = meta_instantiate_is_type ~lvl:0 args' lhs_schema
+  and rhs = meta_instantiate_is_type ~lvl:0 args' rhs_schema
   in TT.mk_eq_type asmp lhs rhs
 
 let form_eq_term sgn c arguments =
   let (premises, (e1_schema, e2_schema, t_schema)) =
     Signature.lookup_rule_eq_term c sgn in
-  let args = match_arguments sgn premises arguments in
-  let asmp = TT.assumptions_arguments args
-  and e1 = meta_instantiate_is_term ~lvl:0 args e1_schema
-  and e2 = meta_instantiate_is_term ~lvl:0 args e2_schema
-  and t = meta_instantiate_is_type ~lvl:0 args t_schema
+  let args' = match_arguments sgn premises arguments in
+  let asmp = TT.assumptions_arguments args' (* order of arguments not important here *)
+  and e1 = meta_instantiate_is_term ~lvl:0 args' e1_schema
+  and e2 = meta_instantiate_is_term ~lvl:0 args' e2_schema
+  and t = meta_instantiate_is_type ~lvl:0 args' t_schema
   in TT.mk_eq_term asmp e1 e2 t
 
 let type_of_atom {TT.atom_type=t;_} = t
@@ -768,6 +697,10 @@ let invert_eq_type (TT.EqType (asmp, t1, t2)) = EqType (asmp, t1, t2)
 
 let invert_eq_term (TT.EqTerm (asmp, e1, e2, t)) = EqTerm (asmp, e1, e2, t)
 
+let as_not_abstract = function
+  | TT.Abstract _ -> None
+  | TT.NotAbstract v -> Some v
+
 let invert_abstraction ?atom_name inst_v = function
   | TT.Abstract (x, t, abstr) ->
      let x = (match atom_name with None -> x | Some y -> y) in
@@ -883,12 +816,17 @@ let form_eq_term_meta sgn TT.{meta_name ; meta_type} args =
 
 let meta_eta_expanded instantiate_meta form_meta abstract_meta sgn mv =
   let rec fold args = function
-  | TT.NotAbstract u -> TT.mk_not_abstract (form_meta sgn mv (List.rev args))
+
+  | TT.NotAbstract u ->
+     TT.mk_not_abstract (form_meta sgn mv (List.rev args))
+
   | TT.Abstract (x, ty, abstr) ->
      let a, abstr =
        TT.unabstract_abstraction instantiate_meta x ty abstr in
      let abstr = fold ((form_is_term_atom a) :: args) abstr in
-     TT.abstract_abstraction abstract_meta a.TT.atom_name abstr
+     let abstr = TT.abstract_abstraction abstract_meta a.TT.atom_name abstr in
+     TT.mk_abstract x ty abstr
+
   in fold [] mv.TT.meta_type
 
 let is_type_meta_eta_expanded =
