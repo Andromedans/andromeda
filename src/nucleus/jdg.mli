@@ -174,6 +174,9 @@ val is_term_meta_eta_expanded : Signature.t -> is_term_meta -> is_term_abstracti
 val eq_type_meta_eta_expanded : Signature.t -> eq_type_meta -> eq_type_abstraction
 val eq_term_meta_eta_expanded : Signature.t -> eq_term_meta -> eq_term_abstraction
 
+(** Verify that an abstraction is in fact not abstract *)
+val as_not_abstract : 'a abstraction -> 'a option
+
 val invert_is_type : is_type -> stump_is_type
 
 val invert_is_term : Signature.t -> is_term -> stump_is_term
@@ -208,6 +211,10 @@ exception Error of error
 
 (** The type judgement of a term judgement. *)
 val type_of_term : Signature.t -> is_term -> is_type
+
+(** The type over which an abstraction is abstracting, or [None] if it not an
+   abstraction. *)
+val type_at_abstraction : 'a abstraction -> is_type option
 
 (** The type judgement of an abstracted term judgement. *)
 val type_of_term_abstraction : Signature.t -> is_term_abstraction -> is_type_abstraction

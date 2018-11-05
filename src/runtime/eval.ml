@@ -232,62 +232,51 @@ let rec infer {Location.thing=c'; loc} =
             c1{c2}  ==>  jdg[s/x]
 
  *)
-
      infer c1 >>= fun v1 ->
 
-     let infer_substitute ~loc invert substitute return abstr =
-       match invert abstr with
-
-       | Jdg.NotAbstract _tm -> Runtime.(error ~loc (AbstractionExpected v1))
-
-       | Jdg.Abstract (x, abstr) ->
-          let ty_x = Jdg.type_of_atom x in
-          check c2 (Jdg.abstract_not_abstract ty_x) >>= fun e0 ->
-          let e0 =
-            begin match Jdg.invert_is_term_abstraction e0 with
-            | Jdg.NotAbstract e0 -> e0
-            | Jdg.Abstract _ -> Runtime.(error ~loc (IsTermExpected (Runtime.mk_is_term e0)))
-            end in
-          Runtime.lookup_signature >>= fun sgn ->
-          let v = substitute sgn abstr e0 in
-          return v
+     let infer_substitute ~loc sbst rtrn abstr =
+       match Jdg.type_at_abstraction abstr with
+       | None -> Runtime.(error ~loc (AbstractionExpected v1))
+       | Some t ->
+          check c2 (Jdg.abstract_not_abstract t) >>= fun v2 ->
+          begin match Jdg.as_not_abstract v2 with
+          | None -> Runtime.(error ~loc (IsTermExpected (Runtime.mk_is_term v2)))
+          | Some v2 ->
+             Runtime.lookup_signature >>= fun sgn ->
+             let v = sbst sgn abstr v2 in
+             rtrn v
+          end
      in
 
      begin match v1 with
+       | Runtime.IsType abstr ->
+          infer_substitute ~loc:c1.Location.loc
+            Jdg.apply_is_type_abstraction
+            Runtime.return_is_type
+            abstr
 
-     | Runtime.IsType abstr ->
-        infer_substitute ~loc:c1.Location.loc
-          (Jdg.invert_is_type_abstraction ?atom_name:None)
-          Jdg.apply_is_type_abstraction
-          Runtime.return_is_type
-          abstr
+       | Runtime.IsTerm abstr ->
+          infer_substitute ~loc:c1.Location.loc
+            Jdg.apply_is_term_abstraction
+            Runtime.return_is_term
+            abstr
 
-     | Runtime.IsTerm abstr ->
-        infer_substitute ~loc:c1.Location.loc
-          (Jdg.invert_is_term_abstraction ?atom_name:None)
-          Jdg.apply_is_term_abstraction
-          Runtime.return_is_term
-          abstr
+       | Runtime.EqTerm abstr ->
+          infer_substitute ~loc:c1.Location.loc
+            Jdg.apply_eq_term_abstraction
+            Runtime.return_eq_term
+            abstr
 
-     | Runtime.EqTerm abstr ->
-        infer_substitute ~loc:c1.Location.loc
-          (Jdg.invert_eq_term_abstraction ?atom_name:None)
-          Jdg.apply_eq_term_abstraction
-          Runtime.return_eq_term
-          abstr
+       | Runtime.EqType abstr ->
+          infer_substitute ~loc:c1.Location.loc
+            Jdg.apply_eq_type_abstraction
+            Runtime.return_eq_type
+            abstr
 
-     | Runtime.EqType abstr ->
-        infer_substitute ~loc:c1.Location.loc
-          (Jdg.invert_eq_type_abstraction ?atom_name:None)
-          Jdg.apply_eq_type_abstraction
-          Runtime.return_eq_type
-          abstr
-
-     | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag (_, _)
-     | Runtime.Tuple _ | Runtime.Ref _ | Runtime.Dyn _
-     | Runtime.String _ ->
-        Runtime.(error ~loc (JudgementExpected v1))
-
+       | (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag (_, _)
+          | Runtime.Tuple _ | Runtime.Ref _ | Runtime.Dyn _
+          | Runtime.String _) as v ->
+          Runtime.(error ~loc (JudgementExpected v))
      end
 
   | Rsyntax.Yield c ->

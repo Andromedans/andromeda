@@ -344,6 +344,10 @@ let type_of_term sgn = function
   | TT.TermConvert (e, _, t) -> t
 
 
+let type_at_abstraction = function
+  | TT.NotAbstract _ -> None
+  | TT.Abstract (_, t, _) -> Some t
+
 let rec type_of_term_abstraction sgn = function
   | TT.NotAbstract e ->
      let t = type_of_term sgn e in
@@ -767,6 +771,10 @@ let invert_is_type = function
 let invert_eq_type (TT.EqType (asmp, t1, t2)) = EqType (asmp, t1, t2)
 
 let invert_eq_term (TT.EqTerm (asmp, e1, e2, t)) = EqTerm (asmp, e1, e2, t)
+
+let as_not_abstract = function
+  | TT.Abstract _ -> None
+  | TT.NotAbstract v -> Some v
 
 let invert_abstraction ?atom_name inst_v = function
   | TT.Abstract (x, t, abstr) ->
