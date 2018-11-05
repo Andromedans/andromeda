@@ -614,7 +614,7 @@ let print_error ~penv ~sgn err ppf =
                     (Jdg.print_is_type ~penv:penv t2)
 
   | UnannotatedAbstract x ->
-     Format.fprintf ppf "cannot infer the type of@ %t" (Name.print_ident x)
+     Format.fprintf ppf "@[<v 2>cannot infer the type of the variable to abstract@ %t@]" (Name.print_ident x)
 
   | MatchFail v ->
      Format.fprintf ppf "@[<v>No matching pattern found for value@,   @[<hov>%t@]@]@."
@@ -625,7 +625,7 @@ let print_error ~penv ~sgn err ppf =
                     (print_value ~penv ~sgn v)
 
   | InvalidEqualTerm (e1, e2) ->
-     Format.fprintf ppf "this should be equality of terms %t@ and@ %t"
+     Format.fprintf ppf "@[<v 2>this should be equality of terms@ %t@;<1 -2>and@ %t"
                     (Jdg.print_is_term ~penv:penv ~sgn e1)
                     (Jdg.print_is_term ~penv:penv ~sgn e2)
 
@@ -689,7 +689,8 @@ let print_error ~penv ~sgn err ppf =
     Format.fprintf ppf "expected a coercible but got %s" (name_of v)
 
   | InvalidConvertible (t1, t2, eq) ->
-     Format.fprintf ppf "expected a witness of equality between %t and %t but got %t"
+     Format.fprintf ppf
+       "@[<hv 2>expected a witness of equality between@ %t@;<1 -2>and@ %t@;<1 -2>but got@ %t@]"
                     (Jdg.print_is_type_abstraction ~penv t1)
                     (Jdg.print_is_type_abstraction ~penv t2)
                     (Jdg.print_eq_type_abstraction ~penv eq)

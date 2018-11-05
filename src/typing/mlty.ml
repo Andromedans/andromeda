@@ -198,7 +198,7 @@ let print_error err ppf =
       (print_ty ~penv out)
 
   | TypeMismatch (t1, t2) ->
-    Format.fprintf ppf "Expected %t but got %t"
+    Format.fprintf ppf "Expected @[%t@] but got @[%t@]"
       (print_ty ~penv t2)
       (print_ty ~penv t1)
 
