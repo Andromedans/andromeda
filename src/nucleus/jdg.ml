@@ -805,7 +805,8 @@ let occurs_eq_term_abstraction = occurs_abstraction TT.assumptions_eq_term
 
 let apply_abstraction inst_u sgn abstr e0 =
   match abstr with
-  | TT.NotAbstract _ -> failwith "foo"
+  | TT.NotAbstract _ ->
+     failwith "Tried to apply an argument to a NotAbstract. Type-checking should prevent this!"
   | TT.Abstract (x, t, abstr) ->
      begin match TT.alpha_equal_type t (type_of_term sgn e0) with
      | false -> failwith "bar"
