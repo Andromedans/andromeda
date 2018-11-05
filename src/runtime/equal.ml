@@ -77,16 +77,69 @@ let coerce ~loc sgn e t =
        | Predefined.NotCoercible -> Opt.fail
 
        | Predefined.Convertible eq ->
-          failwith "TODO: convert e along eq if possible"
-          (*
-          let (Jdg.EqType (_asmp, u', u)) = Jdg.invert_eq_type eq in
-          begin match Jdg.alpha_equal_type t' u' && Jdg.alpha_equal_type t u with
-            | true ->
-               Opt.return (Jdg.form_is_term_abstraction_convert sgn e eq)
-            | false ->
-               Runtime.(error ~loc (InvalidConvertible (t', t, eq)))
-          end
+          (* Have:
+             e  = {x:A₁} … {x:Aₙ} ⊢ s : A
+             t' = {x:A₁} … {x:Aₙ} ⊢ A type
+             t  = {x:B₁} … {x:Bₘ} ⊢ B type
+             eq = {x:C₁} … {x:Cₘ} ⊢ C == D
+
+             Plan:
+             - Invert e to
+                 [a₁, …, aₙ] ⊢ s : A
+             - apply eq to [a₁, …, aₙ] forming
+                 eq' := (⊢ C == D) [ a₁, …, aₙ / x₁, …, xₘ ]
+               This might fail if `n =/= m` or if `∃ i, Aᵢ =/= Cᵢ`
+               We could check for this first and raise a runtime error, or try
+               and leave it to the nucleus to fail.
+             - check that `D' =α= t` to make sure we actually convert to where
+               we want
+             - convert s along eq', which might again fail in the nucleus.
+             - abstract [a₁, …, aₙ]
           *)
+          let rec fully_apply_abstraction apply_abstr abstr = function
+            | [] -> abstr
+            | arg :: args ->
+               let abstr = apply_abstr sgn abstr arg in
+               fully_apply_abstraction apply_abstr abstr args
+          in
+          let fully_apply_eq_type_abstraction =
+            fully_apply_abstraction Jdg.apply_eq_type_abstraction in
+          let fully_apply_is_type_abstraction =
+            fully_apply_abstraction Jdg.apply_is_type_abstraction in
+
+          let rec convert_is_term_abstraction atoms abstr =
+            match Jdg.invert_is_term_abstraction abstr with
+            | Jdg.NotAbstract e ->
+               let atoms = List.rev atoms in
+               let atoms = List.map Jdg.form_is_term_atom atoms in
+               let eq_app =
+                 let eq_app = fully_apply_eq_type_abstraction eq atoms in
+                 begin match Jdg.invert_eq_type_abstraction eq_app with
+                   | Jdg.Abstract _ ->
+                      failwith "[eq] abstracts over more var's than [e]."
+                   | Jdg.NotAbstract eq -> eq
+                 end
+               and t_app =
+                 let t_app =fully_apply_is_type_abstraction t atoms in
+                 begin match Jdg.invert_is_type_abstraction t_app with
+                   | Jdg.Abstract _ ->
+                      failwith "[t] abstracts over more var's than [e]. AML type-checking is buggy."
+                   | Jdg.NotAbstract t_app -> t_app
+                 end
+               and t'_app = Jdg.type_of_term sgn e
+               in
+               let Jdg.EqType (_asmp, lhs, rhs) = Jdg.invert_eq_type eq_app in
+               begin match Jdg.alpha_equal_type rhs t_app && Jdg.alpha_equal_type lhs t'_app with
+               | true -> ()
+               | false -> Runtime.(error ~loc (InvalidConvertible (t', t, eq)))
+               end ;
+               let e = Jdg.form_is_term_convert sgn e eq_app in
+               Jdg.abstract_not_abstract e
+            | Jdg.Abstract (a, abstr) ->
+               let abstr = convert_is_term_abstraction (a::atoms) abstr in
+               Jdg.abstract_is_term a abstr
+          in
+          Opt.return (convert_is_term_abstraction [] e)
 
        | Predefined.Coercible e' ->
           begin
