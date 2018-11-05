@@ -132,13 +132,38 @@ let fully_instantiate_abstraction inst_u abstr args =
   in
   fold [] abstr args
 
+
+(* Sometimes we work with meta-variables in their _de Bruijn index_ order, i.e.,
+   as a list whose first element is de Bruijn index 0, and sometimes we work in
+   the _constructor_ order, i.e., in the order of premises to a rule. These
+   are reverse from each other. We have found it to be quite error-prone to
+   keep track of which order any given list might be, so we use some abstract
+   types to reduce the possibility of further bugs.
+*)
+module Indices :
+  sig
+    type t
+    val nth : t -> int -> TT.argument
+    val of_list : TT.argument list -> t
+    val to_list : t -> TT.argument list
+    val cons : TT.argument -> t -> t
+  end
+  =
+  struct
+    type t = TT.argument list
+    let nth = List.nth
+    let of_list = List.rev
+    let to_list = List.rev
+    let cons = List.cons
+  end
+
 let lookup_term_meta k metas =
-  match List.nth metas k with
+  match Indices.nth metas k with
   | TT.ArgIsTerm e_abstr -> e_abstr
   | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> failwith "term expected"
 
 let lookup_type_meta k metas =
-  match List.nth metas k with
+  match Indices.nth metas k with
   | TT.ArgIsType t_abstr -> t_abstr
   | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> failwith "type expected"
 
@@ -199,8 +224,8 @@ and meta_instantiate_arg ~lvl metas = function
      in TT.mk_arg_eq_term abstr
 
 and meta_instantiate_abstraction
-    : 'a 'b . (lvl:int -> TT.argument list -> 'a -> 'b) ->
-      lvl:int -> TT.argument list -> 'a Rule.abstraction -> 'b TT.abstraction
+    : 'a 'b . (lvl:int -> Indices.t -> 'a -> 'b) ->
+      lvl:int -> Indices.t -> 'a Rule.abstraction -> 'b TT.abstraction
   = fun inst_u ~lvl metas -> function
 
                           | Rule.NotAbstract u ->
@@ -232,7 +257,8 @@ let type_of_term sgn = function
      (* we need not re-check that the premises match the arguments because
         we are computing the type of a term that was previously determined
         to be valid. *)
-     meta_instantiate_is_type ~lvl:0 args t_schema
+     let inds = Indices.of_list args in
+     meta_instantiate_is_type ~lvl:0 inds t_schema
 
   | TT.TermMeta ({TT.meta_type;_}, args) ->
      fully_instantiate_abstraction (TT.fully_instantiate_type ?lvl:None) meta_type args
@@ -349,9 +375,9 @@ let match_arguments sgn (premises : Rule.premise list) (arguments : argument lis
     | premise :: premises, argument :: arguments ->
        let metas = args_out in (* args also serves as the list of collected metas *)
        let argument = match_argument sgn metas premise argument in
-       fold (argument :: args_out) (premises, arguments)
+       fold (Indices.cons argument args_out) (premises, arguments)
   in
-  fold [] (premises, arguments)
+  fold (Indices.of_list []) (premises, arguments)
 
 (** Judgement formation *)
 
@@ -532,34 +558,36 @@ let form_rule_eq_term prems (e1, e2, t) =
 let form_is_type sgn c arguments =
   let prems, () = Signature.lookup_rule_is_type c sgn in
   (* [match_arguments] reverses the order of arguments for the benefit of instantiation *)
-  let args' = match_arguments sgn prems arguments in
-  let args = List.rev args' in
+  let args = Indices.to_list (match_arguments sgn prems arguments) in
   TT.mk_type_constructor c args
 
 let form_is_term sgn c arguments =
   let (premises, _boundary) = Signature.lookup_rule_is_term c sgn in
   (* [match_arguments] reverses the order of arguments for the benefit of instantiation *)
-  let args' = match_arguments sgn premises arguments in
-  let args = List.rev args' in
+  let args = Indices.to_list (match_arguments sgn premises arguments) in
   TT.mk_term_constructor c args
 
 let form_eq_type sgn c arguments =
   let (premises, (lhs_schema, rhs_schema)) =
     Signature.lookup_rule_eq_type c sgn in
-  let args' = match_arguments sgn premises arguments in
-  let asmp = TT.assumptions_arguments args' (* order of arguments not important here *)
-  and lhs = meta_instantiate_is_type ~lvl:0 args' lhs_schema
-  and rhs = meta_instantiate_is_type ~lvl:0 args' rhs_schema
+  let inds = match_arguments sgn premises arguments in
+  (* order of arguments not important in [TT.assumption_arguments],
+     we could try avoiding a list reversal caused by [Indices.to_list]. *)
+  let asmp = TT.assumptions_arguments (Indices.to_list inds)
+  and lhs = meta_instantiate_is_type ~lvl:0 inds lhs_schema
+  and rhs = meta_instantiate_is_type ~lvl:0 inds rhs_schema
   in TT.mk_eq_type asmp lhs rhs
 
 let form_eq_term sgn c arguments =
   let (premises, (e1_schema, e2_schema, t_schema)) =
     Signature.lookup_rule_eq_term c sgn in
-  let args' = match_arguments sgn premises arguments in
-  let asmp = TT.assumptions_arguments args' (* order of arguments not important here *)
-  and e1 = meta_instantiate_is_term ~lvl:0 args' e1_schema
-  and e2 = meta_instantiate_is_term ~lvl:0 args' e2_schema
-  and t = meta_instantiate_is_type ~lvl:0 args' t_schema
+  let inds = match_arguments sgn premises arguments in
+  (* order of arguments not important in [TT.assumption_arguments],
+     we could try avoiding a list reversal caused by [Indices.to_list]. *)
+  let asmp = TT.assumptions_arguments (Indices.to_list inds)
+  and e1 = meta_instantiate_is_term ~lvl:0 inds e1_schema
+  and e2 = meta_instantiate_is_term ~lvl:0 inds e2_schema
+  and t = meta_instantiate_is_type ~lvl:0 inds t_schema
   in TT.mk_eq_term asmp e1 e2 t
 
 let type_of_atom {TT.atom_type=t;_} = t
