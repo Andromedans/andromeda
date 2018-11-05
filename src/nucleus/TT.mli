@@ -257,6 +257,10 @@ val print_type : ?max_level:Level.t -> penv:print_env -> ty -> Format.formatter 
 
 val print_term : ?max_level:Level.t -> penv:print_env -> term -> Format.formatter -> unit
 
+val print_eq_type : ?max_level:Level.t -> penv:print_env -> eq_type -> Format.formatter -> unit
+
+val print_eq_term : ?max_level:Level.t -> penv:print_env -> eq_term -> Format.formatter -> unit
+
 module Json :
 sig
 

@@ -812,6 +812,29 @@ and print_type ?max_level ~penv t ppf =
   | TypeMeta (mv, args) ->
      print_meta ?max_level ~penv mv args ppf
 
+and print_eq_type ?max_level ~penv (EqType (_asmp, t1, t2)) ppf =
+  (* TODO: print _asmp? *)
+  Print.print
+    ?max_level
+    ~at_level:Level.eq
+    ppf
+    "@[<hov>%t@]@ %s@ @[<hov>%t@]"
+    (print_type ~penv t1)
+    (Print.char_equal ())
+    (print_type ~penv t2)
+
+and print_eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
+  (* TODO: print _asmp? *)
+  Print.print
+    ?max_level
+    ~at_level:Level.eq
+    ppf
+    "@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]"
+    (print_term ~penv e1)
+    (Print.char_equal ())
+    (print_term ~penv e2)
+    (print_type ~penv t)
+
 and print_meta :
   type a . ?max_level:Level.t -> penv:print_env
             -> a meta -> term list -> Format.formatter -> unit
