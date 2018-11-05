@@ -610,31 +610,35 @@ let form_rule_eq_term prems (e1, e2, t) =
 
 let form_is_type sgn c arguments =
   let prems, () = Signature.lookup_rule_is_type c sgn in
-  let arguments = match_arguments sgn prems arguments in
-  TT.mk_type_constructor c arguments
+  (* [match_arguments] reverses the order of arguments for the benefit of instantiation *)
+  let args' = match_arguments sgn prems arguments in
+  let args = List.rev args' in
+  TT.mk_type_constructor c args
 
 let form_is_term sgn c arguments =
   let (premises, _boundary) = Signature.lookup_rule_is_term c sgn in
-  let arguments = match_arguments sgn premises arguments in
-  TT.mk_term_constructor c arguments
+  (* [match_arguments] reverses the order of arguments for the benefit of instantiation *)
+  let args' = match_arguments sgn premises arguments in
+  let args = List.rev args' in
+  TT.mk_term_constructor c args
 
 let form_eq_type sgn c arguments =
   let (premises, (lhs_schema, rhs_schema)) =
     Signature.lookup_rule_eq_type c sgn in
-  let arguments = match_arguments sgn premises arguments in
-  let asmp = TT.assumptions_arguments arguments
-  and lhs = meta_instantiate_is_type ~lvl:0 arguments lhs_schema
-  and rhs = meta_instantiate_is_type ~lvl:0 arguments rhs_schema
+  let args' = match_arguments sgn premises arguments in
+  let asmp = TT.assumptions_arguments args' (* order of arguments not important here *)
+  and lhs = meta_instantiate_is_type ~lvl:0 args' lhs_schema
+  and rhs = meta_instantiate_is_type ~lvl:0 args' rhs_schema
   in TT.mk_eq_type asmp lhs rhs
 
 let form_eq_term sgn c arguments =
   let (premises, (e1_schema, e2_schema, t_schema)) =
     Signature.lookup_rule_eq_term c sgn in
-  let args = match_arguments sgn premises arguments in
-  let asmp = TT.assumptions_arguments args
-  and e1 = meta_instantiate_is_term ~lvl:0 args e1_schema
-  and e2 = meta_instantiate_is_term ~lvl:0 args e2_schema
-  and t = meta_instantiate_is_type ~lvl:0 args t_schema
+  let args' = match_arguments sgn premises arguments in
+  let asmp = TT.assumptions_arguments args' (* order of arguments not important here *)
+  and e1 = meta_instantiate_is_term ~lvl:0 args' e1_schema
+  and e2 = meta_instantiate_is_term ~lvl:0 args' e2_schema
+  and t = meta_instantiate_is_type ~lvl:0 args' t_schema
   in TT.mk_eq_term asmp e1 e2 t
 
 let type_of_atom {TT.atom_type=t;_} = t
