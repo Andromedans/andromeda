@@ -496,10 +496,32 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     return (locate ~loc (Rsyntax.Match (c, cases)), t)
 
   | Dsyntax.Ascribe (c1, c2) ->
-     let t1 = Mlty.is_term
-     and t2 = Mlty.is_type in
+     comp c2 >>= fun (c2, t2) ->
+     let t1 =
+       match t2 with
+       | Mlty.Judgement abstr ->
+          let rec is_term_of_is_type_abstraction abstr =
+            begin match abstr with
+            | Mlty.Abstract abstr ->
+               let matched, abstr = is_term_of_is_type_abstraction abstr in
+               (matched, Mlty.Abstract abstr)
+            | Mlty.NotAbstract jdg ->
+               (match jdg with
+                | Mlty.IsType -> (true, Mlty.NotAbstract Mlty.IsTerm)
+                | Mlty.IsTerm
+                | Mlty.EqType
+                | Mlty.EqTerm -> (false, Mlty.NotAbstract Mlty.IsType))
+            end
+          in
+          let (matched, abstr) = is_term_of_is_type_abstraction abstr in
+          let t1 = Mlty.Judgement abstr in
+          if matched then
+            t1
+          else
+            Mlty.(error ~loc:c2.Location.loc (TypeMismatch (t2, t1)))
+       | _ -> failwith "judgement expected"
+     in
      check_comp c1 t1 >>= fun c1 ->
-     check_comp c2 t2 >>= fun c2 ->
      return (locate ~loc (Rsyntax.Ascribe (c1, c2)), t1)
 
   | Dsyntax.Abstract (x, copt, c) ->
