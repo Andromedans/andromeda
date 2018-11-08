@@ -17,7 +17,7 @@
 (defvar m31-cases-keywords
   '("mltype" "operation"
     "handle" "handler"
-    "match" "|" "with"
+    "match" "with" "|" "=>" "⇒"
     "val" "finally"
     "end"
     "yield"))
@@ -41,7 +41,7 @@
 (defface m31-meta-binder-begin-face '((t (:inherit font-lock-preprocessor-face)))
   "" :group 'm31)
 
-(defvar m31-meta-variable-rx
+(defvar m31-ml-variable-rx
   (eval
    `(rx
      (|
@@ -50,7 +50,7 @@
                 (* (any ,(mapconcat (lambda (c) c) m31-symbolchars "")))
                 (* space) ")")
       (sequence (| (syntax word) "_") (* (| (syntax word) (syntax symbol))))))))
-(defface m31-meta-variable-face '((t (:inherit font-lock-function-name-face)))
+(defface m31-ml-variable-face '((t (:inherit font-lock-function-name-face)))
   "" :group 'm31)
 
 (defvar m31-meta-binder-end-keywords
@@ -69,8 +69,9 @@
     ;; "judgement"
     ;; "judgment"
     ;; "_"
+
     "external"
-    "#include_once"
+    "require"
     "ref" "!" ":="
     ;;    ";" ","
     ))
@@ -79,15 +80,14 @@
 
 (defvar m31-tt-keywords
   '("==" "≡"
-    "Type"
+    "type"
     "beta_step"
     "congr_apply" "congr_eq" "congr_lambda" "congr_prod" "congr_refl"
     "context"
     "natural"
     "occurs"
     "where"                        ;could be a destructor
-    "refl"
-    "|-" "⊢"))
+    "|-" "⊢" "\\{" "}"))
 (defface m31-tt-face '((t (:inherit font-lock-type-face)))
   "" :group 'm31)
 
@@ -96,7 +96,7 @@
 (defface m31-tt-atom-face '((t (:inherit font-lock-type-face)))
   "" :group 'm31)
 
-(defvar m31-tt-binder-begin-rx (rx bow (| "forall" "∀" "Π" "∏" "lambda" "λ") eow))
+(defvar m31-tt-binder-begin-rx (rx bow (| "forall" "∀" "Π" "∏" "lambda" "λ" "rule") eow))
 (defface m31-tt-binder-begin-face '((t (:inherit font-lock-type-face)))
   "" :group 'm31)
 
@@ -109,11 +109,11 @@
 (defface m31-boring-face '((t (:inherit font-lock-preprocessor-face)))
   "" :group 'm31)
 
-(defvar m31-pvar-rx (eval `(rx "?" (regexp ,m31-meta-variable-rx))))
+(defvar m31-pvar-rx (eval `(rx "?" (regexp ,m31-ml-variable-rx))))
 (defface m31-pvar-face '((t (:inherit font-lock-variable-name-face)))
   "" :group 'm31)
 
-(defvar m31-simple-syntax-classes '(boring cases topdirective meta tt))
+(defvar m31-simple-syntax-classes '(boring cases topdirective meta tt meta-binder-end))
 
 (require 'cl-macs)
 (defun m31-font-lock-mk (name)
@@ -127,19 +127,27 @@
   (list
    (append
 
+    `((,(rx (| "{" "}")) 0 'm31-tt-face))
+    `((,(rx (| "⇒" "==>")) 0 'm31-cases-face))
+    `((,(eval `(rx (seq symbol-start (| ,@m31-meta-binder-end-keywords) symbol-end))) 0 'm31-meta-binder-end-face))
+
     `((,(rx symbol-start (| "¬" "~") symbol-end) 0 'font-lock-negation-char-face))
 
     `((,(eval `(rx
                 (group-n 1 (regexp ,m31-meta-binder-begin-rx))
                 (group-n 2
                          (+ (| space (regexp "\n")))
-                         (regexp ,m31-meta-variable-rx))
+                         (regexp ,m31-ml-variable-rx))
                 (group-n 3 (* (seq
                                (+ (| space (regexp "\n")))
-                               (regexp ,m31-meta-variable-rx))))))
+                               (regexp ,m31-ml-variable-rx))))))
        (1 '(m31-meta-binder-begin-face))
-       (2 '(m31-meta-variable-face))
+       (2 '(m31-ml-variable-face))
        (3 '(m31-pvar-face))))
+
+    `((,(eval `(rx
+                (group-n 1 (regexp ,m31-meta-binder-begin-rx))))
+       (1 '(m31-meta-binder-begin-face))))
 
     `((,(rx symbol-start (| "and" "as" "in") symbol-end) (0 '(m31-meta-binder-begin-face))))
 
@@ -149,29 +157,34 @@
                                (+ (| space (regexp "\n")
                                      (regexp ",")
                                      ))
-                               (regexp ,m31-meta-variable-rx))))))
+                               (regexp ,m31-ml-variable-rx))))))
        (1 '(m31-tt-atom-face))
        (2 '(m31-pvar-face))))
 
     `((,(eval `(rx
                 (group-n 1 (regexp ,m31-mltype-rx))
                 (+ (| space (regexp "\n")))
-                (group-n 2 (regexp ,m31-meta-variable-rx))))
+                (group-n 2 (regexp ,m31-ml-variable-rx))))
        (1 '(m31-boring-face))
        (2 '(m31-cases-face))))
 
     `((,(eval `(rx
                 (group-n 1 (regexp ,m31-operation-rx))
                 (+ (| space (regexp "\n")))
-                (group-n 2 (regexp ,m31-meta-variable-rx))))
+                (group-n 2 (regexp ,m31-ml-variable-rx))))
        (1 '(m31-boring-face))
        (2 '(m31-operation-face))))
 
     `((,(eval `(rx
                 (group-n 1 (regexp ,m31-tt-binder-begin-rx))
                 (group-n 2 (* (seq
-                               (+ (| space (regexp "\n")))
-                               (regexp ,m31-meta-variable-rx))))))
+                               (+
+                                ;; (|
+                                 blank
+                                 ;; space
+                                 ;; )
+                                )
+                               (regexp ,m31-ml-variable-rx))))))
        (1 '(m31-tt-binder-begin-face))
        (2 '(m31-pvar-face))))
 
@@ -179,11 +192,11 @@
                 (group-n 1 (sequence symbol-start "fun" symbol-end))
                 (group-n 2 (* (seq
                                (+ (| space (regexp "\n")))
-                               (regexp ,m31-meta-variable-rx))))))
+                               (regexp ,m31-ml-variable-rx))))))
        (1 '(m31-meta-binder-begin-face))
        (2 '(m31-pvar-face))))
 
-    `((,(eval `(rx "!" (regexp ,m31-meta-variable-rx))) (0 '(m31-meta-face))))
+    `((,(eval `(rx "!" (regexp ,m31-ml-variable-rx))) (0 '(m31-meta-face))))
 
     `((,m31-pvar-rx 0 'm31-pvar-face))
 
@@ -250,7 +263,7 @@ Useful typically when working with the Andromeda git repository."
 (defun m31-compilation-buffer-name (&optional mm) "*andromeda*")
 
 (defconst m31-error-single-line-regexp
-  (rx bol "File \"" (group-n 1 (not (any ?\")))
+  (rx bol "File \"" (group-n 1 (+? (not (any ?\"))))
       "\", line " (group-n 2 (+ digit))
       ", characters " (group-n 4 (+ digit)) "-" (group-n 5 (+ digit))
       ":" eol)
@@ -280,21 +293,27 @@ Useful typically when working with the Andromeda git repository."
         (hist compile-history)
         (prev-cmd compile-command))
     (setq m31--current-buffer (current-buffer))
+    (with-current-buffer (m31-get-andromeda-buffer-create)
+      (progn
+        (setq-local
+         compilation-finish-functions
+         '((lambda (buf msg)
+             (let ((c (get-buffer-window m31--current-buffer))
+                   (w (get-buffer-window buf 'visible)))
+               (when w
+                 (select-window w t)
+                 (when (eobp)
+                   (recenter -1))
+                 (select-window c t))))))
+        (setq-local compilation-error-regexp-alist '(andromeda-multi andromeda-single))
+        (setq-local
+         compilation-error-regexp-alist-alist
+         `((andromeda-multi ,m31-error-multi-line-regexp 1 (2 . 3) (4 . 5) 2 nil)
+           (andromeda-single ,m31-error-single-line-regexp 1 2 (4 . 5) 2 nil)))
+        (setq-local font-lock-defaults (m31-font-lock-defaults))))
     (compile cmd)
     (setq compile-history hist
-          compile-command prev-cmd)
-    (with-current-buffer (m31-get-andromeda-buffer-create)
-      (set
-       (make-local-variable
-        'compilation-finish-functions)
-       '((lambda (buf msg)
-           (let ((c (get-buffer-window m31--current-buffer))
-                 (w (get-buffer-window buf 'visible)))
-             (when w
-               (select-window w t)
-               (when (eobp)
-                 (recenter -1))
-               (select-window c t)))))))))
+          compile-command prev-cmd)))
 
 ;;;###autoload
 (defun m31-send-file (fn)
