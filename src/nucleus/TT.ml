@@ -519,7 +519,11 @@ let unabstract_abstraction instantiate_u x t abstr =
 let rec abstract_term x ?(lvl=0) = function
   | (TermAtom {atom_name=y; atom_type=t}) as e ->
      begin match Name.eq_atom x y with
-     | false -> ignore e ; failwith "(* XXX check that t does not depend on x, then give me e !!! *)"
+     | false ->
+        let asmp = assumptions_type t in
+        if Assumption.mem_atom x asmp
+        then failwith "XXX error: can't abstract x because t depends on it"
+        else e
      | true -> TermBound lvl
      end
 
