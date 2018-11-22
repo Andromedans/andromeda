@@ -425,9 +425,19 @@ and mk_rule_is_term metas = function
      Rule.TermBound k
 
   | TT.TermConvert (e, asmp, t) ->
-     (* XXX TODO do something about the assumption set. I think it needs to be a subset of metas. *)
-     Print.error "should do someting about assumptions sets, hello?@." ;
-     mk_rule_is_term metas e
+     let (free, meta, bound) = Assumption.unpack asmp
+     (* XXX We do not check that the types of the metas match. We assume that
+        the type of a meta does not change. *)
+     and metas_set = Name.MetaSet.of_list metas in
+     begin match Name.AtomMap.is_empty free
+                 && Name.MetaMap.for_all
+                      (fun mv _bnd -> Name.MetaSet.mem mv metas_set)
+                      meta
+                 && Assumption.BoundSet.is_empty bound
+     with
+     | true -> mk_rule_is_term metas e
+     | false -> failwith "XXX error: extra assumptions, cannot form rule."
+     end
 
 and mk_rule_eq_type metas (TT.EqType (asmp, t1, t2)) =
     let _ = mk_rule_assumptions metas asmp

@@ -540,7 +540,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
            and t = Mlty.Judgement (Mlty.Abstract t) in
            return (c, t)
         | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _
-               | App _ | Ref _|Dynamic _) as t ->
+               | App _ | Ref _| Dynamic _) as t ->
            (* XXX should Meta and Param be errors? *)
            Mlty.error ~loc (Mlty.JudgementExpected t)
         end
