@@ -293,6 +293,19 @@ let natural_type sgn = function
 let natural_type_eq sgn e =
   let natural = natural_type sgn e
   and given = type_of_term sgn e in
+  (* XXX should the assumptions here be empty, or the assumptions of [e] ? If
+  we derived [e : given] via a conversion, eg
+
+  ⊢ e' : natural   x : False ⊢ natural == given
+  --------------------------------------------conv
+  x  : False ⊢ e : given
+
+  then we should include the assumptions of [e], i.e. [x], in the assumptions
+  of [natural == given]
+
+  NB: We should actually look into [e] and if it's a conversion, grab that
+  assumption set.
+   *)
   TT.mk_eq_type Assumption.empty natural given
 
 let rec boundary_abstraction boundary_u = function
