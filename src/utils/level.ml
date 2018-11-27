@@ -18,9 +18,11 @@ let no_parens = least
 let prefix = 50
 let prefix_arg = 50
 
-let app = 100
-let app_left = app
-let app_right = app - 1
+let constructor = 100
+let constructor_arg = constructor - 1
+
+let meta = constructor
+let meta_arg = meta - 1
 
 let infix = function
   | Infix4 -> (200, 199, 200)
@@ -34,16 +36,20 @@ let eq = 700
 let eq_left = eq - 1
 let eq_right = eq - 1
 
-let binder = 800
-let in_binder = binder
-let arr = binder
-let arr_left = arr - 1
-let arr_right = arr
+let abstraction = 800
+let abstraction_body = abstraction
+let binder = abstraction
 
 let jdg = highest
 
-let ml_app = 300
+let ml_app = constructor
 let ml_app_arg = ml_app - 1
+
+let ml_tag = ml_app
+let ml_tag_arg = ml_tag - 1
+
+let ml_operation = constructor
+let ml_operation_arg = ml_operation - 1
 
 let ml_prod = 400
 let ml_prod_arg = ml_prod - 1

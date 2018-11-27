@@ -31,13 +31,16 @@ val no_parens : t
 (** The level of a prefix operator applied to an argument. *)
 val prefix : t
 
-(** The elvel of the argument to a prefix operator. *)
+(** The level of the argument to a prefix operator. *)
 val prefix_arg : t
 
-(** Things that look like an application *)
-val app : t
-val app_left : t
-val app_right : t
+(** Constructors and their arguments *)
+val constructor : t
+val constructor_arg : t
+
+(** Meta-variables and their arguments *)
+val meta : t
+val meta_arg : t
 
 (** Infix operators *)
 val infix : infix -> t * t * t
@@ -47,45 +50,50 @@ val eq : t
 val eq_left : t
 val eq_right : t
 
-(** Lambdas, products and arrows *)
-val binder : t
-val in_binder : t
-val arr : t
-val arr_left : t
-val arr_right : t
+(** Abstraction *)
+
+val abstraction : t
+val abstraction_body : t
+val binder : t (* The type inside a binder *)
 
 (** A judgement [ctx |- e : t] *)
 val jdg : t
 
-(** ML product type *)
+(** AML product type *)
 val ml_prod : t
 
-(** ML product type, arguments *)
+(** AML product type, arguments *)
 val ml_prod_arg : t
 
-(** ML type arrow *)
+(** AML type arrow *)
 val ml_arr : t
 
-(** ML type arrow, left argument *)
+(** AML type arrow, left argument *)
 val ml_arr_left : t
 
-(** ML type arrow, right argument*)
+(** AML type arrow, right argument*)
 val ml_arr_right : t
 
-(** ML handler *)
+(** AML handler *)
 val ml_handler : t
 
-(** ML handler, left argument *)
+(** AML handler, left argument *)
 val ml_handler_left : t
 
-(** ML handler, righ argument*)
+(** AML handler, righ argument*)
 val ml_handler_right : t
 
-(** ML type application *)
-val ml_app : t
+(** AML tag *)
+val ml_tag : t
+val ml_tag_arg : t
 
-(** ML argument of a type application *)
+(** AML type application *)
+val ml_app : t
 val ml_app_arg : t
+
+(** AML operation *)
+val ml_operation : t
+val ml_operation_arg : t
 
 (** [t] in [forall a, t] *)
 val ml_forall_r : t

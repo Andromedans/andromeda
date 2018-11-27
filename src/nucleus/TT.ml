@@ -782,11 +782,11 @@ let rec print_abstraction
        let xus = List.rev xus in
        begin match xus with
        | [] ->
-          print_v ~penv v ppf
+          print_v ?max_level ~penv v ppf
        | _::_ ->
-         Print.print ?max_level ppf ~at_level:Level.binder "@[<hov 2>%t@ %t@]"
+         Print.print ~at_level:Level.abstraction ?max_level ppf "@[<hov 2>%t@ %t@]"
            (Print.sequence (print_binder ~penv) "" xus)
-           (print_v ~penv v)
+           (print_v ~max_level:Level.abstraction_body ~penv v)
        end
 
     | Abstract (x, u, abstr) ->
@@ -858,29 +858,29 @@ and print_meta :
   | [] ->
      Name.print_meta ~parentheses:true ~printer:penv.metas meta_name ppf
   | _::_ ->
-     Print.print ~at_level:Level.app ?max_level ppf "@[<hov 2>%t@ %t@]"
+     Print.print ~at_level:Level.meta ?max_level ppf "@[<hov 2>%t@ %t@]"
     (Name.print_meta ~printer:penv.metas meta_name)
-    (Print.sequence (print_term ?max_level ~penv) "" args) ;
+    (Print.sequence (print_term ~max_level:Level.meta_arg ~penv) "" args) ;
 
 and print_constructor ?max_level ~penv c args ppf =
   match args with
   | [] ->
      Name.print_ident ~parentheses:true c ppf
   | _::_ ->
-     Print.print ~at_level:Level.app ?max_level ppf "@[<hov 2>%t@ %t@]"
+     Print.print ~at_level:Level.constructor ?max_level ppf "@[<hov 2>%t@ %t@]"
        (Name.print_ident c)
        (Print.sequence (print_arg ~penv) "" args) ;
 
 and print_arg ~penv arg ppf =
   match arg with
   | ArgIsType abstr ->
-     print_abstraction occurs_type print_type ~max_level:Level.app_right ~penv abstr ppf
+     print_abstraction occurs_type print_type ~max_level:Level.constructor_arg ~penv abstr ppf
   | ArgIsTerm abstr ->
-     print_abstraction occurs_term print_term ~max_level:Level.app_right ~penv abstr ppf
+     print_abstraction occurs_term print_term ~max_level:Level.constructor_arg ~penv abstr ppf
   | ArgEqType abstr ->
-     print_abstraction occurs_eq_type print_eq_type ~max_level:Level.app_right ~penv abstr ppf
+     print_abstraction occurs_eq_type print_eq_type ~max_level:Level.constructor_arg ~penv abstr ppf
   | ArgEqTerm abstr ->
-     print_abstraction occurs_eq_term print_eq_term ~max_level:Level.app_right ~penv abstr ppf
+     print_abstraction occurs_eq_term print_eq_term ~max_level:Level.constructor_arg ~penv abstr ppf
 
 
 and print_binder ~penv (x,t) ppf =
