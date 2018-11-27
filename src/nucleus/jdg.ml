@@ -613,14 +613,29 @@ let fresh_is_term_meta = TT.fresh_term_meta
 let fresh_eq_type_meta = TT.fresh_eq_type_meta
 let fresh_eq_term_meta = TT.fresh_eq_term_meta
 
-let rec check_term_arguments sgn abstr args = match (abstr, args) with
+let rec check_term_arguments sgn abstr args =
+  (* NB: We don't actually need to instantiate the body of the abstraction,
+     because we only compare the types of the arguments with the abstraction *)
+  let inst_u_no_op = fun _e ?lvl u -> u in
+  match (abstr, args) with
   | TT.NotAbstract u, [] -> ()
   | TT.Abstract _, [] -> assert false (* not enough arguments *)
   | TT.NotAbstract _, _::_ -> assert false (* too many arguments *)
   | TT.Abstract (x, t, abstr), arg :: args ->
-     if TT.alpha_equal_type t (type_of_term sgn arg)
-     then check_term_arguments sgn abstr args
-     else failwith "invalid application"
+     let t_arg = type_of_term sgn arg in
+     if TT.alpha_equal_type t t_arg
+     then
+       let abstr = TT.instantiate_abstraction inst_u_no_op arg abstr in
+       check_term_arguments sgn abstr args
+     else
+       let penv =   { TT.forbidden = []
+                    ; TT.metas = Name.meta_printer ()
+                    ; TT.atoms = Name.atom_printer ()
+                    }
+       in
+       Print.error "abstr: @[<hov>%t@] arg: @[<hov>%t@]@."
+         (TT.print_type ~penv t) (TT.print_type ~penv t_arg) ;
+       failwith "XXX error: invalid application"
 
 let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
   match e with
