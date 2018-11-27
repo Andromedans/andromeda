@@ -1,0 +1,5 @@
+rule eq_type_refl (⊢ A type) : A ≡ A
+
+rule eq_type_sym (⊢ A type) (⊢ B type) (⊢ A ≡ B) : B ≡ A
+
+rule eq_type_trans (⊢ A type) (⊢ B type) (⊢ C type) (⊢ A ≡ B) (⊢ B ≡ C) : A ≡ C

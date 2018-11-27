@@ -1,0 +1,3 @@
+require "identity_type.m31"
+
+rule equality_reflection (⊢ A type) (⊢ a : A) (⊢ b : A) (⊢ _ : Id A a b) : a == b : A

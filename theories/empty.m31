@@ -1,0 +1,2 @@
+rule Empty type
+rule Empty_ind (x : Empty ⊢ C type) (⊢ a : Empty) : C {a}
