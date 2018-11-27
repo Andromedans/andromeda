@@ -522,9 +522,9 @@ and print_tag ?max_level ~penv t lst ppf =
         same parenthesization as application, i.e.,
         Level.app and Level.app_right instead of
         Level.prefix and Level.prefix_arg *)
-     Print.print ppf ?max_level ~at_level:Level.app "%t@ %t"
+     Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
                  (Name.print_ident ~parentheses:false t)
-                 (print_value ~max_level:Level.app_right ~penv v)
+                 (print_value ~max_level:Level.prefix_arg ~penv v)
 
   | Name.Ident (_, Name.Infix fixity), [v1; v2] ->
      (* infix tag applied to two arguments *)
@@ -539,9 +539,9 @@ and print_tag ?max_level ~penv t lst ppf =
      begin
        match lst with
        | [] -> Name.print_ident t ppf
-       | (_::_) -> Print.print ?max_level ~at_level:Level.app ppf "@[<hov 2>%t@ %t@]"
+       | (_::_) -> Print.print ?max_level ~at_level:Level.ml_tag ppf "@[<hov 2>%t@ %t@]"
                      (Name.print_ident t)
-                     (Print.sequence (print_value ~max_level:Level.app_right ~penv) "" lst)
+                     (Print.sequence (print_value ~max_level:Level.ml_tag_arg ~penv) "" lst)
      end
 
 let print_operation ~penv op vs ppf =
@@ -566,9 +566,9 @@ let print_operation ~penv op vs ppf =
      begin
        match vs with
        | [] -> Name.print_ident op ppf
-       | (_::_) -> Print.print ~at_level:Level.app ppf "%t@ %t"
+       | (_::_) -> Print.print ~at_level:Level.ml_operation ppf "%t@ %t"
                      (Name.print_ident op)
-                     (Print.sequence (print_value ~max_level:Level.app_right ~penv) "" vs)
+                     (Print.sequence (print_value ~max_level:Level.ml_operation_arg ~penv) "" vs)
      end
 
 let print_error ~penv err ppf =
