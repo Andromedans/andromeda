@@ -45,8 +45,15 @@ let add_bound k asmp = {asmp with bound = BoundSet.add k asmp.bound}
 let singleton_meta x t = add_meta x t empty
 
 let union a1 a2 =
-  { free = AtomMap.union (fun _ t1 t2 -> assert (t1 == t2) ; Some t1) a1.free a2.free
-  ; meta = MetaMap.union (fun _ t1 t2 -> assert (t1 == t2) ; Some t1) a1.meta a2.meta
+  let f = (fun vtype print a t1 t2 ->
+      (if not (t1 == t2)
+      then Print.error "XXX %s variable %t occurs at physically different types@." vtype (print a)
+      else ()) ;
+      assert (t1 = t2) ; Some t1) in
+  let f_free = (f "free" (Name.print_atom ~parentheses:false ~printer:(Name.atom_printer ())))
+  and f_meta = (f "meta" (Name.print_meta ~parentheses:false ~printer:(Name.meta_printer ()))) in
+  { free = AtomMap.union f_free a1.free a2.free
+  ; meta = MetaMap.union f_meta a1.meta a2.meta
   ; bound = BoundSet.union a1.bound a2.bound
   }
 
