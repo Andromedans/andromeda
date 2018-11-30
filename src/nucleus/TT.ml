@@ -9,17 +9,33 @@ type error =
   | TypeExpected
   | ExtraAssumptions
   | InvalidApplication
+  | InvalidArgument
+  | IsTypeExpected
+  | IsTermExpected
+  | EqTypeExpected
+  | EqTermExpected
+  | AbstractionExpected
+  | InvalidSubstitution
+  | InvalidCongruence
 
 let print_error err ppf =
   match err with
-  | InvalidInstantiation -> Format.fprintf ppf "nucleus error (invalid instantiation)"
-  | InvalidAbstraction -> Format.fprintf ppf "nucleus error (invalid abstraction)"
-  | TooFewArguments -> Format.fprintf ppf "nucleus error (too few arguments)"
-  | TooManyArguments -> Format.fprintf ppf "nucleus error (too many arguments)"
-  | TermExpected -> Format.fprintf ppf "nucleus error (term expected)"
-  | TypeExpected -> Format.fprintf ppf "nucleus error (type expexted)"
-  | ExtraAssumptions -> Format.fprintf ppf "nucleus error (extra assumptions)"
-  | InvalidApplication -> Format.fprintf ppf "nucleus error (invalid application)"
+  | InvalidInstantiation -> Format.fprintf ppf "invalid instantiation"
+  | InvalidAbstraction -> Format.fprintf ppf "invalid abstraction"
+  | TooFewArguments -> Format.fprintf ppf "too few arguments"
+  | TooManyArguments -> Format.fprintf ppf "too many arguments"
+  | TermExpected -> Format.fprintf ppf "term expected"
+  | TypeExpected -> Format.fprintf ppf "type expected"
+  | ExtraAssumptions -> Format.fprintf ppf "extra assumptions"
+  | InvalidApplication -> Format.fprintf ppf "invalid application"
+  | InvalidArgument -> Format.fprintf ppf "invalid argument"
+  | IsTypeExpected -> Format.fprintf ppf "type argument expected"
+  | IsTermExpected -> Format.fprintf ppf "term argument expected"
+  | EqTypeExpected -> Format.fprintf ppf "type equality argument expected"
+  | EqTermExpected -> Format.fprintf ppf "term equality argument expected"
+  | AbstractionExpected -> Format.fprintf ppf "abstraction expected"
+  | InvalidSubstitution -> Format.fprintf ppf "invalid substutition"
+  | InvalidCongruence -> Format.fprintf ppf "invalid congruence argument"
 
 exception Error of error
 

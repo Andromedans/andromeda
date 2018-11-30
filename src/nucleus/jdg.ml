@@ -129,8 +129,8 @@ let fully_instantiate_abstraction inst_u abstr args =
     match abstr, args with
     | TT.NotAbstract u, [] -> inst_u es u
     | TT.Abstract (_, _, abstr), e :: args -> fold (e :: es) abstr args
-    | TT.Abstract _, [] -> TT.(error TooFewArguments)
-    | TT.NotAbstract _, _::_ -> TT.(error TooManyArguments)
+    | TT.Abstract _, [] -> TT.error TT.TooFewArguments
+    | TT.NotAbstract _, _::_ -> TT.error TT.TooManyArguments
   in
   fold [] abstr args
 
@@ -162,12 +162,12 @@ module Indices :
 let lookup_term_meta k metas =
   match Indices.nth metas k with
   | TT.ArgIsTerm e_abstr -> e_abstr
-  | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> TT.(error TermExpected)
+  | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> TT.error TT.TermExpected
 
 let lookup_type_meta k metas =
   match Indices.nth metas k with
   | TT.ArgIsType t_abstr -> t_abstr
-  | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> TT.(error TypeExpected)
+  | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> TT.error TT.TypeExpected
 
 let rec meta_instantiate_is_type ~lvl metas = function
   | Rule.TypeConstructor (c, args) ->
@@ -327,6 +327,7 @@ let boundary_eq_type_abstraction abstr = abstr
 
 let boundary_eq_term_abstraction abstr = abstr
 
+(* Check that the argument [p] matches the premise [s]. *)
 let check_argument sgn metas s p =
   match s, p with
 
@@ -334,14 +335,14 @@ let check_argument sgn metas s p =
      let s_abstr = meta_instantiate_abstraction (fun ~lvl _ () -> ()) ~lvl:0 metas s_abstr
      and p_abstr = boundary_is_type_abstraction p_abstr in
      if not (TT.alpha_equal_abstraction (fun () () -> true) s_abstr p_abstr) then
-       failwith "high time to fix error messages"
+       TT.error TT.InvalidArgument
 
   | Rule.PremiseIsTerm s_abstr, ArgumentIsTerm p_abstr ->
      let s = meta_instantiate_abstraction meta_instantiate_is_type ~lvl:0 metas s_abstr
      and t = boundary_is_term_abstraction sgn p_abstr in
      begin
        match TT.alpha_equal_abstraction TT.alpha_equal_type t s with
-       | false -> failwith "check_argument: please fix error messages"
+       | false -> TT.error TT.InvalidArgument
        | true -> ()
      end
 
@@ -353,7 +354,7 @@ let check_argument sgn metas s p =
                  TT.alpha_equal_type l1 l2 && TT.alpha_equal_type r1 r2)
                s_abstr p_abstr)
      then
-       failwith "high time to fix error messages"
+       TT.error TT.InvalidArgument
 
   | Rule.PremiseEqTerm s_abstr, ArgumentEqTerm p_abstr ->
      let s_abstr = meta_instantiate_abstraction meta_instantiate_eq_term ~lvl:0 metas s_abstr
@@ -365,9 +366,12 @@ let check_argument sgn metas s p =
                  && TT.alpha_equal_type t t')
                s_abstr p_abstr)
      then
-       failwith "high time to fix error messages"
+       TT.error TT.InvalidArgument
 
-  | _, _ -> failwith "TODO better error in check_argument"
+  | Rule.PremiseIsType _, (ArgumentIsTerm _ | ArgumentEqType _ | ArgumentEqTerm _) -> TT.error TT.IsTypeExpected
+  | Rule.PremiseIsTerm _, (ArgumentIsType _ | ArgumentEqType _ | ArgumentEqTerm _) -> TT.error TT.IsTermExpected
+  | Rule.PremiseEqType _, (ArgumentIsType _ | ArgumentIsTerm _ | ArgumentEqTerm _) -> TT.error TT.EqTypeExpected
+  | Rule.PremiseEqTerm _, (ArgumentIsType _ | ArgumentIsTerm _ | ArgumentEqType _) -> TT.error TT.EqTermExpected
 
 let arg_of_argument = function
   | ArgumentIsType t -> TT.mk_arg_is_type t
@@ -385,8 +389,8 @@ let match_arguments sgn (premises : Rule.premise list) (arguments : argument lis
        (* The arguments must _not_ be reversed because we refer to them by meta-variable
           de Bruijn indices, and therefore the last argument must have index 0. *)
        args_out
-    | [], _::_ -> TT.(error TooManyArguments)
-    | _::_, [] -> TT.(error TooFewArguments)
+    | [], _::_ -> TT.error TT.TooManyArguments
+    | _::_, [] -> TT.error TT.TooFewArguments
     | premise :: premises, argument :: arguments ->
        let metas = args_out in (* args also serves as the list of collected metas *)
        let argument = match_argument sgn metas premise argument in
@@ -442,8 +446,8 @@ and mk_rule_is_term metas = function
   | TT.TermConvert (e, asmp, t) ->
      let (free, is_type_meta, is_term_meta, eq_type_meta, eq_term_meta, bound)
        = Assumption.unpack asmp
-     (* XXX We do not check that the types of the metas match. We assume that
-        the type of a meta does not change. *)
+         (* NB: We do not check that the types of the metas match because we assume that
+            the type of a meta never changes. *)
      and metas_set = Name.MetaSet.of_list metas in
      let mem_metas_set mv _bnd = Name.MetaSet.mem mv metas_set in
      begin match Name.AtomMap.is_empty free
@@ -454,7 +458,7 @@ and mk_rule_is_term metas = function
                  && Assumption.BoundSet.is_empty bound
      with
      | true -> mk_rule_is_term metas e
-     | false -> failwith "XXX error: extra assumptions, cannot form rule."
+     | false -> TT.error TT.ExtraAssumptions
      end
 
 and mk_rule_eq_type metas (TT.EqType (asmp, t1, t2)) =
@@ -637,8 +641,8 @@ let rec check_term_arguments sgn abstr args =
   let inst_u_no_op = fun _e ?lvl u -> u in
   match (abstr, args) with
   | TT.NotAbstract u, [] -> ()
-  | TT.Abstract _, [] -> assert false (* not enough arguments *)
-  | TT.NotAbstract _, _::_ -> assert false (* too many arguments *)
+  | TT.Abstract _, [] -> TT.error TT.TooFewArguments
+  | TT.NotAbstract _, _::_ -> TT.error TT.TooManyArguments
   | TT.Abstract (x, t, abstr), arg :: args ->
      let t_arg = type_of_term sgn arg in
      if TT.alpha_equal_type t t_arg
@@ -646,14 +650,7 @@ let rec check_term_arguments sgn abstr args =
        let abstr = TT.instantiate_abstraction inst_u_no_op arg abstr in
        check_term_arguments sgn abstr args
      else
-       let penv =   { TT.forbidden = []
-                    ; TT.metas = Name.meta_printer ()
-                    ; TT.atoms = Name.atom_printer ()
-                    }
-       in
-       Print.error "abstr: @[<hov>%t@] arg: @[<hov>%t@]@."
-         (TT.print_type ~penv t) (TT.print_type ~penv t_arg) ;
-       failwith "XXX error: invalid application"
+       TT.error TT.InvalidApplication
 
 let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
   match e with
@@ -809,11 +806,10 @@ let occurs_eq_term_abstraction = occurs_abstraction TT.assumptions_eq_term
 
 let apply_abstraction inst_u sgn abstr e0 =
   match abstr with
-  | TT.NotAbstract _ ->
-     failwith "Tried to apply an argument to a NotAbstract. Type-checking should prevent this!"
+  | TT.NotAbstract _ -> TT.error TT.AbstractionExpected
   | TT.Abstract (x, t, abstr) ->
      begin match TT.alpha_equal_type t (type_of_term sgn e0) with
-     | false -> failwith "bar"
+     | false -> TT.error TT.InvalidSubstitution
      | true ->  TT.instantiate_abstraction inst_u e0 abstr
      end
 
@@ -833,7 +829,7 @@ let rec fully_apply_abstraction inst_u sgn abstr = function
   | [] ->
      begin match abstr with
      | TT.NotAbstract eq -> eq
-     | TT.Abstract _ -> TT.(error TooFewArguments)
+     | TT.Abstract _ -> TT.error TT.TooFewArguments
      end
   | arg :: args ->
      let abstr = apply_abstraction inst_u sgn abstr arg in
@@ -1017,13 +1013,13 @@ let process_congruence_args args =
   let rec check_endpoints check t1 t2 eq =
     match t1, t2, eq with
     | TT.NotAbstract t1, TT.NotAbstract t2, TT.NotAbstract eq ->
-       if not (check t1 t2 eq) then failwith "some error"
+       if not (check t1 t2 eq) then TT.error TT.InvalidCongruence
     | TT.Abstract (_x1, u1, t1), TT.Abstract (_x2, u2, t2), TT.Abstract (_x', u', eq) ->
        if TT.alpha_equal_type u1 u' || TT.alpha_equal_type u2 u' then
          check_endpoints check t1 t2 eq
        else
-         failwith "mismatch"
-    | _, _, _ -> failwith "wrong lengths"
+         TT.error TT.InvalidCongruence
+    | _, _, _ -> TT.error TT.InvalidCongruence
 
   in
   let rec fold asmp_out lhs rhs = function

@@ -1,4 +1,4 @@
-
+a
 let (>>=) = Runtime.bind
 let return = Runtime.return
 
@@ -228,7 +228,10 @@ and collect_args env xvs ps vs =
      end in
      collect_args env xvs ps vs
 
-  | [], _::_ | _::_, [] -> assert false
+  | [], _::_ | _::_, [] ->
+     (*** XXX should we raise an error instead? A well-typed program should never get here,
+          but for an untyped one it kind of makes sense to just fail the match. *)
+     raise Match_fail
 
 and collect_pattern env xvs {Location.thing=p';loc} v =
   match p', v with

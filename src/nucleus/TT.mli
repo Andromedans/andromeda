@@ -9,6 +9,14 @@ type error =
   | TypeExpected
   | ExtraAssumptions
   | InvalidApplication
+  | InvalidArgument
+  | IsTypeExpected
+  | IsTermExpected
+  | EqTypeExpected
+  | EqTermExpected
+  | AbstractionExpected
+  | InvalidSubstitution
+  | InvalidCongruence
 
 exception Error of error
 
