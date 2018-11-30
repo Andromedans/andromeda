@@ -29,9 +29,9 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
 
   (* patterns specific to terms *)
   | Pattern.TTConstructor (c, ps) ->
-     begin match Jdg.invert_is_term_abstraction v with
-     | Jdg.Abstract _ -> raise Match_fail
-     | Jdg.NotAbstract e ->
+     begin match Jdg.as_not_abstract v with
+     | None -> raise Match_fail
+     | Some e ->
         let sgn = Runtime.get_signature env in
         begin match Jdg.invert_is_term sgn e with
         | Jdg.TermConstructor (c', args) when Name.eq_ident c c' ->
@@ -42,9 +42,9 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
      end
 
   | Pattern.TTGenAtom p ->
-     begin match Jdg.invert_is_term_abstraction v with
-     | Jdg.Abstract _ -> raise Match_fail
-     | Jdg.NotAbstract e ->
+     begin match Jdg.as_not_abstract v with
+     | None -> raise Match_fail
+     | Some e ->
         let sgn = Runtime.get_signature env in
         begin match Jdg.invert_is_term sgn e with
         | Jdg.TermAtom a ->
@@ -95,9 +95,9 @@ and collect_is_type env xvs {Location.thing=p';loc} v =
 
   (* patterns specific to types *)
   | Pattern.TTConstructor (c, ps) ->
-     begin match Jdg.invert_is_type_abstraction v with
-     | Jdg.Abstract _ -> raise Match_fail
-     | Jdg.NotAbstract t ->
+     begin match Jdg.as_not_abstract v with
+     | None -> raise Match_fail
+     | Some t ->
         begin match Jdg.invert_is_type t with
         | Jdg.TypeConstructor (c', args) ->
            if Name.eq_ident c c' then
@@ -158,9 +158,9 @@ and collect_eq_type env xvs {Location.thing=p';loc} v =
      end
 
   | Pattern.TTEqType (p1, p2) ->
-     begin match Jdg.invert_eq_type_abstraction v with
-     | Jdg.Abstract _ -> raise Match_fail
-     | Jdg.NotAbstract eq ->
+     begin match Jdg.as_not_abstract v with
+     | None -> raise Match_fail
+     | Some eq ->
         let (Jdg.EqType (_asmp, t1, t2)) = Jdg.invert_eq_type eq in
         let xvs = collect_is_type env xvs p1 (Jdg.abstract_not_abstract t1) in
         collect_is_type env xvs p2 (Jdg.abstract_not_abstract t2)
@@ -200,9 +200,9 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
      end
 
   | Pattern.TTEqTerm (p1, p2, p3) ->
-     begin match Jdg.invert_eq_term_abstraction v with
-     | Jdg.Abstract _ -> raise Match_fail
-     | Jdg.NotAbstract eq ->
+     begin match Jdg.as_not_abstract v with
+     | None -> raise Match_fail
+     | Some eq ->
         let (Jdg.EqTerm (_asmp, e1, e2, t)) = Jdg.invert_eq_term eq in
         let xvs = collect_is_term env xvs p1 (Jdg.abstract_not_abstract e1) in
         let xvs = collect_is_term env xvs p2 (Jdg.abstract_not_abstract e2) in

@@ -233,9 +233,9 @@ let name_of v =
 
 let as_is_type ~loc = function
   | IsType t as v ->
-     begin match Jdg.invert_is_type_abstraction t with
-     | Jdg.NotAbstract t -> t
-     | Jdg.Abstract _ -> error ~loc (IsTermExpected v)
+     begin match Jdg.as_not_abstract t with
+     | Some t -> t
+     | None -> error ~loc (IsTermExpected v)
      end
   | (IsTerm _ | EqTerm _ | EqType _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
@@ -243,9 +243,9 @@ let as_is_type ~loc = function
 
 let as_is_term ~loc = function
   | IsTerm e as v ->
-     begin match Jdg.invert_is_term_abstraction e with
-     | Jdg.NotAbstract e -> e
-     | Jdg.Abstract _ -> error ~loc (IsTermExpected v)
+     begin match Jdg.as_not_abstract e with
+     | Some e -> e
+     | None -> error ~loc (IsTermExpected v)
      end
   | (IsType _ | EqTerm _ | EqType _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
@@ -253,9 +253,9 @@ let as_is_term ~loc = function
 
 let as_eq_type ~loc = function
   | EqType eq as v ->
-     begin match Jdg.invert_eq_type_abstraction eq with
-     | Jdg.NotAbstract eq -> eq
-     | Jdg.Abstract _ -> error ~loc (EqTypeExpected v)
+     begin match Jdg.as_not_abstract eq with
+     | Some eq -> eq
+     | None -> error ~loc (EqTypeExpected v)
      end
   | (IsType _ | IsTerm _ | EqTerm _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
@@ -263,9 +263,9 @@ let as_eq_type ~loc = function
 
 let as_eq_term ~loc = function
   | EqTerm eq as v ->
-     begin match Jdg.invert_eq_term_abstraction eq with
-     | Jdg.NotAbstract eq -> eq
-     | Jdg.Abstract _ -> error ~loc (EqTermExpected v)
+     begin match Jdg.as_not_abstract eq with
+     | Some eq -> eq
+     | None -> error ~loc (EqTermExpected v)
      end
   | (IsType _ | IsTerm _ | EqType _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
