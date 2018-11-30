@@ -1,5 +1,18 @@
 (** The abstract syntax of Andromedan type theory (TT). *)
 
+type error =
+  | InvalidInstantiation
+  | InvalidAbstraction
+
+let print_error err ppf =
+  match err with
+  | InvalidInstantiation -> Format.fprintf ppf "invalid instantiation"
+  | InvalidAbstraction -> Format.fprintf ppf "invalid abstraction"
+
+exception Error of error
+
+let error err = raise (Error err)
+
 type bound = int
 
 type ty =
@@ -411,14 +424,11 @@ and fully_instantiate_term ?(lvl=0) es = function
      if k < lvl then
        e
      else
-       (* XXX can fail here, should we report an error or die? *)
        begin try
          let e = List.nth es (k - lvl)
          in shift_term ~lvl:0 lvl e
        with
-         Failure _ ->
-          Print.error "shit k = %d, lvl = %d, es = %d@." k lvl (List.length es) ;
-          assert false
+         Failure _ -> error InvalidInstantiation
        end
 
   | TermConstructor (c, args) ->
@@ -522,7 +532,7 @@ let rec abstract_term x ?(lvl=0) = function
      | false ->
         let asmp = assumptions_type t in
         if Assumption.mem_atom x asmp
-        then failwith "XXX error: can't abstract x because t depends on it"
+        then error InvalidAbstraction
         else e
      | true -> TermBound lvl
      end

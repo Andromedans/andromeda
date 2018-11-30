@@ -447,6 +447,7 @@ and check ({Location.thing=c';loc} as c) t_check =
     check_abstract ~loc t_check x uopt c
 
 
+(** Check that the abstraction [Abstract(x, uopt, c)] has type [t_check]. *)
 and check_abstract ~loc t_check x uopt c =
   match Jdg.invert_is_type_abstraction ~atom_name:x t_check with
 

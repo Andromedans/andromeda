@@ -1,5 +1,13 @@
 (** Abstract syntax of type-theoretic types and terms *)
 
+type error =
+  | InvalidInstantiation
+  | InvalidAbstraction
+
+exception Error of error
+
+val print_error : error -> Format.formatter -> unit
+
 (** The type of bound variables. This type must necessarily be abstract and it must have
    no constructors. We rely on this fact in the [instantiate_XYZ] functions below so that
    from the outside nobody can even pass in any level other than the default one. *)
