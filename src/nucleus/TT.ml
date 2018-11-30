@@ -17,7 +17,7 @@ and eq_type = EqType of assumption * ty * ty
 
 and eq_term = EqTerm of assumption * term * term * ty
 
-and assumption = (ty, premise_boundary) Assumption.t
+and assumption = (ty, type_boundary, term_boundary, eq_type_boundary, eq_term_boundary) Assumption.t
 
 and atom = { atom_name : Name.atom ; atom_type : ty }
 
@@ -85,7 +85,7 @@ let rec assumptions_term ?(lvl=0) = function
 
 and assumptions_term_meta ~lvl {meta_name; meta_type} =
   let asmp = assumptions_abstraction assumptions_type ~lvl meta_type in
-  Assumption.add_meta meta_name (BoundaryTerm meta_type) asmp
+  Assumption.add_is_term_meta meta_name meta_type asmp
 
 and assumptions_type ?(lvl=0) = function
   | TypeConstructor (_, args) -> assumptions_arguments ~lvl args
@@ -98,7 +98,7 @@ and assumptions_type_meta ~lvl {meta_name; meta_type} =
   let asmp =
     assumptions_abstraction (fun ?lvl () -> Assumption.empty) ~lvl meta_type
   in
-  Assumption.add_meta meta_name (BoundaryType meta_type) asmp
+  Assumption.add_is_type_meta meta_name meta_type asmp
 
 and assumptions_term_args ~lvl ts =
   List.fold_left
@@ -145,7 +145,7 @@ let assumptions_arguments = assumptions_arguments ~lvl:0
 
 let context_u assumptions_u t =
   let asmp = assumptions_u t in
-  let free, _meta, bound = Assumption.unpack asmp in
+  let free, _is_type_meta, _, _, _, bound = Assumption.unpack asmp in
   assert (Assumption.BoundSet.is_empty bound) ;
   let free = Name.AtomMap.bindings free in
   List.map (fun (atom_name, atom_type) -> {atom_name; atom_type}) free
