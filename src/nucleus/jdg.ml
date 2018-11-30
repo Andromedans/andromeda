@@ -129,8 +129,8 @@ let fully_instantiate_abstraction inst_u abstr args =
     match abstr, args with
     | TT.NotAbstract u, [] -> inst_u es u
     | TT.Abstract (_, _, abstr), e :: args -> fold (e :: es) abstr args
-    | TT.Abstract _, [] -> failwith "too few arguments"
-    | TT.NotAbstract _, _::_ -> failwith "too many arguments"
+    | TT.Abstract _, [] -> TT.(error TooFewArguments)
+    | TT.NotAbstract _, _::_ -> TT.(error TooManyArguments)
   in
   fold [] abstr args
 
@@ -162,12 +162,12 @@ module Indices :
 let lookup_term_meta k metas =
   match Indices.nth metas k with
   | TT.ArgIsTerm e_abstr -> e_abstr
-  | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> failwith "term expected"
+  | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> TT.(error TermExpected)
 
 let lookup_type_meta k metas =
   match Indices.nth metas k with
   | TT.ArgIsType t_abstr -> t_abstr
-  | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> failwith "type expected"
+  | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> TT.(error TypeExpected)
 
 let rec meta_instantiate_is_type ~lvl metas = function
   | Rule.TypeConstructor (c, args) ->
@@ -385,8 +385,8 @@ let match_arguments sgn (premises : Rule.premise list) (arguments : argument lis
        (* The arguments must _not_ be reversed because we refer to them by meta-variable
           de Bruijn indices, and therefore the last argument must have index 0. *)
        args_out
-    | [], _::_ -> failwith "too many arguments"
-    | _::_, [] -> failwith "too few arguments"
+    | [], _::_ -> TT.(error TooManyArguments)
+    | _::_, [] -> TT.(error TooFewArguments)
     | premise :: premises, argument :: arguments ->
        let metas = args_out in (* args also serves as the list of collected metas *)
        let argument = match_argument sgn metas premise argument in
@@ -425,7 +425,7 @@ let rec mk_rule_is_type metas = function
 and mk_rule_is_term metas = function
   | TT.TermAtom _ ->
      (* this will be gone when we eliminate atoms *)
-     failwith "an free atom cannot appear in a rule"
+     failwith "a free atom cannot appear in a rule"
 
   | TT.TermMeta (mv, args) ->
      let args = List.map (mk_rule_is_term metas) args in
@@ -833,7 +833,7 @@ let rec fully_apply_abstraction inst_u sgn abstr = function
   | [] ->
      begin match abstr with
      | TT.NotAbstract eq -> eq
-     | TT.Abstract _ -> failwith "not enough arguments"
+     | TT.Abstract _ -> TT.(error TooFewArguments)
      end
   | arg :: args ->
      let abstr = apply_abstraction inst_u sgn abstr arg in

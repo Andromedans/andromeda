@@ -3,8 +3,16 @@
 type error =
   | InvalidInstantiation
   | InvalidAbstraction
+  | TooFewArguments
+  | TooManyArguments
+  | TermExpected
+  | TypeExpected
+  | ExtraAssumptions
+  | InvalidApplication
 
 exception Error of error
+
+val error : error -> 'a
 
 val print_error : error -> Format.formatter -> unit
 

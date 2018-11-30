@@ -3,11 +3,23 @@
 type error =
   | InvalidInstantiation
   | InvalidAbstraction
+  | TooFewArguments
+  | TooManyArguments
+  | TermExpected
+  | TypeExpected
+  | ExtraAssumptions
+  | InvalidApplication
 
 let print_error err ppf =
   match err with
-  | InvalidInstantiation -> Format.fprintf ppf "invalid instantiation"
-  | InvalidAbstraction -> Format.fprintf ppf "invalid abstraction"
+  | InvalidInstantiation -> Format.fprintf ppf "nucleus error (invalid instantiation)"
+  | InvalidAbstraction -> Format.fprintf ppf "nucleus error (invalid abstraction)"
+  | TooFewArguments -> Format.fprintf ppf "nucleus error (too few arguments)"
+  | TooManyArguments -> Format.fprintf ppf "nucleus error (too many arguments)"
+  | TermExpected -> Format.fprintf ppf "nucleus error (term expected)"
+  | TypeExpected -> Format.fprintf ppf "nucleus error (type expexted)"
+  | ExtraAssumptions -> Format.fprintf ppf "nucleus error (extra assumptions)"
+  | InvalidApplication -> Format.fprintf ppf "nucleus error (invalid application)"
 
 exception Error of error
 
