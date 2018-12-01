@@ -49,14 +49,12 @@ sudo apt-get install -y \
 ocaml -version
 
 export OPAMYES=1
-echo $PATH
-ls /usr/bin
-opam init -a ${BASE_REMOTE}
-eval $(opam config env)
-opam install depext
+/usr/bin/opam init -a ${BASE_REMOTE}
+eval $(/usr/bin/opam config env)
+/usr/bin/opam install depext
 
-opam --version
-opam --git-version
+/usr/bin/opam --version
+/usr/bin/opam --git-version
 
 # install andromeda dependencies
 ! [ -z "$M31_DEPS" ] && opam install $M31_DEPS
