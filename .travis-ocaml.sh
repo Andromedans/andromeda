@@ -49,7 +49,8 @@ sudo apt-get install -y \
 ocaml -version
 
 export OPAMYES=1
-
+echo $PATH
+ls /usr/bin
 opam init -a ${BASE_REMOTE}
 eval $(opam config env)
 opam install depext
