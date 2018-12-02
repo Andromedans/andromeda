@@ -484,7 +484,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
   | Dsyntax.Assume ((x, c1), c2) ->
      let t = Mlty.is_type in
      check_comp c1 t >>= fun c1 ->
-     Tyenv.locally_add_var x t
+     Tyenv.locally_add_var x Mlty.is_term
      begin
        comp c2 >>= fun (c2, u) ->
        return (locate ~loc (Rsyntax.Assume ((x, c1), c2)), u)
