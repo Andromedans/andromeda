@@ -16,9 +16,13 @@ src/build.ml
 *.fdb_latexmk
 *.fls
 *.log
-*.pdf
-*.synctex.gz
+*.nav
 *.out
+*.pdf
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
 
 # Backup files
 *~
