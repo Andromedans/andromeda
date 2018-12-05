@@ -47,7 +47,9 @@ type boundary =
     | BoundaryEqType of eq_type_boundary
     | BoundaryEqTerm of eq_term_boundary
 
-type assumption = (is_type, TT.premise_boundary) Assumption.t
+type assumption = (is_type,
+                   is_type_boundary, is_term_boundary,
+                   eq_type_boundary, eq_term_boundary) Assumption.t
 
 type stump_is_type =
   | TypeConstructor of Name.constructor * argument list
@@ -438,14 +440,17 @@ and mk_rule_is_term metas = function
      Rule.TermBound k
 
   | TT.TermConvert (e, asmp, t) ->
-     let (free, meta, bound) = Assumption.unpack asmp
+     let (free, is_type_meta, is_term_meta, eq_type_meta, eq_term_meta, bound)
+       = Assumption.unpack asmp
      (* XXX We do not check that the types of the metas match. We assume that
         the type of a meta does not change. *)
      and metas_set = Name.MetaSet.of_list metas in
+     let mem_metas_set mv _bnd = Name.MetaSet.mem mv metas_set in
      begin match Name.AtomMap.is_empty free
-                 && Name.MetaMap.for_all
-                      (fun mv _bnd -> Name.MetaSet.mem mv metas_set)
-                      meta
+                 && Name.MetaMap.for_all mem_metas_set is_type_meta
+                 && Name.MetaMap.for_all mem_metas_set is_term_meta
+                 && Name.MetaMap.for_all mem_metas_set eq_type_meta
+                 && Name.MetaMap.for_all mem_metas_set eq_term_meta
                  && Assumption.BoundSet.is_empty bound
      with
      | true -> mk_rule_is_term metas e
@@ -856,7 +861,7 @@ let form_is_term_meta sgn m args =
   TT.mk_term_meta m args
 
 let form_eq_type_meta sgn TT.{meta_name ; meta_type} args =
-  let asmp = Assumption.singleton_meta meta_name (TT.BoundaryEqType meta_type) in
+  let asmp = Assumption.add_eq_type_meta meta_name meta_type Assumption.empty in
   let (lhs, rhs) =
     let inst_eq_type_boundary e0 ?lvl (lhs, rhs) =
       let lhs = TT.instantiate_type e0 ?lvl lhs
@@ -868,7 +873,7 @@ let form_eq_type_meta sgn TT.{meta_name ; meta_type} args =
   TT.mk_eq_type asmp lhs rhs
 
 let form_eq_term_meta sgn TT.{meta_name ; meta_type} args =
-  let asmp = Assumption.singleton_meta meta_name (TT.BoundaryEqTerm meta_type) in
+  let asmp = Assumption.add_eq_term_meta meta_name meta_type Assumption.empty in
   let (lhs, rhs, t) =
     let inst_eq_term_boundary e0 ?lvl (lhs, rhs, t) =
       let lhs = TT.instantiate_term e0 ?lvl lhs

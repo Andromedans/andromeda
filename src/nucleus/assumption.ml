@@ -7,14 +7,33 @@ module AtomMap = Name.AtomMap
 
 module MetaMap = Name.MetaMap
 
-type ('a, 'b) t = { free : 'a AtomMap.t; meta : 'b MetaMap.t ; bound : BoundSet.t }
+type ('a, 'b, 'c, 'd, 'e) t =
+  { free : 'a AtomMap.t
+  ; is_type_meta : 'b MetaMap.t
+  ; is_term_meta : 'c MetaMap.t
+  ; eq_type_meta : 'd MetaMap.t
+  ; eq_term_meta : 'e MetaMap.t
+  ; bound : BoundSet.t }
 
-let empty = { free = AtomMap.empty; meta = MetaMap.empty; bound = BoundSet.empty }
+let empty =
+  let meta = MetaMap.empty in
+  { free = AtomMap.empty
+  ; is_type_meta = meta
+  ; is_term_meta = meta
+  ; eq_type_meta = meta
+  ; eq_term_meta = meta
+  ; bound = BoundSet.empty }
 
-let is_empty {free;meta;bound} =
-  AtomMap.is_empty free && MetaMap.is_empty meta && BoundSet.is_empty bound
+let is_empty { free ; is_type_meta ; is_term_meta ; eq_type_meta ; eq_term_meta ; bound } =
+  AtomMap.is_empty free
+  && MetaMap.is_empty is_type_meta
+  && MetaMap.is_empty is_term_meta
+  && MetaMap.is_empty eq_type_meta
+  && MetaMap.is_empty eq_term_meta
+  && BoundSet.is_empty bound
 
-let unpack {free; meta; bound} = free, meta, bound
+let unpack { free ; is_type_meta ; is_term_meta ; eq_type_meta ; eq_term_meta ; bound } =
+  free, is_type_meta, is_term_meta, eq_type_meta, eq_term_meta, bound
 
 let mem_atom x s = AtomMap.mem x s.free
 
@@ -34,26 +53,33 @@ let shift ~lvl k s =
         s.bound
         BoundSet.empty }
 
-let singleton_bound k = {empty with bound = BoundSet.singleton k}
+let singleton_bound k = { empty with bound = BoundSet.singleton k }
 
-let add_free x t asmp = {asmp with free = AtomMap.add x t asmp.free}
+let add_free x t asmp = { asmp with free = AtomMap.add x t asmp.free }
 
-let add_meta x t asmp = {asmp with meta = MetaMap.add x t asmp.meta}
+let add_is_type_meta x t asmp = { asmp with is_type_meta = MetaMap.add x t asmp.is_type_meta }
+let add_is_term_meta x t asmp = { asmp with is_term_meta = MetaMap.add x t asmp.is_term_meta }
+let add_eq_type_meta x t asmp = { asmp with eq_type_meta = MetaMap.add x t asmp.eq_type_meta }
+let add_eq_term_meta x t asmp = { asmp with eq_term_meta = MetaMap.add x t asmp.eq_term_meta }
 
-let add_bound k asmp = {asmp with bound = BoundSet.add k asmp.bound}
-
-let singleton_meta x t = add_meta x t empty
+let add_bound k asmp = { asmp with bound = BoundSet.add k asmp.bound }
 
 let union a1 a2 =
   let f = (fun vtype print a t1 t2 ->
       (if not (t1 == t2)
-      then Print.error "XXX %s variable %t occurs at physically different types@." vtype (print a)
+      then
+        (Print.error "XXX %s variable %t occurs at physically different types@." vtype (print a)
+         ; assert false )
       else ()) ;
-      assert (t1 = t2) ; Some t1) in
+      Some t1) in
   let f_free = (f "free" (Name.print_atom ~parentheses:false ~printer:(Name.atom_printer ())))
-  and f_meta = (f "meta" (Name.print_meta ~parentheses:false ~printer:(Name.meta_printer ()))) in
+  and p_meta = Name.print_meta ~parentheses:false ~printer:(Name.meta_printer ())
+  in
   { free = AtomMap.union f_free a1.free a2.free
-  ; meta = MetaMap.union f_meta a1.meta a2.meta
+  ; is_type_meta = MetaMap.union (f "is_type_meta" p_meta) a1.is_type_meta a2.is_type_meta
+  ; is_term_meta = MetaMap.union (f "is_term_meta" p_meta) a1.is_term_meta a2.is_term_meta
+  ; eq_type_meta = MetaMap.union (f "eq_type_meta" p_meta) a1.eq_type_meta a2.eq_type_meta
+  ; eq_term_meta = MetaMap.union (f "eq_term_meta" p_meta) a1.eq_term_meta a2.eq_term_meta
   ; bound = BoundSet.union a1.bound a2.bound
   }
 
@@ -80,30 +106,41 @@ let fully_instantiate asmps ~lvl asmp =
 let abstract x ~lvl abstr =
   if AtomMap.mem x abstr.free
   then
-    { free = AtomMap.remove x abstr.free
-    ; meta = abstr.meta
-    ; bound = BoundSet.add lvl abstr.bound
-    }
+    let free = AtomMap.remove x abstr.free
+    and bound = BoundSet.add lvl abstr.bound in
+    { abstr with free ; bound }
   else
     abstr
 
 module Json =
 struct
 
-  let assumptions {free; meta; bound} =
+  let assumptions { free ; is_type_meta ; is_term_meta ; eq_type_meta ; eq_term_meta ; bound } =
     let free =
       if AtomMap.is_empty free
       then []
       else [("free", Name.Json.atommap free)]
-    and meta =
-      if MetaMap.is_empty meta
+    and is_type_meta =
+      if MetaMap.is_empty is_type_meta
       then []
-      else [("meta", Name.Json.metamap meta)]
+      else [("is_type_meta", Name.Json.metamap is_type_meta)]
+    and is_term_meta =
+      if MetaMap.is_empty is_term_meta
+      then []
+      else [("is_term_meta", Name.Json.metamap is_term_meta)]
+    and eq_type_meta =
+      if MetaMap.is_empty eq_type_meta
+      then []
+      else [("eq_type_meta", Name.Json.metamap eq_type_meta)]
+    and eq_term_meta =
+      if MetaMap.is_empty eq_term_meta
+      then []
+      else [("eq_term_meta", Name.Json.metamap eq_term_meta)]
     and bound =
       if BoundSet.is_empty bound
       then []
       else [("bound", Json.List (List.map (fun k -> Json.Int k) (BoundSet.elements bound)))]
     in
-      Json.record (free @ meta @ bound)
+      Json.record (free @ is_type_meta @ is_term_meta @ eq_type_meta @ eq_term_meta @ bound)
 
 end

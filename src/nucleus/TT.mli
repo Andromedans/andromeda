@@ -36,7 +36,7 @@ and eq_type = private EqType of assumption * ty * ty
 
 and eq_term = private EqTerm of assumption * term * term * ty
 
-and assumption = (ty, premise_boundary) Assumption.t
+and assumption = (ty, type_boundary, term_boundary, eq_type_boundary, eq_term_boundary) Assumption.t
 
 and atom = private { atom_name : Name.atom ; atom_type : ty }
 
