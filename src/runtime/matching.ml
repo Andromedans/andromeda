@@ -1,4 +1,3 @@
-a
 let (>>=) = Runtime.bind
 let return = Runtime.return
 
