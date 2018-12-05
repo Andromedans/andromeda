@@ -114,6 +114,8 @@ type error =
   | InvalidConvertible of Jdg.is_type_abstraction * Jdg.is_type_abstraction * Jdg.eq_type_abstraction
   | InvalidCoerce of Jdg.is_type_abstraction * Jdg.is_term_abstraction
   | UnhandledOperation of Name.operation * value list
+  | InvalidPatternMatch of value
+  | InvalidHandlerMatch
 
 exception Error of error Location.located
 
@@ -701,9 +703,15 @@ let print_error ~penv err ppf =
                     (Jdg.print_is_term_abstraction ~penv e)
 
   | UnhandledOperation (op, vs) ->
-     Format.fprintf ppf "@[<v>Unhandled operation:@.   @[<hov>%t@]@]@."
+     Format.fprintf ppf "@[<v>unhandled operation:@.   @[<hov>%t@]@]@."
                     (print_operation ~penv op vs)
 
+  | InvalidPatternMatch v ->
+     Format.fprintf ppf "@[<v>this pattern cannot match@, @[<hov>%t@]@]@."
+                    (print_value ~penv v)
+
+  | InvalidHandlerMatch ->
+     Format.fprintf ppf "@[<v>wrong number of arguments in handler case@]@."
 
 
 let empty = {

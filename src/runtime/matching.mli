@@ -10,6 +10,7 @@ val top_match_pattern : Pattern.aml -> Runtime.value -> Runtime.value list optio
 (** [match_op_pattern ps p_out vs t_out] matches patterns [ps] against values [vs] and
     the optional pattern [p_out] against the optional type [t_out]. *)
 val match_op_pattern :
+  loc:Location.t ->
   Pattern.aml list -> Pattern.is_type option ->
   Runtime.value list -> Jdg.is_type_abstraction option ->
   Runtime.value list option Runtime.comp

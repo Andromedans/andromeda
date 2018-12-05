@@ -29,12 +29,16 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
   (* patterns specific to terms *)
   | Pattern.TTConstructor (c, ps) ->
      begin match Jdg.as_not_abstract v with
-     | None -> raise Match_fail
+     | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
      | Some e ->
         let sgn = Runtime.get_signature env in
         begin match Jdg.invert_is_term sgn e with
         | Jdg.TermConstructor (c', args) when Name.eq_ident c c' ->
-           collect_args env xvs ps args
+           begin
+             match collect_args env xvs ps args with
+             | None -> Runtime.(error ~loc (InvalidPatternMatch (mk_is_term v)))
+             | Some vs -> vs
+           end
         | (Jdg.TermConstructor _ | Jdg.TermMeta _ | Jdg.TermAtom _ | Jdg.TermConvert _) ->
            raise Match_fail
         end
@@ -42,7 +46,7 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
 
   | Pattern.TTGenAtom p ->
      begin match Jdg.as_not_abstract v with
-     | None -> raise Match_fail
+     | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
      | Some e ->
         let sgn = Runtime.get_signature env in
         begin match Jdg.invert_is_term sgn e with
@@ -63,7 +67,7 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
 
   | Pattern.TTAbstract (xopt, p1, p2) ->
      begin match Jdg.invert_is_term_abstraction v with
-     | Jdg.NotAbstract _ -> raise Match_fail
+     | Jdg.NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
      | Jdg.Abstract (a, v2) ->
         let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
@@ -78,7 +82,7 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
      end
 
   | (Pattern.TTEqType _ | Pattern.TTEqTerm _ | Pattern.TTIsType _) ->
-     raise Match_fail
+     Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
 
 and collect_is_type env xvs {Location.thing=p';loc} v =
   match p' with
@@ -95,21 +99,22 @@ and collect_is_type env xvs {Location.thing=p';loc} v =
   (* patterns specific to types *)
   | Pattern.TTConstructor (c, ps) ->
      begin match Jdg.as_not_abstract v with
-     | None -> raise Match_fail
+     | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_type v)))
      | Some t ->
         begin match Jdg.invert_is_type t with
-        | Jdg.TypeConstructor (c', args) ->
-           if Name.eq_ident c c' then
-             collect_args env xvs ps args
-           else
-             raise Match_fail
-        | Jdg.TypeMeta _ -> raise Match_fail
+        | Jdg.TypeConstructor (c', args) when Name.eq_ident c c' ->
+           begin
+             match collect_args env xvs ps args with
+             | None -> Runtime.(error ~loc (InvalidPatternMatch (mk_is_type v)))
+             | Some vs -> vs
+           end
+        | Jdg.TypeConstructor _ | Jdg.TypeMeta _ -> raise Match_fail
         end
      end
 
   | Pattern.TTAbstract (xopt, p1, p2) ->
      begin match Jdg.invert_is_type_abstraction v with
-     | Jdg.NotAbstract _ -> raise Match_fail
+     | Jdg.NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_type v)))
      | Jdg.Abstract (a, v2) ->
         let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
@@ -125,7 +130,7 @@ and collect_is_type env xvs {Location.thing=p';loc} v =
 
   | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqType _ |
      Pattern.TTEqTerm _ | Pattern.TTIsType _) ->
-     raise Match_fail
+     Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_type v)))
 
 and collect_eq_type env xvs {Location.thing=p';loc} v =
   match p' with
@@ -142,7 +147,7 @@ and collect_eq_type env xvs {Location.thing=p';loc} v =
   (* patterns specific to type equations *)
   | Pattern.TTAbstract (xopt, p1, p2) ->
      begin match Jdg.invert_eq_type_abstraction v with
-     | Jdg.NotAbstract _ -> raise Match_fail
+     | Jdg.NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_type v)))
      | Jdg.Abstract (a, v2) ->
         let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
@@ -158,7 +163,7 @@ and collect_eq_type env xvs {Location.thing=p';loc} v =
 
   | Pattern.TTEqType (p1, p2) ->
      begin match Jdg.as_not_abstract v with
-     | None -> raise Match_fail
+     | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_type v)))
      | Some eq ->
         let (Jdg.EqType (_asmp, t1, t2)) = Jdg.invert_eq_type eq in
         let xvs = collect_is_type env xvs p1 (Jdg.abstract_not_abstract t1) in
@@ -167,7 +172,7 @@ and collect_eq_type env xvs {Location.thing=p';loc} v =
 
   | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqTerm _ | Pattern.TTIsType _ |
      Pattern.TTConstructor _) ->
-     raise Match_fail
+     Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_type v)))
 
 and collect_eq_term env xvs {Location.thing=p';loc} v =
   match p' with
@@ -184,7 +189,7 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
   (* patterns specific to term equations *)
   | Pattern.TTAbstract (xopt, p1, p2) ->
      begin match Jdg.invert_eq_term_abstraction v with
-     | Jdg.NotAbstract _ -> raise Match_fail
+     | Jdg.NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_term v)))
      | Jdg.Abstract (a, v2) ->
         let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
@@ -200,7 +205,7 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
 
   | Pattern.TTEqTerm (p1, p2, p3) ->
      begin match Jdg.as_not_abstract v with
-     | None -> raise Match_fail
+     | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_term v)))
      | Some eq ->
         let (Jdg.EqTerm (_asmp, e1, e2, t)) = Jdg.invert_eq_term eq in
         let xvs = collect_is_term env xvs p1 (Jdg.abstract_not_abstract e1) in
@@ -210,12 +215,12 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
 
   | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqType _ | Pattern.TTIsType _ |
      Pattern.TTConstructor _) ->
-     raise Match_fail
+     Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_term v)))
 
 and collect_args env xvs ps vs =
   match ps, vs with
 
-  | [], [] -> xvs
+  | [], [] -> Some xvs
 
   | p::ps, v::vs ->
      let xvs =
@@ -227,10 +232,7 @@ and collect_args env xvs ps vs =
      end in
      collect_args env xvs ps vs
 
-  | [], _::_ | _::_, [] ->
-     (*** XXX should we raise an error instead? A well-typed program should never get here,
-          but for an untyped one it kind of makes sense to just fail the match. *)
-     raise Match_fail
+  | [], _::_ | _::_, [] -> None
 
 and collect_pattern env xvs {Location.thing=p';loc} v =
   match p', v with
@@ -256,10 +258,18 @@ and collect_pattern env xvs {Location.thing=p';loc} v =
      collect_eq_term env xvs p eq
 
   | Pattern.AMLConstructor (tag, ps), Runtime.Tag (tag', vs) when Name.eq_ident tag tag' ->
-    multicollect_pattern env xvs ps vs
+    begin
+      match multicollect_pattern env xvs ps vs with
+      | None -> Runtime.(error ~loc (InvalidPatternMatch v))
+      | Some vs -> vs
+    end
 
   | Pattern.Tuple ps, Runtime.Tuple vs ->
-    multicollect_pattern env xvs ps vs
+    begin
+      match multicollect_pattern env xvs ps vs with
+      | None -> Runtime.(error ~loc (InvalidPatternMatch v))
+      | Some vs -> vs
+    end
 
   (* mismatches *)
   | Pattern.Judgement _, (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
@@ -274,16 +284,16 @@ and collect_pattern env xvs {Location.thing=p';loc} v =
   | Pattern.Tuple _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
                       Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
                       Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) ->
-     raise Match_fail
+     Runtime.(error ~loc (InvalidPatternMatch v))
 
 and multicollect_pattern env xvs ps vs =
   let rec fold xvs = function
-    | [], [] -> xvs
+    | [], [] -> Some xvs
     | p::ps, v::vs ->
       let xvs = collect_pattern env xvs p v in
       fold xvs (ps, vs)
     | ([], _::_ | _::_, []) ->
-      raise Match_fail
+       None
   in
   fold xvs (ps, vs)
 
@@ -307,12 +317,18 @@ let match_pattern p v =
   return r
 
 
-let match_op_pattern ps p_out vs t_out =
+let match_op_pattern ~loc ps p_out vs t_out =
   Runtime.get_env >>= fun env ->
   let r =
     begin
       try
-        let xvs = multicollect_pattern env [] ps vs in
+        let xvs =
+          begin
+            match multicollect_pattern env [] ps vs with
+            | None -> Runtime.(error ~loc InvalidHandlerMatch)
+            | Some xvs -> xvs
+          end
+        in
         let xvs =
           match p_out with
           | None -> xvs

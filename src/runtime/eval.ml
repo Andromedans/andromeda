@@ -609,7 +609,7 @@ and match_op_cases ~loc op cases vs checking =
       Runtime.operation op ?checking vs >>= fun v ->
       Runtime.continue ~loc v
     | (ps, ptopt, c) :: cases ->
-      Matching.match_op_pattern ps ptopt vs checking >>=
+      Matching.match_op_pattern ~loc ps ptopt vs checking >>=
         begin function
         | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (infer c) vs
         | None -> fold cases
