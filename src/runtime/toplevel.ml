@@ -17,7 +17,7 @@ exception Error of error Location.located
 
 let print_error err ppf =
   match err with
-  | TTError err -> TT.print_error err ppf
+  | TTError err -> Format.fprintf ppf "AML runtime misused the nucleus (%t) -- please report" (TT.print_error err)
   | EvalError err -> Eval.print_error err ppf
   | ParserError err -> Ulexbuf.print_error err ppf
   | DesugarError err -> Desugar.print_error err ppf
