@@ -114,6 +114,8 @@ type error =
   | InvalidConvertible of Jdg.is_type_abstraction * Jdg.is_type_abstraction * Jdg.eq_type_abstraction
   | InvalidCoerce of Jdg.is_type_abstraction * Jdg.is_term_abstraction
   | UnhandledOperation of Name.operation * value list
+  | InvalidPatternMatch of value
+  | InvalidHandlerMatch
 
 exception Error of error Location.located
 
@@ -233,9 +235,9 @@ let name_of v =
 
 let as_is_type ~loc = function
   | IsType t as v ->
-     begin match Jdg.invert_is_type_abstraction t with
-     | Jdg.NotAbstract t -> t
-     | Jdg.Abstract _ -> error ~loc (IsTermExpected v)
+     begin match Jdg.as_not_abstract t with
+     | Some t -> t
+     | None -> error ~loc (IsTermExpected v)
      end
   | (IsTerm _ | EqTerm _ | EqType _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
@@ -243,9 +245,9 @@ let as_is_type ~loc = function
 
 let as_is_term ~loc = function
   | IsTerm e as v ->
-     begin match Jdg.invert_is_term_abstraction e with
-     | Jdg.NotAbstract e -> e
-     | Jdg.Abstract _ -> error ~loc (IsTermExpected v)
+     begin match Jdg.as_not_abstract e with
+     | Some e -> e
+     | None -> error ~loc (IsTermExpected v)
      end
   | (IsType _ | EqTerm _ | EqType _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
@@ -253,9 +255,9 @@ let as_is_term ~loc = function
 
 let as_eq_type ~loc = function
   | EqType eq as v ->
-     begin match Jdg.invert_eq_type_abstraction eq with
-     | Jdg.NotAbstract eq -> eq
-     | Jdg.Abstract _ -> error ~loc (EqTypeExpected v)
+     begin match Jdg.as_not_abstract eq with
+     | Some eq -> eq
+     | None -> error ~loc (EqTypeExpected v)
      end
   | (IsType _ | IsTerm _ | EqTerm _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
@@ -263,9 +265,9 @@ let as_eq_type ~loc = function
 
 let as_eq_term ~loc = function
   | EqTerm eq as v ->
-     begin match Jdg.invert_eq_term_abstraction eq with
-     | Jdg.NotAbstract eq -> eq
-     | Jdg.Abstract _ -> error ~loc (EqTermExpected v)
+     begin match Jdg.as_not_abstract eq with
+     | Some eq -> eq
+     | None -> error ~loc (EqTermExpected v)
      end
   | (IsType _ | IsTerm _ | EqType _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
@@ -701,9 +703,15 @@ let print_error ~penv err ppf =
                     (Jdg.print_is_term_abstraction ~penv e)
 
   | UnhandledOperation (op, vs) ->
-     Format.fprintf ppf "@[<v>Unhandled operation:@.   @[<hov>%t@]@]@."
+     Format.fprintf ppf "@[<v>unhandled operation:@.   @[<hov>%t@]@]@."
                     (print_operation ~penv op vs)
 
+  | InvalidPatternMatch v ->
+     Format.fprintf ppf "@[<v>this pattern cannot match@, @[<hov>%t@]@]@."
+                    (print_value ~penv v)
+
+  | InvalidHandlerMatch ->
+     Format.fprintf ppf "@[<v>wrong number of arguments in handler case@]@."
 
 
 let empty = {

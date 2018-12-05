@@ -155,6 +155,8 @@ type error =
   | InvalidConvertible of Jdg.is_type_abstraction * Jdg.is_type_abstraction * Jdg.eq_type_abstraction
   | InvalidCoerce of Jdg.is_type_abstraction * Jdg.is_term_abstraction
   | UnhandledOperation of Name.operation * value list
+  | InvalidPatternMatch of value
+  | InvalidHandlerMatch
 
 (** The exception that is raised on runtime error *)
 exception Error of error Location.located

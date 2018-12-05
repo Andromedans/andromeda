@@ -114,17 +114,15 @@ let coerce ~loc sgn e t =
                let atoms = List.map Jdg.form_is_term_atom atoms in
                let eq_app =
                  let eq_app = fully_apply_eq_type_abstraction eq atoms in
-                 begin match Jdg.invert_eq_type_abstraction eq_app with
-                   | Jdg.Abstract _ ->
-                      failwith "[eq] abstracts over more var's than [e]."
-                   | Jdg.NotAbstract eq -> eq
+                 begin match Jdg.as_not_abstract eq_app with
+                   | None -> Runtime.(error ~loc (InvalidConvertible (t', t, eq)))
+                   | Some eq -> eq
                  end
                and t_app =
-                 let t_app =fully_apply_is_type_abstraction t atoms in
-                 begin match Jdg.invert_is_type_abstraction t_app with
-                   | Jdg.Abstract _ ->
-                      failwith "[t] abstracts over more var's than [e]. AML type-checking is buggy."
-                   | Jdg.NotAbstract t_app -> t_app
+                 let t_app = fully_apply_is_type_abstraction t atoms in
+                 begin match Jdg.as_not_abstract t_app with
+                   | None -> Runtime.(error ~loc (InvalidConvertible (t', t, eq)))
+                   | Some t_app -> t_app
                  end
                and t'_app = Jdg.type_of_term sgn e
                in

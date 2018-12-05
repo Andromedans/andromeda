@@ -519,7 +519,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
             t1
           else
             Mlty.(error ~loc:c2.Location.loc (TypeMismatch (t2, t1)))
-       | _ -> failwith "judgement expected"
+       | _ -> Mlty.(error ~loc:c2.Location.loc (JudgementExpected t2))
      in
      check_comp c1 t1 >>= fun c1 ->
      return (locate ~loc (Rsyntax.Ascribe (c1, c2)), t1)
