@@ -1,19 +1,4 @@
-module BoundSet = Set.Make (struct
-                    type t = int
-                    let compare = compare
-                  end)
-
-module AtomMap = Name.AtomMap
-
-module MetaMap = Name.MetaMap
-
-type ('a, 'b, 'c, 'd, 'e) t =
-  { free : 'a AtomMap.t
-  ; is_type_meta : 'b MetaMap.t
-  ; is_term_meta : 'c MetaMap.t
-  ; eq_type_meta : 'd MetaMap.t
-  ; eq_term_meta : 'e MetaMap.t
-  ; bound : BoundSet.t }
+open Jdg_typedefs
 
 let empty =
   let meta = MetaMap.empty in
@@ -111,36 +96,3 @@ let abstract x ~lvl abstr =
     { abstr with free ; bound }
   else
     abstr
-
-module Json =
-struct
-
-  let assumptions { free ; is_type_meta ; is_term_meta ; eq_type_meta ; eq_term_meta ; bound } =
-    let free =
-      if AtomMap.is_empty free
-      then []
-      else [("free", Name.Json.atommap free)]
-    and is_type_meta =
-      if MetaMap.is_empty is_type_meta
-      then []
-      else [("is_type_meta", Name.Json.metamap is_type_meta)]
-    and is_term_meta =
-      if MetaMap.is_empty is_term_meta
-      then []
-      else [("is_term_meta", Name.Json.metamap is_term_meta)]
-    and eq_type_meta =
-      if MetaMap.is_empty eq_type_meta
-      then []
-      else [("eq_type_meta", Name.Json.metamap eq_type_meta)]
-    and eq_term_meta =
-      if MetaMap.is_empty eq_term_meta
-      then []
-      else [("eq_term_meta", Name.Json.metamap eq_term_meta)]
-    and bound =
-      if BoundSet.is_empty bound
-      then []
-      else [("bound", Json.List (List.map (fun k -> Json.Int k) (BoundSet.elements bound)))]
-    in
-      Json.record (free @ is_type_meta @ is_term_meta @ eq_type_meta @ eq_term_meta @ bound)
-
-end

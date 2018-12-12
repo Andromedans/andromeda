@@ -1,5 +1,14 @@
 (** The abstract syntax of Andromedan type theory (TT). *)
 
+module BoundSet = Set.Make (struct
+                    type t = int
+                    let compare = compare
+                  end)
+
+module AtomMap = Name.AtomMap
+
+module MetaMap = Name.MetaMap
+
 type bound = int
 
 type ty =
@@ -17,7 +26,13 @@ and eq_type = EqType of assumption * ty * ty
 
 and eq_term = EqTerm of assumption * term * term * ty
 
-and assumption = (ty, type_boundary, term_boundary, eq_type_boundary, eq_term_boundary) Assumption.t
+and assumption =
+  { free : ty AtomMap.t
+  ; is_type_meta : type_boundary MetaMap.t
+  ; is_term_meta : term_boundary MetaMap.t
+  ; eq_type_meta : eq_type_boundary MetaMap.t
+  ; eq_term_meta : eq_term_boundary MetaMap.t
+  ; bound : BoundSet.t }
 
 and atom = { atom_name : Name.atom ; atom_type : ty }
 
@@ -52,7 +67,6 @@ and argument =
 and 'a abstraction =
   | NotAbstract of 'a
   | Abstract of Name.ident * ty * 'a abstraction
-
 
 type error =
   | InvalidInstantiation

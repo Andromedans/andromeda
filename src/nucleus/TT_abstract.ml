@@ -1,14 +1,13 @@
 (** Abstract *)
 
 open Jdg_typedefs
-open TT_assumption
 open TT_error
 
 let rec abstract_term x ?(lvl=0) = function
   | (TermAtom {atom_name=y; atom_type=t}) as e ->
      begin match Name.eq_atom x y with
      | false ->
-        let asmp = assumptions_type t in
+        let asmp = TT_assumption.ty t in
         if Assumption.mem_atom x asmp
         then error InvalidAbstraction
         else e

@@ -1,7 +1,7 @@
 (** Instantiate *)
 
 open Jdg_typedefs
-open TT_assumption
+(* open TT_assumption *)
 open TT_shift
 open TT_error
 
@@ -96,7 +96,7 @@ and instantiate_eq_term e0 ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
   EqTerm (asmp, e1, e2, t)
 
 and instantiate_assumptions e0 ?(lvl=0) asmp =
-  let asmp0 = assumptions_term ~lvl e0 in
+  let asmp0 = TT_assumption.term ~lvl e0 in
   Assumption.instantiate ~lvl asmp0 asmp
 
 let rec fully_instantiate_type ?(lvl=0) es = function
@@ -153,7 +153,7 @@ and fully_instantiate_eq_term ?(lvl=0) es (EqTerm (asmp, e1, e2, t)) =
 
 
 and fully_instantiate_assumptions ~lvl es asmp =
-  let asmps = List.map (assumptions_term ~lvl) es in
+  let asmps = List.map (TT_assumption.term ~lvl) es in
   Assumption.fully_instantiate asmps ~lvl asmp
 
 and fully_instantiate_args ?(lvl=0) es args =

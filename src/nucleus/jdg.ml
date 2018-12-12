@@ -47,9 +47,7 @@ type boundary =
     | BoundaryEqType of eq_type_boundary
     | BoundaryEqTerm of eq_term_boundary
 
-type assumption = (is_type,
-                   is_type_boundary, is_term_boundary,
-                   eq_type_boundary, eq_term_boundary) Assumption.t
+type assumption = Jdg_typedefs.assumption
 
 type stump_is_type =
   | TypeConstructor of Name.constructor * argument list
@@ -455,7 +453,7 @@ and mk_rule_is_term metas = function
                  && Name.MetaMap.for_all mem_metas_set is_term_meta
                  && Name.MetaMap.for_all mem_metas_set eq_type_meta
                  && Name.MetaMap.for_all mem_metas_set eq_term_meta
-                 && Assumption.BoundSet.is_empty bound
+                 && Jdg_typedefs.BoundSet.is_empty bound
      with
      | true -> mk_rule_is_term metas e
      | false -> TT.error TT.ExtraAssumptions
@@ -605,7 +603,7 @@ let form_eq_type sgn c arguments =
   let inds = match_arguments sgn premises arguments in
   (* order of arguments not important in [TT.assumption_arguments],
      we could try avoiding a list reversal caused by [Indices.to_list]. *)
-  let asmp = TT.assumptions_arguments (Indices.to_list inds)
+  let asmp = TT_assumption.arguments (Indices.to_list inds)
   and lhs = meta_instantiate_is_type ~lvl:0 inds lhs_schema
   and rhs = meta_instantiate_is_type ~lvl:0 inds rhs_schema
   in TT.mk_eq_type asmp lhs rhs
@@ -616,7 +614,7 @@ let form_eq_term sgn c arguments =
   let inds = match_arguments sgn premises arguments in
   (* order of arguments not important in [TT.assumption_arguments],
      we could try avoiding a list reversal caused by [Indices.to_list]. *)
-  let asmp = TT.assumptions_arguments (Indices.to_list inds)
+  let asmp = TT_assumption.arguments (Indices.to_list inds)
   and e1 = meta_instantiate_is_term ~lvl:0 inds e1_schema
   and e2 = meta_instantiate_is_term ~lvl:0 inds e2_schema
   and t = meta_instantiate_is_type ~lvl:0 inds t_schema
@@ -657,7 +655,7 @@ let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
   | TT.TermConvert (e, asmp0, t0) ->
      if TT.alpha_equal_type t0 t1 then
        (* here we rely on transitivity of equality *)
-       let asmp = Assumption.union asmp0 (Assumption.union asmp (TT.assumptions_type t1))
+       let asmp = Assumption.union asmp0 (Assumption.union asmp (TT_assumption.ty t1))
        (* we could have used the assumptions of [t0] instead, because [t0] and [t1] are
             alpha equal, and so either can derive the type. Possible optimizations:
               (i) pick the smaller of the assumptions of [t0] or of [t1],
@@ -789,19 +787,19 @@ let invert_eq_type_abstraction ?atom_name eq =
 let invert_eq_term_abstraction ?atom_name eq =
   invert_abstraction ?atom_name TT.instantiate_eq_term eq
 
-let context_is_type_abstraction = TT.context_abstraction TT.assumptions_type
-let context_is_term_abstraction = TT.context_abstraction TT.assumptions_term
-let context_eq_type_abstraction = TT.context_abstraction TT.assumptions_eq_type
-let context_eq_term_abstraction = TT.context_abstraction TT.assumptions_eq_term
+let context_is_type_abstraction = TT.context_abstraction TT_assumption.ty
+let context_is_term_abstraction = TT.context_abstraction TT_assumption.term
+let context_eq_type_abstraction = TT.context_abstraction TT_assumption.eq_type
+let context_eq_term_abstraction = TT.context_abstraction TT_assumption.eq_term
 
 let occurs_abstraction assumptions_u a abstr =
-  let asmp = TT.(assumptions_abstraction assumptions_u abstr) in
+  let asmp = TT_assumption.abstraction assumptions_u abstr in
   Assumption.mem_atom a.TT.atom_name asmp
 
-let occurs_is_type_abstraction = occurs_abstraction TT.assumptions_type
-let occurs_is_term_abstraction = occurs_abstraction TT.assumptions_term
-let occurs_eq_type_abstraction = occurs_abstraction TT.assumptions_eq_type
-let occurs_eq_term_abstraction = occurs_abstraction TT.assumptions_eq_term
+let occurs_is_type_abstraction = occurs_abstraction TT_assumption.ty
+let occurs_is_term_abstraction = occurs_abstraction TT_assumption.term
+let occurs_eq_type_abstraction = occurs_abstraction TT_assumption.eq_type
+let occurs_eq_term_abstraction = occurs_abstraction TT_assumption.eq_term
 
 
 let apply_abstraction inst_u sgn abstr e0 =
@@ -841,7 +839,7 @@ let convert_eq_term (TT.EqTerm (asmp1, e1, e2, t0)) (TT.EqType (asmp2, t1, t2)) 
   if TT.alpha_equal_type t0 t1 then
     (* We could have used the assumptions of [t0] instead of [t1], see comments in [form_is_term]
        about possible optimizations. *)
-    let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT.assumptions_type t1)) in
+    let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT_assumption.ty t1)) in
     TT.mk_eq_term asmp e1 e2 t2
   else
     error (InvalidConvert (t0, t1))
@@ -993,7 +991,7 @@ let transitivity_term (TT.EqTerm (asmp, e1, e2, t)) (TT.EqTerm (asmp', e1', e2',
      | false -> error (AlphaEqualTermMismatch (e2, e1'))
      | true ->
         (* XXX could use assumptions of [e1'] instead, or whichever is better. *)
-        let asmp = Assumption.union asmp (Assumption.union asmp' (TT.assumptions_term e2))
+        let asmp = Assumption.union asmp (Assumption.union asmp' (TT_assumption.term e2))
         in TT.mk_eq_term asmp e1 e2' t
      end
 
@@ -1002,7 +1000,7 @@ let transitivity_type (TT.EqType (asmp1, t1, t2)) (TT.EqType (asmp2, u1, u2)) =
   | false -> error (AlphaEqualTypeMismatch (t2, u1))
   | true ->
      (* XXX could use assumptions of [u1] instead, or whichever is better. *)
-     let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT.assumptions_type t2))
+     let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT_assumption.ty t2))
      in TT.mk_eq_type asmp t1 u2
   end
 
@@ -1031,7 +1029,7 @@ let process_congruence_args args =
          (fun t1 t2 (TT.EqType (_, t1', t2')) ->
            TT.alpha_equal_type t1 t1' && TT.alpha_equal_type t2 t2')
          t1 t2 eq ;
-       let asmp_out = Assumption.union asmp_out (TT.assumptions_abstraction TT.assumptions_eq_type eq)
+       let asmp_out = Assumption.union asmp_out (TT_assumption.abstraction TT_assumption.eq_type eq)
        in fold asmp_out (ArgumentIsType t1 :: lhs) (ArgumentIsType t2 :: rhs) eqs
 
     | CongrIsTerm (e1, e2, eq) :: eqs ->
@@ -1039,7 +1037,7 @@ let process_congruence_args args =
          (fun e1 e2 (TT.EqTerm (_, e1', e2', _)) ->
            TT.alpha_equal_term e1 e1' && TT.alpha_equal_term e2 e2')
          e1 e2 eq ;
-       let asmp_out = Assumption.union asmp_out (TT.assumptions_abstraction TT.assumptions_eq_term eq)
+       let asmp_out = Assumption.union asmp_out (TT_assumption.abstraction TT_assumption.eq_term eq)
        in fold asmp_out (ArgumentIsTerm e1 :: lhs) (ArgumentIsTerm e2 :: rhs) eqs
 
     | CongrEqType (eq1, eq2) :: eqs ->
@@ -1138,9 +1136,9 @@ module Json =
     let is_type t = Json.tag "IsType" [TT.Json.ty t]
 
     let eq_term (TT.EqTerm (asmp, e1, e2, t)) =
-      Json.tag "EqTerm" [Assumption.Json.assumptions asmp; TT.Json.term e1; TT.Json.term e2; TT.Json.ty t]
+      Json.tag "EqTerm" [TT_json.Json.assumptions asmp; TT.Json.term e1; TT.Json.term e2; TT.Json.ty t]
 
     let eq_type (TT.EqType (asmp, t1, t2)) =
-      Json.tag "EqType" [Assumption.Json.assumptions asmp; TT.Json.ty t1; TT.Json.ty t2]
+      Json.tag "EqType" [TT_json.Json.assumptions asmp; TT.Json.ty t1; TT.Json.ty t2]
 
   end
