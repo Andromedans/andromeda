@@ -29,7 +29,7 @@ let print_located_error {Location.thing=err; loc} ppf =
 let wrap f state =
   try f state
   with
-    | TT.Error err ->
+    | TT.Jdg_error err ->
        raise (Error (Location.locate (TTError err) Location.unknown))
     | Eval.Error {Location.thing=err; loc} ->
        raise (Error (Location.locate (EvalError err) loc))

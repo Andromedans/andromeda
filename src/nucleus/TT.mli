@@ -18,7 +18,7 @@ type error =
   | InvalidSubstitution
   | InvalidCongruence
 
-exception Error of error
+exception Jdg_error of error
 
 val error : error -> 'a
 
