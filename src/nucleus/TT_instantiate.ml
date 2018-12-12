@@ -1,9 +1,6 @@
 (** Instantiate *)
 
 open Jdg_typedefs
-(* open TT_assumption *)
-open TT_shift
-open TT_error
 
 let rec instantiate_abstraction
   : 'a .(term -> ?lvl:bound -> 'a -> 'a) ->
@@ -45,7 +42,7 @@ and instantiate_term e0 ?(lvl=0) = function
        else begin
          (* We should only ever instantiate the highest occurring bound variable. *)
          assert (k = lvl) ;
-         shift_term ~lvl:0 lvl e0
+         TT_shift.term ~lvl:0 lvl e0
        end
 
 and instantiate_type e0 ?(lvl=0) = function
@@ -118,9 +115,9 @@ and fully_instantiate_term ?(lvl=0) es = function
      else
        begin try
          let e = List.nth es (k - lvl)
-         in shift_term ~lvl:0 lvl e
+         in TT_shift.term ~lvl:0 lvl e
        with
-         Failure _ -> error InvalidInstantiation
+         Failure _ -> TT_error.error InvalidInstantiation
        end
 
   | TermConstructor (c, args) ->
