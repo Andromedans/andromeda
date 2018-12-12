@@ -51,7 +51,7 @@ fi
 FILES="$@"
 if [ "$FILES" = "" ]
 then
-    FILES=$($FIND "$BASEDIR" -name "*.m31")
+    FILES=$($FIND "$BASEDIR" -name "*.m31" -not -path "*/obsolete/*.m31")
 fi
 
 _EXIT=0
