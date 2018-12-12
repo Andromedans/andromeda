@@ -1,7 +1,6 @@
 (** Abstract *)
 
 open Jdg_typedefs
-open TT_error
 
 let rec abstract_term x ?(lvl=0) = function
   | (TermAtom {atom_name=y; atom_type=t}) as e ->
@@ -9,7 +8,7 @@ let rec abstract_term x ?(lvl=0) = function
      | false ->
         let asmp = TT_assumption.ty t in
         if Assumption.mem_atom x asmp
-        then error InvalidAbstraction
+        then TT_error.error InvalidAbstraction
         else e
      | true -> TermBound lvl
      end
