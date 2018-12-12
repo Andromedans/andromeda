@@ -140,10 +140,9 @@ plain_term:
   | LET a=separated_nonempty_list(AND,let_clause) IN c=term      { Let (a, c) }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause) IN c=term
                                                                  { LetRec (lst, c) }
-  | NOW x=term EQ c1=term IN c2=term                             { Now (x,c1,c2) }
+  | NOW x=simple_term EQ c1=term IN c2=term                      { Now (x,c1,c2) }
   | CURRENT c=term                                               { Current c }
   | ASSUME x=var_name COLON t=ty_term IN c=term                  { Assume ((x, t), c) }
-  | c1=equal_term WHERE e=simple_term EQ c2=term                 { Where (c1, e, c2) }
   | MATCH e=term WITH lst=match_cases END                        { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_cases END                     { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                                    { With (h, c) }
@@ -155,11 +154,16 @@ plain_term:
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
-  | e=plain_equal_term                               { e }
+  | e=plain_where_term                               { e }
   | PROD a=prod_abstraction COMMA e=term             { Prod (a, e) }
   | LAMBDA a=lambda_abstraction COMMA e=term         { Lambda (a, e) }
   | FUNCTION xs=ml_arg+ DARROW e=term                { Function (xs, e) }
   | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous (), t1)], t2) }
+
+where_term: mark_location(plain_where_term) { $1 }
+plain_where_term:
+  | e=plain_equal_term { e }
+  | c1=where_term WHERE e=simple_term EQ c2=equal_term           { Where (c1, e, c2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
 plain_equal_term:

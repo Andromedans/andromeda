@@ -1,0 +1,32 @@
+constant A : Type
+
+let x = assume x : A in x
+let x' = assume x' : A in x'
+
+constant P : A → Type
+
+let y = assume y : P x in y
+
+constant R : forall z : A, P z → Type
+
+let rxy = R x y
+
+constant X : A
+constant Y : P X
+
+
+do rxy where x = X where y = Y
+(* is parsed as *)
+do (rxy where x = X) where y = Y
+
+do rxy == rxy where x = X
+
+do λ z : A, P z == P z where z = X
+
+do P x == P x where x = X where (y where x = X) = Y
+
+constant ( + ) : A → A → Type
+constant f : A → A → A
+do x + f x x' where x = X
+
+do f x x' where x = X

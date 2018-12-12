@@ -1,0 +1,39 @@
+Constant A is declared.
+
+val x :> judgment
+
+val x' :> judgment
+
+Constant P is declared.
+
+val y :> judgment
+
+Constant R is declared.
+
+val rxy :> judgment
+
+Constant X is declared.
+
+Constant Y is declared.
+
+⊢ R X Y : Type
+
+⊢ R X Y : Type
+
+y₀ : P X
+⊢ R X y₀ ≡ R X y₀ : Type
+
+⊢ λ (_ : A), P X ≡ P X : A → Type
+
+⊢ P X ≡ P X : Type
+
+Constant ( + ) is declared.
+
+Constant f is declared.
+
+x'₁ : A
+⊢ X + f X x'₁ : Type
+
+x'₁ : A
+⊢ f X x'₁ : A
+
