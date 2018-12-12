@@ -56,10 +56,10 @@ and eq_term_boundary = (term * term * ty) abstraction
 
 (** An argument of a term or a type constructor *)
 and argument =
-  | ArgIsType of ty abstraction
-  | ArgIsTerm of term abstraction
-  | ArgEqType of eq_type abstraction
-  | ArgEqTerm of eq_term abstraction
+  | ArgumentIsType of ty abstraction
+  | ArgumentIsTerm of term abstraction
+  | ArgumentEqType of eq_type abstraction
+  | ArgumentEqTerm of eq_term abstraction
 
 (** An abstracted entity. Note that abstractions only ever appear as arguments
    to constructors. Thus we do not carry any type information for the abstracted
@@ -86,6 +86,11 @@ type error =
   | InvalidSubstitution
   | InvalidCongruence
 
+  (* ***** JDG **** *)
+  | AlphaEqualTypeMismatch of ty * ty
+  | AlphaEqualTermMismatch of term * term
+  | InvalidConvert of ty * ty
+
 exception Jdg_error of error
 
 
@@ -94,3 +99,65 @@ type print_env =
   ; metas : Name.meta_printer
   ; atoms : Name.atom_printer
   }
+
+
+
+(* ******************* JDG ************** *)
+
+(** Every judgement enforces that its context is minimal (strengthened). *)
+
+type is_term = term
+
+type is_type = ty
+
+type is_atom = atom
+
+type is_type_meta = type_meta
+type is_term_meta = term_meta
+
+type is_term_abstraction = is_term abstraction
+type is_type_abstraction = is_type abstraction
+type eq_type_abstraction = eq_type abstraction
+type eq_term_abstraction = eq_term abstraction
+
+(** Stumps (defined below) are used to construct and invert judgements. The
+   [form_XYZ] functions below take a stump and construct a judgement from it,
+   whereas the [invert_XYZ] functions do the opposite. We can think of stumps as
+   "stumps", i.e., the lowest level of a derivation tree. *)
+
+
+type is_type_boundary = type_boundary
+type is_term_boundary = term_boundary
+
+type boundary = premise_boundary
+
+type congruence_argument =
+  | CongrIsType of is_type abstraction * is_type abstraction * eq_type abstraction
+  | CongrIsTerm of is_term abstraction * is_term abstraction * eq_term abstraction
+  | CongrEqType of eq_type abstraction * eq_type abstraction
+  | CongrEqTerm of eq_term abstraction * eq_term abstraction
+
+
+module Stump = struct
+
+  type nonrec is_type =
+    | TypeConstructor of Name.constructor * argument list
+    | TypeMeta of type_meta * is_term list
+
+  and is_term =
+    | TermAtom of is_atom
+    | TermConstructor of Name.constructor * argument list
+    | TermMeta of term_meta * is_term list
+    | TermConvert of is_term * eq_type
+
+  and eq_type =
+    | EqType of assumption * is_type * is_type
+
+  and eq_term =
+    | EqTerm of assumption * is_term * is_term * is_type
+
+  and 'a abstraction =
+    | NotAbstract of 'a
+    | Abstract of is_atom * 'a abstraction
+
+end

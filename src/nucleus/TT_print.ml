@@ -2,27 +2,6 @@
 
 open Jdg_typedefs
 
-let error err ppf =
-  let open Jdg_typedefs in
-  match err with
-  | InvalidInstantiation -> Format.fprintf ppf "invalid instantiation"
-  | InvalidAbstraction -> Format.fprintf ppf "invalid abstraction"
-  | TooFewArguments -> Format.fprintf ppf "too few arguments"
-  | TooManyArguments -> Format.fprintf ppf "too many arguments"
-  | TermExpected -> Format.fprintf ppf "term expected"
-  | TypeExpected -> Format.fprintf ppf "type expected"
-  | ExtraAssumptions -> Format.fprintf ppf "extra assumptions"
-  | InvalidApplication -> Format.fprintf ppf "invalid application"
-  | InvalidArgument -> Format.fprintf ppf "invalid argument"
-  | IsTypeExpected -> Format.fprintf ppf "type argument expected"
-  | IsTermExpected -> Format.fprintf ppf "term argument expected"
-  | EqTypeExpected -> Format.fprintf ppf "type equality argument expected"
-  | EqTermExpected -> Format.fprintf ppf "term equality argument expected"
-  | AbstractionExpected -> Format.fprintf ppf "abstraction expected"
-  | InvalidSubstitution -> Format.fprintf ppf "invalid substutition"
-  | InvalidCongruence -> Format.fprintf ppf "invalid congruence argument"
-
-
 let add_forbidden x penv = { penv with forbidden = x :: penv.forbidden }
 
 let rec abstraction
@@ -130,13 +109,13 @@ and constructor ?max_level ~penv c args ppf =
 
 and argument ~penv arg ppf =
   match arg with
-  | ArgIsType abstr ->
+  | ArgumentIsType abstr ->
      abstraction TT_occurs.ty ty ~max_level:Level.constructor_arg ~penv abstr ppf
-  | ArgIsTerm abstr ->
+  | ArgumentIsTerm abstr ->
      abstraction TT_occurs.term term ~max_level:Level.constructor_arg ~penv abstr ppf
-  | ArgEqType abstr ->
+  | ArgumentEqType abstr ->
      abstraction TT_occurs.eq_type eq_type ~max_level:Level.constructor_arg ~penv abstr ppf
-  | ArgEqTerm abstr ->
+  | ArgumentEqTerm abstr ->
      abstraction TT_occurs.eq_term eq_term ~max_level:Level.constructor_arg ~penv abstr ppf
 
 
@@ -144,4 +123,38 @@ and binder ~penv (x,t) ppf =
   Print.print ppf "{%t@ :@ %t}"
     (Name.print_ident ~parentheses:true x)
     (ty ~penv t)
+
+
+
+let error ~penv err ppf =
+  let open Jdg_typedefs in
+  match err with
+  | InvalidInstantiation -> Format.fprintf ppf "invalid instantiation"
+  | InvalidAbstraction -> Format.fprintf ppf "invalid abstraction"
+  | TooFewArguments -> Format.fprintf ppf "too few arguments"
+  | TooManyArguments -> Format.fprintf ppf "too many arguments"
+  | TermExpected -> Format.fprintf ppf "term expected"
+  | TypeExpected -> Format.fprintf ppf "type expected"
+  | ExtraAssumptions -> Format.fprintf ppf "extra assumptions"
+  | InvalidApplication -> Format.fprintf ppf "invalid application"
+  | InvalidArgument -> Format.fprintf ppf "invalid argument"
+  | IsTypeExpected -> Format.fprintf ppf "type argument expected"
+  | IsTermExpected -> Format.fprintf ppf "term argument expected"
+  | EqTypeExpected -> Format.fprintf ppf "type equality argument expected"
+  | EqTermExpected -> Format.fprintf ppf "term equality argument expected"
+  | AbstractionExpected -> Format.fprintf ppf "abstraction expected"
+  | InvalidSubstitution -> Format.fprintf ppf "invalid substutition"
+  | InvalidCongruence -> Format.fprintf ppf "invalid congruence argument"
+
+  | InvalidConvert (t1, t2) ->
+     Format.fprintf ppf "Trying to convert something at@ %t@ using an equality on@ %t@."
+                    (ty ~penv t1) (ty ~penv t2)
+
+  | AlphaEqualTypeMismatch (t1, t2) ->
+     Format.fprintf ppf "The types@ %t@ and@ %t@ should be alpha equal."
+                    (ty ~penv t1) (ty ~penv t2)
+
+  | AlphaEqualTermMismatch (e1, e2) ->
+     Format.fprintf ppf "The terms@ %t@ and@ %t@ should be alpha equal."
+                    (term ~penv e1) (term ~penv e2)
 

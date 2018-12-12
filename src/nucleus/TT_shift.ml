@@ -64,21 +64,21 @@ and arguments ~lvl k args =
   List.map (argument ~lvl k) args
 
 and argument ~lvl k = function
-   | ArgIsTerm abstr ->
+   | ArgumentIsTerm abstr ->
       let abstr = abstraction term ~lvl k abstr in
-      ArgIsTerm abstr
+      ArgumentIsTerm abstr
 
-   | ArgIsType abstr ->
+   | ArgumentIsType abstr ->
       let abstr = abstraction ty ~lvl k abstr in
-      ArgIsType abstr
+      ArgumentIsType abstr
 
-   | ArgEqType abstr ->
+   | ArgumentEqType abstr ->
       let abstr = abstraction eq_type ~lvl k abstr in
-      ArgEqType abstr
+      ArgumentEqType abstr
 
-   | ArgEqTerm abstr ->
+   | ArgumentEqTerm abstr ->
       let abstr = abstraction eq_term ~lvl k abstr in
-      ArgEqTerm abstr
+      ArgumentEqTerm abstr
 
 and abstraction
   : 'a . (lvl:bound -> int -> 'a -> 'a) ->

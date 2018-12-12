@@ -1,1 +1,1 @@
-let error err = raise (Jdg_typedefs.Jdg_error err)
+let raise err = raise (Jdg_typedefs.Jdg_error err)

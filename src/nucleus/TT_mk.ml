@@ -27,10 +27,10 @@ let term_convert e asmp t =
   | TermConvert _ -> assert false
   | _ -> TermConvert (e, asmp, t)
 
-let arg_is_type t = ArgIsType t
-let arg_is_term e = ArgIsTerm e
-let arg_eq_type s = ArgEqType s
-let arg_eq_term s = ArgEqTerm s
+let arg_is_type t = ArgumentIsType t
+let arg_is_term e = ArgumentIsTerm e
+let arg_eq_type s = ArgumentEqType s
+let arg_eq_term s = ArgumentEqTerm s
 
 let eq_type asmp t1 t2 = EqType (asmp, t1, t2)
 

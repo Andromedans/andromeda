@@ -21,10 +21,10 @@ and term_arguments k = function
   | arg :: args -> term k arg || term_arguments k args
 
 and argument k = function
-  | ArgIsType t  -> abstraction ty k t
-  | ArgIsTerm e  -> abstraction term k e
-  | ArgEqType abstr -> abstraction eq_type k abstr
-  | ArgEqTerm abstr -> abstraction eq_term k abstr
+  | ArgumentIsType t  -> abstraction ty k t
+  | ArgumentIsTerm e  -> abstraction term k e
+  | ArgumentEqType abstr -> abstraction eq_type k abstr
+  | ArgumentEqTerm abstr -> abstraction eq_term k abstr
 
 and eq_type k (EqType (asmp, t1, t2)) =
   assumptions k asmp || ty k t1 || ty k t2

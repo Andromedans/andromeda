@@ -63,21 +63,21 @@ and term_arguments e0 ~lvl args =
 
 and argument e0 ?(lvl=0) = function
 
-    | ArgIsType t ->
+    | ArgumentIsType t ->
        let t = abstraction ty e0 ~lvl t in
-       ArgIsType t
+       ArgumentIsType t
 
-    | ArgIsTerm e ->
+    | ArgumentIsTerm e ->
        let e = abstraction term e0 ~lvl e in
-       ArgIsTerm e
+       ArgumentIsTerm e
 
-    | ArgEqType asmp ->
+    | ArgumentEqType asmp ->
        let asmp = abstraction eq_type e0 ~lvl asmp in
-       ArgEqType asmp
+       ArgumentEqType asmp
 
-    | ArgEqTerm asmp ->
+    | ArgumentEqTerm asmp ->
        let asmp = abstraction eq_term e0 ~lvl asmp in
-       ArgEqTerm asmp
+       ArgumentEqTerm asmp
 
 and eq_type e0 ?(lvl=0) (EqType (asmp, t1, t2)) =
   let asmp = assumptions e0 ~lvl asmp
@@ -96,16 +96,16 @@ and assumptions e0 ?(lvl=0) asmp =
   let asmp0 = TT_assumption.term ~lvl e0 in
   Assumption.instantiate ~lvl asmp0 asmp
 
-let rec fully_instantiate_type ?(lvl=0) es = function
+let rec type_fully ?(lvl=0) es = function
   | TypeConstructor (c, args) ->
-     let args = fully_instantiate_args ~lvl es args in
+     let args = args_fully ~lvl es args in
      TypeConstructor (c, args)
   | TypeMeta (mv, args) ->
-     let args = fully_instantiate_term_args ~lvl es args in
+     let args = term_args_fully ~lvl es args in
      (* there are no bound variables in the type of a meta *)
      TypeMeta (mv, args)
 
-and fully_instantiate_term ?(lvl=0) es = function
+and term_fully ?(lvl=0) es = function
 
   | TermAtom _ as e -> e (* there are no bound variables in an atom type *)
 
@@ -117,66 +117,66 @@ and fully_instantiate_term ?(lvl=0) es = function
          let e = List.nth es (k - lvl)
          in TT_shift.term ~lvl:0 lvl e
        with
-         Failure _ -> TT_error.error InvalidInstantiation
+         Failure _ -> TT_error.raise InvalidInstantiation
        end
 
   | TermConstructor (c, args) ->
-     let args = fully_instantiate_args ~lvl es args in
+     let args = args_fully ~lvl es args in
      TermConstructor (c, args)
 
   | TermMeta (mv, args) ->
-     let args = fully_instantiate_term_args ~lvl es args in
+     let args = term_args_fully ~lvl es args in
      (* there are no bound variables in the type of a meta *)
      TermMeta (mv, args)
 
   | TermConvert (e, asmp, t) ->
-     let e = fully_instantiate_term ~lvl es e
-     and asmp = fully_instantiate_assumptions ~lvl es asmp
-     and t = fully_instantiate_type ~lvl es t
+     let e = term_fully ~lvl es e
+     and asmp = assumptions_fully ~lvl es asmp
+     and t = type_fully ~lvl es t
      in TermConvert (e, asmp, t)
 
-and fully_instantiate_eq_type ?(lvl=0) es (EqType (asmp, t1, t2)) =
-  let asmp = fully_instantiate_assumptions ~lvl es asmp
-  and t1 = fully_instantiate_type ~lvl es t1
-  and t2 = fully_instantiate_type ~lvl es t2
+and eq_type_fully ?(lvl=0) es (EqType (asmp, t1, t2)) =
+  let asmp = assumptions_fully ~lvl es asmp
+  and t1 = type_fully ~lvl es t1
+  and t2 = type_fully ~lvl es t2
   in EqType (asmp, t1, t2)
 
-and fully_instantiate_eq_term ?(lvl=0) es (EqTerm (asmp, e1, e2, t)) =
-  let asmp = fully_instantiate_assumptions ~lvl es asmp
-  and e1 = fully_instantiate_term ~lvl es e1
-  and e2 = fully_instantiate_term ~lvl es e2
-  and t = fully_instantiate_type ~lvl es t
+and eq_term_fully ?(lvl=0) es (EqTerm (asmp, e1, e2, t)) =
+  let asmp = assumptions_fully ~lvl es asmp
+  and e1 = term_fully ~lvl es e1
+  and e2 = term_fully ~lvl es e2
+  and t = type_fully ~lvl es t
   in EqTerm (asmp, e1, e2, t)
 
 
-and fully_instantiate_assumptions ~lvl es asmp =
+and assumptions_fully ~lvl es asmp =
   let asmps = List.map (TT_assumption.term ~lvl) es in
   Assumption.fully_instantiate asmps ~lvl asmp
 
-and fully_instantiate_args ?(lvl=0) es args =
-  List.map (fully_instantiate_arg ~lvl es) args
+and args_fully ?(lvl=0) es args =
+  List.map (arg_fully ~lvl es) args
 
-and fully_instantiate_term_args ?(lvl=0) es args =
-  List.map (fully_instantiate_term ~lvl es) args
+and term_args_fully ?(lvl=0) es args =
+  List.map (term_fully ~lvl es) args
 
-and fully_instantiate_arg ?(lvl=0) es = function
-  | ArgIsType abstr ->
-     let abstr = fully_instantiate_abstraction fully_instantiate_type ~lvl es abstr in
-     ArgIsType abstr
+and arg_fully ?(lvl=0) es = function
+  | ArgumentIsType abstr ->
+     let abstr = abstraction_fully type_fully ~lvl es abstr in
+     ArgumentIsType abstr
 
-  | ArgIsTerm abstr ->
-     let abstr = fully_instantiate_abstraction fully_instantiate_term ~lvl es abstr in
-     ArgIsTerm abstr
+  | ArgumentIsTerm abstr ->
+     let abstr = abstraction_fully term_fully ~lvl es abstr in
+     ArgumentIsTerm abstr
 
-  | ArgEqType abstr ->
-     let abstr = fully_instantiate_abstraction fully_instantiate_eq_type ~lvl es abstr in
-     ArgEqType abstr
+  | ArgumentEqType abstr ->
+     let abstr = abstraction_fully eq_type_fully ~lvl es abstr in
+     ArgumentEqType abstr
 
-  | ArgEqTerm abstr ->
-     let abstr = fully_instantiate_abstraction fully_instantiate_eq_term ~lvl es abstr in
-     ArgEqTerm abstr
+  | ArgumentEqTerm abstr ->
+     let abstr = abstraction_fully eq_term_fully ~lvl es abstr in
+     ArgumentEqTerm abstr
 
-and fully_instantiate_abstraction
+and abstraction_fully
   : 'a . (?lvl:int -> term list -> 'a -> 'a) ->
          ?lvl:int -> term list -> 'a abstraction -> 'a abstraction
   = fun inst_u ?(lvl=0) es -> function
@@ -186,6 +186,6 @@ and fully_instantiate_abstraction
      NotAbstract u
 
   | Abstract (x, t, abstr) ->
-     let t = fully_instantiate_type ~lvl es t
-     and abstr = fully_instantiate_abstraction inst_u ~lvl:(lvl+1) es abstr
+     let t = type_fully ~lvl es t
+     and abstr = abstraction_fully inst_u ~lvl:(lvl+1) es abstr
      in Abstract (x, t, abstr)

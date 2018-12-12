@@ -8,7 +8,7 @@ let rec term x ?(lvl=0) = function
      | false ->
         let asmp = TT_assumption.ty t in
         if Assumption.mem_atom x asmp
-        then TT_error.error InvalidAbstraction
+        then TT_error.raise InvalidAbstraction
         else e
      | true -> TermBound lvl
      end
@@ -69,17 +69,17 @@ and term_arguments x ?(lvl=0) args =
 
 and argument x ?(lvl=0) = function
 
-    | ArgIsType t -> ArgIsType (abstraction ty x ~lvl t)
+    | ArgumentIsType t -> ArgumentIsType (abstraction ty x ~lvl t)
 
-    | ArgIsTerm e -> ArgIsTerm (abstraction term x ~lvl e)
+    | ArgumentIsTerm e -> ArgumentIsTerm (abstraction term x ~lvl e)
 
-    | ArgEqType asmp ->
+    | ArgumentEqType asmp ->
        let asmp = abstraction eq_type x ~lvl asmp in
-       ArgEqType asmp
+       ArgumentEqType asmp
 
-    | ArgEqTerm asmp ->
+    | ArgumentEqTerm asmp ->
        let asmp = abstraction eq_term x ~lvl asmp in
-       ArgEqTerm asmp
+       ArgumentEqTerm asmp
 
 and assumptions x ?(lvl=0) asmp =
   Assumption.abstract x ~lvl asmp

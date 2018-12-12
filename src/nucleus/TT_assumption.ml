@@ -67,10 +67,10 @@ and eq_term ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
     (Assumption.union (term ~lvl e1) (term ~lvl e2))
 
 and argument ?(lvl=0) = function
-  | ArgIsType abstr -> abstraction ty ~lvl abstr
-  | ArgIsTerm abstr -> abstraction term ~lvl abstr
-  | ArgEqType abstr -> abstraction eq_type ~lvl abstr
-  | ArgEqTerm abstr -> abstraction eq_term ~lvl abstr
+  | ArgumentIsType abstr -> abstraction ty ~lvl abstr
+  | ArgumentIsTerm abstr -> abstraction term ~lvl abstr
+  | ArgumentEqType abstr -> abstraction eq_type ~lvl abstr
+  | ArgumentEqTerm abstr -> abstraction eq_term ~lvl abstr
 
 and assumptions ?(lvl=0) asmp = Assumption.at_level ~lvl asmp
 

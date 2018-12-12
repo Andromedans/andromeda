@@ -113,7 +113,7 @@ val as_list_opt : value -> value list option
 
 (** Pretty-print a value. *)
 val print_value :
-  ?max_level:Level.t -> penv:TT.print_env -> value -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:Jdg_typedefs.print_env -> value -> Format.formatter -> unit
 
 
 (** {6 Error Handling} *)
@@ -162,7 +162,7 @@ type error =
 exception Error of error Location.located
 
 (** Pretty-print a runtime error *)
-val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
+val print_error : penv:Jdg_typedefs.print_env -> error -> Format.formatter -> unit
 
 (** Report a runtime error (raises an Error exception) *)
 val error : loc:Location.t -> error -> 'a
@@ -225,7 +225,7 @@ val now : dyn -> value -> 'a comp -> 'a comp
 val continue : loc:Location.t -> value -> value comp
 
 (** Get the printing environment from the monad *)
-val lookup_penv : TT.print_env comp
+val lookup_penv : Jdg_typedefs.print_env comp
 
 (** Gets the current rules of inference. *)
 val lookup_signature : Jdg.Signature.t comp
@@ -302,7 +302,7 @@ val add_rule_eq_term : Name.constructor -> Rule.rule_eq_term -> unit toplevel
 val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
 
 (** Get the printing environment from the toplevel monad *)
-val top_lookup_penv : TT.print_env toplevel
+val top_lookup_penv : Jdg_typedefs.print_env toplevel
 
 (** Get the signature from the toplevel monad *)
 val top_lookup_signature : Jdg.Signature.t toplevel

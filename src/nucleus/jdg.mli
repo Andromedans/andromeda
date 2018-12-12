@@ -30,47 +30,43 @@ type argument =
   | ArgumentEqType of eq_type_abstraction
   | ArgumentEqTerm of eq_term_abstraction
 
-(** A stump is obtained when we invert a judgement. *)
-
 type is_type_boundary = unit abstraction
 type is_term_boundary = is_type abstraction
 type eq_type_boundary = (is_type * is_type) abstraction
 type eq_term_boundary = (is_term * is_term * is_type) abstraction
 
-type boundary =
-    | BoundaryType of is_type_boundary
-    | BoundaryTerm of is_term_boundary
-    | BoundaryEqType of eq_type_boundary
-    | BoundaryEqTerm of eq_term_boundary
+type boundary = Jdg_typedefs.premise_boundary
 
 type assumption
 
-type 'a meta = 'a TT.meta
+type 'a meta = 'a Jdg_typedefs.meta
 type is_type_meta = is_type_boundary meta
 type is_term_meta = is_term_boundary meta
 type eq_type_meta = eq_type_boundary meta
 type eq_term_meta = eq_term_boundary meta
 
-type stump_is_type =
-  | TypeConstructor of Name.constructor * argument list
-  | TypeMeta of is_type_meta * is_term list
+(** A stump is obtained when we invert a judgement. *)
+module Stump : sig
+  type nonrec is_type =
+    | TypeConstructor of Name.constructor * argument list
+    | TypeMeta of is_type_meta * is_term list
 
-type stump_is_term =
-  | TermAtom of is_atom
-  | TermConstructor of Name.constructor * argument list
-  | TermMeta of is_term_meta * is_term list
-  | TermConvert of is_term * eq_type
+  and is_term =
+    | TermAtom of is_atom
+    | TermConstructor of Name.constructor * argument list
+    | TermMeta of is_term_meta * is_term list
+    | TermConvert of is_term * eq_type
 
-type stump_eq_type =
-  | EqType of assumption * is_type * is_type
+  and eq_type =
+    | EqType of assumption * is_type * is_type
 
-type stump_eq_term =
-  | EqTerm of assumption * is_term * is_term * is_type
+  and eq_term =
+    | EqTerm of assumption * is_term * is_term * is_type
 
-type 'a stump_abstraction =
-  | NotAbstract of 'a
-  | Abstract of is_atom * 'a abstraction
-
+  and 'a abstraction =
+    | NotAbstract of 'a
+    | Abstract of is_atom * 'a abstraction
+end
 
 (** An auxiliary type for providing arguments to a congruence rule. Each arguments is like
    two endpoints with a path between them, except that no paths between equalities are
@@ -177,27 +173,27 @@ val eq_term_meta_eta_expanded : Signature.t -> eq_term_meta -> eq_term_abstracti
 (** Verify that an abstraction is in fact not abstract *)
 val as_not_abstract : 'a abstraction -> 'a option
 
-val invert_is_type : is_type -> stump_is_type
+val invert_is_type : is_type -> Stump.is_type
 
-val invert_is_term : Signature.t -> is_term -> stump_is_term
+val invert_is_term : Signature.t -> is_term -> Stump.is_term
 
-val invert_eq_type : eq_type -> stump_eq_type
+val invert_eq_type : eq_type -> Stump.eq_type
 
-val invert_eq_term : eq_term -> stump_eq_term
+val invert_eq_term : eq_term -> Stump.eq_term
 
 val atom_name : is_atom -> Name.atom
 
 val invert_is_term_abstraction :
-  ?atom_name:Name.ident -> is_term_abstraction -> is_term stump_abstraction
+  ?atom_name:Name.ident -> is_term_abstraction -> is_term Stump.abstraction
 
 val invert_is_type_abstraction :
-  ?atom_name:Name.ident -> is_type_abstraction -> is_type stump_abstraction
+  ?atom_name:Name.ident -> is_type_abstraction -> is_type Stump.abstraction
 
 val invert_eq_type_abstraction :
-  ?atom_name:Name.ident -> eq_type_abstraction -> eq_type stump_abstraction
+  ?atom_name:Name.ident -> eq_type_abstraction -> eq_type Stump.abstraction
 
 val invert_eq_term_abstraction :
-  ?atom_name:Name.ident -> eq_term_abstraction -> eq_term stump_abstraction
+  ?atom_name:Name.ident -> eq_term_abstraction -> eq_term Stump.abstraction
 
 val context_is_type_abstraction : is_type_abstraction -> is_atom list
 val context_is_term_abstraction : is_term_abstraction -> is_atom list
@@ -207,7 +203,7 @@ val context_eq_term_abstraction : eq_term_abstraction -> is_atom list
 (** An error emitted by the nucleus *)
 type error
 
-exception Error of error
+exception Jdg_error of error
 
 (** The type judgement of a term judgement. *)
 val type_of_term : Signature.t -> is_term -> is_type
@@ -290,31 +286,31 @@ val congruence_term_constructor :
 (** Printing routines *)
 
 val print_is_term :
-  ?max_level:Level.t -> penv:TT.print_env -> is_term -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:Jdg_typedefs.print_env -> is_term -> Format.formatter -> unit
 
 val print_is_type :
-  ?max_level:Level.t -> penv:TT.print_env -> is_type -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:Jdg_typedefs.print_env -> is_type -> Format.formatter -> unit
 
 val print_eq_term :
-  ?max_level:Level.t -> penv:TT.print_env -> eq_term -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:Jdg_typedefs.print_env -> eq_term -> Format.formatter -> unit
 
 val print_eq_type :
-  ?max_level:Level.t -> penv:TT.print_env -> eq_type -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:Jdg_typedefs.print_env -> eq_type -> Format.formatter -> unit
 
 val print_is_term_abstraction :
-  ?max_level:Level.t -> penv:TT.print_env -> is_term_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:Jdg_typedefs.print_env -> is_term_abstraction -> Format.formatter -> unit
 
 val print_is_type_abstraction :
-  ?max_level:Level.t -> penv:TT.print_env -> is_type_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:Jdg_typedefs.print_env -> is_type_abstraction -> Format.formatter -> unit
 
 val print_eq_term_abstraction :
-  ?max_level:Level.t -> penv:TT.print_env -> eq_term_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:Jdg_typedefs.print_env -> eq_term_abstraction -> Format.formatter -> unit
 
 val print_eq_type_abstraction :
-  ?max_level:Level.t -> penv:TT.print_env -> eq_type_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:Jdg_typedefs.print_env -> eq_type_abstraction -> Format.formatter -> unit
 
 (** Print a nucleus error *)
-val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
+val print_error : penv:Jdg_typedefs.print_env -> error -> Format.formatter -> unit
 
 module Json :
 sig

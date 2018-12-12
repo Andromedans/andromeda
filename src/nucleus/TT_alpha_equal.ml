@@ -49,17 +49,17 @@ and arguments args args' =
 
   | [], [] -> true
 
-  | (ArgIsTerm e)::args, (ArgIsTerm e')::args' ->
+  | (ArgumentIsTerm e)::args, (ArgumentIsTerm e')::args' ->
      abstraction term e e' && arguments args args'
 
-  | (ArgIsType t)::args, (ArgIsType t')::args' ->
+  | (ArgumentIsType t)::args, (ArgumentIsType t')::args' ->
      abstraction ty t t' && arguments args args'
 
-  | ArgEqType _ :: args, ArgEqType _ :: args' -> arguments args args'
+  | ArgumentEqType _ :: args, ArgumentEqType _ :: args' -> arguments args args'
 
-  | ArgEqTerm _ :: args, ArgEqTerm _ :: args' -> arguments args args'
+  | ArgumentEqTerm _ :: args, ArgumentEqTerm _ :: args' -> arguments args args'
 
-  | (ArgIsTerm _ | ArgIsType _ | ArgEqType _ | ArgEqTerm _)::_, _::_
+  | (ArgumentIsTerm _ | ArgumentIsType _ | ArgumentEqType _ | ArgumentEqTerm _)::_, _::_
 
   | (_::_), []
 

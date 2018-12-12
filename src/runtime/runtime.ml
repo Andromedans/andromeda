@@ -183,7 +183,7 @@ let catch ~loc m env =
     let x, env = Lazy.force m env in
     Result x, env
   with
-    | Jdg.Error err -> CaughtJdg (Location.locate err loc), env
+    | Jdg.Jdg_error err -> CaughtJdg (Location.locate err loc), env
     | Error err -> CaughtRuntime err, env
 
 (** Returns *)
@@ -452,9 +452,9 @@ let continue ~loc v ({lexical={continuation;_};_} as env) =
 
 (** Generate a printing environment from runtime environment *)
 let get_penv env =
-  { TT.forbidden = env.lexical.forbidden
-  ; TT.metas = Name.meta_printer ()
-  ; TT.atoms = Name.atom_printer ()
+  { Jdg_typedefs.forbidden = env.lexical.forbidden
+  ; Jdg_typedefs.metas = Name.meta_printer ()
+  ; Jdg_typedefs.atoms = Name.atom_printer ()
   }
 
 let lookup_penv env =

@@ -56,10 +56,10 @@ struct
   and args lst =
     (List.map
        (function
-        | ArgIsTerm abstr -> Json.tag "ArgIsTerm" (abstraction term [] abstr)
-        | ArgIsType abstr -> Json.tag "ArgIsType" (abstraction ty [] abstr)
-        | ArgEqType _ -> Json.tag "ArgIsType" []
-        | ArgEqTerm _ -> Json.tag "ArgEqTerm" [])
+        | ArgumentIsTerm abstr -> Json.tag "ArgumentIsTerm" (abstraction term [] abstr)
+        | ArgumentIsType abstr -> Json.tag "ArgumentIsType" (abstraction ty [] abstr)
+        | ArgumentEqType _ -> Json.tag "ArgumentIsType" []
+        | ArgumentEqTerm _ -> Json.tag "ArgumentEqTerm" [])
        lst)
 
   and abstraction : 'a . ('a -> Json.t) -> (Name.ident * ty) list -> 'a abstraction -> Json.t list =
@@ -70,4 +70,21 @@ struct
     | NotAbstract u ->
        let xts = List.map (fun (x, t) -> Json.List [Name.Json.ident x; ty t])  (List.rev xts) in
        [Json.tuple xts ; json_u u]
+
+
+    let rec abstraction json_u = function
+      | NotAbstract u -> Json.tag "NotAbstract" [json_u u]
+      | Abstract (x, t, abstr) ->
+         Json.tag "Abstract" [Name.Json.ident x; ty t; abstraction json_u abstr]
+
+    let is_term e = Json.tag "IsTerm" [term e]
+
+    let is_type t = Json.tag "IsType" [ty t]
+
+    let eq_term (EqTerm (asmp, e1, e2, t)) =
+      Json.tag "EqTerm" [assumptions asmp; term e1; term e2; ty t]
+
+    let eq_type (EqType (asmp, t1, t2)) =
+      Json.tag "EqType" [assumptions asmp; ty t1; ty t2]
+
 end
