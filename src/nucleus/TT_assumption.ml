@@ -85,13 +85,3 @@ and abstraction
        (abstraction asmp_v ~lvl:(lvl+1) abstr)
 
 let arguments = arguments ~lvl:0
-
-let context_u assumptions_u t =
-  let asmp = assumptions_u t in
-  let free, _is_type_meta, _, _, _, bound = Assumption.unpack asmp in
-  assert (BoundSet.is_empty bound) ;
-  let free = Name.AtomMap.bindings free in
-  List.map (fun (atom_name, atom_type) -> {atom_name; atom_type}) free
-
-let context_abstraction assumptions_u =
-  context_u (abstraction ?lvl:None assumptions_u)

@@ -6,6 +6,8 @@ include TT_error
 
 include TT_assumption
 
+include TT_context
+
 include TT_mk
 
 include TT_shift

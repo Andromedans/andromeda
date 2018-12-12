@@ -787,10 +787,10 @@ let invert_eq_type_abstraction ?atom_name eq =
 let invert_eq_term_abstraction ?atom_name eq =
   invert_abstraction ?atom_name TT_instantiate.eq_term eq
 
-let context_is_type_abstraction = TT.context_abstraction TT_assumption.ty
-let context_is_term_abstraction = TT.context_abstraction TT_assumption.term
-let context_eq_type_abstraction = TT.context_abstraction TT_assumption.eq_type
-let context_eq_term_abstraction = TT.context_abstraction TT_assumption.eq_term
+let context_is_type_abstraction = TT_context.abstraction TT_assumption.ty
+let context_is_term_abstraction = TT_context.abstraction TT_assumption.term
+let context_eq_type_abstraction = TT_context.abstraction TT_assumption.eq_type
+let context_eq_term_abstraction = TT_context.abstraction TT_assumption.eq_term
 
 let occurs_abstraction assumptions_u a abstr =
   let asmp = TT_assumption.abstraction assumptions_u abstr in
