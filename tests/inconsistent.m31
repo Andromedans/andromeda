@@ -62,10 +62,10 @@ let paradox = (lemma2 Omega) : B
 let instantiated =
 ((((paradox
   where bool = Type)
-  where p2b = lambda T, T)
-  where b2p = lambda T, T)
-  where p2p1 = lambda A H, H)
-  where p2p2 = lambda A H, H
+  where p2b = (lambda T, T))
+  where b2p = (lambda T, T))
+  where p2p1 = (lambda A H, H))
+  where p2p2 = (lambda A H, H)
 
 let inhab = (lambda A, instantiated where B = A) : forall A : Type, A
 
