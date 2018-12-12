@@ -276,9 +276,9 @@ let rec type_of_term_abstraction sgn = function
      TT_mk.not_abstract t
 
   | TT.Abstract (x, t, abstr) ->
-     let a, abstr = TT.unabstract_abstraction TT.instantiate_term x t abstr in
+     let a, abstr = TT_unabstract.abstraction TT_instantiate.term x t abstr in
      let t_abstr = type_of_term_abstraction sgn abstr in
-     let t_abstr = TT.abstract_abstraction TT.abstract_type a.TT.atom_name t_abstr in
+     let t_abstr = TT_abstract.abstraction TT_abstract.ty a.TT.atom_name t_abstr in
      TT_mk.abstract x t t_abstr
 
 (** [natural_type sgn e] gives the judgment that the natural type [t] of [e] is derivable.
@@ -332,14 +332,14 @@ let check_argument sgn metas s p =
   | Rule.PremiseIsType s_abstr, ArgumentIsType p_abstr ->
      let s_abstr = meta_instantiate_abstraction (fun ~lvl _ () -> ()) ~lvl:0 metas s_abstr
      and p_abstr = boundary_is_type_abstraction p_abstr in
-     if not (TT.alpha_equal_abstraction (fun () () -> true) s_abstr p_abstr) then
+     if not (TT_alpha_equal.abstraction (fun () () -> true) s_abstr p_abstr) then
        TT.error TT.InvalidArgument
 
   | Rule.PremiseIsTerm s_abstr, ArgumentIsTerm p_abstr ->
      let s = meta_instantiate_abstraction meta_instantiate_is_type ~lvl:0 metas s_abstr
      and t = boundary_is_term_abstraction sgn p_abstr in
      begin
-       match TT.alpha_equal_abstraction TT.alpha_equal_type t s with
+       match TT_alpha_equal.abstraction TT_alpha_equal.ty t s with
        | false -> TT.error TT.InvalidArgument
        | true -> ()
      end
@@ -347,9 +347,9 @@ let check_argument sgn metas s p =
   | Rule.PremiseEqType s_abstr, ArgumentEqType p_abstr ->
      let s_abstr = meta_instantiate_abstraction meta_instantiate_eq_type ~lvl:0 metas s_abstr
      and p_abstr = boundary_eq_type_abstraction p_abstr in
-     if not (TT.alpha_equal_abstraction
+     if not (TT_alpha_equal.abstraction
                (fun (TT.EqType (_, l1,r1)) (TT.EqType (_, l2,r2)) ->
-                 TT.alpha_equal_type l1 l2 && TT.alpha_equal_type r1 r2)
+                 TT_alpha_equal.ty l1 l2 && TT_alpha_equal.ty r1 r2)
                s_abstr p_abstr)
      then
        TT.error TT.InvalidArgument
@@ -357,11 +357,11 @@ let check_argument sgn metas s p =
   | Rule.PremiseEqTerm s_abstr, ArgumentEqTerm p_abstr ->
      let s_abstr = meta_instantiate_abstraction meta_instantiate_eq_term ~lvl:0 metas s_abstr
      and p_abstr = boundary_eq_term_abstraction p_abstr in
-     if not (TT.alpha_equal_abstraction
+     if not (TT_alpha_equal.abstraction
                (fun (TT.EqTerm (_, e1,e2,t)) (TT.EqTerm (_, e1',e2',t')) ->
-                 TT.alpha_equal_term e1 e1'
-                 && TT.alpha_equal_term e2 e2'
-                 && TT.alpha_equal_type t t')
+                 TT_alpha_equal.term e1 e1'
+                 && TT_alpha_equal.term e2 e2'
+                 && TT_alpha_equal.ty t t')
                s_abstr p_abstr)
      then
        TT.error TT.InvalidArgument
@@ -601,7 +601,7 @@ let form_eq_type sgn c arguments =
   let (premises, (lhs_schema, rhs_schema)) =
     Signature.lookup_rule_eq_type c sgn in
   let inds = match_arguments sgn premises arguments in
-  (* order of arguments not important in [TT.assumption_arguments],
+  (* order of arguments not important in [TT_assumption.arguments],
      we could try avoiding a list reversal caused by [Indices.to_list]. *)
   let asmp = TT_assumption.arguments (Indices.to_list inds)
   and lhs = meta_instantiate_is_type ~lvl:0 inds lhs_schema
@@ -612,7 +612,7 @@ let form_eq_term sgn c arguments =
   let (premises, (e1_schema, e2_schema, t_schema)) =
     Signature.lookup_rule_eq_term c sgn in
   let inds = match_arguments sgn premises arguments in
-  (* order of arguments not important in [TT.assumption_arguments],
+  (* order of arguments not important in [TT_assumption.arguments],
      we could try avoiding a list reversal caused by [Indices.to_list]. *)
   let asmp = TT_assumption.arguments (Indices.to_list inds)
   and e1 = meta_instantiate_is_term ~lvl:0 inds e1_schema
@@ -626,7 +626,7 @@ let type_of_atom {TT.atom_type=t;_} = t
 
 let form_is_term_atom = TT_mk.atom
 
-let fresh_atom = TT.fresh_atom
+let fresh_atom = TT_mk.fresh_atom
 
 let fresh_is_type_meta = TT.fresh_type_meta
 let fresh_is_term_meta = TT.fresh_term_meta
@@ -643,9 +643,9 @@ let rec check_term_arguments sgn abstr args =
   | TT.NotAbstract _, _::_ -> TT.error TT.TooManyArguments
   | TT.Abstract (x, t, abstr), arg :: args ->
      let t_arg = type_of_term sgn arg in
-     if TT.alpha_equal_type t t_arg
+     if TT_alpha_equal.ty t t_arg
      then
-       let abstr = TT.instantiate_abstraction inst_u_no_op arg abstr in
+       let abstr = TT_instantiate.abstraction inst_u_no_op arg abstr in
        check_term_arguments sgn abstr args
      else
        TT.error TT.InvalidApplication
@@ -653,7 +653,7 @@ let rec check_term_arguments sgn abstr args =
 let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
   match e with
   | TT.TermConvert (e, asmp0, t0) ->
-     if TT.alpha_equal_type t0 t1 then
+     if TT_alpha_equal.ty t0 t1 then
        (* here we rely on transitivity of equality *)
        let asmp = Assumption.union asmp0 (Assumption.union asmp (TT_assumption.ty t1))
        (* we could have used the assumptions of [t0] instead, because [t0] and [t1] are
@@ -670,7 +670,7 @@ let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
 
   | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _ | TT.TermMeta _) as e ->
      let t0 = natural_type sgn e in
-     if TT.alpha_equal_type t0 t1 then
+     if TT_alpha_equal.ty t0 t1 then
        (* We need not include assumptions of [t1] because [t0] is alpha-equal
             to [t1] so we can use [t0] in place of [t1] if so desired. *)
        (* [e] is not a [TermConvert] by the above pattern-check *)
@@ -682,44 +682,44 @@ let abstract_not_abstract u = TT_mk.not_abstract u
 
 let abstract_is_type {TT.atom_name=x; atom_type=t} abstr =
   (* XXX occurs check?! *)
-  let abstr = TT.abstract_abstraction TT.abstract_type x abstr in
+  let abstr = TT_abstract.abstraction TT_abstract.ty x abstr in
   TT_mk.abstract (Name.ident_of_atom x) t abstr
 
 let abstract_is_term {TT.atom_name=x; atom_type=t} abstr =
-  let abstr = TT.abstract_abstraction TT.abstract_term x abstr in
+  let abstr = TT_abstract.abstraction TT_abstract.term x abstr in
   TT_mk.abstract (Name.ident_of_atom x) t abstr
 
 let abstract_eq_type {TT.atom_name=x; atom_type=t} abstr =
-  let abstr = TT.abstract_abstraction TT.abstract_eq_type x abstr in
+  let abstr = TT_abstract.abstraction TT_abstract.eq_type x abstr in
   TT_mk.abstract (Name.ident_of_atom x) t abstr
 
 let abstract_eq_term {TT.atom_name=x; atom_type=t} abstr =
-  let abstr = TT.abstract_abstraction TT.abstract_eq_term x abstr in
+  let abstr = TT_abstract.abstraction TT_abstract.eq_term x abstr in
   TT_mk.abstract (Name.ident_of_atom x) t abstr
 
 let abstract_boundary_is_type {TT.atom_name=x; atom_type=t} abstr =
-  let abstr = TT.abstract_abstraction (fun _a ?lvl t -> ()) x abstr in
+  let abstr = TT_abstract.abstraction (fun _a ?lvl t -> ()) x abstr in
   TT_mk.abstract (Name.ident_of_atom x) t abstr
 
 let abstract_boundary_is_term {TT.atom_name=x; atom_type=t} abstr =
-  let abstr = TT.abstract_abstraction TT.abstract_type x abstr in
+  let abstr = TT_abstract.abstraction TT_abstract.ty x abstr in
   TT_mk.abstract (Name.ident_of_atom x) t abstr
 
 let abstract_boundary_eq_type {TT.atom_name=x; atom_type=t} abstr =
-  let abstr = TT.abstract_abstraction
+  let abstr = TT_abstract.abstraction
       (fun a ?lvl (lhs, rhs) ->
-         let lhs = TT.abstract_type ?lvl a lhs
-         and rhs = TT.abstract_type ?lvl a rhs in
+         let lhs = TT_abstract.ty ?lvl a lhs
+         and rhs = TT_abstract.ty ?lvl a rhs in
       (lhs, rhs))
       x abstr in
   TT_mk.abstract (Name.ident_of_atom x) t abstr
 
 let abstract_boundary_eq_term {TT.atom_name=x; atom_type=t} abstr =
-  let abstr = TT.abstract_abstraction
+  let abstr = TT_abstract.abstraction
       (fun a ?lvl (lhs, rhs, t) ->
-         let lhs = TT.abstract_term ?lvl a lhs
-         and rhs = TT.abstract_term ?lvl a rhs
-         and t = TT.abstract_type ?lvl a t in
+         let lhs = TT_abstract.term ?lvl a lhs
+         and rhs = TT_abstract.term ?lvl a rhs
+         and t = TT_abstract.ty ?lvl a t in
       (lhs, rhs, t))
       x abstr in
   TT_mk.abstract (Name.ident_of_atom x) t abstr
@@ -770,22 +770,22 @@ let as_not_abstract = function
 let invert_abstraction ?atom_name inst_v = function
   | TT.Abstract (x, t, abstr) ->
      let x = (match atom_name with None -> x | Some y -> y) in
-     let a = TT.fresh_atom x t in
-     let abstr = TT.instantiate_abstraction inst_v (TT_mk.atom a) abstr in
+     let a = TT_mk.fresh_atom x t in
+     let abstr = TT_instantiate.abstraction inst_v (TT_mk.atom a) abstr in
      Abstract (a, abstr)
   | TT.NotAbstract v -> NotAbstract v
 
 let invert_is_type_abstraction ?atom_name t =
-  invert_abstraction ?atom_name TT.instantiate_type t
+  invert_abstraction ?atom_name TT_instantiate.ty t
 
 let invert_is_term_abstraction ?atom_name e =
-  invert_abstraction ?atom_name TT.instantiate_term e
+  invert_abstraction ?atom_name TT_instantiate.term e
 
 let invert_eq_type_abstraction ?atom_name eq =
-  invert_abstraction ?atom_name TT.instantiate_eq_type eq
+  invert_abstraction ?atom_name TT_instantiate.eq_type eq
 
 let invert_eq_term_abstraction ?atom_name eq =
-  invert_abstraction ?atom_name TT.instantiate_eq_term eq
+  invert_abstraction ?atom_name TT_instantiate.eq_term eq
 
 let context_is_type_abstraction = TT.context_abstraction TT_assumption.ty
 let context_is_term_abstraction = TT.context_abstraction TT_assumption.term
@@ -806,22 +806,22 @@ let apply_abstraction inst_u sgn abstr e0 =
   match abstr with
   | TT.NotAbstract _ -> TT.error TT.AbstractionExpected
   | TT.Abstract (x, t, abstr) ->
-     begin match TT.alpha_equal_type t (type_of_term sgn e0) with
+     begin match TT_alpha_equal.ty t (type_of_term sgn e0) with
      | false -> TT.error TT.InvalidSubstitution
-     | true ->  TT.instantiate_abstraction inst_u e0 abstr
+     | true ->  TT_instantiate.abstraction inst_u e0 abstr
      end
 
 let apply_is_type_abstraction sgn abstr e0 =
-  apply_abstraction TT.instantiate_type sgn abstr e0
+  apply_abstraction TT_instantiate.ty sgn abstr e0
 
 let apply_is_term_abstraction sgn abstr e0 =
-  apply_abstraction TT.instantiate_term sgn abstr e0
+  apply_abstraction TT_instantiate.term sgn abstr e0
 
 let apply_eq_type_abstraction sgn abstr e0 =
-  apply_abstraction TT.instantiate_eq_type sgn abstr e0
+  apply_abstraction TT_instantiate.eq_type sgn abstr e0
 
 let apply_eq_term_abstraction sgn abstr e0 =
-  apply_abstraction TT.instantiate_eq_term sgn abstr e0
+  apply_abstraction TT_instantiate.eq_term sgn abstr e0
 
 let rec fully_apply_abstraction inst_u sgn abstr = function
   | [] ->
@@ -836,7 +836,7 @@ let rec fully_apply_abstraction inst_u sgn abstr = function
 (** Conversion *)
 
 let convert_eq_term (TT.EqTerm (asmp1, e1, e2, t0)) (TT.EqType (asmp2, t1, t2)) =
-  if TT.alpha_equal_type t0 t1 then
+  if TT_alpha_equal.ty t0 t1 then
     (* We could have used the assumptions of [t0] instead of [t1], see comments in [form_is_term]
        about possible optimizations. *)
     let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT_assumption.ty t1)) in
@@ -858,8 +858,8 @@ let form_eq_type_meta sgn TT.{meta_name ; meta_type} args =
   let asmp = Assumption.add_eq_type_meta meta_name meta_type Assumption.empty in
   let (lhs, rhs) =
     let inst_eq_type_boundary e0 ?lvl (lhs, rhs) =
-      let lhs = TT.instantiate_type e0 ?lvl lhs
-      and rhs = TT.instantiate_type e0 ?lvl rhs
+      let lhs = TT_instantiate.ty e0 ?lvl lhs
+      and rhs = TT_instantiate.ty e0 ?lvl rhs
       in (lhs, rhs)
     in
     fully_apply_abstraction inst_eq_type_boundary sgn meta_type args
@@ -870,9 +870,9 @@ let form_eq_term_meta sgn TT.{meta_name ; meta_type} args =
   let asmp = Assumption.add_eq_term_meta meta_name meta_type Assumption.empty in
   let (lhs, rhs, t) =
     let inst_eq_term_boundary e0 ?lvl (lhs, rhs, t) =
-      let lhs = TT.instantiate_term e0 ?lvl lhs
-      and rhs = TT.instantiate_term e0 ?lvl rhs
-      and t = TT.instantiate_type e0 ?lvl t
+      let lhs = TT_instantiate.term e0 ?lvl lhs
+      and rhs = TT_instantiate.term e0 ?lvl rhs
+      and t = TT_instantiate.ty e0 ?lvl t
       in (lhs, rhs, t)
     in
     fully_apply_abstraction inst_eq_term_boundary sgn meta_type args
@@ -887,9 +887,9 @@ let meta_eta_expanded instantiate_meta form_meta abstract_meta sgn mv =
 
   | TT.Abstract (x, ty, abstr) ->
      let a, abstr =
-       TT.unabstract_abstraction instantiate_meta x ty abstr in
+       TT_unabstract.abstraction instantiate_meta x ty abstr in
      let abstr = fold ((form_is_term_atom a) :: args) abstr in
-     let abstr = TT.abstract_abstraction abstract_meta a.TT.atom_name abstr in
+     let abstr = TT_abstract.abstraction abstract_meta a.TT.atom_name abstr in
      TT_mk.abstract x ty abstr
 
   in fold [] mv.TT.meta_type
@@ -898,42 +898,42 @@ let is_type_meta_eta_expanded =
   meta_eta_expanded
     (fun _e0 ?lvl () -> ())
     form_is_type_meta
-    TT.abstract_type
+    TT_abstract.ty
 
 let is_term_meta_eta_expanded =
   meta_eta_expanded
-    TT.instantiate_type
+    TT_instantiate.ty
     form_is_term_meta
-    TT.abstract_term
+    TT_abstract.term
 
 let eq_type_meta_eta_expanded =
   meta_eta_expanded
     (fun e0 ?lvl (lhs, rhs) ->
-       TT.instantiate_type e0 ?lvl lhs,
-       TT.instantiate_type e0 ?lvl rhs)
+       TT_instantiate.ty e0 ?lvl lhs,
+       TT_instantiate.ty e0 ?lvl rhs)
     form_eq_type_meta
-    TT.abstract_eq_type
+    TT_abstract.eq_type
 
 let eq_term_meta_eta_expanded =
   meta_eta_expanded
     (fun e0 ?lvl (lhs, rhs, t) ->
-       TT.instantiate_term e0 ?lvl lhs,
-       TT.instantiate_term e0 ?lvl rhs,
-       TT.instantiate_type e0 ?lvl t)
+       TT_instantiate.term e0 ?lvl lhs,
+       TT_instantiate.term e0 ?lvl rhs,
+       TT_instantiate.ty e0 ?lvl t)
     form_eq_term_meta
-    TT.abstract_eq_term
+    TT_abstract.eq_term
 
 
 (** Constructors *)
 
-let alpha_equal_term = TT.alpha_equal_term
+let alpha_equal_term = TT_alpha_equal.term
 
-let alpha_equal_type = TT.alpha_equal_type
+let alpha_equal_type = TT_alpha_equal.ty
 
-let alpha_equal_abstraction = TT.alpha_equal_abstraction
+let alpha_equal_abstraction = TT_alpha_equal.abstraction
 
 let mk_alpha_equal_type t1 t2 =
-  match TT.alpha_equal_type t1 t2 with
+  match TT_alpha_equal.ty t1 t2 with
   | false -> None
   | true -> Some (TT_mk.eq_type Assumption.empty t1 t2)
 
@@ -945,10 +945,10 @@ let mk_alpha_equal_term sgn e1 e2 =
   (* XXX if e1 and e2 are α-equal, we may apply uniqueness of typing to
      conclude that their types are equal, so we don't have to compute t1, t2,
      and t1 =α= t2. *)
-  match TT.alpha_equal_type t1 t2 with
+  match TT_alpha_equal.ty t1 t2 with
   | false -> error (AlphaEqualTypeMismatch (t1, t2))
   | true ->
-     begin match TT.alpha_equal_term e1 e2 with
+     begin match TT_alpha_equal.term e1 e2 with
      | false -> None
      | true ->
         (* We may keep the assumptions empty here. One might worry
@@ -984,10 +984,10 @@ let symmetry_term (TT.EqTerm (asmp, e1, e2, t)) = TT_mk.eq_term asmp e2 e1 t
 let symmetry_type (TT.EqType (asmp, t1, t2)) = TT_mk.eq_type asmp t2 t1
 
 let transitivity_term (TT.EqTerm (asmp, e1, e2, t)) (TT.EqTerm (asmp', e1', e2', t')) =
-  match TT.alpha_equal_type t t' with
+  match TT_alpha_equal.ty t t' with
   | false -> error (AlphaEqualTypeMismatch (t, t'))
   | true ->
-     begin match TT.alpha_equal_term e2 e1' with
+     begin match TT_alpha_equal.term e2 e1' with
      | false -> error (AlphaEqualTermMismatch (e2, e1'))
      | true ->
         (* XXX could use assumptions of [e1'] instead, or whichever is better. *)
@@ -996,7 +996,7 @@ let transitivity_term (TT.EqTerm (asmp, e1, e2, t)) (TT.EqTerm (asmp', e1', e2',
      end
 
 let transitivity_type (TT.EqType (asmp1, t1, t2)) (TT.EqType (asmp2, u1, u2)) =
-  begin match TT.alpha_equal_type t2 u1 with
+  begin match TT_alpha_equal.ty t2 u1 with
   | false -> error (AlphaEqualTypeMismatch (t2, u1))
   | true ->
      (* XXX could use assumptions of [u1] instead, or whichever is better. *)
@@ -1013,7 +1013,7 @@ let process_congruence_args args =
     | TT.NotAbstract t1, TT.NotAbstract t2, TT.NotAbstract eq ->
        if not (check t1 t2 eq) then TT.error TT.InvalidCongruence
     | TT.Abstract (_x1, u1, t1), TT.Abstract (_x2, u2, t2), TT.Abstract (_x', u', eq) ->
-       if TT.alpha_equal_type u1 u' || TT.alpha_equal_type u2 u' then
+       if TT_alpha_equal.ty u1 u' || TT_alpha_equal.ty u2 u' then
          check_endpoints check t1 t2 eq
        else
          TT.error TT.InvalidCongruence
@@ -1027,7 +1027,7 @@ let process_congruence_args args =
     | CongrIsType (t1, t2, eq) :: eqs ->
        check_endpoints
          (fun t1 t2 (TT.EqType (_, t1', t2')) ->
-           TT.alpha_equal_type t1 t1' && TT.alpha_equal_type t2 t2')
+           TT_alpha_equal.ty t1 t1' && TT_alpha_equal.ty t2 t2')
          t1 t2 eq ;
        let asmp_out = Assumption.union asmp_out (TT_assumption.abstraction TT_assumption.eq_type eq)
        in fold asmp_out (ArgumentIsType t1 :: lhs) (ArgumentIsType t2 :: rhs) eqs
@@ -1035,7 +1035,7 @@ let process_congruence_args args =
     | CongrIsTerm (e1, e2, eq) :: eqs ->
        check_endpoints
          (fun e1 e2 (TT.EqTerm (_, e1', e2', _)) ->
-           TT.alpha_equal_term e1 e1' && TT.alpha_equal_term e2 e2')
+           TT_alpha_equal.term e1 e1' && TT_alpha_equal.term e2 e2')
          e1 e2 eq ;
        let asmp_out = Assumption.union asmp_out (TT_assumption.abstraction TT_assumption.eq_term eq)
        in fold asmp_out (ArgumentIsTerm e1 :: lhs) (ArgumentIsTerm e2 :: rhs) eqs
@@ -1072,56 +1072,56 @@ let print_is_type ?max_level ~penv t ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%s @[<hv>@[<hov>%t@]@;<1 -2> type@]"
               (Print.char_vdash ())
-              (TT.print_type ~max_level:Level.highest ~penv t)
+              (TT_print.ty ~max_level:Level.highest ~penv t)
 
 let print_is_term ?max_level ~penv e ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%s @[<hov 4>%t@]"
               (Print.char_vdash ())
-              (TT.print_term ~max_level:Level.highest ~penv e)
+              (TT_print.term ~max_level:Level.highest ~penv e)
 
 let print_eq_type ?max_level ~penv eq ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%s @[<hv>%t@]"
               (Print.char_vdash ())
-              (TT.print_eq_type ~max_level:Level.highest ~penv eq)
+              (TT_print.eq_type ~max_level:Level.highest ~penv eq)
 
 let print_eq_term ?max_level ~penv eq ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%s @[<hv>%t@]"
               (Print.char_vdash ())
-              (TT.print_eq_term ~max_level:Level.highest ~penv eq)
+              (TT_print.eq_term ~max_level:Level.highest ~penv eq)
 
 let print_is_type_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  TT.print_abstraction TT.occurs_type print_is_type ?max_level ~penv abstr ppf
+  TT_print.abstraction TT_occurs.ty print_is_type ?max_level ~penv abstr ppf
 
 let print_is_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  TT.print_abstraction TT.occurs_term print_is_term ?max_level ~penv abstr ppf
+  TT_print.abstraction TT_occurs.term print_is_term ?max_level ~penv abstr ppf
 
 let print_eq_type_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  TT.print_abstraction TT.occurs_eq_type print_eq_type ?max_level ~penv abstr ppf
+  TT_print.abstraction TT_occurs.eq_type print_eq_type ?max_level ~penv abstr ppf
 
 let print_eq_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  TT.print_abstraction TT.occurs_eq_term print_eq_term ?max_level ~penv abstr ppf
+  TT_print.abstraction TT_occurs.eq_term print_eq_term ?max_level ~penv abstr ppf
 
 let print_error ~penv err ppf =
   match err with
 
   | InvalidConvert (t1, t2) ->
      Format.fprintf ppf "Trying to convert something at@ %t@ using an equality on@ %t@."
-                    (TT.print_type ~penv t1) (TT.print_type ~penv t2)
+                    (TT_print.ty ~penv t1) (TT_print.ty ~penv t2)
 
   | AlphaEqualTypeMismatch (t1, t2) ->
      Format.fprintf ppf "The types@ %t@ and@ %t@ should be alpha equal."
-                    (TT.print_type ~penv t1) (TT.print_type ~penv t2)
+                    (TT_print.ty ~penv t1) (TT_print.ty ~penv t2)
 
   | AlphaEqualTermMismatch (e1, e2) ->
      Format.fprintf ppf "The terms@ %t@ and@ %t@ should be alpha equal."
-                    (TT.print_term ~penv e1) (TT.print_term ~penv e2)
+                    (TT_print.term ~penv e1) (TT_print.term ~penv e2)
 
 module Json =
   struct

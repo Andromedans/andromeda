@@ -20,6 +20,6 @@ include TT_substitute
 
 include TT_occurs
 
-include TT_alpha_equality
+include TT_alpha_equal
 
 include TT_json

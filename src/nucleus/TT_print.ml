@@ -1,9 +1,8 @@
 (****** Printing routines *****)
 
 open Jdg_typedefs
-open TT_occurs
 
-let print_error err ppf =
+let error err ppf =
   let open Jdg_typedefs in
   match err with
   | InvalidInstantiation -> Format.fprintf ppf "invalid instantiation"
@@ -24,15 +23,9 @@ let print_error err ppf =
   | InvalidCongruence -> Format.fprintf ppf "invalid congruence argument"
 
 
-type print_env =
-  { forbidden : Name.ident list
-  ; metas : Name.meta_printer
-  ; atoms : Name.atom_printer
-  }
-
 let add_forbidden x penv = { penv with forbidden = x :: penv.forbidden }
 
-let rec print_abstraction
+let rec abstraction
    : 'b . (bound -> 'b -> bool) ->
           (?max_level:Level.t -> penv:print_env -> 'b -> Format.formatter -> unit) ->
           ?max_level:Level.t ->
@@ -49,13 +42,13 @@ let rec print_abstraction
           print_v ?max_level ~penv v ppf
        | _::_ ->
          Print.print ~at_level:Level.abstraction ?max_level ppf "@[<hov 2>%t@ %t@]"
-           (Print.sequence (print_binder ~penv) "" xus)
+           (Print.sequence (binder ~penv) "" xus)
            (print_v ~max_level:Level.abstraction_body ~penv v)
        end
 
     | Abstract (x, u, abstr) ->
        let x =
-         (if occurs_abstraction occurs_v 0 abstr then
+         (if TT_occurs.abstraction occurs_v 0 abstr then
             Name.refresh penv.forbidden x
           else
             Name.anonymous ())
@@ -67,7 +60,7 @@ let rec print_abstraction
 
   fold penv [] abstr
 
-and print_term ?max_level ~penv e ppf =
+and term ?max_level ~penv e ppf =
   match e with
   | TermAtom {atom_name=x; _} ->
      Name.print_atom ~printer:(penv.atoms) x ppf
@@ -75,46 +68,46 @@ and print_term ?max_level ~penv e ppf =
   | TermBound k -> Name.print_debruijn penv.forbidden k ppf
 
   | TermConstructor (c, args) ->
-     print_constructor ?max_level ~penv c args ppf
+     constructor ?max_level ~penv c args ppf
 
   | TermMeta (mv, args) ->
-     print_meta ?max_level ~penv mv args ppf
+     meta ?max_level ~penv mv args ppf
 
-  | TermConvert (e, _, _) -> print_term ~penv ?max_level e ppf
+  | TermConvert (e, _, _) -> term ~penv ?max_level e ppf
 
-and print_type ?max_level ~penv t ppf =
+and ty ?max_level ~penv t ppf =
   match t with
 
   | TypeConstructor (c, args) ->
-     print_constructor ?max_level ~penv c args ppf
+     constructor ?max_level ~penv c args ppf
 
   | TypeMeta (mv, args) ->
-     print_meta ?max_level ~penv mv args ppf
+     meta ?max_level ~penv mv args ppf
 
-and print_eq_type ?max_level ~penv (EqType (_asmp, t1, t2)) ppf =
+and eq_type ?max_level ~penv (EqType (_asmp, t1, t2)) ppf =
   (* TODO: print _asmp? *)
   Print.print
     ?max_level
     ~at_level:Level.eq
     ppf
     "@[<hov>%t@]@ %s@ @[<hov>%t@]"
-    (print_type ~penv t1)
+    (ty ~penv t1)
     (Print.char_equal ())
-    (print_type ~penv t2)
+    (ty ~penv t2)
 
-and print_eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
+and eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
   (* TODO: print _asmp? *)
   Print.print
     ?max_level
     ~at_level:Level.eq
     ppf
     "@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]"
-    (print_term ~penv e1)
+    (term ~penv e1)
     (Print.char_equal ())
-    (print_term ~penv e2)
-    (print_type ~penv t)
+    (term ~penv e2)
+    (ty ~penv t)
 
-and print_meta :
+and meta :
   type a . ?max_level:Level.t -> penv:print_env
             -> a meta -> term list -> Format.formatter -> unit
   = fun ?max_level ~penv {meta_name;_} args ppf ->
@@ -124,31 +117,31 @@ and print_meta :
   | _::_ ->
      Print.print ~at_level:Level.meta ?max_level ppf "@[<hov 2>%t@ %t@]"
     (Name.print_meta ~printer:penv.metas meta_name)
-    (Print.sequence (print_term ~max_level:Level.meta_arg ~penv) "" args) ;
+    (Print.sequence (term ~max_level:Level.meta_arg ~penv) "" args) ;
 
-and print_constructor ?max_level ~penv c args ppf =
+and constructor ?max_level ~penv c args ppf =
   match args with
   | [] ->
      Name.print_ident ~parentheses:true c ppf
   | _::_ ->
      Print.print ~at_level:Level.constructor ?max_level ppf "@[<hov 2>%t@ %t@]"
        (Name.print_ident c)
-       (Print.sequence (print_arg ~penv) "" args) ;
+       (Print.sequence (argument ~penv) "" args) ;
 
-and print_arg ~penv arg ppf =
+and argument ~penv arg ppf =
   match arg with
   | ArgIsType abstr ->
-     print_abstraction occurs_type print_type ~max_level:Level.constructor_arg ~penv abstr ppf
+     abstraction TT_occurs.ty ty ~max_level:Level.constructor_arg ~penv abstr ppf
   | ArgIsTerm abstr ->
-     print_abstraction occurs_term print_term ~max_level:Level.constructor_arg ~penv abstr ppf
+     abstraction TT_occurs.term term ~max_level:Level.constructor_arg ~penv abstr ppf
   | ArgEqType abstr ->
-     print_abstraction occurs_eq_type print_eq_type ~max_level:Level.constructor_arg ~penv abstr ppf
+     abstraction TT_occurs.eq_type eq_type ~max_level:Level.constructor_arg ~penv abstr ppf
   | ArgEqTerm abstr ->
-     print_abstraction occurs_eq_term print_eq_term ~max_level:Level.constructor_arg ~penv abstr ppf
+     abstraction TT_occurs.eq_term eq_term ~max_level:Level.constructor_arg ~penv abstr ppf
 
 
-and print_binder ~penv (x,t) ppf =
+and binder ~penv (x,t) ppf =
   Print.print ppf "{%t@ :@ %t}"
     (Name.print_ident ~parentheses:true x)
-    (print_type ~penv t)
+    (ty ~penv t)
 
