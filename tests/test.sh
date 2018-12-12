@@ -2,6 +2,7 @@
 
 BASEDIR=`dirname "$0"`
 DIFF=`which diff`
+FIND=`which find`
 PRINTF=`which printf`
 
 VALDIFF=$(which colordiff || which diff)
@@ -11,6 +12,12 @@ cd "$BASEDIR"
 if [ ! -x "$DIFF" ]
 then
     echo "Cannot find the diff command. Exiting."
+    exit 1
+fi
+
+if [ ! -x "$FIND" ]
+then
+    echo "Cannot find the find command. Exiting."
     exit 1
 fi
 
@@ -44,7 +51,7 @@ fi
 FILES="$@"
 if [ "$FILES" = "" ]
 then
-    FILES="$BASEDIR"/*.m31
+    FILES=$($FIND "$BASEDIR" -name "*.m31")
 fi
 
 _EXIT=0
