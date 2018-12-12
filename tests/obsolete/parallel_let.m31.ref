@@ -1,4 +1,0 @@
-val cow :> judgment
-
-⊢ Type → Type → Type : Type
-
