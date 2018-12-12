@@ -1,7 +1,7 @@
 (** The full typing environment. *)
 
-(** The type of typing environments.
-    An environment is a typing context together with a substitution and unsolved constraints. *)
+(** The type of typing environments: a typing context together with a
+    substitution and unsolved constraints. *)
 type t
 
 (** The empty typing environment. *)
