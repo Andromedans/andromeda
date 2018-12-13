@@ -956,47 +956,14 @@ let congruence_term_constructor sgn c eqs =
   let t = type_of_term sgn e1
   in TT_mk.eq_term asmp e1 e2 t
 
-(** Printing functions *)
-
-let print_is_type ?max_level ~penv t ppf =
-  Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>@[<hov>%t@]@;<1 -2> type@]"
-              (Print.char_vdash ())
-              (TT_print.ty ~max_level:Level.highest ~penv t)
-
-let print_is_term ?max_level ~penv e ppf =
-  Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hov 4>%t@]"
-              (Print.char_vdash ())
-              (TT_print.term ~max_level:Level.highest ~penv e)
-
-let print_eq_type ?max_level ~penv eq ppf =
-  Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>%t@]"
-              (Print.char_vdash ())
-              (TT_print.eq_type ~max_level:Level.highest ~penv eq)
-
-let print_eq_term ?max_level ~penv eq ppf =
-  Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>%t@]"
-              (Print.char_vdash ())
-              (TT_print.eq_term ~max_level:Level.highest ~penv eq)
-
-let print_is_type_abstraction ?max_level ~penv abstr ppf =
-  (* TODO: print invisible assumptions, or maybe the entire context *)
-  TT_print.abstraction TT_occurs.ty print_is_type ?max_level ~penv abstr ppf
-
-let print_is_term_abstraction ?max_level ~penv abstr ppf =
-  (* TODO: print invisible assumptions, or maybe the entire context *)
-  TT_print.abstraction TT_occurs.term print_is_term ?max_level ~penv abstr ppf
-
-let print_eq_type_abstraction ?max_level ~penv abstr ppf =
-  (* TODO: print invisible assumptions, or maybe the entire context *)
-  TT_print.abstraction TT_occurs.eq_type print_eq_type ?max_level ~penv abstr ppf
-
-let print_eq_term_abstraction ?max_level ~penv abstr ppf =
-  (* TODO: print invisible assumptions, or maybe the entire context *)
-  TT_print.abstraction TT_occurs.eq_term print_eq_term ?max_level ~penv abstr ppf
+let print_is_term = TT_print.is_term
+let print_is_type = TT_print.is_type
+let print_eq_term = TT_print.eq_term
+let print_eq_type = TT_print.eq_type
+let print_is_term_abstraction = TT_print.is_term_abstraction
+let print_is_type_abstraction = TT_print.is_type_abstraction
+let print_eq_term_abstraction = TT_print.eq_term_abstraction
+let print_eq_type_abstraction = TT_print.eq_type_abstraction
 
 let print_error = TT_print.error
 

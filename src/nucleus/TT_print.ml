@@ -126,6 +126,50 @@ and binder ~penv (x,t) ppf =
 
 
 
+(** Printing judgements *)
+
+let is_type ?max_level ~penv t ppf =
+  Print.print ?max_level ~at_level:Level.jdg ppf
+              "%s @[<hv>@[<hov>%t@]@;<1 -2> type@]"
+              (Print.char_vdash ())
+              (ty ~max_level:Level.highest ~penv t)
+
+let is_term ?max_level ~penv e ppf =
+  Print.print ?max_level ~at_level:Level.jdg ppf
+              "%s @[<hov 4>%t@]"
+              (Print.char_vdash ())
+              (term ~max_level:Level.highest ~penv e)
+
+let eq_type ?max_level ~penv eq ppf =
+  Print.print ?max_level ~at_level:Level.jdg ppf
+              "%s @[<hv>%t@]"
+              (Print.char_vdash ())
+              (eq_type ~max_level:Level.highest ~penv eq)
+
+let eq_term ?max_level ~penv eq ppf =
+  Print.print ?max_level ~at_level:Level.jdg ppf
+              "%s @[<hv>%t@]"
+              (Print.char_vdash ())
+              (eq_term ~max_level:Level.highest ~penv eq)
+
+let is_type_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  abstraction TT_occurs.ty is_type ?max_level ~penv abstr ppf
+
+let is_term_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  abstraction TT_occurs.term is_term ?max_level ~penv abstr ppf
+
+let eq_type_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  abstraction TT_occurs.eq_type eq_type ?max_level ~penv abstr ppf
+
+let eq_term_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  abstraction TT_occurs.eq_term eq_term ?max_level ~penv abstr ppf
+
+
+
 let error ~penv err ppf =
   let open Jdg_typedefs in
   match err with
