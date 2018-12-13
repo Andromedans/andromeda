@@ -110,3 +110,55 @@ and abstraction
      let u = ty x ~lvl u in
      let abstr = abstraction abstr_v x ~lvl:(lvl+1) abstr in
      Abstract (y, u, abstr)
+
+
+
+(***** from Jdg *****)
+
+
+let not_abstract u = TT_mk.not_abstract u
+
+let is_type_abstraction {atom_name=x; atom_type=t} abstr =
+  (* XXX occurs check?! *)
+  let abstr = abstraction ty x abstr in
+  TT_mk.abstract (Name.ident_of_atom x) t abstr
+
+let is_term_abstraction {atom_name=x; atom_type=t} abstr =
+  let abstr = abstraction term x abstr in
+  TT_mk.abstract (Name.ident_of_atom x) t abstr
+
+let eq_type_abstraction {atom_name=x; atom_type=t} abstr =
+  let abstr = abstraction eq_type x abstr in
+  TT_mk.abstract (Name.ident_of_atom x) t abstr
+
+let eq_term_abstraction {atom_name=x; atom_type=t} abstr =
+  let abstr = abstraction eq_term x abstr in
+  TT_mk.abstract (Name.ident_of_atom x) t abstr
+
+let boundary_is_type_abstraction {atom_name=x; atom_type=t} abstr =
+  let abstr = abstraction (fun _a ?lvl t -> ()) x abstr in
+  TT_mk.abstract (Name.ident_of_atom x) t abstr
+
+let boundary_is_term_abstraction {atom_name=x; atom_type=t} abstr =
+  let abstr = abstraction ty x abstr in
+  TT_mk.abstract (Name.ident_of_atom x) t abstr
+
+let boundary_eq_type_abstraction {atom_name=x; atom_type=t} abstr =
+  let abstr = abstraction
+      (fun a ?lvl (lhs, rhs) ->
+         let lhs = ty ?lvl a lhs
+         and rhs = ty ?lvl a rhs in
+      (lhs, rhs))
+      x abstr in
+  TT_mk.abstract (Name.ident_of_atom x) t abstr
+
+let boundary_eq_term_abstraction {atom_name=x; atom_type=t} abstr =
+  let abstr = abstraction
+      (fun a ?lvl (lhs, rhs, t) ->
+         let lhs = term ?lvl a lhs
+         and rhs = term ?lvl a rhs
+         and t = ty ?lvl a t in
+      (lhs, rhs, t))
+      x abstr in
+  TT_mk.abstract (Name.ident_of_atom x) t abstr
+

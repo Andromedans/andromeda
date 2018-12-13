@@ -249,17 +249,17 @@ val apply_eq_term_abstraction :
   signature -> eq_term_abstraction -> is_term -> eq_term_abstraction
 
 (** If [e1 == e2 : A] and [A == B] then [e1 == e2 : B] *)
-val convert_eq_term : eq_term -> eq_type -> eq_term
+val form_eq_term_convert : eq_term -> eq_type -> eq_term
 
 (** Given two terms [e1 : A1] and [e2 : A2] construct [e1 == e2 : A1],
     provided [A1] and [A2] are alpha equal and [e1] and [e2] are alpha equal *)
-val mk_alpha_equal_term : signature -> is_term -> is_term -> eq_term option
+val form_alpha_equal_term : signature -> is_term -> is_term -> eq_term option
 
 (** Given two types [A] and [B] construct [A == B] provided the types are alpha equal *)
-val mk_alpha_equal_type : is_type -> is_type -> eq_type option
+val form_alpha_equal_type : is_type -> is_type -> eq_type option
 
 (** Given two abstractions, construct an abstracted equality provided the abstracted entities are alpha equal. *)
-val mk_alpha_equal_abstraction :
+val form_alpha_equal_abstraction :
   ('a -> 'b -> 'c option) ->
   'a abstraction -> 'b abstraction -> 'c abstraction option
 

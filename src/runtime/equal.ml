@@ -33,7 +33,7 @@ module Internals = struct
 
 (** Compare two terms *)
 let equal ~loc sgn e1 e2 =
-  match Jdg.mk_alpha_equal_term sgn e1 e2 with
+  match Jdg.form_alpha_equal_term sgn e1 e2 with
     | Some eq -> Opt.return eq
     | None ->
       Predefined.operation_equal_term ~loc e1 e2 >!=
@@ -50,7 +50,7 @@ let equal ~loc sgn e1 e2 =
 
 (* Compare two types *)
 let equal_type ~loc t1 t2 =
-  match Jdg.mk_alpha_equal_type t1 t2 with
+  match Jdg.form_alpha_equal_type t1 t2 with
     | Some eq -> Opt.return eq
     | None ->
       Predefined.operation_equal_type ~loc t1 t2 >!=
