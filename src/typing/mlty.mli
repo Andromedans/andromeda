@@ -1,6 +1,6 @@
 (** ML types and basic operations on them. *)
 
-(** The type of metavariables. *)
+(** The type of ML type metavariables. *)
 type meta
 
 (** The type of type parameters. *)

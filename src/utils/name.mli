@@ -46,9 +46,6 @@ module Predefined : sig
   (** The name of the [equal_type] operation *)
   val equal_type : operation
 
-  (** The name of the [as_prod] operation *)
-  val as_prod : operation
-
   (** The name of the [coercible] type *)
   val coercible_ty : ty
 
@@ -63,9 +60,6 @@ module Predefined : sig
 
   (** The name of the [coerce] operation *)
   val coerce : operation
-
-  (** The name of the [coerce_fun] operation *)
-  val coerce_fun : operation
 
   (** The name of the [hypotheses] dynamic variable *)
   val hypotheses : ident
