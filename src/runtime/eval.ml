@@ -9,8 +9,8 @@ let as_atom ~loc v =
   Runtime.lookup_signature >>= fun sgn ->
   let j = Runtime.as_is_term ~loc v in
   match Jdg.invert_is_term sgn j with
-    | Jdg.TermAtom x -> return x
-    | (Jdg.TermConstructor _ | Jdg.TermMeta _ | Jdg.TermConvert _) -> Runtime.(error ~loc (ExpectedAtom j))
+    | Jdg.Stump.TermAtom x -> return x
+    | (Jdg.Stump.TermConstructor _ | Jdg.Stump.TermMeta _ | Jdg.Stump.TermConvert _) -> Runtime.(error ~loc (ExpectedAtom j))
 
 (* as_handler: loc:Location.t -> Runtime.value -> Runtime.handler Runtime.comp *)
 let as_handler ~loc v =
@@ -451,10 +451,10 @@ and check ({Location.thing=c';loc} as c) t_check =
 and check_abstract ~loc t_check x uopt c =
   match Jdg.invert_is_type_abstraction ~atom_name:x t_check with
 
-  | Jdg.NotAbstract t ->
+  | Jdg.Stump.NotAbstract t ->
      Runtime.(error ~loc (UnexpectedAbstraction t))
 
-  | Jdg.Abstract (a, t_check') ->
+  | Jdg.Stump.Abstract (a, t_check') ->
      (* NB: [a] is a fresh atom at this point. *)
      begin match uopt with
 
@@ -710,7 +710,7 @@ let premise {Location.thing=prem;_} =
        Runtime.lookup_signature >>= fun sgn ->
        let mv = Jdg.fresh_is_type_meta x abstr in
        let v = Runtime.mk_is_type (Jdg.is_type_meta_eta_expanded sgn mv) in
-       return ((mv.TT.meta_name, Jdg.BoundaryType abstr), Some v)
+       return ((Jdg.meta_name mv, Jdg.BoundaryIsType abstr), Some v)
 
     | Rsyntax.PremiseIsTerm (x, lctx, c) ->
        local_context
@@ -721,7 +721,7 @@ let premise {Location.thing=prem;_} =
        Runtime.lookup_signature >>= fun sgn ->
        let mv = Jdg.fresh_is_term_meta x abstr in
        let v = Runtime.mk_is_term (Jdg.is_term_meta_eta_expanded sgn mv) in
-       return ((mv.TT.meta_name, Jdg.BoundaryTerm abstr), Some v)
+       return ((Jdg.meta_name mv, Jdg.BoundaryIsTerm abstr), Some v)
 
 
     | Rsyntax.PremiseEqType (x, lctx, boundary) ->
@@ -736,11 +736,11 @@ let premise {Location.thing=prem;_} =
          | None ->
             let x = Name.anonymous () in
             let mv = Jdg.fresh_eq_type_meta x abstr in
-            (mv.TT.meta_name, None)
+            (Jdg.meta_name mv, None)
          | Some x ->
             let mv = Jdg.fresh_eq_type_meta x abstr in
             let v = Runtime.mk_eq_type (Jdg.eq_type_meta_eta_expanded sgn mv) in
-            (mv.TT.meta_name, Some v)
+            (Jdg.meta_name mv, Some v)
          end in
        return ((mv_name, Jdg.BoundaryEqType abstr), v)
 
@@ -756,11 +756,11 @@ let premise {Location.thing=prem;_} =
          | None ->
             let x = Name.anonymous () in
             let mv = Jdg.fresh_eq_term_meta x abstr in
-            (mv.TT.meta_name, None)
+            (Jdg.meta_name mv, None)
          | Some x ->
             let mv = Jdg.fresh_eq_term_meta x abstr in
             let v = Runtime.mk_eq_term (Jdg.eq_term_meta_eta_expanded sgn mv) in
-            (mv.TT.meta_name, Some v)
+            (Jdg.meta_name mv, Some v)
          end in
        return ((mv_name, Jdg.BoundaryEqTerm abstr), v)
 

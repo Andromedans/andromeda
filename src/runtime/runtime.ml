@@ -23,7 +23,7 @@ type env = {
 
 and dynamic = {
   (* Toplevel constant declarations *)
-  signature : Jdg.Signature.t;
+  signature : Jdg.signature;
 
   (* Current values of dynamic variables *)
   vars : value Store.Dyn.t
@@ -452,9 +452,9 @@ let continue ~loc v ({lexical={continuation;_};_} as env) =
 
 (** Generate a printing environment from runtime environment *)
 let get_penv env =
-  { Jdg_typedefs.forbidden = env.lexical.forbidden
-  ; Jdg_typedefs.metas = Name.meta_printer ()
-  ; Jdg_typedefs.atoms = Name.atom_printer ()
+  { Jdg.forbidden = env.lexical.forbidden
+  ; Jdg.metas = Name.meta_printer ()
+  ; Jdg.atoms = Name.atom_printer ()
   }
 
 let lookup_penv env =

@@ -1,37 +1,9 @@
 include Jdg_typedefs
 
+
 let error = TT_error.raise
 
-module Signature = struct
-  module RuleMap = Name.IdentMap
-
-  type t =
-    { is_type : Rule.rule_is_type RuleMap.t
-    ; is_term : Rule.rule_is_term RuleMap.t
-    ; eq_type : Rule.rule_eq_type RuleMap.t
-    ; eq_term : Rule.rule_eq_term RuleMap.t
-    }
-
-  let empty =
-    { is_type = RuleMap.empty
-    ; is_term = RuleMap.empty
-    ; eq_type = RuleMap.empty
-    ; eq_term = RuleMap.empty
-    }
-
-  let add_new c rule map = assert (not (RuleMap.mem c map)) ; RuleMap.add c rule map
-
-  let add_rule_is_type c rule sgn = { sgn with is_type = add_new c rule sgn.is_type }
-  let add_rule_is_term c rule sgn = { sgn with is_term = add_new c rule sgn.is_term }
-  let add_rule_eq_type c rule sgn = { sgn with eq_type = add_new c rule sgn.eq_type }
-  let add_rule_eq_term c rule sgn = { sgn with eq_term = add_new c rule sgn.eq_term }
-
-  let lookup_rule_is_type c sgn = RuleMap.find c sgn.is_type
-  let lookup_rule_is_term c sgn = RuleMap.find c sgn.is_term
-  let lookup_rule_eq_type c sgn = RuleMap.find c sgn.eq_type
-  let lookup_rule_eq_term c sgn = RuleMap.find c sgn.eq_term
-
-end (* module Signature *)
+module Signature = Signature
 
 (** Creation of rules of inference from judgements. *)
 
@@ -154,6 +126,8 @@ and meta_instantiate_abstraction
                              in TT_mk.abstract x t abstr
 
 let atom_name {atom_name=n;_} = n
+
+let meta_name m = m.meta_name
 
 (** [type_of_term sgn e] gives a type judgment [t], where [t] is the type of [e].
       Note that [t] itself gives no evidence that [e] actually has type [t].
@@ -428,11 +402,11 @@ and mk_rule_abstraction
 
 let mk_rule_premise metas = function
 
-  | BoundaryType abstr ->
+  | BoundaryIsType abstr ->
      let abstr = mk_rule_abstraction (fun _ () -> ()) metas abstr in
      Rule.PremiseIsType abstr
 
-  | BoundaryTerm abstr ->
+  | BoundaryIsTerm abstr ->
      let abstr =
        mk_rule_abstraction (fun metas t -> mk_rule_is_type metas t) metas abstr
      in

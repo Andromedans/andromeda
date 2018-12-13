@@ -43,11 +43,16 @@ and term_meta = term_boundary meta
 and eq_type_meta = eq_type_boundary meta
 and eq_term_meta = eq_term_boundary meta
 
-and premise_boundary =
-    | BoundaryType of type_boundary
-    | BoundaryTerm of term_boundary
+and boundary =
+    | BoundaryIsType of is_type_boundary
+    | BoundaryIsTerm of is_term_boundary
     | BoundaryEqType of eq_type_boundary
     | BoundaryEqTerm of eq_term_boundary
+
+(* Aliases for Jdg *)
+and premise_boundary = boundary
+and is_type_boundary = type_boundary
+and is_term_boundary = term_boundary
 
 and type_boundary = unit abstraction
 and term_boundary = ty abstraction
@@ -67,6 +72,16 @@ and argument =
 and 'a abstraction =
   | NotAbstract of 'a
   | Abstract of Name.ident * ty * 'a abstraction
+
+
+module RuleMap = Name.IdentMap
+
+type signature =
+  { is_type : Rule.rule_is_type RuleMap.t
+  ; is_term : Rule.rule_is_term RuleMap.t
+  ; eq_type : Rule.rule_eq_type RuleMap.t
+  ; eq_term : Rule.rule_eq_term RuleMap.t
+  }
 
 type error =
   | InvalidInstantiation
@@ -104,8 +119,6 @@ type print_env =
 
 (* ******************* JDG ************** *)
 
-(** Every judgement enforces that its context is minimal (strengthened). *)
-
 type is_term = term
 
 type is_type = ty
@@ -120,17 +133,6 @@ type is_type_abstraction = is_type abstraction
 type eq_type_abstraction = eq_type abstraction
 type eq_term_abstraction = eq_term abstraction
 
-(** Stumps (defined below) are used to construct and invert judgements. The
-   [form_XYZ] functions below take a stump and construct a judgement from it,
-   whereas the [invert_XYZ] functions do the opposite. We can think of stumps as
-   "stumps", i.e., the lowest level of a derivation tree. *)
-
-
-type is_type_boundary = type_boundary
-type is_term_boundary = term_boundary
-
-type boundary = premise_boundary
-
 type congruence_argument =
   | CongrIsType of is_type abstraction * is_type abstraction * eq_type abstraction
   | CongrIsTerm of is_term abstraction * is_term abstraction * eq_term abstraction
@@ -138,6 +140,11 @@ type congruence_argument =
   | CongrEqTerm of eq_term abstraction * eq_term abstraction
 
 
+
+(** Stumps are used to construct and invert judgements. The [form_XYZ]
+   functions in [Jdg.mli] take a stump and construct a judgement from it,
+   whereas the [invert_XYZ] functions do the opposite. We can think of stumps
+   as "stumps", i.e., the lowest level of a derivation tree. *)
 module Stump = struct
 
   type nonrec is_type =
