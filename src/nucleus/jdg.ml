@@ -28,22 +28,6 @@ let fully_instantiate_abstraction inst_u abstr args =
    keep track of which order any given list might be, so we use some abstract
    types to reduce the possibility of further bugs.
 *)
-module Indices :
-  sig
-    type t
-    val nth : t -> int -> argument
-    val of_list : argument list -> t
-    val to_list : t -> argument list
-    val cons : argument -> t -> t
-  end
-  =
-  struct
-    type t = argument list
-    let nth = List.nth
-    let of_list = List.rev
-    let to_list = List.rev
-    let cons = List.cons
-  end
 
 let lookup_term_meta k metas =
   match Indices.nth metas k with

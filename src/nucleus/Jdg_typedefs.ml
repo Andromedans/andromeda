@@ -154,3 +154,14 @@ and stump_eq_term =
 and 'a stump_abstraction =
   | Stump_NotAbstract of 'a
   | Stump_Abstract of is_atom * 'a abstraction
+
+(* Sometimes we work with meta-variables in their _de Bruijn index_ order, i.e.,
+   as a list whose first element is de Bruijn index 0, and sometimes we work in
+   the _constructor_ order, i.e., in the order of premises to a rule. These
+   are reverse from each other. We have found it to be quite error-prone to
+   keep track of which order any given list might be, so we use some abstract
+   types to reduce the possibility of further bugs.
+
+   Used by module Indices
+*)
+type indices = argument list
