@@ -838,8 +838,8 @@ let topletrec_bind ~loc ~quiet ~print_annot fxcs =
   return ()
 
 type error =
-  | RuntimeError of TT.print_env * Runtime.error
-  | JdgError of TT.print_env * Jdg.error
+  | RuntimeError of Jdg.print_env * Runtime.error
+  | JdgError of Jdg.print_env * Jdg.error
 
 exception Error of error Location.located
 
@@ -848,7 +848,10 @@ let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 let print_error err ppf =
   match err with
     | RuntimeError (penv, err) -> Runtime.print_error ~penv err ppf
-    | JdgError (penv, err) -> Jdg.print_error ~penv err ppf
+    | JdgError (penv, err) ->
+       Format.fprintf ppf
+         "AML runtime misused the nucleus (%t) -- please report"
+         (Jdg.print_error ~penv err)
 
 
 let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
