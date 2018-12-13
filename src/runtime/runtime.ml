@@ -501,7 +501,7 @@ let rec print_value ?max_level ~penv v ppf =
        | None ->  print_tag ?max_level ~penv t lst ppf
      end
 
-  | Tuple lst -> Format.fprintf ppf "(%t)"
+  | Tuple lst -> Format.fprintf ppf "@[<hov 1>(%t)@]"
                   (Print.sequence (print_value ~max_level:Level.highest ~penv) "," lst)
 
   | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref<%t>"
@@ -568,7 +568,7 @@ let print_operation ~penv op vs ppf =
      begin
        match vs with
        | [] -> Name.print_ident op ppf
-       | (_::_) -> Print.print ~at_level:Level.ml_operation ppf "%t@ %t"
+       | (_::_) -> Print.print ~at_level:Level.ml_operation ppf "[@<hov 2>%t@ %t@]"
                      (Name.print_ident op)
                      (Print.sequence (print_value ~max_level:Level.ml_operation_arg ~penv) "" vs)
      end
@@ -577,62 +577,62 @@ let print_error ~penv err ppf =
   match err with
 
   | ExpectedAtom j ->
-     Format.fprintf ppf "expected an atom but got %t"
+     Format.fprintf ppf "expected an atom but got@ %t"
        (Jdg.print_is_term ~penv:penv j)
 
   | UnknownExternal s ->
-     Format.fprintf ppf "unknown external %s" s
+     Format.fprintf ppf "unknown external@ %s" s
 
   | UnknownConfig s ->
-    Format.fprintf ppf "unknown config %s" s
+    Format.fprintf ppf "unknown config@ %s" s
 
   | Inapplicable v ->
-     Format.fprintf ppf "cannot apply %s" (name_of v)
+     Format.fprintf ppf "cannot apply@ %s" (name_of v)
 
 
   | AnnotationMismatch (t1, t2) ->
       Format.fprintf ppf
-      "@[<v>The type annotation is@, @[<hov>%t@]@ but the surroundings imply it should be@, @[<hov>%t@].@]"
+      "the type annotation is@ @[<hov>%t@]@ but the surroundings imply it should be@ @[<hov>%t@]"
                     (Jdg.print_is_type ~penv:penv t1)
                     (Jdg.print_is_type_abstraction ~penv:penv t2)
 
   | TypeMismatchCheckingMode (v, t) ->
-      Format.fprintf ppf "The term@, @[<hov>%t@]@ is expected by its surroundings to have type@, @[<hov>%t@]"
+      Format.fprintf ppf "the term@ @[<hov>%t@]@ is expected by its surroundings to have type@ @[<hov>%t@]"
                     (Jdg.print_is_term_abstraction ~penv:penv v)
                     (Jdg.print_is_type_abstraction ~penv:penv t)
 
   | UnexpectedAbstraction t ->
-      Format.fprintf ppf "This term is an abstraction but the surroundings imply it shoule be@, @[<hov>%t@]"
+      Format.fprintf ppf "this term is an abstraction but the surroundings imply it shoule be@ @[<hov>%t@]"
                     (Jdg.print_is_type ~penv:penv t)
 
   | TermEqualityFail (e1, e2) ->
-     Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
+     Format.fprintf ppf "failed to check that@ @[<hov>%t@]@ and@ @[<hov>%t@]@ are equal"
                     (Jdg.print_is_term ~penv:penv e1)
                     (Jdg.print_is_term ~penv:penv e2)
 
   | TypeEqualityFail (t1, t2) ->
-     Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
+     Format.fprintf ppf "failed to check that@ @[<hov>%t@]@ and@ @[<hov>%t@]@ are equal"
                     (Jdg.print_is_type ~penv:penv t1)
                     (Jdg.print_is_type ~penv:penv t2)
 
   | UnannotatedAbstract x ->
-     Format.fprintf ppf "@[<v 2>cannot infer the type of the variable to abstract@ %t@]" (Name.print_ident x)
+     Format.fprintf ppf "cannot infer the type of the variable to abstract@ @[<hov>%t@]" (Name.print_ident x)
 
   | MatchFail v ->
-     Format.fprintf ppf "@[<v>No matching pattern found for value@,   @[<hov>%t@]@]@."
+     Format.fprintf ppf "no matching pattern found for value@ @[<hov>%t@]"
                     (print_value ~penv v)
 
   | FailureFail v ->
-     Format.fprintf ppf "expected to fail but computed@ %t"
+     Format.fprintf ppf "expected to fail but computed@ @[<hov>%t@]"
                     (print_value ~penv v)
 
   | InvalidEqualTerm (e1, e2) ->
-     Format.fprintf ppf "@[<v 2>this should be equality of terms@ %t@;<1 -2>and@ %t"
+     Format.fprintf ppf "this should be equality of terms@ @[<hov>%t@]@ and@ @[<hov>%t@]"
                     (Jdg.print_is_term ~penv:penv e1)
                     (Jdg.print_is_term ~penv:penv e2)
 
   | InvalidEqualType (t1, t2) ->
-     Format.fprintf ppf "this should be equality of types %t@ and@ %t"
+     Format.fprintf ppf "this should be equality of types @[<hov>%t@]@ and@ @[<hov>%t@]"
                     (Jdg.print_is_type ~penv:penv t1)
                     (Jdg.print_is_type ~penv:penv t2)
 
@@ -692,26 +692,26 @@ let print_error ~penv err ppf =
 
   | InvalidConvertible (t1, t2, eq) ->
      Format.fprintf ppf
-       "@[<hv 2>expected a witness of equality between@ %t@;<1 -2>and@ %t@;<1 -2>but got@ %t@]"
+       "expected an equality between@ @[<hov>%t@]@ and@ @[<hov>%t@]@ but got@ @[<hov>%t@]"
                     (Jdg.print_is_type_abstraction ~penv t1)
                     (Jdg.print_is_type_abstraction ~penv t2)
                     (Jdg.print_eq_type_abstraction ~penv eq)
 
   | InvalidCoerce (t, e) ->
-     Format.fprintf ppf "expected a term of type %t but got %t"
+     Format.fprintf ppf "expected a term of type@ @[<hov>%t@]@ but got@ @[<hov>%t@]"
                     (Jdg.print_is_type_abstraction ~penv t)
                     (Jdg.print_is_term_abstraction ~penv e)
 
   | UnhandledOperation (op, vs) ->
-     Format.fprintf ppf "@[<v>unhandled operation:@.   @[<hov>%t@]@]@."
+     Format.fprintf ppf "unhandled operation @[<hov>%t@]"
                     (print_operation ~penv op vs)
 
   | InvalidPatternMatch v ->
-     Format.fprintf ppf "@[<v>this pattern cannot match@, @[<hov>%t@]@]@."
+     Format.fprintf ppf "this pattern cannot match@ @[<hov>%t@]"
                     (print_value ~penv v)
 
   | InvalidHandlerMatch ->
-     Format.fprintf ppf "@[<v>wrong number of arguments in handler case@]@."
+     Format.fprintf ppf "wrong number of arguments in handler case"
 
 
 let empty = {

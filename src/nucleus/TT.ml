@@ -822,7 +822,7 @@ let rec print_abstraction
        | [] ->
           print_v ?max_level ~penv v ppf
        | _::_ ->
-         Print.print ~at_level:Level.abstraction ?max_level ppf "@[<hov 2>%t@ %t@]"
+         Print.print ~at_level:Level.abstraction ?max_level ppf "%t@ %t"
            (Print.sequence (print_binder ~penv) "" xus)
            (print_v ~max_level:Level.abstraction_body ~penv v)
        end
@@ -871,7 +871,7 @@ and print_eq_type ?max_level ~penv (EqType (_asmp, t1, t2)) ppf =
     ?max_level
     ~at_level:Level.eq
     ppf
-    "@[<hov>%t@]@ %s@ @[<hov>%t@]"
+    "%t@ %s@ %t"
     (print_type ~penv t1)
     (Print.char_equal ())
     (print_type ~penv t2)
@@ -882,7 +882,7 @@ and print_eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
     ?max_level
     ~at_level:Level.eq
     ppf
-    "@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]"
+    "%t@ %s@ %t@ :@ %t"
     (print_term ~penv e1)
     (Print.char_equal ())
     (print_term ~penv e2)
@@ -896,7 +896,7 @@ and print_meta :
   | [] ->
      Name.print_meta ~parentheses:true ~printer:penv.metas meta_name ppf
   | _::_ ->
-     Print.print ~at_level:Level.meta ?max_level ppf "@[<hov 2>%t@ %t@]"
+     Print.print ~at_level:Level.meta ?max_level ppf "%t@ %t"
     (Name.print_meta ~printer:penv.metas meta_name)
     (Print.sequence (print_term ~max_level:Level.meta_arg ~penv) "" args) ;
 
@@ -905,7 +905,7 @@ and print_constructor ?max_level ~penv c args ppf =
   | [] ->
      Name.print_ident ~parentheses:true c ppf
   | _::_ ->
-     Print.print ~at_level:Level.constructor ?max_level ppf "@[<hov 2>%t@ %t@]"
+     Print.print ~at_level:Level.constructor ?max_level ppf "%t@ %t"
        (Name.print_ident c)
        (Print.sequence (print_arg ~penv) "" args) ;
 

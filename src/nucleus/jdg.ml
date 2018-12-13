@@ -475,7 +475,7 @@ and mk_rule_eq_term metas (TT.EqTerm (asmp, e1, e2, t)) =
     Rule.EqTerm (e1, e2, t)
 
 and mk_rule_assumptions metas asmp =
-  Print.error "should check that asmp is a subset of metas or some such@." ;
+  Print.error "should check that asmp is a subset of metas or some such" ;
   ()
 
 and mk_rule_arg metas = function
@@ -1072,25 +1072,25 @@ let congruence_term_constructor sgn c eqs =
 
 let print_is_type ?max_level ~penv t ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>@[<hov>%t@]@;<1 -2> type@]"
+              "@[<hov 2>%s@ %t@ type@]"
               (Print.char_vdash ())
               (TT.print_type ~max_level:Level.highest ~penv t)
 
 let print_is_term ?max_level ~penv e ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hov 4>%t@]"
+              "@[<hov 2>%s@ %t@]"
               (Print.char_vdash ())
               (TT.print_term ~max_level:Level.highest ~penv e)
 
 let print_eq_type ?max_level ~penv eq ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>%t@]"
+              "@[<hov 2>%s@ %t@]"
               (Print.char_vdash ())
               (TT.print_eq_type ~max_level:Level.highest ~penv eq)
 
 let print_eq_term ?max_level ~penv eq ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>%t@]"
+              "@[<hov 2>%s@ %t@]"
               (Print.char_vdash ())
               (TT.print_eq_term ~max_level:Level.highest ~penv eq)
 
@@ -1114,15 +1114,15 @@ let print_error ~penv err ppf =
   match err with
 
   | InvalidConvert (t1, t2) ->
-     Format.fprintf ppf "Trying to convert something at@ %t@ using an equality on@ %t@."
+     Format.fprintf ppf "trying to convert something at@ @[<hov>%t@]@ using an equality on@ @[<hov>%t@]"
                     (TT.print_type ~penv t1) (TT.print_type ~penv t2)
 
   | AlphaEqualTypeMismatch (t1, t2) ->
-     Format.fprintf ppf "The types@ %t@ and@ %t@ should be alpha equal."
+     Format.fprintf ppf "the types@ @[<hov>%t@]@ and@ @[<hov>%t@]@ should be alpha equal"
                     (TT.print_type ~penv t1) (TT.print_type ~penv t2)
 
   | AlphaEqualTermMismatch (e1, e2) ->
-     Format.fprintf ppf "The terms@ %t@ and@ %t@ should be alpha equal."
+     Format.fprintf ppf "the terms@ @[<hov>%t@]@ and@ @[<hov>%t@]@ should be alpha equal"
                     (TT.print_term ~penv e1) (TT.print_term ~penv e2)
 
 module Json =

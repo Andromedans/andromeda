@@ -540,7 +540,7 @@ and sequence ~loc v =
     | Runtime.Tuple [] -> return ()
     | _ ->
       Runtime.lookup_penv >>= fun penv ->
-      Print.warning "%t: Sequence:@ The value %t should be ()"
+      Print.warning "@[<hov 2>%t: the value %t should be the unit@]@."
         (Location.print loc)
         (Runtime.print_value ~penv v) ;
       return ()
@@ -813,11 +813,10 @@ let toplet_bind ~loc ~quiet ~print_annot clauses =
        | Rsyntax.Let_clause (xts, _, _) ->
           List.iter
             (fun (x, sch) -> Format.printf "@[<hov 2>val %t :>@ %t@]@."
-                                               (Name.print_ident x)
-                                               (print_annot sch))
+                                           (Name.print_ident x)
+                                           (print_annot sch))
                xts)
-         clauses ;
-         Format.printf "@.") ;
+         clauses) ;
     return ()
 
 let topletrec_bind ~loc ~quiet ~print_annot fxcs =
@@ -833,8 +832,7 @@ let topletrec_bind ~loc ~quiet ~print_annot fxcs =
         Format.printf "@[<hov 2>val %t :>@ %t@]@."
                       (Name.print_ident f)
                       (print_annot annot))
-      fxcs ;
-     Format.printf "@.") ;
+      fxcs) ;
   return ()
 
 type error =
@@ -881,7 +879,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
     | Rsyntax.DefMLTypeRec lst ->
       (if not quiet then
-         Format.printf "ML type%s %t declared.@.@."
+         Format.printf "[@<hov 2>ML type%s %t declared.@]@."
                        (match lst with [_] -> "" | _ -> "s")
                        (Print.sequence (fun (t,_) -> Name.print_ident t)
                                        " " lst)) ;
@@ -889,7 +887,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
     | Rsyntax.DeclOperation (x, k) ->
        (if not quiet then
-         Format.printf "Operation %t is declared.@.@."
+         Format.printf "[@<hov 2>Operation %t is declared.@]@."
                        (Name.print_ident x)) ;
        return ()
 
@@ -900,7 +898,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
          | Some v ->
             Runtime.add_topbound v >>= (fun () ->
              if not quiet then
-               Format.printf "@[<hov 2>external %t :@ %t = \"%s\"@]@.@."
+               Format.printf "@[<hov 2>external %t :@ %t = \"%s\"@]@."
                              (Name.print_ident x)
                              (print_annot () sch)
                              s ;
@@ -935,7 +933,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
        comp_value c >>= fun v ->
        Runtime.top_lookup_penv >>= fun penv ->
        (begin if not quiet then
-            Format.printf "%t@.@." (Runtime.print_value ~penv v)
+            Format.printf "@[<hov 2>%t@]@." (Runtime.print_value ~penv v)
         end;
         return ())
 
@@ -944,14 +942,14 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "Successfully failed command with runtime error:@.%t:@ %t@.@."
+         (if not quiet then Format.printf "[@<hov 2>Successfully failed command with runtime error:@.%t:@ %t@]@."
                                           (Location.print loc)
                                           (Runtime.print_error ~penv err));
          return ()
 
        | Runtime.CaughtJdg {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "Successfully failed command with judgment error:@.%t:@ %t@.@."
+         (if not quiet then Format.printf "[@<hov 2>Successfully failed command with judgment error:@.%t:@ %t@]@."
                                           (Location.print loc)
                                           (Jdg.print_error ~penv err));
          return ()
@@ -962,9 +960,9 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
     | Rsyntax.Included lst ->
       Runtime.top_fold (fun () (fn, cmds) ->
-          (if not quiet then Format.printf "#including %s@." fn);
+          (if not quiet then Format.printf "[@<hov 2>#including %s@]@." fn);
           Runtime.top_fold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
-          (if not quiet then Format.printf "#processed %s@." fn);
+          (if not quiet then Format.printf "[@<hov 2>#processed %s@]@." fn);
           return ())
         () lst
 

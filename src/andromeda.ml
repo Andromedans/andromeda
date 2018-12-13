@@ -87,14 +87,14 @@ let options = Arg.align [
 
 (** Interactive toplevel *)
 let interactive_shell state =
-  Format.printf "Andromeda %s@ [https://andromedans.github.io/andromeda/]@." Build.version ;
+  Format.printf "Andromeda %s@ [https://www.andromeda-prover.org/]@." Build.version ;
   let rec loop state =
     let state =
       try
         Toplevel.exec_interactive state
       with
       | Toplevel.Error err ->
-         Format.eprintf "%t@." (Toplevel.print_located_error err) ; state
+         Format.eprintf "@[<hov 2>%t@]@." (Toplevel.print_located_error err) ; state
       | Sys.Break -> Format.eprintf "Interrupted.@."; state
     in loop state
   in
@@ -161,6 +161,5 @@ let main =
 
   with
     | Toplevel.Error err ->
-       Format.eprintf "%t@." (Toplevel.print_located_error err) ; exit 1
+       Format.eprintf "@[<hov 2>%t@]@." (Toplevel.print_located_error err) ; exit 1
     | End_of_file -> ()
-
