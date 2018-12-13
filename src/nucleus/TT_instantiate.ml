@@ -2,6 +2,9 @@
 
 open Jdg_typedefs
 
+(* [instantiate e0 ?lvl t] replaces the bound variable [lvl] in [t] by [e0].
+   We assume that [lvl] is the highest de Bruijn index occuring in [t]. *)
+
 let rec abstraction
   : 'a .(term -> ?lvl:bound -> 'a -> 'a) ->
         term -> ?lvl:bound -> 'a abstraction -> 'a abstraction
@@ -96,6 +99,14 @@ and assumptions e0 ?(lvl=0) asmp =
   let asmp0 = TT_assumption.term ~lvl e0 in
   Assumption.instantiate ~lvl asmp0 asmp
 
+
+(* [instantiate_fully ?lvl es t] replaces bound variables [k] for
+   [lvl] <= [k] < [List.length es] with [List.nth (k - lvl) es] in [t]. Bound
+   variables in [t] should thus be below [lvl + length es].
+
+   For instance, if [lvl] = 0, the first [length es] bound variables in [t] get
+   replaced by [es]. *)
+
 let rec type_fully ?(lvl=0) es = function
   | TypeConstructor (c, args) ->
      let args = args_fully ~lvl es args in
@@ -113,12 +124,14 @@ and term_fully ?(lvl=0) es = function
      if k < lvl then
        e
      else
-       begin try
-         let e = List.nth es (k - lvl)
-         in TT_shift.term ~lvl:0 lvl e
-       with
-         Failure _ -> TT_error.raise InvalidInstantiation
-       end
+       let e =
+         begin try
+           List.nth es (k - lvl)
+         with
+           Failure _ -> TT_error.raise InvalidInstantiation
+         end
+       in
+       TT_shift.term ~lvl:0 lvl e
 
   | TermConstructor (c, args) ->
      let args = args_fully ~lvl es args in
