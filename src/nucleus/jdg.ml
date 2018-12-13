@@ -343,7 +343,7 @@ and mk_rule_is_term metas = function
                  && Name.MetaMap.for_all mem_metas_set is_term_meta
                  && Name.MetaMap.for_all mem_metas_set eq_type_meta
                  && Name.MetaMap.for_all mem_metas_set eq_term_meta
-                 && Jdg_typedefs.BoundSet.is_empty bound
+                 && BoundSet.is_empty bound
      with
      | true -> mk_rule_is_term metas e
      | false -> TT_error.raise ExtraAssumptions
@@ -627,31 +627,31 @@ let invert_args args = List.map invert_arg args
 
 let invert_is_term sgn = function
 
-  | TermAtom a -> Stump.TermAtom a
+  | TermAtom a -> Stump_TermAtom a
 
   | TermBound _ -> assert false
 
   | TermConstructor (c, args) ->
      let arguments = invert_args args in
-     Stump.TermConstructor (c, arguments)
+     Stump_TermConstructor (c, arguments)
 
   | TermMeta (mv, args) ->
-     Stump.TermMeta (mv, args)
+     Stump_TermMeta (mv, args)
 
   | TermConvert (e, asmp, t) ->
      let t' = natural_type sgn e in
      let eq = TT_mk.eq_type asmp t' t in
-     Stump.TermConvert (e, eq)
+     Stump_TermConvert (e, eq)
 
 let invert_is_type = function
   | TypeConstructor (c, args) ->
      let arguments = invert_args args in
-     Stump.TypeConstructor (c, arguments)
-  | TypeMeta (mv, args) -> Stump.TypeMeta (mv, args)
+     Stump_TypeConstructor (c, arguments)
+  | TypeMeta (mv, args) -> Stump_TypeMeta (mv, args)
 
-let invert_eq_type (EqType (asmp, t1, t2)) = Stump.EqType (asmp, t1, t2)
+let invert_eq_type (EqType (asmp, t1, t2)) = Stump_EqType (asmp, t1, t2)
 
-let invert_eq_term (EqTerm (asmp, e1, e2, t)) = Stump.EqTerm (asmp, e1, e2, t)
+let invert_eq_term (EqTerm (asmp, e1, e2, t)) = Stump_EqTerm (asmp, e1, e2, t)
 
 let as_not_abstract = function
   | Abstract _ -> None
@@ -662,8 +662,8 @@ let invert_abstraction ?atom_name inst_v = function
      let x = (match atom_name with None -> x | Some y -> y) in
      let a = TT_mk.fresh_atom x t in
      let abstr = TT_instantiate.abstraction inst_v (TT_mk.atom a) abstr in
-     Stump.Abstract (a, abstr)
-  | NotAbstract v -> Stump.NotAbstract v
+     Stump_Abstract (a, abstr)
+  | NotAbstract v -> Stump_NotAbstract v
 
 let invert_is_type_abstraction ?atom_name t =
   invert_abstraction ?atom_name TT_instantiate.ty t

@@ -6,8 +6,9 @@ module Json =
 struct
 
   let assumptions { free ; is_type_meta ; is_term_meta ; eq_type_meta ; eq_term_meta ; bound } =
+    let module MetaMap = Name.MetaMap in
     let free =
-      if AtomMap.is_empty free
+      if Name.AtomMap.is_empty free
       then []
       else [("free", Name.Json.atommap free)]
     and is_type_meta =

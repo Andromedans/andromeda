@@ -1,5 +1,8 @@
 open Jdg_typedefs
 
+module AtomMap = Name.AtomMap
+module MetaMap = Name.MetaMap
+
 let empty =
   let meta = MetaMap.empty in
   { free = AtomMap.empty

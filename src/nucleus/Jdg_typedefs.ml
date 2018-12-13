@@ -1,14 +1,5 @@
 (** The abstract syntax of Andromedan type theory (TT). *)
 
-module BoundSet = Set.Make (struct
-                    type t = int
-                    let compare = compare
-                  end)
-
-module AtomMap = Name.AtomMap
-
-module MetaMap = Name.MetaMap
-
 type bound = int
 
 type ty =
@@ -27,11 +18,11 @@ and eq_type = EqType of assumption * ty * ty
 and eq_term = EqTerm of assumption * term * term * ty
 
 and assumption =
-  { free : ty AtomMap.t
-  ; is_type_meta : type_boundary MetaMap.t
-  ; is_term_meta : term_boundary MetaMap.t
-  ; eq_type_meta : eq_type_boundary MetaMap.t
-  ; eq_term_meta : eq_term_boundary MetaMap.t
+  { free : ty Name.AtomMap.t
+  ; is_type_meta : type_boundary Name.MetaMap.t
+  ; is_term_meta : term_boundary Name.MetaMap.t
+  ; eq_type_meta : eq_type_boundary Name.MetaMap.t
+  ; eq_term_meta : eq_term_boundary Name.MetaMap.t
   ; bound : BoundSet.t }
 
 and atom = { atom_name : Name.atom ; atom_type : ty }
@@ -74,13 +65,11 @@ and 'a abstraction =
   | Abstract of Name.ident * ty * 'a abstraction
 
 
-module RuleMap = Name.IdentMap
-
 type signature =
-  { is_type : Rule.rule_is_type RuleMap.t
-  ; is_term : Rule.rule_is_term RuleMap.t
-  ; eq_type : Rule.rule_eq_type RuleMap.t
-  ; eq_term : Rule.rule_eq_term RuleMap.t
+  { is_type : Rule.rule_is_type Name.IdentMap.t
+  ; is_term : Rule.rule_is_term Name.IdentMap.t
+  ; eq_type : Rule.rule_eq_type Name.IdentMap.t
+  ; eq_term : Rule.rule_eq_term Name.IdentMap.t
   }
 
 type error =
@@ -145,26 +134,23 @@ type congruence_argument =
    functions in [Jdg.mli] take a stump and construct a judgement from it,
    whereas the [invert_XYZ] functions do the opposite. We can think of stumps
    as "stumps", i.e., the lowest level of a derivation tree. *)
-module Stump = struct
 
-  type nonrec is_type =
-    | TypeConstructor of Name.constructor * argument list
-    | TypeMeta of type_meta * is_term list
+type nonrec stump_is_type =
+  | Stump_TypeConstructor of Name.constructor * argument list
+  | Stump_TypeMeta of type_meta * is_term list
 
-  and is_term =
-    | TermAtom of is_atom
-    | TermConstructor of Name.constructor * argument list
-    | TermMeta of term_meta * is_term list
-    | TermConvert of is_term * eq_type
+and stump_is_term =
+  | Stump_TermAtom of is_atom
+  | Stump_TermConstructor of Name.constructor * argument list
+  | Stump_TermMeta of term_meta * is_term list
+  | Stump_TermConvert of is_term * eq_type
 
-  and eq_type =
-    | EqType of assumption * is_type * is_type
+and stump_eq_type =
+  | Stump_EqType of assumption * is_type * is_type
 
-  and eq_term =
-    | EqTerm of assumption * is_term * is_term * is_type
+and stump_eq_term =
+  | Stump_EqTerm of assumption * is_term * is_term * is_type
 
-  and 'a abstraction =
-    | NotAbstract of 'a
-    | Abstract of is_atom * 'a abstraction
-
-end
+and 'a stump_abstraction =
+  | Stump_NotAbstract of 'a
+  | Stump_Abstract of is_atom * 'a abstraction

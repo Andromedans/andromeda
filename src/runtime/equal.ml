@@ -40,7 +40,7 @@ let equal ~loc sgn e1 e2 =
         begin function
           | None -> Opt.fail
           | Some eq ->
-             let (Jdg.Stump.EqTerm (_asmp, e1', e2', _)) = Jdg.invert_eq_term eq in
+             let (Jdg.Stump_EqTerm (_asmp, e1', e2', _)) = Jdg.invert_eq_term eq in
              begin
                match Jdg.alpha_equal_term e1 e1' && Jdg.alpha_equal_term e2 e2' with
                | false -> Opt.lift (Runtime.(error ~loc (InvalidEqualTerm (e1, e2))))
@@ -57,7 +57,7 @@ let equal_type ~loc t1 t2 =
         begin function
           | None -> Opt.fail
           | Some eq ->
-             let (Jdg.Stump.EqType (_asmp, t1', t2')) = Jdg.invert_eq_type eq in
+             let (Jdg.Stump_EqType (_asmp, t1', t2')) = Jdg.invert_eq_type eq in
              begin match Jdg.alpha_equal_type t1 t1' && Jdg.alpha_equal_type t2 t2' with
              | false -> Opt.lift (Runtime.(error ~loc (InvalidEqualType (t1, t2))))
              | true -> Opt.return eq
@@ -109,7 +109,7 @@ let coerce ~loc sgn e t =
 
           let rec convert_is_term_abstraction atoms abstr =
             match Jdg.invert_is_term_abstraction abstr with
-            | Jdg.Stump.NotAbstract e ->
+            | Jdg.Stump_NotAbstract e ->
                let atoms = List.rev atoms in
                let atoms = List.map Jdg.form_is_term_atom atoms in
                let eq_app =
@@ -126,14 +126,14 @@ let coerce ~loc sgn e t =
                  end
                and t'_app = Jdg.type_of_term sgn e
                in
-               let Jdg.Stump.EqType (_asmp, lhs, rhs) = Jdg.invert_eq_type eq_app in
+               let Jdg.Stump_EqType (_asmp, lhs, rhs) = Jdg.invert_eq_type eq_app in
                begin match Jdg.alpha_equal_type rhs t_app && Jdg.alpha_equal_type lhs t'_app with
                | true -> ()
                | false -> Runtime.(error ~loc (InvalidConvertible (t', t, eq)))
                end ;
                let e = Jdg.form_is_term_convert sgn e eq_app in
                Jdg.abstract_not_abstract e
-            | Jdg.Stump.Abstract (a, abstr) ->
+            | Jdg.Stump_Abstract (a, abstr) ->
                let abstr = convert_is_term_abstraction (a::atoms) abstr in
                Jdg.abstract_is_term a abstr
           in

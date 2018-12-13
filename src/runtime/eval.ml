@@ -9,8 +9,8 @@ let as_atom ~loc v =
   Runtime.lookup_signature >>= fun sgn ->
   let j = Runtime.as_is_term ~loc v in
   match Jdg.invert_is_term sgn j with
-    | Jdg.Stump.TermAtom x -> return x
-    | (Jdg.Stump.TermConstructor _ | Jdg.Stump.TermMeta _ | Jdg.Stump.TermConvert _) -> Runtime.(error ~loc (ExpectedAtom j))
+    | Jdg.Stump_TermAtom x -> return x
+    | (Jdg.Stump_TermConstructor _ | Jdg.Stump_TermMeta _ | Jdg.Stump_TermConvert _) -> Runtime.(error ~loc (ExpectedAtom j))
 
 (* as_handler: loc:Location.t -> Runtime.value -> Runtime.handler Runtime.comp *)
 let as_handler ~loc v =
@@ -451,10 +451,10 @@ and check ({Location.thing=c';loc} as c) t_check =
 and check_abstract ~loc t_check x uopt c =
   match Jdg.invert_is_type_abstraction ~atom_name:x t_check with
 
-  | Jdg.Stump.NotAbstract t ->
+  | Jdg.Stump_NotAbstract t ->
      Runtime.(error ~loc (UnexpectedAbstraction t))
 
-  | Jdg.Stump.Abstract (a, t_check') ->
+  | Jdg.Stump_Abstract (a, t_check') ->
      (* NB: [a] is a fresh atom at this point. *)
      begin match uopt with
 

@@ -1,3 +1,5 @@
+type signature
+
 (** Judgements can be abstracted *)
 type 'a abstraction
 
@@ -50,27 +52,27 @@ type eq_type_meta = eq_type_boundary meta
 type eq_term_meta = eq_term_boundary meta
 
 (** A stump is obtained when we invert a judgement. *)
-module Stump : sig
-  type nonrec is_type =
-    | TypeConstructor of Name.constructor * argument list
-    | TypeMeta of is_type_meta * is_term list
 
-  and is_term =
-    | TermAtom of is_atom
-    | TermConstructor of Name.constructor * argument list
-    | TermMeta of is_term_meta * is_term list
-    | TermConvert of is_term * eq_type
+type nonrec stump_is_type =
+  | Stump_TypeConstructor of Name.constructor * argument list
+  | Stump_TypeMeta of is_type_meta * is_term list
 
-  and eq_type =
-    | EqType of assumption * is_type * is_type
+and stump_is_term =
+  | Stump_TermAtom of is_atom
+  | Stump_TermConstructor of Name.constructor * argument list
+  | Stump_TermMeta of is_term_meta * is_term list
+  | Stump_TermConvert of is_term * eq_type
 
-  and eq_term =
-    | EqTerm of assumption * is_term * is_term * is_type
+and stump_eq_type =
+  | Stump_EqType of assumption * is_type * is_type
 
-  and 'a abstraction =
-    | NotAbstract of 'a
-    | Abstract of is_atom * 'a abstraction
-end
+and stump_eq_term =
+  | Stump_EqTerm of assumption * is_term * is_term * is_type
+
+and 'a stump_abstraction =
+  | Stump_NotAbstract of 'a
+  | Stump_Abstract of is_atom * 'a abstraction
+
 
 (** An auxiliary type for providing arguments to a congruence rule. Each arguments is like
    two endpoints with a path between them, except that no paths between equalities are
@@ -86,8 +88,6 @@ type print_env =
   ; metas : Name.meta_printer
   ; atoms : Name.atom_printer
   }
-
-type signature
 
 module Signature : sig
 
@@ -183,29 +183,29 @@ val eq_term_meta_eta_expanded : signature -> eq_term_meta -> eq_term_abstraction
 (** Verify that an abstraction is in fact not abstract *)
 val as_not_abstract : 'a abstraction -> 'a option
 
-val invert_is_type : is_type -> Stump.is_type
+val invert_is_type : is_type -> stump_is_type
 
-val invert_is_term : signature -> is_term -> Stump.is_term
+val invert_is_term : signature -> is_term -> stump_is_term
 
-val invert_eq_type : eq_type -> Stump.eq_type
+val invert_eq_type : eq_type -> stump_eq_type
 
-val invert_eq_term : eq_term -> Stump.eq_term
+val invert_eq_term : eq_term -> stump_eq_term
 
 val atom_name : is_atom -> Name.atom
 
 val meta_name : 'a meta -> Name.meta
 
 val invert_is_term_abstraction :
-  ?atom_name:Name.ident -> is_term_abstraction -> is_term Stump.abstraction
+  ?atom_name:Name.ident -> is_term_abstraction -> is_term stump_abstraction
 
 val invert_is_type_abstraction :
-  ?atom_name:Name.ident -> is_type_abstraction -> is_type Stump.abstraction
+  ?atom_name:Name.ident -> is_type_abstraction -> is_type stump_abstraction
 
 val invert_eq_type_abstraction :
-  ?atom_name:Name.ident -> eq_type_abstraction -> eq_type Stump.abstraction
+  ?atom_name:Name.ident -> eq_type_abstraction -> eq_type stump_abstraction
 
 val invert_eq_term_abstraction :
-  ?atom_name:Name.ident -> eq_term_abstraction -> eq_term Stump.abstraction
+  ?atom_name:Name.ident -> eq_term_abstraction -> eq_term stump_abstraction
 
 val context_is_type_abstraction : is_type_abstraction -> is_atom list
 val context_is_term_abstraction : is_term_abstraction -> is_atom list
