@@ -4,8 +4,8 @@
  *)
 type coercible =
   | NotCoercible
-  | Convertible of Jdg.eq_type_abstraction
-  | Coercible of Jdg.is_term_abstraction
+  | Convertible of Nucleus.eq_type_abstraction
+  | Coercible of Nucleus.is_term_abstraction
 
 (** {6 Built-in Definitions} *)
 
@@ -25,20 +25,20 @@ val definitions : Input.toplevel list
     terms (wrapped as AML values), and then returns the resulting term equation if any.
  *)
 val operation_equal_term :
-  loc:Location.t -> Jdg.is_term -> Jdg.is_term -> Jdg.eq_term option Runtime.comp
+  loc:Location.t -> Nucleus.is_term -> Nucleus.is_term -> Nucleus.eq_term option Runtime.comp
 
 (** A computation that, when run, invokes the [eq_type] operation on the given
     terms (wrapped as AML values), and then returns the resulting term equation if any.
  *)
 val operation_equal_type :
-  loc:Location.t -> Jdg.is_type -> Jdg.is_type -> Jdg.eq_type option Runtime.comp
+  loc:Location.t -> Nucleus.is_type -> Nucleus.is_type -> Nucleus.eq_type option Runtime.comp
 
 (** A computation that, when run, invokes the [coerce] operation
     on the given type theory term and desired type, and decodes
     the resulting AML value as a value of the correponding ML type [coercible].
  *)
 val operation_coerce :
-  loc:Location.t -> Jdg.is_term_abstraction -> Jdg.is_type_abstraction -> coercible Runtime.comp
+  loc:Location.t -> Nucleus.is_term_abstraction -> Nucleus.is_type_abstraction -> coercible Runtime.comp
 
 (** {6 translation between AML and ML values} *)
 
@@ -66,4 +66,4 @@ val as_option : loc:Location.t -> Runtime.value -> Runtime.value option
     temporarily adds it to the the front of the list contained in the
     dynamic variable [hypotheses] to run the given computation.
  *)
-val add_abstracting : Jdg.is_term Jdg.abstraction -> 'a Runtime.comp -> 'a Runtime.comp
+val add_abstracting : Nucleus.is_term Nucleus.abstraction -> 'a Runtime.comp -> 'a Runtime.comp
