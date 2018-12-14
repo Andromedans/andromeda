@@ -6,8 +6,8 @@ open Jdg_typedefs
    We assume that [lvl] is the highest de Bruijn index occuring in [t]. *)
 
 let rec abstraction
-  : 'a .(term -> ?lvl:bound -> 'a -> 'a) ->
-        term -> ?lvl:bound -> 'a abstraction -> 'a abstraction
+  : 'a .(is_term -> ?lvl:bound -> 'a -> 'a) ->
+        is_term -> ?lvl:bound -> 'a abstraction -> 'a abstraction
   = fun inst_v e0 ?(lvl=0) ->
   function
   | NotAbstract v ->
@@ -190,8 +190,8 @@ and arg_fully ?(lvl=0) es = function
      ArgumentEqTerm abstr
 
 and abstraction_fully
-  : 'a . (?lvl:int -> term list -> 'a -> 'a) ->
-         ?lvl:int -> term list -> 'a abstraction -> 'a abstraction
+  : 'a . (?lvl:int -> is_term list -> 'a -> 'a) ->
+         ?lvl:int -> is_term list -> 'a abstraction -> 'a abstraction
   = fun inst_u ?(lvl=0) es -> function
 
   | NotAbstract u ->

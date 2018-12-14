@@ -105,4 +105,4 @@ let print_eq_term_abstraction = TT_print.eq_term_abstraction
 let print_eq_type_abstraction = TT_print.eq_type_abstraction
 let print_error = TT_print.error
 
-module Json = TT_json.Json
+module Json = TT_json

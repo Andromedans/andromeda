@@ -88,7 +88,7 @@ and eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
 
 and meta :
   type a . ?max_level:Level.t -> penv:print_env
-            -> a meta -> term list -> Format.formatter -> unit
+            -> a meta -> is_term list -> Format.formatter -> unit
   = fun ?max_level ~penv {meta_name;_} args ppf ->
   match args with
   | [] ->
