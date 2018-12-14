@@ -28,31 +28,31 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
 
   (* patterns specific to terms *)
   | Pattern.TTConstructor (c, ps) ->
-     begin match Jdg.as_not_abstract v with
+     begin match Nucleus.as_not_abstract v with
      | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
      | Some e ->
         let sgn = Runtime.get_signature env in
-        begin match Jdg.invert_is_term sgn e with
-        | Jdg.TermConstructor (c', args) when Name.eq_ident c c' ->
+        begin match Nucleus.invert_is_term sgn e with
+        | Nucleus.Stump_TermConstructor (c', args) when Name.eq_ident c c' ->
            begin
              match collect_args env xvs ps args with
              | None -> Runtime.(error ~loc (InvalidPatternMatch (mk_is_term v)))
              | Some vs -> vs
            end
-        | (Jdg.TermConstructor _ | Jdg.TermMeta _ | Jdg.TermAtom _ | Jdg.TermConvert _) ->
+        | Nucleus.(Stump_TermConstructor _ | Stump_TermMeta _ | Stump_TermAtom _ | Stump_TermConvert _) ->
            raise Match_fail
         end
      end
 
   | Pattern.TTGenAtom p ->
-     begin match Jdg.as_not_abstract v with
+     begin match Nucleus.as_not_abstract v with
      | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
      | Some e ->
         let sgn = Runtime.get_signature env in
-        begin match Jdg.invert_is_term sgn e with
-        | Jdg.TermAtom a ->
+        begin match Nucleus.invert_is_term sgn e with
+        | Nucleus.Stump_TermAtom a ->
            collect_is_term env xvs p v
-        | (Jdg.TermConstructor _ | Jdg.TermMeta _ | Jdg.TermConvert _) ->
+        | Nucleus.(Stump_TermConstructor _ | Stump_TermMeta _ | Stump_TermConvert _) ->
            raise Match_fail
         end
      end
@@ -62,20 +62,20 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
      (* TODO optimize for the case when [p2] is [Pattern.TTAnonymous]
         because it allows us to avoid calculating the type of [v]. *)
      let sgn = Runtime.get_signature env in
-     let t = Jdg.type_of_term_abstraction sgn v in
+     let t = Nucleus.type_of_term_abstraction sgn v in
      collect_is_type env xvs p2 t
 
   | Pattern.TTAbstract (xopt, p1, p2) ->
-     begin match Jdg.invert_is_term_abstraction v with
-     | Jdg.NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
-     | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
+     begin match Nucleus.invert_is_term_abstraction v with
+     | Nucleus.Stump_NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
+     | Nucleus.Stump_Abstract (a, v2) ->
+        let v1 = Nucleus.abstract_not_abstract (Nucleus.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.abstract_not_abstract (Jdg.form_is_term_atom a) in
+             let e = Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_is_term env xvs p2 v
@@ -98,31 +98,31 @@ and collect_is_type env xvs {Location.thing=p';loc} v =
 
   (* patterns specific to types *)
   | Pattern.TTConstructor (c, ps) ->
-     begin match Jdg.as_not_abstract v with
+     begin match Nucleus.as_not_abstract v with
      | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_type v)))
      | Some t ->
-        begin match Jdg.invert_is_type t with
-        | Jdg.TypeConstructor (c', args) when Name.eq_ident c c' ->
+        begin match Nucleus.invert_is_type t with
+        | Nucleus.Stump_TypeConstructor (c', args) when Name.eq_ident c c' ->
            begin
              match collect_args env xvs ps args with
              | None -> Runtime.(error ~loc (InvalidPatternMatch (mk_is_type v)))
              | Some vs -> vs
            end
-        | Jdg.TypeConstructor _ | Jdg.TypeMeta _ -> raise Match_fail
+        | Nucleus.(Stump_TypeConstructor _ | Stump_TypeMeta _) -> raise Match_fail
         end
      end
 
   | Pattern.TTAbstract (xopt, p1, p2) ->
-     begin match Jdg.invert_is_type_abstraction v with
-     | Jdg.NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_type v)))
-     | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
+     begin match Nucleus.invert_is_type_abstraction v with
+     | Nucleus.Stump_NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_type v)))
+     | Nucleus.Stump_Abstract (a, v2) ->
+        let v1 = Nucleus.abstract_not_abstract (Nucleus.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.abstract_not_abstract (Jdg.form_is_term_atom a) in
+             let e = Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_is_type env xvs p2 v
@@ -146,28 +146,28 @@ and collect_eq_type env xvs {Location.thing=p';loc} v =
 
   (* patterns specific to type equations *)
   | Pattern.TTAbstract (xopt, p1, p2) ->
-     begin match Jdg.invert_eq_type_abstraction v with
-     | Jdg.NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_type v)))
-     | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
+     begin match Nucleus.invert_eq_type_abstraction v with
+     | Nucleus.Stump_NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_type v)))
+     | Nucleus.Stump_Abstract (a, v2) ->
+        let v1 = Nucleus.abstract_not_abstract (Nucleus.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.abstract_not_abstract (Jdg.form_is_term_atom a) in
+             let e = Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_eq_type env xvs p2 v
      end
 
   | Pattern.TTEqType (p1, p2) ->
-     begin match Jdg.as_not_abstract v with
+     begin match Nucleus.as_not_abstract v with
      | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_type v)))
      | Some eq ->
-        let (Jdg.EqType (_asmp, t1, t2)) = Jdg.invert_eq_type eq in
-        let xvs = collect_is_type env xvs p1 (Jdg.abstract_not_abstract t1) in
-        collect_is_type env xvs p2 (Jdg.abstract_not_abstract t2)
+        let (Nucleus.Stump_EqType (_asmp, t1, t2)) = Nucleus.invert_eq_type eq in
+        let xvs = collect_is_type env xvs p1 (Nucleus.abstract_not_abstract t1) in
+        collect_is_type env xvs p2 (Nucleus.abstract_not_abstract t2)
      end
 
   | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqTerm _ | Pattern.TTIsType _ |
@@ -188,29 +188,29 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
 
   (* patterns specific to term equations *)
   | Pattern.TTAbstract (xopt, p1, p2) ->
-     begin match Jdg.invert_eq_term_abstraction v with
-     | Jdg.NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_term v)))
-     | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.abstract_not_abstract (Jdg.type_of_atom a) in
+     begin match Nucleus.invert_eq_term_abstraction v with
+     | Nucleus.Stump_NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_term v)))
+     | Nucleus.Stump_Abstract (a, v2) ->
+        let v1 = Nucleus.abstract_not_abstract (Nucleus.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.abstract_not_abstract (Jdg.form_is_term_atom a) in
+             let e = Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_eq_term env xvs p2 v
      end
 
   | Pattern.TTEqTerm (p1, p2, p3) ->
-     begin match Jdg.as_not_abstract v with
+     begin match Nucleus.as_not_abstract v with
      | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_term v)))
      | Some eq ->
-        let (Jdg.EqTerm (_asmp, e1, e2, t)) = Jdg.invert_eq_term eq in
-        let xvs = collect_is_term env xvs p1 (Jdg.abstract_not_abstract e1) in
-        let xvs = collect_is_term env xvs p2 (Jdg.abstract_not_abstract e2) in
-        collect_is_type env xvs p2 (Jdg.abstract_not_abstract t)
+        let (Nucleus.Stump_EqTerm (_asmp, e1, e2, t)) = Nucleus.invert_eq_term eq in
+        let xvs = collect_is_term env xvs p1 (Nucleus.abstract_not_abstract e1) in
+        let xvs = collect_is_term env xvs p2 (Nucleus.abstract_not_abstract e2) in
+        collect_is_type env xvs p2 (Nucleus.abstract_not_abstract t)
      end
 
   | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqType _ | Pattern.TTIsType _ |
@@ -225,10 +225,10 @@ and collect_args env xvs ps vs =
   | p::ps, v::vs ->
      let xvs =
        begin match v with
-       | Jdg.ArgumentIsType t -> collect_is_type env xvs p t
-       | Jdg.ArgumentIsTerm e -> collect_is_term env xvs p e
-       | Jdg.ArgumentEqType eq -> collect_eq_type env xvs p eq
-       | Jdg.ArgumentEqTerm eq -> collect_eq_term env xvs p eq
+       | Nucleus.ArgumentIsType t -> collect_is_type env xvs p t
+       | Nucleus.ArgumentIsTerm e -> collect_is_term env xvs p e
+       | Nucleus.ArgumentEqType eq -> collect_eq_type env xvs p eq
+       | Nucleus.ArgumentEqTerm eq -> collect_eq_term env xvs p eq
      end in
      collect_args env xvs ps vs
 

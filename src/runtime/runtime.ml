@@ -23,7 +23,7 @@ type env = {
 
 and dynamic = {
   (* Toplevel constant declarations *)
-  signature : Jdg.Signature.t;
+  signature : Nucleus.signature;
 
   (* Current values of dynamic variables *)
   vars : value Store.Dyn.t
@@ -38,16 +38,16 @@ and lexical = {
   continuation : value continuation option;
 
   (* toplevel handlers *)
-  handle : (Name.ident * (value list * Jdg.is_type_abstraction option,value) closure) list;
+  handle : (Name.ident * (value list * Nucleus.is_type_abstraction option,value) closure) list;
 }
 
 and state = value Store.Ref.t
 
 and value =
-  | IsTerm of Jdg.is_term_abstraction
-  | IsType of Jdg.is_type_abstraction
-  | EqTerm of Jdg.eq_term_abstraction
-  | EqType of Jdg.eq_type_abstraction
+  | IsTerm of Nucleus.is_term_abstraction
+  | IsType of Nucleus.is_type_abstraction
+  | EqTerm of Nucleus.eq_term_abstraction
+  | EqType of Nucleus.eq_type_abstraction
   | Closure of (value, value) closure
   | Handler of handler
   | Tag of Name.ident * value list
@@ -61,11 +61,11 @@ and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
 and 'a result =
   | Return of 'a
-  | Operation of Name.ident * value list * Jdg.is_type_abstraction option * dynamic * 'a continuation
+  | Operation of Name.ident * value list * Nucleus.is_type_abstraction option * dynamic * 'a continuation
 
 and 'a comp = env -> 'a result * state
 
-and operation_args = { args : value list; checking : Jdg.is_type_abstraction option }
+and operation_args = { args : value list; checking : Nucleus.is_type_abstraction option }
 
 and handler = {
   handler_val: (value,value) closure option;
@@ -79,20 +79,20 @@ type 'a toplevel = env -> 'a * env
 
 (** Error reporting *)
 type error =
-  | ExpectedAtom of Jdg.is_term
+  | ExpectedAtom of Nucleus.is_term
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | AnnotationMismatch of Jdg.is_type * Jdg.is_type_abstraction
-  | TypeMismatchCheckingMode of Jdg.is_term_abstraction * Jdg.is_type_abstraction
-  | UnexpectedAbstraction of Jdg.is_type
-  | TermEqualityFail of Jdg.is_term * Jdg.is_term
-  | TypeEqualityFail of Jdg.is_type * Jdg.is_type
+  | AnnotationMismatch of Nucleus.is_type * Nucleus.is_type_abstraction
+  | TypeMismatchCheckingMode of Nucleus.is_term_abstraction * Nucleus.is_type_abstraction
+  | UnexpectedAbstraction of Nucleus.is_type
+  | TermEqualityFail of Nucleus.is_term * Nucleus.is_term
+  | TypeEqualityFail of Nucleus.is_type * Nucleus.is_type
   | UnannotatedAbstract of Name.ident
   | MatchFail of value
   | FailureFail of value
-  | InvalidEqualTerm of Jdg.is_term * Jdg.is_term
-  | InvalidEqualType of Jdg.is_type * Jdg.is_type
+  | InvalidEqualTerm of Nucleus.is_term * Nucleus.is_term
+  | InvalidEqualType of Nucleus.is_type * Nucleus.is_type
   | ListExpected of value
   | OptionExpected of value
   | IsTypeExpected of value
@@ -111,8 +111,8 @@ type error =
   | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
-  | InvalidConvertible of Jdg.is_type_abstraction * Jdg.is_type_abstraction * Jdg.eq_type_abstraction
-  | InvalidCoerce of Jdg.is_type_abstraction * Jdg.is_term_abstraction
+  | InvalidConvertible of Nucleus.is_type_abstraction * Nucleus.is_type_abstraction * Nucleus.eq_type_abstraction
+  | InvalidCoerce of Nucleus.is_type_abstraction * Nucleus.is_term_abstraction
   | UnhandledOperation of Name.operation * value list
   | InvalidPatternMatch of value
   | InvalidHandlerMatch
@@ -174,7 +174,7 @@ let top_bind m f env =
   f x env
 
 type 'a caught =
-  | CaughtJdg of Jdg.error Location.located
+  | CaughtJdg of Nucleus.error Location.located
   | CaughtRuntime of error Location.located
   | Result of 'a
 
@@ -183,7 +183,7 @@ let catch ~loc m env =
     let x, env = Lazy.force m env in
     Result x, env
   with
-    | Jdg.Error err -> CaughtJdg (Location.locate err loc), env
+    | Nucleus.Jdg_error err -> CaughtJdg (Location.locate err loc), env
     | Error err -> CaughtRuntime err, env
 
 (** Returns *)
@@ -235,7 +235,7 @@ let name_of v =
 
 let as_is_type ~loc = function
   | IsType t as v ->
-     begin match Jdg.as_not_abstract t with
+     begin match Nucleus.as_not_abstract t with
      | Some t -> t
      | None -> error ~loc (IsTermExpected v)
      end
@@ -245,7 +245,7 @@ let as_is_type ~loc = function
 
 let as_is_term ~loc = function
   | IsTerm e as v ->
-     begin match Jdg.as_not_abstract e with
+     begin match Nucleus.as_not_abstract e with
      | Some e -> e
      | None -> error ~loc (IsTermExpected v)
      end
@@ -255,7 +255,7 @@ let as_is_term ~loc = function
 
 let as_eq_type ~loc = function
   | EqType eq as v ->
-     begin match Jdg.as_not_abstract eq with
+     begin match Nucleus.as_not_abstract eq with
      | Some eq -> eq
      | None -> error ~loc (EqTypeExpected v)
      end
@@ -265,7 +265,7 @@ let as_eq_type ~loc = function
 
 let as_eq_term ~loc = function
   | EqTerm eq as v ->
-     begin match Jdg.as_not_abstract eq with
+     begin match Nucleus.as_not_abstract eq with
      | Some eq -> eq
      | None -> error ~loc (EqTermExpected v)
      end
@@ -352,10 +352,10 @@ let add_rule add_rule_to_signature rname rule env =
             } in
   (), env
 
-let add_rule_is_type = add_rule Jdg.Signature.add_rule_is_type
-let add_rule_is_term = add_rule Jdg.Signature.add_rule_is_term
-let add_rule_eq_type = add_rule Jdg.Signature.add_rule_eq_type
-let add_rule_eq_term = add_rule Jdg.Signature.add_rule_eq_term
+let add_rule_is_type = add_rule Nucleus.Signature.add_rule_is_type
+let add_rule_is_term = add_rule Nucleus.Signature.add_rule_is_term
+let add_rule_eq_type = add_rule Nucleus.Signature.add_rule_eq_type
+let add_rule_eq_term = add_rule Nucleus.Signature.add_rule_eq_term
 
 let index_of_level k env =
   let n = List.length env.lexical.bound - k - 1 in
@@ -375,8 +375,8 @@ let add_bound0 v env = {env with lexical = { env.lexical with
                                              bound = v :: env.lexical.bound } }
 
 let add_free x jt m env =
-  let jy = Jdg.fresh_atom x jt in
-  let y_val = mk_is_term (Jdg.abstract_not_abstract (Jdg.form_is_term_atom jy)) in
+  let jy = Nucleus.fresh_atom x jt in
+  let y_val = mk_is_term (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom jy)) in
   let env = add_bound0 y_val env in
   m jy env
 
@@ -452,9 +452,9 @@ let continue ~loc v ({lexical={continuation;_};_} as env) =
 
 (** Generate a printing environment from runtime environment *)
 let get_penv env =
-  { TT.forbidden = env.lexical.forbidden
-  ; TT.metas = Name.meta_printer ()
-  ; TT.atoms = Name.atom_printer ()
+  { Nucleus.forbidden = env.lexical.forbidden
+  ; Nucleus.metas = Name.meta_printer ()
+  ; Nucleus.atoms = Name.atom_printer ()
   }
 
 let lookup_penv env =
@@ -481,13 +481,13 @@ let rec as_list_opt = function
 let rec print_value ?max_level ~penv v ppf =
   match v with
 
-  | IsTerm e -> Jdg.print_is_term_abstraction ~penv:penv ?max_level e ppf
+  | IsTerm e -> Nucleus.print_is_term_abstraction ~penv:penv ?max_level e ppf
 
-  | IsType t -> Jdg.print_is_type_abstraction ~penv:penv ?max_level t ppf
+  | IsType t -> Nucleus.print_is_type_abstraction ~penv:penv ?max_level t ppf
 
-  | EqTerm eq -> Jdg.print_eq_term_abstraction ~penv:penv ?max_level eq ppf
+  | EqTerm eq -> Nucleus.print_eq_term_abstraction ~penv:penv ?max_level eq ppf
 
-  | EqType eq -> Jdg.print_eq_type_abstraction ~penv:penv ?max_level eq ppf
+  | EqType eq -> Nucleus.print_eq_type_abstraction ~penv:penv ?max_level eq ppf
 
   | Closure f -> Format.fprintf ppf "<function>"
 
@@ -578,7 +578,7 @@ let print_error ~penv err ppf =
 
   | ExpectedAtom j ->
      Format.fprintf ppf "expected an atom but got %t"
-       (Jdg.print_is_term ~penv:penv j)
+       (Nucleus.print_is_term ~penv:penv j)
 
   | UnknownExternal s ->
      Format.fprintf ppf "unknown external %s" s
@@ -593,27 +593,27 @@ let print_error ~penv err ppf =
   | AnnotationMismatch (t1, t2) ->
       Format.fprintf ppf
       "@[<v>The type annotation is@, @[<hov>%t@]@ but the surroundings imply it should be@, @[<hov>%t@].@]"
-                    (Jdg.print_is_type ~penv:penv t1)
-                    (Jdg.print_is_type_abstraction ~penv:penv t2)
+                    (Nucleus.print_is_type ~penv:penv t1)
+                    (Nucleus.print_is_type_abstraction ~penv:penv t2)
 
   | TypeMismatchCheckingMode (v, t) ->
       Format.fprintf ppf "The term@, @[<hov>%t@]@ is expected by its surroundings to have type@, @[<hov>%t@]"
-                    (Jdg.print_is_term_abstraction ~penv:penv v)
-                    (Jdg.print_is_type_abstraction ~penv:penv t)
+                    (Nucleus.print_is_term_abstraction ~penv:penv v)
+                    (Nucleus.print_is_type_abstraction ~penv:penv t)
 
   | UnexpectedAbstraction t ->
       Format.fprintf ppf "This term is an abstraction but the surroundings imply it shoule be@, @[<hov>%t@]"
-                    (Jdg.print_is_type ~penv:penv t)
+                    (Nucleus.print_is_type ~penv:penv t)
 
   | TermEqualityFail (e1, e2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
-                    (Jdg.print_is_term ~penv:penv e1)
-                    (Jdg.print_is_term ~penv:penv e2)
+                    (Nucleus.print_is_term ~penv:penv e1)
+                    (Nucleus.print_is_term ~penv:penv e2)
 
   | TypeEqualityFail (t1, t2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
-                    (Jdg.print_is_type ~penv:penv t1)
-                    (Jdg.print_is_type ~penv:penv t2)
+                    (Nucleus.print_is_type ~penv:penv t1)
+                    (Nucleus.print_is_type ~penv:penv t2)
 
   | UnannotatedAbstract x ->
      Format.fprintf ppf "@[<v 2>cannot infer the type of the variable to abstract@ %t@]" (Name.print_ident x)
@@ -628,13 +628,13 @@ let print_error ~penv err ppf =
 
   | InvalidEqualTerm (e1, e2) ->
      Format.fprintf ppf "@[<v 2>this should be equality of terms@ %t@;<1 -2>and@ %t"
-                    (Jdg.print_is_term ~penv:penv e1)
-                    (Jdg.print_is_term ~penv:penv e2)
+                    (Nucleus.print_is_term ~penv:penv e1)
+                    (Nucleus.print_is_term ~penv:penv e2)
 
   | InvalidEqualType (t1, t2) ->
      Format.fprintf ppf "this should be equality of types %t@ and@ %t"
-                    (Jdg.print_is_type ~penv:penv t1)
-                    (Jdg.print_is_type ~penv:penv t2)
+                    (Nucleus.print_is_type ~penv:penv t1)
+                    (Nucleus.print_is_type ~penv:penv t2)
 
   | ListExpected v ->
      Format.fprintf ppf "expected a list but got %s" (name_of v)
@@ -693,14 +693,14 @@ let print_error ~penv err ppf =
   | InvalidConvertible (t1, t2, eq) ->
      Format.fprintf ppf
        "@[<hv 2>expected a witness of equality between@ %t@;<1 -2>and@ %t@;<1 -2>but got@ %t@]"
-                    (Jdg.print_is_type_abstraction ~penv t1)
-                    (Jdg.print_is_type_abstraction ~penv t2)
-                    (Jdg.print_eq_type_abstraction ~penv eq)
+                    (Nucleus.print_is_type_abstraction ~penv t1)
+                    (Nucleus.print_is_type_abstraction ~penv t2)
+                    (Nucleus.print_eq_type_abstraction ~penv eq)
 
   | InvalidCoerce (t, e) ->
      Format.fprintf ppf "expected a term of type %t but got %t"
-                    (Jdg.print_is_type_abstraction ~penv t)
-                    (Jdg.print_is_term_abstraction ~penv e)
+                    (Nucleus.print_is_type_abstraction ~penv t)
+                    (Nucleus.print_is_term_abstraction ~penv e)
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "@[<v>unhandled operation:@.   @[<hov>%t@]@]@."
@@ -722,7 +722,7 @@ let empty = {
     continuation = None ;
   } ;
   dynamic = {
-    signature = Jdg.Signature.empty ;
+    signature = Nucleus.Signature.empty ;
     vars = Store.Dyn.empty ;
   } ;
   state = Store.Ref.empty;
@@ -776,10 +776,10 @@ let top_handle ~loc r env =
 let rec equal_value v1 v2 =
   match v1, v2 with
     | IsTerm e1, IsTerm e2 ->
-      Jdg.alpha_equal_abstraction Jdg.alpha_equal_term e1 e2
+      Nucleus.alpha_equal_abstraction Nucleus.alpha_equal_term e1 e2
 
     | IsType t1, IsType t2 ->
-      Jdg.alpha_equal_abstraction Jdg.alpha_equal_type t1 t2
+      Nucleus.alpha_equal_abstraction Nucleus.alpha_equal_type t1 t2
 
     | EqTerm eq1, EqTerm eq2 ->
        (* XXX: should we even compare equality judgements for equality? That will lead to comparison of contexts. *)
@@ -850,13 +850,13 @@ struct
   let rec value v =
     match v with
 
-    | IsTerm e -> Json.tag "IsTerm" [Jdg.Json.abstraction Jdg.Json.is_term e]
+    | IsTerm e -> Json.tag "IsTerm" [Nucleus.Json.abstraction Nucleus.Json.is_term e]
 
-    | IsType t -> Json.tag "IsType" [Jdg.Json.abstraction Jdg.Json.is_type t]
+    | IsType t -> Json.tag "IsType" [Nucleus.Json.abstraction Nucleus.Json.is_type t]
 
-    | EqType eq -> Json.tag "EqType" [Jdg.Json.abstraction Jdg.Json.eq_type eq]
+    | EqType eq -> Json.tag "EqType" [Nucleus.Json.abstraction Nucleus.Json.eq_type eq]
 
-    | EqTerm eq -> Json.tag "EqTerm" [Jdg.Json.abstraction Jdg.Json.eq_term eq]
+    | EqTerm eq -> Json.tag "EqTerm" [Nucleus.Json.abstraction Nucleus.Json.eq_term eq]
 
     | Closure _ -> Json.tag "<fun>" []
 
