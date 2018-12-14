@@ -1,4 +1,4 @@
-open Jdg_typedefs
+open Nucleus_types
 
 let type_of_atom {atom_type=t;_} = t
 
@@ -25,7 +25,7 @@ let type_of_term sgn = function
 
   | TermMeta ({meta_type;_}, args) ->
      Instantiate_meta.fully_apply_abstraction_no_typechecks
-       (TT_instantiate.type_fully ?lvl:None) meta_type args
+       (Instantiate_bound.is_type_fully ?lvl:None) meta_type args
 
   | TermConvert (e, _, t) -> t
 
@@ -37,13 +37,13 @@ let type_at_abstraction = function
 let rec type_of_term_abstraction sgn = function
   | NotAbstract e ->
      let t = type_of_term sgn e in
-     TT_mk.not_abstract t
+     Mk.not_abstract t
 
   | Abstract (x, t, abstr) ->
-     let a, abstr = TT_unabstract.abstraction TT_instantiate.term x t abstr in
+     let a, abstr = Unabstract.abstraction Instantiate_bound.is_term x t abstr in
      let t_abstr = type_of_term_abstraction sgn abstr in
-     let t_abstr = TT_abstract.abstraction TT_abstract.ty a.atom_name t_abstr in
-     TT_mk.abstract x t t_abstr
+     let t_abstr = Abstract.abstraction Abstract.is_type a.atom_name t_abstr in
+     Mk.abstract x t t_abstr
 
 (** [natural_type sgn e] gives the judgment that the natural type [t] of [e] is derivable.
     We maintain the invariant that no further assumptions are needed (apart from those
@@ -58,25 +58,25 @@ let natural_type_eq sgn e =
   let natural = natural_type sgn e
   and given = type_of_term sgn e in
   (* XXX should the assumptions here be empty, or the assumptions of [e] ? If
-  we derived [e : given] via a conversion, eg
+     we derived [e : given] via a conversion, eg
 
-  ⊢ e' : natural   x : False ⊢ natural == given
-  --------------------------------------------conv
-  x  : False ⊢ e : given
+     ⊢ e' : natural   x : False ⊢ natural == given
+     --------------------------------------------conv
+     x  : False ⊢ e : given
 
-  then we should include the assumptions of [e], i.e. [x], in the assumptions
-  of [natural == given]
+     then we should include the assumptions of [e], i.e. [x], in the assumptions
+     of [natural == given]
 
-  NB: We should actually look into [e] and if it's a conversion, grab that
-  assumption set.
-   *)
-  TT_mk.eq_type Assumption.empty natural given
+     NB: We should actually look into [e] and if it's a conversion, grab that
+     assumption set.
+  *)
+  Mk.eq_type Assumption.empty natural given
 
 let rec boundary_abstraction boundary_u = function
-  | NotAbstract u -> TT_mk.not_abstract (boundary_u u)
+  | NotAbstract u -> Mk.not_abstract (boundary_u u)
   | Abstract (x, t, abstr) ->
      let b = boundary_abstraction boundary_u abstr in
-     TT_mk.abstract x t b
+     Mk.abstract x t b
 
 let boundary_is_type_abstraction abstr =
   boundary_abstraction (fun _ -> ()) abstr

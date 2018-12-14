@@ -1,4 +1,4 @@
-open Jdg_typedefs
+open Nucleus_types
 
 module RuleMap = Name.IdentMap
 

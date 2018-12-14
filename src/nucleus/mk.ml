@@ -1,4 +1,4 @@
-open Jdg_typedefs
+open Nucleus_types
 
 let fresh_atom x t =
   let x = Name.fresh x in

@@ -3,14 +3,14 @@
 type bound = int
 
 type is_type =
-  | TypeConstructor of Name.constructor * argument list
   | TypeMeta of is_type_meta * is_term list
+  | TypeConstructor of Name.constructor * argument list
 
 and is_term =
-  | TermAtom of is_atom
   | TermBound of bound
-  | TermConstructor of Name.constructor * argument list
+  | TermAtom of is_atom
   | TermMeta of is_term_meta * is_term list
+  | TermConstructor of Name.constructor * argument list
   | TermConvert of is_term * assumption * is_type
 
 and eq_type = EqType of assumption * is_type * is_type
@@ -32,7 +32,17 @@ and assumption =
   ; is_term_meta : is_term_boundary Name.MetaMap.t
   ; eq_type_meta : eq_type_boundary Name.MetaMap.t
   ; eq_term_meta : eq_term_boundary Name.MetaMap.t
-  ; bound : BoundSet.t }
+  ; bound : Bound_set.t }
+
+and 'a abstraction =
+  | NotAbstract of 'a
+  | Abstract of Name.ident * is_type * 'a abstraction
+
+and argument =
+  | ArgumentIsType of is_type abstraction
+  | ArgumentIsTerm of is_term abstraction
+  | ArgumentEqType of eq_type abstraction
+  | ArgumentEqTerm of eq_term abstraction
 
 and is_type_boundary = unit abstraction
 and is_term_boundary = is_type abstraction
@@ -44,16 +54,6 @@ and boundary =
     | BoundaryIsTerm of is_term_boundary
     | BoundaryEqType of eq_type_boundary
     | BoundaryEqTerm of eq_term_boundary
-
-and argument =
-  | ArgumentIsType of is_type abstraction
-  | ArgumentIsTerm of is_term abstraction
-  | ArgumentEqType of eq_type abstraction
-  | ArgumentEqTerm of eq_term abstraction
-
-and 'a abstraction =
-  | NotAbstract of 'a
-  | Abstract of Name.ident * is_type * 'a abstraction
 
 
 type signature =
