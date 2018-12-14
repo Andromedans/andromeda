@@ -81,18 +81,11 @@ and abstraction
           'b abstraction ->
           Format.formatter -> unit
   = fun occurs_v print_v ?max_level ~penv abstr ppf ->
-  let rec fold penv xus = function
+  let rec fold penv abstr ppf =
+    match abstr with
 
     | NotAbstract v ->
-       let xus = List.rev xus in
-       begin match xus with
-       | [] ->
-          print_v ?max_level ~penv v ppf
-       | _::_ ->
-         Print.print ~at_level:Level.abstraction ?max_level ppf "%t@ %t"
-           (Print.sequence (binder ~penv) "" xus)
-           (print_v ~max_level:Level.abstraction_body ~penv v)
-       end
+          print_v ~max_level:Level.abstraction_body ~penv v ppf
 
     | Abstract (x, u, abstr) ->
        let x =
@@ -101,12 +94,13 @@ and abstraction
           else
             Name.anonymous ())
        in
+       Print.print ppf "%t@ " (binder ~penv (x, u)) ;
        let penv = add_forbidden x penv in
-       fold penv ((x,u) :: xus) abstr
-
+       fold penv abstr ppf
   in
-
-  fold penv [] abstr
+  match abstr with
+  | NotAbstract v -> print_v ?max_level ~penv v ppf
+  | Abstract _ -> Print.print ~at_level:Level.abstraction ?max_level ppf "%t" (fold penv abstr)
 
 and argument ~penv arg ppf =
   match arg with
@@ -123,7 +117,7 @@ and argument ~penv arg ppf =
 and binder ~penv (x,t) ppf =
   Print.print ppf "{%t@ :@ %t}"
     (Name.print_ident ~parentheses:true x)
-    (ty ~penv t)
+    (ty ~max_level:Level.binder ~penv t)
 
 
 (** Printing judgements *)
