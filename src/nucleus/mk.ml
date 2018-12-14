@@ -22,6 +22,8 @@ let term_constructor c args = TermConstructor (c, args)
 
 let term_meta m args = TermMeta (m, args)
 
+(** Make a term conversion. It is illegal to pile a term conversion on top of another term
+   conversion. *)
 let term_convert e asmp t =
   match e with
   | TermConvert _ -> assert false

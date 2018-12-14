@@ -1,7 +1,8 @@
 (** Manipulation of assumptions. *)
 open Nucleus_types
 
-(** The assumptions of a term [e] are the atoms and bound variables appearing in [e]. *)
+(** Collect the assumptions of a type. Caveat: alpha-equal types may have
+    different assumptions. *)
 let rec is_type ?(lvl=0) = function
   | TypeMeta (mv, args) ->
      let args = term_arguments ~lvl args

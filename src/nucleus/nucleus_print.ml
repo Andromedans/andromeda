@@ -2,6 +2,7 @@
 
 open Nucleus_types
 
+(** Forbid the given identifier from being used as a bound variable. *)
 let add_forbidden x penv = { penv with forbidden = x :: penv.forbidden }
 
 let rec ty ?max_level ~penv t ppf =

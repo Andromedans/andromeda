@@ -24,12 +24,14 @@ let mem_atom x s = Atom_map.mem x s.free
 
 let mem_bound k s = Bound_set.mem k s.bound
 
+(** [at_level ~lvl asmp] removes bound variables below [lvl] and subtracts [lvl] from the other ones. *)
 let at_level ~lvl s =
   { s with
     bound = Bound_set.fold
         (fun k s -> if k < lvl then s else Bound_set.add (k - lvl) s)
         s.bound Bound_set.empty }
 
+(** [shift ~lvl k asmp] shifts bound variables above [lvl] by [k]. *)
 let shift ~lvl k s =
   { s with
     bound =
@@ -68,6 +70,7 @@ let union a1 a2 =
   ; bound = Bound_set.union a1.bound a2.bound
   }
 
+(** [instantiate asmp0 ~lvl:k asmp] replaces bound variable [k] with the assumptions [asmp0] in [asmp]. *)
 let instantiate asmp0 ~lvl asmp =
   match Bound_set.mem lvl asmp.bound with
   | false -> asmp
@@ -79,6 +82,7 @@ let instantiate asmp0 ~lvl asmp =
      and asmp = {asmp with bound} in
      union asmp asmp0
 
+(** [fully_instantiate asmps ~lvl:k asmp] replaces bound variables in [asmp] with assumptions [asmps]. *)
 let fully_instantiate asmps ~lvl asmp =
   let rec fold asmp = function
     | [] -> asmp
@@ -88,6 +92,7 @@ let fully_instantiate asmps ~lvl asmp =
   in
   fold asmp asmps
 
+(** [abstract x ~lvl:k l] replaces the free variable [x] by the bound variable [k]. *)
 let abstract x ~lvl abstr =
   if Atom_map.mem x abstr.free
   then

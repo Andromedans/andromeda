@@ -2,6 +2,7 @@
 
 open Nucleus_types
 
+(** [abstract_is_type x0 ~lvl:k t] replaces atom [x0] in type [t] with bound variable [k] (default [0]). *)
 let rec is_type x ?(lvl=0) = function
   | TypeConstructor (c, args) ->
      let args = arguments x ~lvl args in
