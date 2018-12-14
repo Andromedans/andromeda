@@ -3,7 +3,7 @@
 (** Meta-variables appearing in rules are referred to by their de Bruijn _indices_. *)
 type meta = int
 
-type bound = TT.bound
+type bound = int                (* TT.bound *)
 
 type ty =
   | TypeConstructor of Name.constructor * argument list
@@ -19,10 +19,10 @@ and eq_type = EqType of ty * ty
 and eq_term = EqTerm of term * term * ty
 
 and argument =
-  | ArgIsType of ty abstraction
-  | ArgIsTerm of term abstraction
-  | ArgEqType of eq_type abstraction
-  | ArgEqTerm of eq_term abstraction
+  | ArgumentIsType of ty abstraction
+  | ArgumentIsTerm of term abstraction
+  | ArgumentEqType of eq_type abstraction
+  | ArgumentEqTerm of eq_term abstraction
 
 and 'a abstraction =
   | NotAbstract of 'a

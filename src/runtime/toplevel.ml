@@ -7,7 +7,6 @@ type state = {
 }
 
 type error =
-  | TTError of TT.error
   | EvalError of Eval.error
   | ParserError of Ulexbuf.error
   | DesugarError of Desugar.error
@@ -17,7 +16,6 @@ exception Error of error Location.located
 
 let print_error err ppf =
   match err with
-  | TTError err -> Format.fprintf ppf "AML runtime misused the nucleus (%t) -- please report" (TT.print_error err)
   | EvalError err -> Format.fprintf ppf "@[<hov 2>Evaluation error:@ %t@]" (Eval.print_error err)
   | ParserError err -> Format.fprintf ppf "@[<hov 2>Parsing error:@ %t@]" (Ulexbuf.print_error err)
   | DesugarError err -> Format.fprintf ppf "@[<hov 2>Type error:@ %t@]" (Desugar.print_error err)
@@ -29,8 +27,6 @@ let print_located_error {Location.thing=err; loc} ppf =
 let wrap f state =
   try f state
   with
-    | TT.Error err ->
-       raise (Error (Location.locate (TTError err) Location.unknown))
     | Eval.Error {Location.thing=err; loc} ->
        raise (Error (Location.locate (EvalError err) loc))
     | Ulexbuf.Error {Location.thing=err; loc} ->

@@ -1,7 +1,7 @@
 type coercible =
   | NotCoercible
-  | Convertible of Jdg.eq_type_abstraction
-  | Coercible of Jdg.is_term_abstraction
+  | Convertible of Nucleus.eq_type_abstraction
+  | Coercible of Nucleus.is_term_abstraction
 
 (************************)
 (* Built-in Definitions *)
@@ -41,15 +41,11 @@ let predefined_ops = let open Input in
   let un_ml_eq_term = unloc (ML_Judgement (ML_NotAbstract ML_EqTerm)) in
   let decl_equal_term = DeclOperation (Name.Predefined.equal_term, ([un_ml_is_term; un_ml_is_term], unloc (ML_TyApply (Name.Predefined.option, [un_ml_eq_term]))))
   and decl_equal_type = DeclOperation (Name.Predefined.equal_type, ([un_ml_is_type; un_ml_is_type], unloc (ML_TyApply (Name.Predefined.option, [un_ml_eq_type]))))
-  and decl_as_prod = DeclOperation (Name.Predefined.as_prod, ([un_ml_is_type], unloc (ML_TyApply (Name.Predefined.option, [un_ml_eq_type]))))
   and decl_coerce = DeclOperation (Name.Predefined.coerce, ([un_ml_is_term; un_ml_is_type], unloc (ML_TyApply (Name.Predefined.coercible_ty, []))))
-  and decl_coerce_fun = DeclOperation (Name.Predefined.coerce_fun, ([un_ml_is_term], unloc (ML_TyApply (Name.Predefined.coercible_ty, []))))
   in
   [unloc decl_equal_term;
    unloc decl_equal_type;
-   unloc decl_as_prod;
-   unloc decl_coerce;
-   unloc decl_coerce_fun]
+   unloc decl_coerce]
 
 let predefined_bound = let open Input in
   let unloc x = Location.locate x Location.unknown in
@@ -140,14 +136,14 @@ let as_eq_type_option ~loc v =
 let (>>=) = Runtime.bind
 
 let operation_equal_term ~loc e1 e2 =
-  let v1 = Runtime.mk_is_term (Jdg.abstract_not_abstract e1)
-  and v2 = Runtime.mk_is_term (Jdg.abstract_not_abstract e2) in
+  let v1 = Runtime.mk_is_term (Nucleus.abstract_not_abstract e1)
+  and v2 = Runtime.mk_is_term (Nucleus.abstract_not_abstract e2) in
   Runtime.operation Name.Predefined.equal_term [v1;v2] >>= fun v ->
   Runtime.return (as_eq_term_option ~loc v)
 
 let operation_equal_type ~loc t1 t2 =
-  let v1 = Runtime.mk_is_type (Jdg.abstract_not_abstract t1)
-  and v2 = Runtime.mk_is_type (Jdg.abstract_not_abstract t2) in
+  let v1 = Runtime.mk_is_type (Nucleus.abstract_not_abstract t1)
+  and v2 = Runtime.mk_is_type (Nucleus.abstract_not_abstract t2) in
   Runtime.operation Name.Predefined.equal_type [v1;v2] >>= fun v ->
   Runtime.return (as_eq_type_option ~loc v)
 

@@ -45,7 +45,7 @@ version:
 
 src/build.ml:
 	/bin/echo -n 'let version = "' > $@
-	$(MAKE) -s version | tr -d '\n' >> $@
+	$(MAKE) -s version | egrep -v '^make' | tr -d '\n' >> $@
 	/bin/echo '" ;;' >> $@
 	echo "let lib_dir = \""$(LIB_DIR)"\" ;;" >> $@
 

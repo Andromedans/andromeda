@@ -129,6 +129,9 @@ let rec whnf ctx s = function
   | (Mlty.Judgement _ | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
      Mlty.Handler _ | Mlty.Ref _ | Mlty.Dynamic _) as t -> t
 
+(** Unify types [t] and [t'] under current substitition [s],
+    and return the updated substitution, or [None] if the types
+    are not unifiable. *)
 let rec unifiable ctx s t t' =
   let rec unifiable_judgement_abstraction s abstr1 abstr2 =
     match abstr1, abstr2 with

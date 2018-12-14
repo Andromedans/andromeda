@@ -12,5 +12,5 @@ val top_match_pattern : Pattern.aml -> Runtime.value -> Runtime.value list optio
 val match_op_pattern :
   loc:Location.t ->
   Pattern.aml list -> Pattern.is_type option ->
-  Runtime.value list -> Jdg.is_type_abstraction option ->
+  Runtime.value list -> Nucleus.is_type_abstraction option ->
   Runtime.value list option Runtime.comp
