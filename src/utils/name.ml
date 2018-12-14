@@ -60,8 +60,6 @@ module Predefined = struct
 
   let equal_type = make "equal_type"
 
-  let as_prod = make "as_prod"
-
   let coercible_ty = make "coercible"
 
   let coercible_constructor = make "Coercible"
@@ -71,8 +69,6 @@ module Predefined = struct
   let notcoercible = make "NotCoercible"
 
   let coerce = make "coerce"
-
-  let coerce_fun = make "coerce_fun"
 
   let hypotheses = make "hypotheses"
 end

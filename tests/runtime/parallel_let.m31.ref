@@ -1,0 +1,5 @@
+val cow :> mlstring * mlstring
+
+("y",
+"x")
+

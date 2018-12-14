@@ -257,12 +257,16 @@ and collect_pattern env xvs {Location.thing=p';loc} v =
   | Pattern.Judgement p, Runtime.EqTerm eq ->
      collect_eq_term env xvs p eq
 
-  | Pattern.AMLConstructor (tag, ps), Runtime.Tag (tag', vs) when Name.eq_ident tag tag' ->
-    begin
-      match multicollect_pattern env xvs ps vs with
-      | None -> Runtime.(error ~loc (InvalidPatternMatch v))
-      | Some vs -> vs
-    end
+  | Pattern.AMLConstructor (tag, ps), Runtime.Tag (tag', vs) ->
+     if not (Name.eq_ident tag tag')
+     then
+       raise Match_fail
+     else
+       begin
+         match multicollect_pattern env xvs ps vs with
+         | None -> Runtime.(error ~loc (InvalidPatternMatch v))
+         | Some vs -> vs
+       end
 
   | Pattern.Tuple ps, Runtime.Tuple vs ->
     begin
@@ -277,7 +281,7 @@ and collect_pattern env xvs {Location.thing=p';loc} v =
                           Runtime.Tuple _ | Runtime.String _)
 
   | Pattern.AMLConstructor _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
-                               Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
+                               Runtime.Closure _ | Runtime.Handler _ |
                                Runtime.Ref _ | Runtime.Dyn _ |
                                Runtime.Tuple _ | Runtime.String _)
 
