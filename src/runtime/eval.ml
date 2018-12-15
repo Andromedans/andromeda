@@ -953,7 +953,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
                                           (Runtime.print_error ~penv err));
          return ()
 
-       | Runtime.CaughtJdg {Location.thing=err; loc}  ->
+       | Runtime.CaughtNucleus {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
          (if not quiet then Format.printf "Successfully failed command with judgment error:@.%t:@ %t@.@."
                                           (Location.print loc)
@@ -974,7 +974,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
     | Rsyntax.Verbosity i -> Config.verbosity := i; return ()
   )) >>= function
-  | Runtime.CaughtJdg {Location.thing=err; loc}  ->
+  | Runtime.CaughtNucleus {Location.thing=err; loc}  ->
     Runtime.top_lookup_penv >>= fun penv ->
     error ~loc (NucleusError (penv, err))
 

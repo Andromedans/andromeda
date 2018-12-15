@@ -174,7 +174,7 @@ let top_bind m f env =
   f x env
 
 type 'a caught =
-  | CaughtJdg of Nucleus.error Location.located
+  | CaughtNucleus of Nucleus.error Location.located
   | CaughtRuntime of error Location.located
   | Result of 'a
 
@@ -183,7 +183,7 @@ let catch ~loc m env =
     let x, env = Lazy.force m env in
     Result x, env
   with
-    | Nucleus.Error err -> CaughtJdg (Location.locate err loc), env
+    | Nucleus.Error err -> CaughtNucleus (Location.locate err loc), env
     | Error err -> CaughtRuntime err, env
 
 (** Returns *)
