@@ -1,1 +1,1 @@
-let raise err = raise (Nucleus_types.Jdg_error err)
+let raise err = raise (Nucleus_types.Error err)

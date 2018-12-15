@@ -215,7 +215,7 @@ val context_eq_term_abstraction : eq_term_abstraction -> is_atom list
 (** An error emitted by the nucleus *)
 type error
 
-exception Jdg_error of error
+exception Error of error
 
 (** The type judgement of a term judgement. *)
 val type_of_term : signature -> is_term -> is_type
