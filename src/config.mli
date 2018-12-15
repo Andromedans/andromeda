@@ -40,12 +40,3 @@ val global_meta_printer : bool ref
 
 (** Should JSON format print locations? *)
 val json_location : bool ref
-
-(** What should we do if we get an unsolved application constraint? *)
-type appty_guess =
-  | NoGuess
-  | GuessJdg
-  | GuessArrow
-
-val appty_guess : appty_guess ref
-

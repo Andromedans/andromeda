@@ -570,7 +570,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
      comp c1 >>= fun (c1, t1) ->
      comp c2 >>= fun (c2, t2) ->
      let out = Mlty.fresh_type () in
-     Tyenv.add_application ~loc t1 t2 out >>= fun () ->
+     Tyenv.add_equation ~loc t1 (Mlty.Arrow (t2, out)) >>= fun () ->
      return (locate ~loc (Rsyntax.Apply (c1, c2)), out)
 
   | Dsyntax.Yield c ->
