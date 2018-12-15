@@ -183,7 +183,7 @@ let catch ~loc m env =
     let x, env = Lazy.force m env in
     Result x, env
   with
-    | Nucleus.Jdg_error err -> CaughtJdg (Location.locate err loc), env
+    | Nucleus.Error err -> CaughtJdg (Location.locate err loc), env
     | Error err -> CaughtRuntime err, env
 
 (** Returns *)
