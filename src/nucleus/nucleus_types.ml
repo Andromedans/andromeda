@@ -69,7 +69,7 @@ type eq_type_abstraction = eq_type abstraction
 type eq_term_abstraction = eq_term abstraction
 
 (** Stumps are used to construct and invert judgements. The [form_XYZ]
-   functions in [Jdg.mli] take a stump and construct a judgement from it,
+   functions take a stump and construct a judgement from it,
    whereas the [invert_XYZ] functions do the opposite. We can think of stumps
    as "stumps", i.e., the lowest level of a derivation tree. *)
 
@@ -131,7 +131,7 @@ type error =
   | AlphaEqualTermMismatch of is_term * is_term
   | InvalidConvert of is_type * is_type
 
-exception Jdg_error of error
+exception Error of error
 
 type print_env =
   { forbidden : Name.ident list

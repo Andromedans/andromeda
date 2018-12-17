@@ -308,7 +308,7 @@ val top_lookup_penv : Nucleus.print_env toplevel
 val top_lookup_signature : Nucleus.signature toplevel
 
 type 'a caught =
-  | CaughtJdg of Nucleus.error Location.located
+  | CaughtNucleus of Nucleus.error Location.located
   | CaughtRuntime of error Location.located
   | Result of 'a
 
