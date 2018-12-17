@@ -50,18 +50,6 @@ let options = Arg.align [
      Arg.String (fun str -> Config.prelude_file := Config.PreludeFile str),
      "<file> Specify the prelude file to load initially");
 
-    ("--application-noguess",
-      Arg.Unit (fun () -> Config.appty_guess := Config.NoGuess),
-      " Make an error on unsolved application constraints at the toplevel.");
-
-    ("--application-arrow",
-      Arg.Unit (fun () -> Config.appty_guess := Config.GuessArrow),
-      " Assume that unsolved applications are function applications.");
-
-    ("--application-judgement",
-      Arg.Unit (fun () -> Config.appty_guess := Config.GuessJdg),
-      " Assume that unsolved applications are judgement applications.");
-
     ("--json-location",
      Arg.Set Config.json_location,
      " Print locations in JSON output");
@@ -163,4 +151,3 @@ let main =
     | Toplevel.Error err ->
        Format.eprintf "%t@." (Toplevel.print_located_error err) ; exit 1
     | End_of_file -> ()
-

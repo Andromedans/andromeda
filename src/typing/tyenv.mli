@@ -45,10 +45,6 @@ val add_tt_constructor : Name.constructor -> Mlty.tt_constructor -> unit tyenvM
     [t2]. If successful, retry to solve the current unsolved constraints. *)
 val add_equation : loc:Location.t -> Mlty.ty -> Mlty.ty -> unit tyenvM
 
-(** [add_application h arg out] checks that a value of type [h] applied to a value of type [arg] will produce a value of type [out].
-    Depending on the arguments, it may fail, or create a new unsolved constraint, or solve old ones. *)
-val add_application : loc:Location.t -> Mlty.ty -> Mlty.ty -> Mlty.ty -> unit tyenvM
-
 (** Express the given type as a handler type. *)
 val as_handler : loc:Location.t -> Mlty.ty -> (Mlty.ty * Mlty.ty) tyenvM
 

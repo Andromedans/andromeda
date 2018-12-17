@@ -1,16 +1,6 @@
-(* Application is over-loaded, as [e1 e2] could mean that we're applying an AML
-   function [e1] to an AML arguement [e2], or that we're applying a judgement
-   [e1] to a judgement [e2]. If [e1 : t1], [e2 : t2] and [e1 e2 : t3] then
-   [AppConstraint (_, t1, t2, t3)] represents the contraint that applying
-   something of type [t1] to something of type [t2] gives something of type
-   [t3]. *)
-type constrain =
-  | AppConstraint of Location.t * Mlty.ty * Mlty.ty * Mlty.ty
-
 type t =
   { context : Context.t;
     substitution : Substitution.t;
-    unsolved : constrain list;
     local_vars : (Name.ident * Mlty.ty) list (* the variables bound since the last call to [locally] *)
  }
 
@@ -19,7 +9,6 @@ type 'a tyenvM = t -> 'a * t
 let empty =
   { context = Context.empty;
     substitution = Substitution.empty;
-    unsolved = [];
     local_vars = []
   }
 
@@ -33,21 +22,10 @@ let run env m = let x, env = m env in env, x
 
 let get_context env = env.context, env
 
-let unsolved_known unsolved =
-  List.fold_left
-    (fun known (AppConstraint (_, t1, t2, t3)) ->
-      Mlty.MetaSet.union known
-                         (Mlty.MetaSet.union
-                            (Mlty.occuring t1)
-                            (Mlty.MetaSet.union (Mlty.occuring t2) (Mlty.occuring t3))))
-    Mlty.MetaSet.empty unsolved
-
 let gather_known ~known_context env =
   Mlty.MetaSet.union
-    (Mlty.MetaSet.union
-       (Context.gather_known env.substitution known_context)
-       (Substitution.domain env.substitution))
-    (unsolved_known env.unsolved)
+    (Context.gather_known env.substitution known_context)
+    (Substitution.domain env.substitution)
 
 let remove_known ~known s =
   (* XXX: why isn't this just Mlty.MetaSet.diff s known ? *)
@@ -210,57 +188,16 @@ let add_tt_constructor c t env =
   let context = Context.add_tt_constructor c t env.context in
   (), {env with context}
 
-let rec add_equation ~loc t t' env =
+let add_equation ~loc t t' env =
   match unifiable env.context env.substitution t t' with
 
   | Some s ->
-     let rec fold = function
-       | [] -> return ()
-       | AppConstraint (loc, h, arg, out) :: unsolved ->
-          add_application ~loc h arg out >>= fun () ->
-          fold unsolved
-     in
-     fold env.unsolved {env with substitution=s; unsolved=[]}
+     return () {env with substitution=s}
 
   | None ->
      Mlty.error ~loc
                 (Mlty.TypeMismatch (Substitution.apply env.substitution t,
                                     Substitution.apply env.substitution t'))
-
-(* XXX this is severely broken at the moment, as it will allow application of
-   one [is_term] judgement to another. We need to deal with this in the future. *)
-and add_application ~loc h arg out env =
-  let s = env.substitution in
-  let h = whnf env.context s h
-  and arg = whnf env.context s arg
-  and out = whnf env.context s out in
-  match h with
-
-  | Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) as t->
-     (>>=) (add_equation ~loc arg t) (fun () -> add_equation ~loc out t) env
-
-  | Mlty.Arrow (a, b) ->
-     (>>=) (add_equation ~loc arg a) (fun () -> add_equation ~loc out b) env
-
-  | Mlty.Meta m ->
-     begin
-       match arg, out with
-       | (Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) | Mlty.Meta _),
-         (Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) | Mlty.Meta _) ->
-          let unsolved = AppConstraint (loc, h, arg, out) :: env.unsolved in
-          (), { env with unsolved }
-       | _, _ ->
-          begin
-            match Substitution.add m (Mlty.Arrow (arg, out)) s with
-            | Some substitution ->
-               (), { env with substitution }
-            | None -> Mlty.error ~loc (Mlty.InvalidApplication (h, arg, out))
-          end
-     end
-
-  | (Mlty.Judgement _ | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Param _ |
-     Mlty.Prod _ |  Mlty.Handler _ | Mlty.App _) ->
-     Mlty.error ~loc (Mlty.InvalidApplication (h, arg, out))
 
 let as_handler ~loc t env =
   let t = whnf env.context env.substitution t in
@@ -331,10 +268,8 @@ let generalizes_to ~loc ~known_context t (ps, u) env =
   in
   let s1dom = Substitution.domain s1 in
   let known =
-    Mlty.MetaSet.union
       (* XXX is it [substitution] or one of [s1], [s2]? *)
-      (Context.gather_known s2 known_context)
-      (unsolved_known env.unsolved)
+      Context.gather_known s2 known_context
   in
   let ms = Mlty.MetaSet.inter s1dom known in
   if Mlty.MetaSet.is_empty ms
