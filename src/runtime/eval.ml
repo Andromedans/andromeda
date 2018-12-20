@@ -622,10 +622,11 @@ and match_cases
              match g with
              | None -> bind_pattern_vars vs (eval c)
              | Some g ->
+                Runtime.get_env >>= fun env ->
                 bind_pattern_vars vs
                 begin
                   check_bool g >>= function
-                  | false -> failwith "must implement callcc, it seems"
+                  | false -> Runtime.with_env env (fold cases)
                   | true -> eval c
                 end
            end

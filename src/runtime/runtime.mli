@@ -335,6 +335,9 @@ type env
 (** Extract the current environment (for matching) *)
 val get_env : env comp
 
+(** Run in the given environment (but not the state). *)
+val with_env : env -> 'a comp -> 'a comp
+
 (** Get the toplevel environment from the toplevel monad *)
 val top_get_env : env toplevel
 

@@ -337,6 +337,8 @@ let operation op ?checking vs env =
 
 let get_env env = Return env, env.state
 
+let with_env env m {state; _} = m {env with state}
+
 let top_get_env env = env, env
 
 let get_signature env = env.dynamic.signature
