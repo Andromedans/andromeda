@@ -24,11 +24,3 @@ let global_meta_printer = ref true
 let json_location = ref false
 
 let columns = ref (Format.get_margin ())
-
-type appty_guess =
-  | NoGuess
-  | GuessJdg
-  | GuessArrow
-
-let appty_guess = ref GuessArrow
-

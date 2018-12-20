@@ -838,7 +838,7 @@ let topletrec_bind ~loc ~quiet ~print_annot fxcs =
 
 type error =
   | RuntimeError of Nucleus.print_env * Runtime.error
-  | JdgError of Nucleus.print_env * Nucleus.error
+  | NucleusError of Nucleus.print_env * Nucleus.error
 
 exception Error of error Location.located
 
@@ -847,7 +847,7 @@ let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 let print_error err ppf =
   match err with
     | RuntimeError (penv, err) -> Runtime.print_error ~penv err ppf
-    | JdgError (penv, err) ->
+    | NucleusError (penv, err) ->
        Format.fprintf ppf
          "AML runtime misused the nucleus (%t) -- please report"
          (Nucleus.print_error ~penv err)
@@ -951,7 +951,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
                                           (Runtime.print_error ~penv err));
          return ()
 
-       | Runtime.CaughtJdg {Location.thing=err; loc}  ->
+       | Runtime.CaughtNucleus {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
          (if not quiet then Format.printf "[@<hov 2>Successfully failed command with judgment error:@.%t:@ %t@]@."
                                           (Location.print loc)
@@ -972,9 +972,9 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
     | Rsyntax.Verbosity i -> Config.verbosity := i; return ()
   )) >>= function
-  | Runtime.CaughtJdg {Location.thing=err; loc}  ->
+  | Runtime.CaughtNucleus {Location.thing=err; loc}  ->
     Runtime.top_lookup_penv >>= fun penv ->
-    error ~loc (JdgError (penv, err))
+    error ~loc (NucleusError (penv, err))
 
   | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
     Runtime.top_lookup_penv >>= fun penv ->

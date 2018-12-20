@@ -100,10 +100,6 @@ and argument x ?(lvl=0) = function
      ArgumentEqTerm asmp
 
 
-
-(***** from Jdg *****)
-
-
 let not_abstract u = Mk.not_abstract u
 
 let is_type_abstraction {atom_name=x; atom_type=t} abstr =
@@ -149,4 +145,3 @@ let boundary_eq_term_abstraction {atom_name=x; atom_type=t} abstr =
          (lhs, rhs, t))
       x abstr in
   Mk.abstract (Name.ident_of_atom x) t abstr
-
