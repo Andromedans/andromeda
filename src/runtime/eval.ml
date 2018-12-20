@@ -13,6 +13,21 @@ let as_atom ~loc v =
     | Nucleus.(Stump_TermConstructor _ | Stump_TermMeta _ | Stump_TermConvert _) ->
        Runtime.(error ~loc (ExpectedAtom j))
 
+let as_bool ~loc v =
+  match v with
+  | Runtime.Tag (l, []) ->
+     if Name.eq_ident l Name.Predefined.mlfalse then
+       return false
+     else if Name.eq_ident l Name.Predefined.mltrue then
+       return true
+     else
+     Runtime.(error ~loc (BoolExpected v))
+
+  | (Runtime.Tag (_, _::_) | Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
+     Runtime.Closure _ | Runtime.Handler _ | Runtime.Tuple _ | Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) ->
+     Runtime.(error ~loc (BoolExpected v))
+
+
 (* as_handler: loc:Location.t -> Runtime.value -> Runtime.handler Runtime.comp *)
 let as_handler ~loc v =
   let e = Runtime.as_handler ~loc v in
@@ -592,14 +607,28 @@ and match_cases
   : 'a . loc:Location.t -> Rsyntax.match_case list -> (Rsyntax.comp -> 'a Runtime.comp)
          -> Runtime.value -> 'a Runtime.comp
   = fun ~loc cases eval v ->
+  let bind_pattern_vars vs cmp =
+    List.fold_left (fun cmp v -> Runtime.add_bound v cmp) cmp vs
+  in
   let rec fold = function
     | [] ->
       Runtime.lookup_penv >>= fun penv ->
       Runtime.(error ~loc (MatchFail v))
-    | (p, c) :: cases ->
+    | (p, g, c) :: cases ->
       Matching.match_pattern p v >>= begin function
         | None -> fold cases
-        | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (eval c) vs
+        | Some vs ->
+           begin
+             match g with
+             | None -> bind_pattern_vars vs (eval c)
+             | Some g ->
+                bind_pattern_vars vs
+                begin
+                  check_bool g >>= function
+                  | false -> failwith "must implement callcc, it seems"
+                  | true -> eval c
+                end
+           end
       end
   in
   fold cases
@@ -638,6 +667,9 @@ and check_eq_term_abstraction c =
 
 and check_atom c =
   infer c >>= fun v -> (as_atom ~loc:c.Location.loc v)
+
+and check_bool c =
+  infer c >>= fun v -> (as_bool ~loc:c.Location.loc v)
 
 (** Move to toplevel monad *)
 

@@ -44,6 +44,12 @@ let is_anonymous = function
 let make ?(fixity=Word) s = Ident (s, fixity)
 
 module Predefined = struct
+  let bool = make "mlbool"
+
+  let mlfalse = make "mlfalse"
+
+  let mltrue = make "mltrue"
+
   let list = make "list"
 
   let nil = make "[]"

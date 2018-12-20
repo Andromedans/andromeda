@@ -22,6 +22,15 @@ type ty = ident
 type aml_constructor = ident
 
 module Predefined : sig
+  (** The name of the boolean type *)
+  val bool : ty
+
+  (** The name of the [mlfalse] constructor *)
+  val mlfalse : aml_constructor
+
+  (** The name of the [mltrue] constructor *)
+  val mltrue : aml_constructor
+
   (** The name of the list type *)
   val list : ty
 

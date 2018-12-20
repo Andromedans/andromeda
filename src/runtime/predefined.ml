@@ -14,6 +14,11 @@ let predefined_aml_types = let open Input in
   let ty_alpha = unloc (ML_TyApply (name_alpha, [])) in
   let un_ml_is_term = unloc (ML_Judgement (ML_NotAbstract ML_IsTerm)) in
   let un_ml_eq_type = unloc (ML_Judgement (ML_NotAbstract ML_EqType)) in
+  let decl_bool = DefMLType [Name.Predefined.bool, ([],
+    ML_Sum [
+    (Name.Predefined.mlfalse, []);
+    (Name.Predefined.mltrue, [])
+    ])] in
   let decl_option = DefMLType [Name.Predefined.option, ([name_alpha],
     ML_Sum [
     (Name.Predefined.none, []);
@@ -31,7 +36,7 @@ let predefined_aml_types = let open Input in
     (Name.Predefined.coercible_constructor, [un_ml_is_term])
     ])]
   in
-  [unloc decl_option; unloc decl_list; unloc decl_coercible]
+  [unloc decl_bool; unloc decl_option; unloc decl_list; unloc decl_coercible]
 
 let predefined_ops = let open Input in
   let unloc x = Location.locate x Location.unknown in

@@ -134,6 +134,7 @@ type error =
   | FailureFail of value
   | InvalidEqualTerm of Nucleus.is_term * Nucleus.is_term
   | InvalidEqualType of Nucleus.is_type * Nucleus.is_type
+  | BoolExpected of value
   | ListExpected of value
   | OptionExpected of value
   | IsTypeExpected of value

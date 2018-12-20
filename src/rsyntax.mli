@@ -69,7 +69,7 @@ and handler = {
   handler_finally : match_case list;
 }
 
-and match_case = Pattern.aml * comp
+and match_case = Pattern.aml * comp option * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = Pattern.aml list * Pattern.judgement option * comp

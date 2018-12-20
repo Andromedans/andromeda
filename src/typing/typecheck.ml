@@ -649,37 +649,46 @@ and handler ~loc {Dsyntax.handler_val=handler_val;handler_ops;handler_finally} =
   fold [] (Name.IdentMap.bindings handler_ops) >>= fun handler_ops ->
   return ({Rsyntax.handler_val=handler_val;handler_ops;handler_finally}, Mlty.Handler (input, final))
 
-and match_case p t c =
+and match_case p t g c =
   Tyenv.locally
     begin
       check_pattern ~bind_var:Tyenv.add_var p t >>= fun p ->
+      when_guard g >>= fun g ->
       comp c >>= fun (c, tc) ->
-      return (p, c, tc)
+      return (p, c, g, tc)
     end
 
-and check_match_case p tp c tc =
+and when_guard = function
+  | None -> return None
+  | Some c ->
+     Tyenv.predefined_type Name.Predefined.bool [] >>= fun mlbool ->
+     check_comp c mlbool >>= fun c ->
+     return (Some c)
+
+and check_match_case p tp g c tc =
   Tyenv.locally
     begin
       check_pattern ~bind_var:Tyenv.add_var p tp >>= fun p ->
       check_comp c tc >>= fun c ->
-      return (p, c)
+      when_guard g >>= fun g ->
+      return (p, g, c)
     end
 
 and match_cases ~loc t = function
   | [] ->
      return ([], Mlty.fresh_type ())
 
-  | (p1, c1) :: cases ->
-     match_case p1 t c1 >>= fun (p1, c1, out) ->
+  | (p1, g1, c1) :: cases ->
+     match_case p1 t g1 c1 >>= fun (p1, c1, g1, out) ->
      let rec fold cases = function
        | [] ->
           let cases = List.rev cases in
           return (cases, out)
-       | (p, c) :: others ->
-          check_match_case p t c out >>= fun (p, c) ->
-          fold ((p, c) :: cases) others
+       | (p, g, c) :: others ->
+          check_match_case p t g c out >>= fun (p, g, c) ->
+          fold ((p, g, c) :: cases) others
       in
-      fold [(p1, c1)] cases
+      fold [(p1, g1, c1)] cases
 
 and match_op_cases op cases t_out =
   Tyenv.op_cases
