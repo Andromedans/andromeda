@@ -840,11 +840,18 @@ and handler ~loc ctx hcs =
   locate (Dsyntax.Handler (Dsyntax.{ handler_val ; handler_ops ; handler_finally })) loc
 
 (* Desugar a match case *)
-and match_case ~yield ctx (p, c) =
+and match_case ~yield ctx (p, g, c) =
   ignore (check_linear p) ;
   let ctx, p = pattern ctx p in
-  let c = comp ~yield ctx c in
-  (p, c)
+  let g = when_guard ~yield ctx g
+  and c = comp ~yield ctx c in
+  (p, g, c)
+
+and when_guard ~yield ctx = function
+  | None -> None
+  | Some c ->
+     let c = comp ~yield ctx c in
+     Some c
 
 and match_op_case ~yield ctx (ps, pt, c) =
   let rec fold ctx qs = function

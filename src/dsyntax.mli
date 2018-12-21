@@ -109,7 +109,7 @@ and handler = {
   handler_finally : match_case list;
 }
 
-and match_case = ml_pattern * comp
+and match_case = ml_pattern * comp option * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = ml_pattern list * tt_pattern option * comp

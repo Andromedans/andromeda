@@ -134,6 +134,7 @@ type error =
   | FailureFail of value
   | InvalidEqualTerm of Nucleus.is_term * Nucleus.is_term
   | InvalidEqualType of Nucleus.is_type * Nucleus.is_type
+  | BoolExpected of value
   | ListExpected of value
   | OptionExpected of value
   | IsTypeExpected of value
@@ -333,6 +334,9 @@ type env
 
 (** Extract the current environment (for matching) *)
 val get_env : env comp
+
+(** Run in the given environment (but not the state). *)
+val with_env : env -> 'a comp -> 'a comp
 
 (** Get the toplevel environment from the toplevel monad *)
 val top_get_env : env toplevel
