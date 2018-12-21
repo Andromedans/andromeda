@@ -22,6 +22,24 @@ let externals =
          Runtime.return_unit
     ));
 
+    ("compare", (* forall a, a -> a -> mlorder *)
+      Runtime.mk_closure (fun v ->
+          Runtime.return_closure (fun w ->
+              try
+                let cmp =
+                  let c = Pervasives.compare v w in
+                  if c < 0 then Name.Predefined.mlless
+                  else if c > 0 then Name.Predefined.mlgreater
+                  else Name.Predefined.mlequal
+                in
+                Runtime.return (Runtime.mk_tag cmp [])
+              with
+              | Invalid_argument _ ->
+                 Runtime.(error ~loc:Location.unknown InvalidComparison)
+            )
+    ));
+
+
     ("time", (* forall a, mlunit -> (a -> a) *)
      Runtime.mk_closure (fun _ ->
          let time0 = ref (Sys.time ()) in
