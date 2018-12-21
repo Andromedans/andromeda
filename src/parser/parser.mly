@@ -3,7 +3,7 @@
 %}
 
 (* Infix operations *)
-%token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
+%token <Name.ident * Location.t> PREFIXOP EQ INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
 
 (* Names and numerals *)
 %token UNDERSCORE
@@ -23,7 +23,7 @@
 %token RULE
 
 (* Let binding *)
-%token LET REC EQ AND IN
+%token LET REC AND IN
 
 (* Dynamic variables *)
 %token DYNAMIC NOW CURRENT
@@ -68,7 +68,7 @@
 
 (* Precedence and fixity of infix operators *)
 %nonassoc COLONEQ
-%left     INFIXOP0
+%left     EQ INFIXOP0
 %right    INFIXOP1
 %right    INFIXCONS
 %left     INFIXOP2
@@ -101,7 +101,7 @@ plain_topcomp:
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
                                                       { TopLetRec lst }
   | DYNAMIC x=var_name u=dyn_annotation EQ c=term     { TopDynamic (x, u, c) }
-  | NOW x=term EQ c=term                              { TopNow (x,c) }
+  | NOW x=app_term EQ c=term                          { TopNow (x,c) }
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
@@ -158,7 +158,7 @@ plain_term:
   | LET a=separated_nonempty_list(AND,let_clause) IN c=term      { Let (a, c) }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause) IN c=term
                                                                  { LetRec (lst, c) }
-  | NOW x=term EQ c1=term IN c2=term                             { Now (x,c1,c2) }
+  | NOW x=app_term EQ c1=term IN c2=term                         { Now (x,c1,c2) }
   | CURRENT c=term                                               { Current c }
   | ASSUME x=var_name COLON t=ty_term IN c=term                  { Assume ((x, t), c) }
   | MATCH e=term WITH lst=match_cases END                        { Match (e, lst) }
@@ -227,6 +227,7 @@ var_name:
 
 %inline infix:
   | op=INFIXCONS   { op }
+  | op=EQ          { op }
   | op=INFIXOP0    { op }
   | op=INFIXOP1    { op }
   | op=INFIXOP2    { op }
@@ -248,7 +249,7 @@ recursive_clause:
 let_clause:
   | x=name ys=ml_arg* u=let_annotation EQ c=term
        { Let_clause_ML (x, ys, u, c) }
-  | x=name COLON t=ty_term EQ c=term
+  | x=name COLON t=app_term EQ c=term
        { Let_clause_tt (x, t, c) }
   | LPAREN pt=let_pattern RPAREN u=let_annotation EQ c=term
        { Let_clause_patt (pt, u, c) }

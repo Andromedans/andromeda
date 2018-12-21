@@ -107,7 +107,6 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ']'                      -> f (); RBRACK
   | '{'                      -> f (); LBRACE
   | '}'                      -> f (); RBRACE
-  | "="                      -> f (); EQ
   | ':'                      -> f (); COLON
   | ":>"                     -> f (); COLONGT
   | ','                      -> f (); COMMA
@@ -126,6 +125,8 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
      mark_location simultaneously, it seems. *)
   | prefixop                 -> f (); PREFIXOP (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:Name.Prefix s, loc_of lexbuf)
+  (* Comes before infixop0 because it also matches infixop0. *)
+  | '='                      -> f (); EQ (Name.make ~fixity:(Name.Infix Level.Infix0) "=", loc_of lexbuf)
   | infixop0                 -> f (); INFIXOP0 (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix0) s, loc_of lexbuf)
   | infixop1                 -> f (); INFIXOP1 (let s = Ulexbuf.lexeme lexbuf in
