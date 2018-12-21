@@ -29,8 +29,6 @@ let (|>) x f :> mlforall α β, α → (α → β) → β = f x
 
 let failure x = print ("FAILURE", x); exit ()
 
-mltype mlbool = mltrue | mlfalse end
-
 let ( = ) x y =
   match compare x y with
   | mlequal => mltrue

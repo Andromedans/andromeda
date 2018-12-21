@@ -30,7 +30,7 @@
 
 (* Meta-level programming *)
 %token OPERATION
-%token MATCH
+%token MATCH WHEN
 %token AS TYPE
 %token VDASH EQEQ
 
@@ -281,8 +281,8 @@ handler_cases:
   | lst=separated_list(BAR, handler_case)               { lst }
 
 handler_case:
-  | VAL p=pattern DARROW t=term                                 { CaseVal (p, t) }
-  | op=var_name ps=prefix_pattern* pt=handler_checking DARROW t=term                { CaseOp (op, (ps, pt, t)) }
+  | VAL c=match_case DARROW t=term                                      { CaseVal c }
+  | op=var_name ps=prefix_pattern* pt=handler_checking DARROW t=term    { CaseOp (op, (ps, pt, t)) }
   | oploc=prefix p=prefix_pattern pt=handler_checking DARROW t=term
       { let (op, _) = oploc in
         CaseOp (op, ([p], pt, t))
@@ -291,7 +291,7 @@ handler_case:
     { let (op, _) = oploc in
       CaseOp (op, ([p1; p2], pt, t))
     }
-  | FINALLY p=pattern DARROW t=term                             { CaseFinally (p, t) }
+  | FINALLY c=match_case                                                { CaseFinally c }
 
 handler_checking:
   |                     { None }
@@ -326,7 +326,11 @@ match_cases:
   | lst=separated_list(BAR, match_case)               { lst }
 
 match_case:
-  | p=pattern DARROW c=term  { (p, c) }
+  | p=pattern g=when_guard DARROW c=term  { (p, g, c) }
+
+when_guard:
+  |                    { None }
+  | WHEN c=binop_term  { Some c }
 
 (** Pattern matching *)
 

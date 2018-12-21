@@ -45,6 +45,14 @@ let make ?(fixity=Word) s = Ident (s, fixity)
 
 module Predefined = struct
 
+  (** Booleans *)
+
+  let bool = make "mlbool"
+
+  let mlfalse = make "mlfalse"
+
+  let mltrue = make "mltrue"
+
   (** Lists *)
 
   let list = make "list"
