@@ -31,6 +31,15 @@ module Predefined : sig
   (** The name of the [::] constructor *)
   val cons : aml_constructor
 
+
+  (** The name of the order type *)
+  val mlorder : ty
+
+  (** The names of order type tags *)
+  val mlless : aml_constructor
+  val mlequal : aml_constructor
+  val mlgreater : aml_constructor
+
   (** The name of the option type *)
   val option : ty
 

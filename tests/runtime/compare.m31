@@ -1,0 +1,8 @@
+do compare ["foo", "bar", "baz"] ["foo", "bar", "qux"]
+do compare mlless mlgreater
+do compare mlgreater mlless
+do compare [] [[]]
+do compare ((), []) ((), [[]])
+do match compare "bar" "foo" with mlless => "a" | mlequal => "b" | mlgreater => "c" end
+do match compare "foo" "foo" with mlless => "a" | mlequal => "b" | mlgreater => "c" end
+do match compare "qux" "foo" with mlless => "a" | mlequal => "b" | mlgreater => "c" end

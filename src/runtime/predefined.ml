@@ -14,24 +14,35 @@ let predefined_aml_types = let open Input in
   let ty_alpha = unloc (ML_TyApply (name_alpha, [])) in
   let un_ml_is_term = unloc (ML_Judgement (ML_NotAbstract ML_IsTerm)) in
   let un_ml_eq_type = unloc (ML_Judgement (ML_NotAbstract ML_EqType)) in
+
   let decl_option = DefMLType [Name.Predefined.option, ([name_alpha],
     ML_Sum [
     (Name.Predefined.none, []);
     (Name.Predefined.some, [ty_alpha])
     ])]
+
   and decl_list = DefMLTypeRec [Name.Predefined.list, ([name_alpha],
     ML_Sum [
     (Name.Predefined.nil, []);
     (Name.Predefined.cons, [ty_alpha; unloc (ML_TyApply (Name.Predefined.list, [ty_alpha]))])
     ])]
+
   and decl_coercible = DefMLType [Name.Predefined.coercible_ty, ([],
     ML_Sum [
-    (Name.Predefined.notcoercible, []);
+    (Name.Predefined.notcoercible, []) ;
     (Name.Predefined.convertible, [un_ml_eq_type]);
     (Name.Predefined.coercible_constructor, [un_ml_is_term])
     ])]
+
+  and decl_order = DefMLType [Name.Predefined.mlorder, ([],
+    ML_Sum [
+      (Name.Predefined.mlless, []) ;
+      (Name.Predefined.mlequal, []) ;
+      (Name.Predefined.mlgreater, [])
+      ])]
   in
-  [unloc decl_option; unloc decl_list; unloc decl_coercible]
+
+  [unloc decl_option; unloc decl_list; unloc decl_coercible; unloc decl_order]
 
 let predefined_ops = let open Input in
   let unloc x = Location.locate x Location.unknown in
@@ -59,7 +70,6 @@ let predefined_bound_names =
   [Name.Predefined.hypotheses]
 
 let definitions = List.concat [predefined_aml_types; predefined_ops; predefined_bound]
-
 
 (************************)
 (* AML list <-> ML list *)

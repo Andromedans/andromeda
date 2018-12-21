@@ -132,6 +132,7 @@ type error =
   | UnannotatedAbstract of Name.ident
   | MatchFail of value
   | FailureFail of value
+  | InvalidComparison
   | InvalidEqualTerm of Nucleus.is_term * Nucleus.is_term
   | InvalidEqualType of Nucleus.is_type * Nucleus.is_type
   | ListExpected of value

@@ -44,17 +44,34 @@ let is_anonymous = function
 let make ?(fixity=Word) s = Ident (s, fixity)
 
 module Predefined = struct
+
+  (** Lists *)
+
   let list = make "list"
 
   let nil = make "[]"
 
   let cons = make ~fixity:(Infix Level.InfixCons) "::"
 
+  (** Comparison *)
+
+  let mlorder = make "mlorder"
+
+  let mlless = make "mlless"
+
+  let mlequal = make "mlequal"
+
+  let mlgreater = make "mlgreater"
+
+  (** Option type *)
+
   let option = make "option"
 
   let some = make "Some"
 
   let none = make "None"
+
+  (** Builtin commands *)
 
   let equal_term = make "equal_term"
 

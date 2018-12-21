@@ -91,6 +91,7 @@ type error =
   | UnannotatedAbstract of Name.ident
   | MatchFail of value
   | FailureFail of value
+  | InvalidComparison
   | InvalidEqualTerm of Nucleus.is_term * Nucleus.is_term
   | InvalidEqualType of Nucleus.is_type * Nucleus.is_type
   | ListExpected of value
@@ -625,6 +626,9 @@ let print_error ~penv err ppf =
   | FailureFail v ->
      Format.fprintf ppf "expected to fail but computed@ @[<hov>%t@]"
                     (print_value ~penv v)
+
+  | InvalidComparison ->
+     Format.fprintf ppf "invalid comparison"
 
   | InvalidEqualTerm (e1, e2) ->
      Format.fprintf ppf "this should be equality of terms@ @[<hov>%t@]@ and@ @[<hov>%t@]"
