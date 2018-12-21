@@ -1,5 +1,2 @@
 val cow :> mlstring * mlstring
-
-("y",
-"x")
-
+("y", "x")
