@@ -120,7 +120,7 @@ and handle_case =
   | CaseOp of Name.ident * match_op_case (* op p1 ... pn -> c *)
   | CaseFinally of match_case (* finally p -> c *)
 
-and match_case = pattern * comp
+and match_case = pattern * comp option * comp
 
 and match_op_case = pattern list * tt_pattern option * comp
 

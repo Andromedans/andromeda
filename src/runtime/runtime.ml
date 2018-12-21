@@ -93,6 +93,7 @@ type error =
   | FailureFail of value
   | InvalidEqualTerm of Nucleus.is_term * Nucleus.is_term
   | InvalidEqualType of Nucleus.is_type * Nucleus.is_type
+  | BoolExpected of value
   | ListExpected of value
   | OptionExpected of value
   | IsTypeExpected of value
@@ -335,6 +336,8 @@ let operation op ?checking vs env =
 (** Interact with the environment *)
 
 let get_env env = Return env, env.state
+
+let with_env env m {state; _} = m {env with state}
 
 let top_get_env env = env, env
 
@@ -635,6 +638,9 @@ let print_error ~penv err ppf =
      Format.fprintf ppf "this should be equality of types @[<hov>%t@]@ and@ @[<hov>%t@]"
                     (Nucleus.print_is_type ~penv:penv t1)
                     (Nucleus.print_is_type ~penv:penv t2)
+
+  | BoolExpected v ->
+     Format.fprintf ppf "expected a boolean but got %s" (name_of v)
 
   | ListExpected v ->
      Format.fprintf ppf "expected a list but got %s" (name_of v)

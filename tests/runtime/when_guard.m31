@@ -1,0 +1,15 @@
+do let a = "a" in
+   match "b" with
+   | x when mlfalse => "problem"
+   | _ => a
+   end
+
+do match [[]] with
+   | s when (match s with [[]] => mltrue | _ => mlfalse end) => "yes"
+   | _ => "no"
+   end
+
+do match [] with
+   | s when (match s with [[]] => mltrue | _ => mlfalse end) => "yes"
+   | _ => "no"
+   end
