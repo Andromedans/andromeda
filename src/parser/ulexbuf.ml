@@ -14,11 +14,11 @@ type error =
   | UnclosedComment
 
 let print_error err ppf = match err with
-  | SysError s -> Format.fprintf ppf "System error: %s" s
-  | Unexpected s -> Format.fprintf ppf "Unexpected %s" s
-  | MalformedUTF8 -> Format.fprintf ppf "Malformed UTF8"
-  | BadNumeral s -> Format.fprintf ppf "Bad numeral %s" s
-  | UnclosedComment -> Format.fprintf ppf "Input ended inside unclosed comment"
+  | SysError s -> Format.fprintf ppf "system error %s" s
+  | Unexpected s -> Format.fprintf ppf "unexpected %s" s
+  | MalformedUTF8 -> Format.fprintf ppf "malformed UTF8"
+  | BadNumeral s -> Format.fprintf ppf "bad numeral %s" s
+  | UnclosedComment -> Format.fprintf ppf "input ended inside unclosed comment"
 
 exception Error of error Location.located
 
@@ -65,4 +65,3 @@ let reached_end_of_input b =
 
 let set_line_limit ll b =
   b.line_limit <- ll
-

@@ -148,17 +148,17 @@ let rec print_ty ~penv ?max_level t ppf =
 
   | Prod [] -> Format.fprintf ppf "mlunit"
 
-  | Prod ts -> Print.print ?max_level ~at_level:Level.ml_prod ppf "%t"
+  | Prod ts -> Print.print ?max_level ~at_level:Level.ml_prod ppf "@[<hov 1>%t@]"
                  (Print.sequence (print_ty ~penv ~max_level:Level.ml_prod_arg) " *" ts)
 
   | Arrow (t1, t2) ->
-     Print.print ?max_level ~at_level:Level.ml_arr ppf "@[%t@ %s@ %t@]"
+     Print.print ?max_level ~at_level:Level.ml_arr ppf "%t@ %s@ %t"
                  (print_ty ~penv ~max_level:(Level.ml_arr_left) t1)
                  (Print.char_arrow ())
                  (print_ty ~penv ~max_level:(Level.ml_arr_right) t2)
 
   | Handler (t1, t2) ->
-     Print.print ?max_level ~at_level:(Level.ml_handler) ppf "@[%t@ %s@ %t@]"
+     Print.print ?max_level ~at_level:(Level.ml_handler) ppf "%t@ %s@ %t"
                  (print_ty ~penv ~max_level:(Level.ml_handler_left) t1)
                  (Print.char_darrow ())
                  (print_ty ~penv ~max_level:(Level.ml_handler_right) t2)
@@ -167,14 +167,14 @@ let rec print_ty ~penv ?max_level t ppf =
      Format.fprintf ppf "%t" (Name.print_ident x)
 
   | App (x, _, ts) ->
-     Print.print ?max_level ~at_level:Level.ml_app ppf "@[<hov>%t@ %t@]"
+     Print.print ?max_level ~at_level:Level.ml_app ppf "%t@ %t"
                  (Name.print_ident x)
                  (Print.sequence (print_ty ~penv ~max_level:Level.ml_app_arg) "" ts)
 
-  | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "@[ref@ %t@]"
+  | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "ref@ %t"
                         (print_ty ~penv ~max_level:Level.ml_app_arg t)
 
-  | Dynamic t -> Print.print ?max_level~at_level:Level.ml_app ppf "@[dynamic@ %t@]"
+  | Dynamic t -> Print.print ?max_level~at_level:Level.ml_app ppf "dynamic@ %t"
                         (print_ty ~penv ~max_level:Level.ml_app_arg t)
 
 let print_ty_schema ~penv ?max_level (ms, t) ppf =
@@ -182,7 +182,7 @@ let print_ty_schema ~penv ?max_level (ms, t) ppf =
     | [] ->
       print_ty ~penv ?max_level t ppf
     | _ :: _ ->
-      Format.fprintf ppf "@[<hov>mlforall %t, %t@]"
+      Format.fprintf ppf "mlforall@ %t,@ %t"
                      (Print.sequence (print_param ~penv) "" ms)
                      (print_ty ~penv ~max_level:Level.ml_forall_r t)
 
@@ -191,58 +191,58 @@ let print_error err ppf =
   match err with
 
   | InvalidApplication (h, arg, out) ->
-    Format.fprintf ppf "Invalid application of %t to %t producing %t"
+    Format.fprintf ppf "invalid application of@ @[<hov>%t]@ to@ @[<hov>%t]@ producing@ @[<hov>%t]"
       (print_ty ~penv h)
       (print_ty ~penv arg)
       (print_ty ~penv out)
 
   | TypeMismatch (t1, t2) ->
-    Format.fprintf ppf "Expected @[%t@] but got @[%t@]"
+    Format.fprintf ppf "expected@ @[%t@] but got@ @[%t@]"
       (print_ty ~penv t2)
       (print_ty ~penv t1)
 
   | UnsolvedApp (h, arg, out) ->
-    Format.fprintf ppf "Unsolved application of %t to %t producing %t"
+    Format.fprintf ppf "unsolved application of@ @[<hov>%t]@ to@ @[<hov>%t]@ producing@ @[<hov>%t]"
       (print_ty ~penv h)
       (print_ty ~penv arg)
       (print_ty ~penv out)
 
   | HandlerExpected t ->
-    Format.fprintf ppf "Expected a handler but got %t"
+    Format.fprintf ppf "expected a handler but got@ @[<hov>%t]"
       (print_ty ~penv t)
 
   | RefExpected t ->
-    Format.fprintf ppf "Expected a reference but got %t"
+    Format.fprintf ppf "expected a reference but got@ @[<hov>%t]"
       (print_ty ~penv t)
 
   | DynamicExpected t ->
-    Format.fprintf ppf "Expected a dynamic but got %t"
+    Format.fprintf ppf "expected a dynamic but got@ @[<hov>%t]"
       (print_ty ~penv t)
 
   | UnknownExternal s ->
-    Format.fprintf ppf "Unknown external %s" s
+    Format.fprintf ppf "unknown external %s" s
 
   | ValueRestriction ->
-     Format.fprintf ppf "This computation cannot be polymorphic (value restriction)"
+     Format.fprintf ppf "this computation cannot be polymorphic (value restriction)"
 
   | Ungeneralizable (ps, ty) ->
-     Format.fprintf ppf "Cannot generalize %t in %t"
+     Format.fprintf ppf "cannot generalize@ @[<hov>%t]@ in@ @[<hov>%t]"
                     (Print.sequence (print_param ~penv) "," ps)
                     (print_ty ~penv ty)
 
   | UnknownJudgementForm ->
-     Format.fprintf ppf "Cannot infer the judgement form"
+     Format.fprintf ppf "cannot infer the judgement form"
 
   | JudgementExpected t ->
-    Format.fprintf ppf "Expected a judgement but got %t"
+    Format.fprintf ppf "expected a judgement but got@ @[<hov>%t]"
       (print_ty ~penv t)
 
   | AbstractionExpected t ->
-    Format.fprintf ppf "Expected an abstraction but got %t"
+    Format.fprintf ppf "expected an abstraction but got@ @[<hov>%t]"
       (print_judgement t)
 
   | UnexpectedJudgementAbstraction jdg_actual ->
-     Format.fprintf ppf "Expected %t but got an abstraction"
+     Format.fprintf ppf "expected@ @[<hov>%t]@ but got an abstraction"
        (print_judgement jdg_actual)
 
 let rec occurs m = function

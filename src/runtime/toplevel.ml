@@ -16,10 +16,10 @@ exception Error of error Location.located
 
 let print_error err ppf =
   match err with
-  | EvalError err -> Eval.print_error err ppf
-  | ParserError err -> Ulexbuf.print_error err ppf
-  | DesugarError err -> Desugar.print_error err ppf
-  | TypingError err -> Mlty.print_error err ppf
+  | EvalError err -> Format.fprintf ppf "@[<hov 2>Evaluation error:@ %t@]" (Eval.print_error err)
+  | ParserError err -> Format.fprintf ppf "@[<hov 2>Parsing error:@ %t@]" (Ulexbuf.print_error err)
+  | DesugarError err -> Format.fprintf ppf "@[<hov 2>Type error:@ %t@]" (Desugar.print_error err)
+  | TypingError err -> Format.fprintf ppf "@[<hov 2>Type error:@ %t@]" (Mlty.print_error err)
 
 let print_located_error {Location.thing=err; loc} ppf =
   Format.fprintf ppf "@.%t:@.%t" (Location.print loc) (print_error err)

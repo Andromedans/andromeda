@@ -35,7 +35,7 @@ and eq_type ?max_level ~penv (EqType (_asmp, t1, t2)) ppf =
     ?max_level
     ~at_level:Level.eq
     ppf
-    "@[<hov>%t@]@ %s@ @[<hov>%t@]"
+    "%t@ %s@ %t"
     (ty ~penv t1)
     (Print.char_equal ())
     (ty ~penv t2)
@@ -46,7 +46,7 @@ and eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
     ?max_level
     ~at_level:Level.eq
     ppf
-    "@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]"
+    "%t@ %s@ %t@ :@ %t"
     (term ~penv e1)
     (Print.char_equal ())
     (term ~penv e2)
@@ -60,7 +60,7 @@ and meta :
   | [] ->
      Name.print_meta ~parentheses:true ~printer:penv.metas meta_name ppf
   | _::_ ->
-     Print.print ~at_level:Level.meta ?max_level ppf "@[<hov 2>%t@ %t@]"
+     Print.print ~at_level:Level.meta ?max_level ppf "%t@ %t"
     (Name.print_meta ~printer:penv.metas meta_name)
     (Print.sequence (term ~max_level:Level.meta_arg ~penv) "" args) ;
 
@@ -69,7 +69,7 @@ and constructor ?max_level ~penv c args ppf =
   | [] ->
      Name.print_ident ~parentheses:true c ppf
   | _::_ ->
-     Print.print ~at_level:Level.constructor ?max_level ppf "@[<hov 2>%t@ %t@]"
+     Print.print ~at_level:Level.constructor ?max_level ppf "%t@ %t"
        (Name.print_ident c)
        (Print.sequence (argument ~penv) "" args) ;
 
@@ -81,18 +81,11 @@ and abstraction
           'b abstraction ->
           Format.formatter -> unit
   = fun occurs_v print_v ?max_level ~penv abstr ppf ->
-  let rec fold penv xus = function
+  let rec fold penv abstr ppf =
+    match abstr with
 
     | NotAbstract v ->
-       let xus = List.rev xus in
-       begin match xus with
-       | [] ->
-          print_v ?max_level ~penv v ppf
-       | _::_ ->
-         Print.print ~at_level:Level.abstraction ?max_level ppf "@[<hov 2>%t@ %t@]"
-           (Print.sequence (binder ~penv) "" xus)
-           (print_v ~max_level:Level.abstraction_body ~penv v)
-       end
+          print_v ~max_level:Level.abstraction_body ~penv v ppf
 
     | Abstract (x, u, abstr) ->
        let x =
@@ -101,12 +94,13 @@ and abstraction
           else
             Name.anonymous ())
        in
+       Print.print ppf "%t@ " (binder ~penv (x, u)) ;
        let penv = add_forbidden x penv in
-       fold penv ((x,u) :: xus) abstr
-
+       fold penv abstr ppf
   in
-
-  fold penv [] abstr
+  match abstr with
+  | NotAbstract v -> print_v ?max_level ~penv v ppf
+  | Abstract _ -> Print.print ~at_level:Level.abstraction ?max_level ppf "%t" (fold penv abstr)
 
 and argument ~penv arg ppf =
   match arg with
@@ -123,32 +117,32 @@ and argument ~penv arg ppf =
 and binder ~penv (x,t) ppf =
   Print.print ppf "{%t@ :@ %t}"
     (Name.print_ident ~parentheses:true x)
-    (ty ~penv t)
+    (ty ~max_level:Level.binder ~penv t)
 
 
 (** Printing judgements *)
 
 let is_type ?max_level ~penv t ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>@[<hov>%t@]@;<1 -2> type@]"
+              "@[<hov 2>%s@ %t@ type@]"
               (Print.char_vdash ())
               (ty ~max_level:Level.highest ~penv t)
 
 let is_term ?max_level ~penv e ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hov 4>%t@]"
+              "@[<hov 2>%s@ %t@]"
               (Print.char_vdash ())
               (term ~max_level:Level.highest ~penv e)
 
 let eq_type ?max_level ~penv eq ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>%t@]"
+              "@[<hov 2>%s@ %t@]"
               (Print.char_vdash ())
               (eq_type ~max_level:Level.highest ~penv eq)
 
 let eq_term ?max_level ~penv eq ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>%t@]"
+              "@[<hov 2>%s@ %t@]"
               (Print.char_vdash ())
               (eq_term ~max_level:Level.highest ~penv eq)
 
@@ -201,4 +195,3 @@ let error ~penv err ppf =
   | AlphaEqualTermMismatch (e1, e2) ->
      Format.fprintf ppf "The terms@ %t@ and@ %t@ should be alpha equal."
                     (term ~penv e1) (term ~penv e2)
-

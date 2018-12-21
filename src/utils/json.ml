@@ -26,10 +26,10 @@ let rec print data ppf =
 
   | Int k -> Format.fprintf ppf "%d" k
 
-  | List lst -> Format.fprintf ppf "[@[<hov>%t@]]" (Print.sequence print "," lst)
+  | List lst -> Format.fprintf ppf "@[<hov>[%t]@]" (Print.sequence print "," lst)
 
   | Dict lst ->
-     Format.fprintf ppf "{@[<hv>%t@]}" (Print.sequence print_entry "," lst)
+     Format.fprintf ppf "@[<hv>{%t}@]" (Print.sequence print_entry "," lst)
 
 and print_entry (label, data) ppf =
   Format.fprintf ppf "@[<hv>%t :@ %t@]"
