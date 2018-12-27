@@ -19,7 +19,7 @@ set -uex
 OCAML_VERSION=${OCAML_VERSION:-latest}
 
 # the base opam repository to use for bootstrapping and catch-all namespace
-# BASE_REMOTE=${BASE_REMOTE:-git://github.com/ocaml/opam-repository}
+BASE_REMOTE=${BASE_REMOTE:-git://github.com/ocaml/opam-repository}
 
 case "$OCAML_VERSION" in
     3.12) ppa=avsm/ocaml312+opam12 ;;
@@ -51,7 +51,7 @@ opam --version
 
 export OPAMYES=1
 
-opam init
+opam init -a ${BASE_REMOTE}
 eval $(opam config env)
 # opam install depext
 
