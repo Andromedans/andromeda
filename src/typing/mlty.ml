@@ -1,18 +1,29 @@
-type meta = int
+type meta = {
+  meta_index : int ;
+  (* If we've shown this metavariable to the user, then
+     [meta_shown] contains the string that was used *)
+  mutable meta_shown : string option ;
+}
+
+let meta_compare {meta_index=i;_} {meta_index=j;_} = Pervasives.compare i j
+
+let eq_meta {meta_index=i;_} {meta_index=j;_} = (i = j)
 
 type param = int
 
+let eq_param (i : param) j = (i = j)
+
 module MetaSet = Set.Make(struct
   type t = meta
-  let compare = compare
+  let compare = meta_compare
   end)
 
 let fresh_meta : unit -> meta =
   let counter = ref 0 in
   fun () ->
-    let m = !counter in
+    let i = !counter in
     incr counter;
-    m
+    { meta_index = i ; meta_shown = None }
 
 let fresh_param : unit -> param =
   let counter = ref 0 in
@@ -23,8 +34,7 @@ let fresh_param : unit -> param =
 
 module MetaOrd = struct
   type t = meta
-
-  let compare = compare
+  let compare = meta_compare
 end
 
 type judgement =
@@ -91,31 +101,44 @@ exception Error of error Location.located
 
 let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 
-type print_env = {
-  mutable metas : (meta * string) list ;
-  mutable params : (param * string) list
-}
+(** We expect that most type metavariables are never shown to the user,
+    and thus we reindex the ones that are shown to the user. We could
+    keep around a reindexing map, but that would create a memory leak,
+    so instead we keep a global counter and let metavariables carry
+    their own indices.
 
-let fresh_penv () = { metas = []; params = [] }
+    We still need to keep around a counter telling us how many metas
+    were shown to the user.
+*)
+let meta_counter = ref 0
 
-let print_meta ~penv (m : meta) ppf =
+(*
+    On the other hand, type parameters are local, so we use a fresh
+    mapping every time we print a type.
+*)
+type print_env = (param * string) list ref
+
+let fresh_penv () = ref []
+
+let print_meta (m : meta) ppf =
   let s =
-    try List.assoc m penv.metas
-    with Not_found ->
-      let l = List.length penv.metas in
-      let s = Name.greek l in
-      penv.metas <- (m, s) :: penv.metas;
-      s
+    match m.meta_shown with
+    | Some s -> s
+    | None ->
+       let s = Name.greek !meta_counter in
+       m.meta_shown <- Some s ;
+       incr meta_counter ;
+       s
   in
   Format.fprintf ppf "_%s" s
 
 let print_param ~penv (p : param) ppf =
   let s =
-    try List.assoc p penv.params
+    try List.assoc p !penv
     with Not_found ->
-      let l = List.length penv.params in
+      let l = List.length !penv in
       let s = Name.greek l in
-      penv.params <- (p, s) :: penv.params;
+      penv := (p, s) :: !penv;
       s
   in
   Format.fprintf ppf "%s" s
@@ -142,7 +165,7 @@ let rec print_ty ~penv ?max_level t ppf =
 
   | String -> Format.fprintf ppf "mlstring"
 
-  | Meta m -> print_meta ~penv m ppf
+  | Meta m -> print_meta m ppf
 
   | Param p -> print_param ~penv p ppf
 
@@ -247,7 +270,7 @@ let print_error err ppf =
 
 let rec occurs m = function
   | Judgement _ | String | Param _ -> false
-  | Meta m' -> m = m'
+  | Meta m' -> eq_meta m m'
   | Prod ts  | App (_, _, ts) ->
     List.exists (occurs m) ts
   | Arrow (t1, t2) | Handler (t1, t2) ->

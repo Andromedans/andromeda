@@ -90,19 +90,11 @@ val greek : int -> string
 (** Print a name. *)
 val print_ident : ?parentheses:bool -> ident -> Format.formatter -> unit
 
-(** Print an atom *)
-type atom_printer
-val atom_printer : unit -> atom_printer
-
 (** Effectful: atoms are reindexed as they are encountered. *)
-val print_atom : ?parentheses:bool -> printer:atom_printer -> atom -> Format.formatter -> unit
-
-(** Print a meta *)
-type meta_printer
-val meta_printer : unit -> meta_printer
+val print_atom : ?parentheses:bool -> atom -> Format.formatter -> unit
 
 (** Effectful: metas are reindexed as they are encountered. *)
-val print_meta : ?parentheses:bool -> printer:meta_printer -> meta -> Format.formatter -> unit
+val print_meta : ?parentheses:bool -> meta -> Format.formatter -> unit
 
 (** Print an operation name. *)
 val print_op : ident -> Format.formatter -> unit

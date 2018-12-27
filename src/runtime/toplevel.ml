@@ -7,66 +7,90 @@ type state = {
 }
 
 type error =
-  | EvalError of Eval.error
-  | ParserError of Ulexbuf.error
-  | DesugarError of Desugar.error
-  | TypingError of Mlty.error
+  | ParserError of Ulexbuf.error Location.located
+  | DesugarError of Desugar.error Location.located
+  | TypingError of Mlty.error Location.located
+  | RuntimeError of Runtime.error Location.located
+  | NucleusError of Nucleus.error
 
-exception Error of error Location.located
+exception Error of error
 
-let print_error err ppf =
+let print_error state err ppf =
   match err with
-  | EvalError err -> Format.fprintf ppf "@[<hov 2>Evaluation error:@ %t@]" (Eval.print_error err)
-  | ParserError err -> Format.fprintf ppf "@[<hov 2>Parsing error:@ %t@]" (Ulexbuf.print_error err)
-  | DesugarError err -> Format.fprintf ppf "@[<hov 2>Type error:@ %t@]" (Desugar.print_error err)
-  | TypingError err -> Format.fprintf ppf "@[<hov 2>Type error:@ %t@]" (Mlty.print_error err)
 
-let print_located_error {Location.thing=err; loc} ppf =
-  Format.fprintf ppf "@.%t:@.%t" (Location.print loc) (print_error err)
+  | ParserError {Location.thing=err; loc} ->
+     Format.fprintf ppf "%t:@.@[<hov 2>Parsing error:@ %t@]" (Location.print loc) (Ulexbuf.print_error err)
 
-let wrap f state =
+  | DesugarError {Location.thing=err; loc} ->
+     Format.fprintf ppf "%t:@.@[<hov 2>Type error:@ %t@]" (Location.print loc) (Desugar.print_error err)
+
+  | TypingError {Location.thing=err; loc} ->
+     Format.fprintf ppf "%t:@.@[<hov 2>Type error:@ %t@]" (Location.print loc) (Mlty.print_error err)
+
+  | RuntimeError {Location.thing=err; loc} ->
+     let forbidden = Runtime.get_forbidden state.runtime in
+     Format.fprintf ppf "@[<hov 2>Runtime error:@ %t@]" (Runtime.print_error ~forbidden err)
+
+  | NucleusError err ->
+     let forbidden = Runtime.get_forbidden state.runtime in
+     Format.fprintf ppf "@[<hov 2>Nucleus error:@ %t@]" (Nucleus.print_error ~forbidden err)
+
+let wrap_error f state =
   try f state
   with
-    | Eval.Error {Location.thing=err; loc} ->
-       raise (Error (Location.locate (EvalError err) loc))
-    | Ulexbuf.Error {Location.thing=err; loc} ->
-      raise (Error (Location.locate (ParserError err) loc))
-    | Desugar.Error {Location.thing=err; loc} ->
-      raise (Error (Location.locate (DesugarError err) loc))
-    | Mlty.Error {Location.thing=err; loc} ->
-      raise (Error (Location.locate (TypingError err) loc))
+    | Ulexbuf.Error err -> raise (Error (ParserError err))
+    | Desugar.Error err -> raise (Error (DesugarError err))
+    | Mlty.Error err -> raise (Error (TypingError err))
+    | Runtime.Error err -> raise (Error (RuntimeError err))
+    | Nucleus.Error err -> raise (Error (NucleusError err))
 
 (** Evaluation of toplevel computations *)
 let print_annot () =
   let penv = Mlty.fresh_penv () in
   fun t ppf -> Mlty.print_ty_schema ~penv t ppf
 
-let exec_cmd ~quiet c = wrap (fun {desugar;typing;runtime} ->
-  let desugar, c = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
-  let typing, c = Typecheck.toplevel typing c in
-  let comp = Eval.toplevel ~quiet ~print_annot c in
-  let (), runtime = Runtime.exec comp runtime in
-  {desugar;typing;runtime})
+let exec_cmd ~quiet c =
+  wrap_error
+    begin
+      fun {desugar;typing;runtime} ->
+      let desugar, c = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
+      let typing, c = Typecheck.toplevel typing c in
+      let comp = Eval.toplevel ~quiet ~print_annot c in
+      let (), runtime = Runtime.exec comp runtime in
+      {desugar;typing;runtime}
+    end
 
-let exec_interactive = wrap (fun state ->
-  let cmd = Lexer.read_toplevel Parser.commandline () in
-  exec_cmd ~quiet:false cmd state)
+let exec_interactive =
+  wrap_error
+    begin
+      fun state ->
+      let cmd = Lexer.read_toplevel Parser.commandline () in
+      exec_cmd ~quiet:false cmd state
+    end
 
-let use_file ~fn ~quiet = wrap (fun {desugar;typing;runtime} ->
-  let desugar, cmds = Desugar.file desugar fn in
-  let typing, cmds = List.fold_left (fun (typing, cmds) cmd ->
-      let typing, cmd = Typecheck.toplevel typing cmd in
-      (typing, cmd :: cmds))
-    (typing, []) cmds
-  in
-  let cmds = List.rev cmds in
-  let comp =
-    List.fold_left
-      (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet ~print_annot cmd))
-      (Runtime.top_return ()) cmds
-  in
-  let (), runtime = Runtime.exec comp runtime in
-  {desugar;typing;runtime})
+let use_file ~fn ~quiet =
+  wrap_error
+    begin
+      fun {desugar;typing;runtime} ->
+      let desugar, cmds = Desugar.file desugar fn in
+      let typing, cmds =
+        List.fold_left
+          (fun (typing, cmds) cmd ->
+            let typing, cmd = Typecheck.toplevel typing cmd in
+            (typing, cmd :: cmds))
+          (typing, [])
+          cmds
+      in
+      let cmds = List.rev cmds in
+      let comp =
+        List.fold_left
+          (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet ~print_annot cmd))
+          (Runtime.top_return ())
+          cmds
+      in
+      let (), runtime = Runtime.exec comp runtime in
+      {desugar;typing;runtime}
+    end
 
 let initial =
   let desugar, cmds = List.fold_left (fun (desugar, cmds) cmd ->

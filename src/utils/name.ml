@@ -234,14 +234,11 @@ let greek k =
   let base = (if !Config.ascii then snd greek.(j) else fst greek.(j)) in
   if i = 0 then base else (base ^ subscript i)
 
-type atom_printer = { mutable reindex : atom AtomMap.t; mutable next : int }
-
-let global_printer = { reindex = AtomMap.empty; next = 0 }
-
-let atom_printer () =
-  if !Config.global_atom_printer
-  then global_printer
-  else { reindex = AtomMap.empty; next = 0 }
+(* We expect that most atoms are never printed. Therefore,
+   for the purposes of printing, we remap the ones that do get printed
+   so that the user sees them numbered consecutively starting from 0. *)
+let reindex_atom = ref AtomMap.empty
+let next_atom = ref 0
 
 let print_atom_subs ?(parentheses=true) x ppf =
   match x with
@@ -257,29 +254,25 @@ let print_atom_subs ?(parentheses=true) x ppf =
      else
        Format.fprintf ppf "%s%s" s (subscript k)
 
-let print_atom ?parentheses ~printer x ppf =
+let print_atom ?parentheses x ppf =
   let y =
     try
-      AtomMap.find x printer.reindex
+      AtomMap.find x !reindex_atom
     with
       Not_found ->
-        let n = printer.next in
+        let n = !next_atom in
         let y = match x with Atom (s,fixity,_) -> Atom (s,fixity,n) in
-        printer.reindex <- AtomMap.add x y printer.reindex;
-        printer.next <- n + 1;
+        reindex_atom := AtomMap.add x y !reindex_atom ;
+        next_atom := n + 1;
         y
   in
   print_atom_subs ?parentheses y ppf
 
-
-type meta_printer = { mutable reindex_meta : meta MetaMap.t; mutable next_meta : int }
-
-let global_meta_printer = { reindex_meta = MetaMap.empty; next_meta = 0 }
-
-let meta_printer () =
-  if !Config.global_meta_printer
-  then global_meta_printer
-  else { reindex_meta = MetaMap.empty; next_meta = 0 }
+(* We expect that most meta-variables are never printed. Therefore,
+   for the purposes of printing, we remap the ones that do get printed
+   so that the user sees them numbered consecutively starting from 0. *)
+let reindex_meta = ref MetaMap.empty
+let next_meta = ref 0
 
 let print_meta_subs ?(parentheses=true) x ppf =
   match x with
@@ -295,16 +288,16 @@ let print_meta_subs ?(parentheses=true) x ppf =
      else
        Format.fprintf ppf "%s%s" s (subscript k)
 
-let print_meta ?parentheses ~printer x ppf =
+let print_meta ?parentheses x ppf =
   let y =
     try
-      MetaMap.find x printer.reindex_meta
+      MetaMap.find x !reindex_meta
     with
       Not_found ->
-        let n = printer.next_meta in
+        let n = !next_meta in
         let y = match x with Meta (s,fixity,_) -> Meta (s,fixity,n) in
-        printer.reindex_meta <- MetaMap.add x y printer.reindex_meta;
-        printer.next_meta <- n + 1;
+        reindex_meta := MetaMap.add x y !reindex_meta;
+        next_meta := n + 1;
         y
   in
   print_meta_subs ?parentheses y ppf

@@ -1125,13 +1125,9 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
      let c = comp ~yield:false ctx c in
      (ctx, locate (Dsyntax.TopNow (x, c)) loc)
 
-  | Input.TopDo c ->
+  | Input.TopComputation c ->
      let c = comp ~yield:false ctx c in
-     (ctx, locate (Dsyntax.TopDo c) loc)
-
-  | Input.TopFail c ->
-     let c = comp ~yield:false ctx c in
-     (ctx, locate (Dsyntax.TopFail c) loc)
+     (ctx, locate (Dsyntax.TopComputation c) loc)
 
   | Input.Verbosity n ->
      (ctx, locate (Dsyntax.Verbosity n) loc)

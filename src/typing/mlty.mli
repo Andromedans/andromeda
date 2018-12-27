@@ -97,6 +97,12 @@ type error =
 
 exception Error of error Location.located
 
+(** Equality comparison of metavariables *)
+val eq_meta : meta -> meta -> bool
+
+(** Equality comparison of parameters *)
+val eq_param : param -> param -> bool
+
 (** Convenience function to raise an error. *)
 val error : loc:Location.t -> error -> 'a
 

@@ -32,11 +32,5 @@ val max_boxes : int ref
 (** The maximum number of characters that will be printed on one line *)
 val columns : int ref
 
-(** Should atoms be printed with freshness subscripts? *)
-val global_atom_printer : bool ref
-
-(** Should metas be printed with freshness subscripts? *)
-val global_meta_printer : bool ref
-
 (** Should JSON format print locations? *)
 val json_location : bool ref

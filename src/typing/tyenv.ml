@@ -134,7 +134,7 @@ let rec unifiable ctx s t t' =
   | Mlty.String, Mlty.String ->
      Some s
 
-  | Mlty.Meta m, Mlty.Meta m' when m = m' ->
+  | Mlty.Meta m, Mlty.Meta m' when Mlty.eq_meta m m' ->
      Some s
 
   | Mlty.Meta m, t ->
@@ -143,7 +143,7 @@ let rec unifiable ctx s t t' =
   | t, Mlty.Meta m ->
      Substitution.add m t s
 
-  | Mlty.Param p, Mlty.Param p' when p = p' ->
+  | Mlty.Param p, Mlty.Param p' when Mlty.eq_param p p' ->
      Some s
 
   | Mlty.Ref t, Mlty.Ref t' ->

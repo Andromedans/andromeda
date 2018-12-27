@@ -18,8 +18,7 @@
 %token ARROW DARROW
 
 (* Things specific to toplevel *)
-%token DO FAIL
-
+%token SEMISEMI
 %token RULE
 
 (* Let binding *)
@@ -30,12 +29,12 @@
 
 (* Meta-level programming *)
 %token OPERATION
-%token MATCH WHEN
+%token MATCH WHEN END
 %token AS TYPE
 %token VDASH EQEQ
 
-%token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
-%token SEMICOLON
+%token HANDLE WITH HANDLER BAR VAL FINALLY YIELD
+%token SEMI
 
 %token NATURAL
 
@@ -83,28 +82,39 @@
 (* Toplevel syntax *)
 
 file:
-  | f=filecontents EOF            { f }
+  | ds=file_any EOF                 { ds }
 
-filecontents:
-  |                                 { [] }
-  | d=topcomp ds=filecontents       { d :: ds }
-  | d=topdirective ds=filecontents  { d :: ds }
+file_any:
+  |                                      { [] }
+  | c=top_term                           { [c] }
+  | c=top_term SEMISEMI cs=file_any      { c :: cs }
+  | c=top_command SEMISEMI cs=file_any   { c :: cs }
+  | c=top_command cs=file_top            { c :: cs }
+
+file_top:
+  |                                      { [] }
+  | c=top_command SEMISEMI cs=file_any   { c :: cs }
+  | c=top_command cs=file_top            { c :: cs }
 
 commandline:
-  | topcomp EOF       { $1 }
-  | topdirective EOF { $1 }
+  | top_command SEMISEMI? EOF { $1 }
+  | top_term SEMISEMI? EOF        { $1 }
 
-(* Things that can be defined on toplevel. *)
-topcomp: mark_location(plain_topcomp) { $1 }
-plain_topcomp:
+(* Toplevel term *)
+top_term: mark_location(plain_top_term) { $1 }
+plain_top_term:
+  | t=term { TopComputation t }
+
+(* Toplevel commands that need not be preceeded by double semicolon. *)
+top_command: mark_location(plain_top_command) { $1 }
+plain_top_command:
+  | REQUIRE fs=QUOTED_STRING+                         { Require fs }
   | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
                                                       { TopLetRec lst }
   | DYNAMIC x=var_name u=dyn_annotation EQ c=term     { TopDynamic (x, u, c) }
   | NOW x=app_term EQ c=term                          { TopNow (x,c) }
-  | HANDLE lst=top_handler_cases END                  { TopHandle lst }
-  | DO c=term                                         { TopDo c }
-  | FAIL c=term                                       { TopFail c }
+  (* | HANDLE lst=top_handler_cases END                  { TopHandle lst } *)
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
   | OPERATION op=var_name COLON opsig=op_mlsig        { DeclOperation (op, opsig) }
@@ -145,11 +155,6 @@ local_context:
   | x=name COLON a=term                         { [(x, a)] }
   | x=name COLON a=term COMMA ctx=local_context { (x, a) :: ctx }
 
-(* Toplevel directive. *)
-topdirective: mark_location(plain_topdirective)      { $1 }
-plain_topdirective:
-  | REQUIRE fs=QUOTED_STRING+                        { Require fs }
-
 (* Main syntax tree *)
 
 term: mark_location(plain_term) { $1 }
@@ -166,7 +171,7 @@ plain_term:
   | WITH h=term HANDLE c=term                                    { With (h, c) }
   | HANDLER hcs=handler_cases END                                { Handler (hcs) }
   | e=app_term COLON t=ty_term                                   { Ascribe (e, t) }
-  | e1=binop_term SEMICOLON e2=term                              { Sequence (e1, e2) }
+  | e1=binop_term SEMI e2=term                                   { Sequence (e1, e2) }
   | CONTEXT c=prefix_term                                        { Context c }
   | OCCURS c1=prefix_term c2=prefix_term                         { Occurs (c1,c2) }
 
@@ -297,29 +302,29 @@ handler_checking:
   |                     { None }
   | COLON pt=tt_pattern { Some pt }
 
-top_handler_cases:
-  | BAR lst=separated_nonempty_list(BAR, top_handler_case)  { lst }
-  | lst=separated_list(BAR, top_handler_case)               { lst }
-
-(* XXX allow patterns here *)
-top_handler_case:
-  | op=var_name xs=top_patt_maybe_var* y=top_handler_checking DARROW t=term
-    { (op, (xs, y, t)) }
-  | oploc=prefix x=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { let (op, _) = oploc in
-      (op, ([x], y, t))
-    }
-  | x1=top_patt_maybe_var oploc=infix x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { let (op, _) = oploc in
-      (op, ([x1;x2], y, t)) }
-
-top_patt_maybe_var:
-  | x=var_name                   { Some x }
-  | UNDERSCORE                   { None }
-
-top_handler_checking:
-  |                            { None }
-  | COLON x=top_patt_maybe_var { x }
+(* top_handler_cases:
+ *   | BAR lst=separated_nonempty_list(BAR, top_handler_case)  { lst }
+ *   | lst=separated_list(BAR, top_handler_case)               { lst }
+ *
+ * (\* XXX allow patterns here *\)
+ * top_handler_case:
+ *   | op=var_name xs=top_patt_maybe_var* y=top_handler_checking DARROW t=term
+ *     { (op, (xs, y, t)) }
+ *   | oploc=prefix x=top_patt_maybe_var y=top_handler_checking DARROW t=term
+ *     { let (op, _) = oploc in
+ *       (op, ([x], y, t))
+ *     }
+ *   | x1=top_patt_maybe_var oploc=infix x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
+ *     { let (op, _) = oploc in
+ *       (op, ([x1;x2], y, t)) }
+ *
+ * top_patt_maybe_var:
+ *   | x=var_name                   { Some x }
+ *   | UNDERSCORE                   { None }
+ *
+ * top_handler_checking:
+ *   |                            { None }
+ *   | COLON x=top_patt_maybe_var { x } *)
 
 match_cases:
   | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }

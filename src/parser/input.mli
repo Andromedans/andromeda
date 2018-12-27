@@ -159,7 +159,6 @@ and toplevel' =
   | TopLetRec of letrec_clause list
   | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of comp * comp
-  | TopDo of comp (** evaluate a computation at top level *)
-  | TopFail of comp
+  | TopComputation of comp (** evaluate a computation at top level *)
   | Verbosity of int
   | Require of string list

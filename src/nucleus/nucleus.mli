@@ -83,12 +83,6 @@ type congruence_argument =
   | CongrEqType of eq_type_abstraction * eq_type_abstraction
   | CongrEqTerm of eq_term_abstraction * eq_term_abstraction
 
-type print_env =
-  { forbidden : Name.ident list
-  ; metas : Name.meta_printer
-  ; atoms : Name.atom_printer
-  }
-
 module Signature : sig
 
   val empty : signature
@@ -298,31 +292,31 @@ val congruence_term_constructor :
 (** Printing routines *)
 
 val print_is_term :
-  ?max_level:Level.t -> penv:print_env -> is_term -> Format.formatter -> unit
+  ?max_level:Level.t -> forbidden:(Name.ident list) -> is_term -> Format.formatter -> unit
 
 val print_is_type :
-  ?max_level:Level.t -> penv:print_env -> is_type -> Format.formatter -> unit
+  ?max_level:Level.t -> forbidden:(Name.ident list) -> is_type -> Format.formatter -> unit
 
 val print_eq_term :
-  ?max_level:Level.t -> penv:print_env -> eq_term -> Format.formatter -> unit
+  ?max_level:Level.t -> forbidden:(Name.ident list) -> eq_term -> Format.formatter -> unit
 
 val print_eq_type :
-  ?max_level:Level.t -> penv:print_env -> eq_type -> Format.formatter -> unit
+  ?max_level:Level.t -> forbidden:(Name.ident list) -> eq_type -> Format.formatter -> unit
 
 val print_is_term_abstraction :
-  ?max_level:Level.t -> penv:print_env -> is_term_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> forbidden:(Name.ident list) -> is_term_abstraction -> Format.formatter -> unit
 
 val print_is_type_abstraction :
-  ?max_level:Level.t -> penv:print_env -> is_type_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> forbidden:(Name.ident list) -> is_type_abstraction -> Format.formatter -> unit
 
 val print_eq_term_abstraction :
-  ?max_level:Level.t -> penv:print_env -> eq_term_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> forbidden:(Name.ident list) -> eq_term_abstraction -> Format.formatter -> unit
 
 val print_eq_type_abstraction :
-  ?max_level:Level.t -> penv:print_env -> eq_type_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> forbidden:(Name.ident list) -> eq_type_abstraction -> Format.formatter -> unit
 
 (** Print a nucleus error *)
-val print_error : penv:print_env -> error -> Format.formatter -> unit
+val print_error : forbidden:(Name.ident list) -> error -> Format.formatter -> unit
 
 module Json :
 sig

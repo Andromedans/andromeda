@@ -132,9 +132,3 @@ type error =
   | InvalidConvert of is_type * is_type
 
 exception Error of error
-
-type print_env =
-  { forbidden : Name.ident list
-  ; metas : Name.meta_printer
-  ; atoms : Name.atom_printer
-  }
