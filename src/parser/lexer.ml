@@ -13,11 +13,9 @@ let reserved = [
   ("assume", ASSUME) ;
   ("context", CONTEXT) ;
   ("current", CURRENT) ;
-  ("do", DO) ;
   ("dynamic", DYNAMIC) ;
   ("end", END) ;
   ("external", EXTERNAL) ;
-  ("fail", FAIL) ;
   ("finally", FINALLY) ;
   ("fun", FUNCTION) ;
   ("handle", HANDLE) ;
@@ -118,7 +116,8 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | "==" | 8801              -> f (); EQEQ
   | '!'                      -> f (); BANG
   | ":="                     -> f (); COLONEQ
-  | ';'                      -> f (); SEMICOLON
+  | ";;"                     -> f (); SEMISEMI
+  | ';'                      -> f (); SEMI
   (* Comes before prefixop because it also matches prefixop. It's a hack to allow
      '?' as an identifier, which may not be so smart. *)
   | '?'                      -> f (); NAME (Name.make ~fixity:Name.Word "?")

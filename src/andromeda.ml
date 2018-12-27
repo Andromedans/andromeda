@@ -18,14 +18,6 @@ let options = Arg.align [
       Arg.Set Config.ascii,
      " Print terms in ASCII format");
 
-    ("--global-atom-printer",
-     Arg.Set Config.global_atom_printer,
-     " Do print the freshness-index subscripts of atoms on a global basis");
-
-    ("--global-meta-printer",
-     Arg.Set Config.global_meta_printer,
-     " Do print the freshness-index subscripts of metas on a global basis");
-
     ("--max-boxes",
      Arg.Set_int Config.max_boxes,
      " Set the maximum depth of pretty printing");
@@ -82,8 +74,9 @@ let interactive_shell state =
         Toplevel.exec_interactive state
       with
       | Toplevel.Error err ->
-         Format.eprintf "@[<hov 2>%t@]@." (Toplevel.print_located_error err) ; state
+         Format.eprintf "@[<hov 2>%t@]@." (Toplevel.print_error state err) ; state
       | Sys.Break -> Format.eprintf "Interrupted.@."; state
+      | End_of_file -> exit 0
     in loop state
   in
   loop state
@@ -121,12 +114,13 @@ let main =
     | Config.PreludeNone -> ()
     | Config.PreludeFile f -> add_file true f
     | Config.PreludeDefault ->
-      (* look for prelude next to the executable and in the , don't whine if it is not there *)
+      (* look for prelude next to the executable and in the library director,
+         don't whine if it is not found. *)
       try
         let d = Build.lib_dir in
         let d' = Filename.dirname Sys.argv.(0) in
         let l = List.map (fun d -> Filename.concat d "prelude.m31") [d; d'] in
-        let f = List.find (fun f ->  Sys.file_exists f) l in
+        let f = List.find (fun f -> Sys.file_exists f) l in
         add_file true f
       with Not_found -> ()
   end ;
@@ -135,19 +129,22 @@ let main =
   Format.set_max_boxes !Config.max_boxes ;
   Format.set_margin !Config.columns ;
   Format.set_ellipsis_text "..." ;
-  try
 
-    (* Run and load all the specified files. *)
-    let topstate =
-      List.fold_left
-        (fun topstate (fn, quiet) -> Toplevel.use_file ~fn ~quiet topstate)
-        Toplevel.initial !files in
-
-    if !Config.interactive_shell
-      then interactive_shell topstate
-      else ()
-
-  with
-    | Toplevel.Error err ->
-       Format.eprintf "@[<hov 2>%t@]@." (Toplevel.print_located_error err) ; exit 1
-    | End_of_file -> ()
+  (* Run and load all the specified files. *)
+  let rec process_files state  = function
+    | [] -> state
+    | (fn, quiet) :: files ->
+       begin
+         try
+           let state = Toplevel.use_file ~fn ~quiet state in
+           process_files state files
+         with
+         | Toplevel.Error err ->
+            Format.eprintf "@[<hov 2>%t@]@." (Toplevel.print_error state err) ;
+            exit 1
+       end
+  in
+  let state = process_files Toplevel.initial !files in
+  if !Config.interactive_shell
+  then interactive_shell state
+  else ()

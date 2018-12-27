@@ -52,6 +52,7 @@ let add_eq_term_meta x t asmp = { asmp with eq_term_meta = Meta_map.add x t asmp
 let add_bound k asmp = { asmp with bound = Bound_set.add k asmp.bound }
 
 let union a1 a2 =
+  (* XXX figure out why this is happening, fix it, and remove the code below. *)
   let f = (fun vtype print a t1 t2 ->
       (if not (t1 == t2)
        then
@@ -59,8 +60,8 @@ let union a1 a2 =
          ; assert false )
        else ()) ;
       Some t1) in
-  let f_free = (f "free" (Name.print_atom ~parentheses:false ~printer:(Name.atom_printer ())))
-  and p_meta = Name.print_meta ~parentheses:false ~printer:(Name.meta_printer ())
+  let f_free = (f "free" (Name.print_atom ~parentheses:false))
+  and p_meta = Name.print_meta ~parentheses:false
   in
   { free = Atom_map.union f_free a1.free a2.free
   ; is_type_meta = Meta_map.union (f "is_type_meta" p_meta) a1.is_type_meta a2.is_type_meta

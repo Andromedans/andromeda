@@ -19,6 +19,29 @@ type operation = ident
 type ty = ident
 type aml_constructor = ident
 
+(** Make a nice subscript from an integer. *)
+let subscript k =
+  let subdigit = [|"₀"; "₁"; "₂"; "₃"; "₄"; "₅"; "₆"; "₇"; "₈"; "₉"|] in
+  if !Config.ascii then "_" ^ string_of_int k
+  else if k = 0 then subdigit.(0)
+  else
+    let rec fold s = function
+      | 0 -> s
+      | k ->
+         let s = subdigit.(k mod 10) ^ s in
+         fold s (k / 10)
+    in
+    fold "" k
+
+(** Convert an integer to a Greek letter, possibly subscripted. *)
+let greek k =
+  let greek = [| ("α", "a"); ("β", "b"); ("γ", "c"); ("δ", "d"); ("ε", "e") |] in
+  let n = Array.length greek in
+  let i = k / n in
+  let j = k mod n in
+  let base = (if !Config.ascii then snd greek.(j) else fst greek.(j)) in
+  if i = 0 then base else (base ^ subscript i)
+
 let print_ident ?(parentheses=true) x ppf =
   match x with
   | Ident (s, Word) -> Format.fprintf ppf "%s" s
@@ -106,19 +129,45 @@ let fresh =
 
 let ident_of_atom (Atom (s,fixity,_)) = Ident (s,fixity)
 
-(** Split a string into base and an optional numerical suffix, e.g.,
-    ["x42"] is split into [("x", Some 42)], while ["xy"] is split into
-    [("xy", None)]. *)
+(** Split a string into base and an optional numerical suffix, e.g., ["x42"],
+   ["x₄₂"], and ["x4₂"] are split into [("x", Some 42)], while ["xy"] is split into [("xy",
+   None)]. *)
 let extract_suffix s =
+  let digits =
+    [("0",0); ("1",1); ("2",2); ("3",3); ("4",4); ("5",5); ("6",6); ("7",7); ("8",8); ("9",9);
+     ("₀",0); ("₁",1); ("₂",2); ("₃",3); ("₄",4); ("₅",5); ("₆",6); ("₇",7); ("₈",8); ("₉",9)]
+  in
+  let rec ends_with i = function
+    | [] -> None
+    | (c, d) :: lst ->
+       let k = String.length c in
+       let c' = if i + 1 - k >= 0 then String.sub s (i + 1 - k) k else "FOO" in
+       if i + 1 - k >= 0 && c = c'
+       then Some (d, i - k)
+       else ends_with i lst
+  in
+
+  (* Convert a list of digits in reverse order to an integer *)
+  let rec as_int k = function
+    | [] -> k
+    | d :: ds -> as_int (10 * k + d) ds
+  in
+
   let n = String.length s in
-  let i = ref (n - 1) in
-  while !i >= 0 && '0' <= s.[!i] && s.[!i] <= '9' do decr i done;
-  if !i < 0 || !i = n - 1 then
-    (s, None)
-  else
-    let base = String.sub s 0 (!i + 1)
-    and suffix = String.sub s (!i + 1) (n - !i - 1) in
-    (base, Some (int_of_string suffix))
+  let rec extract suffix i =
+    if i < 0 then
+      (* If we get here [s] is made of digits only. *)
+      (s, None)
+    else
+      match ends_with i digits with
+      | None ->
+         if i = n - 1
+         then (s, None)
+         else (String.sub s 0 (i+1), Some (as_int 0 suffix))
+      | Some (d, i) ->
+         extract (d :: suffix) i
+  in
+  extract [] (n-1)
 
 let refresh xs ((Ident (s, fixity)) as x) =
   let rec used s = function
@@ -130,8 +179,8 @@ let refresh xs ((Ident (s, fixity)) as x) =
   else
     let (s, k) = extract_suffix s in
     let k = ref (match k with Some k -> k | None -> 0) in
-    while used (s ^ string_of_int !k) xs do incr k done;
-    Ident (s ^ string_of_int !k, fixity)
+    while used (s ^ subscript !k) xs do incr k done;
+    Ident (s ^ subscript !k, fixity)
 
 let eq_ident (x : ident) (y : ident) = (x = y)
 
@@ -211,37 +260,11 @@ let print_debruijn xs k ppf =
   let x = List.nth xs k in
   print_ident x ppf
 
-(** Subscripts *)
-
-let subscript k =
-  let subdigit = [|"₀"; "₁"; "₂"; "₃"; "₄"; "₅"; "₆"; "₇"; "₈"; "₉"|] in
-  if !Config.ascii then "_" ^ string_of_int k
-  else if k = 0 then subdigit.(0)
-  else
-    let rec fold s = function
-      | 0 -> s
-      | k ->
-         let s = subdigit.(k mod 10) ^ s in
-         fold s (k / 10)
-    in
-    fold "" k
-
-let greek k =
-  let greek = [| ("α", "a"); ("β", "b"); ("γ", "c"); ("δ", "d"); ("ε", "e") |] in
-  let n = Array.length greek in
-  let i = k / n in
-  let j = k mod n in
-  let base = (if !Config.ascii then snd greek.(j) else fst greek.(j)) in
-  if i = 0 then base else (base ^ subscript i)
-
-type atom_printer = { mutable reindex : atom AtomMap.t; mutable next : int }
-
-let global_printer = { reindex = AtomMap.empty; next = 0 }
-
-let atom_printer () =
-  if !Config.global_atom_printer
-  then global_printer
-  else { reindex = AtomMap.empty; next = 0 }
+(* We expect that most atoms are never printed. Therefore,
+   for the purposes of printing, we remap the ones that do get printed
+   so that the user sees them numbered consecutively starting from 0. *)
+let reindex_atom = ref AtomMap.empty
+let next_atom = ref 0
 
 let print_atom_subs ?(parentheses=true) x ppf =
   match x with
@@ -257,29 +280,25 @@ let print_atom_subs ?(parentheses=true) x ppf =
      else
        Format.fprintf ppf "%s%s" s (subscript k)
 
-let print_atom ?parentheses ~printer x ppf =
+let print_atom ?parentheses x ppf =
   let y =
     try
-      AtomMap.find x printer.reindex
+      AtomMap.find x !reindex_atom
     with
       Not_found ->
-        let n = printer.next in
+        let n = !next_atom in
         let y = match x with Atom (s,fixity,_) -> Atom (s,fixity,n) in
-        printer.reindex <- AtomMap.add x y printer.reindex;
-        printer.next <- n + 1;
+        reindex_atom := AtomMap.add x y !reindex_atom ;
+        next_atom := n + 1;
         y
   in
   print_atom_subs ?parentheses y ppf
 
-
-type meta_printer = { mutable reindex_meta : meta MetaMap.t; mutable next_meta : int }
-
-let global_meta_printer = { reindex_meta = MetaMap.empty; next_meta = 0 }
-
-let meta_printer () =
-  if !Config.global_meta_printer
-  then global_meta_printer
-  else { reindex_meta = MetaMap.empty; next_meta = 0 }
+(* We expect that most meta-variables are never printed. Therefore,
+   for the purposes of printing, we remap the ones that do get printed
+   so that the user sees them numbered consecutively starting from 0. *)
+let reindex_meta = ref MetaMap.empty
+let next_meta = ref 0
 
 let print_meta_subs ?(parentheses=true) x ppf =
   match x with
@@ -295,16 +314,16 @@ let print_meta_subs ?(parentheses=true) x ppf =
      else
        Format.fprintf ppf "%s%s" s (subscript k)
 
-let print_meta ?parentheses ~printer x ppf =
+let print_meta ?parentheses x ppf =
   let y =
     try
-      MetaMap.find x printer.reindex_meta
+      MetaMap.find x !reindex_meta
     with
       Not_found ->
-        let n = printer.next_meta in
+        let n = !next_meta in
         let y = match x with Meta (s,fixity,_) -> Meta (s,fixity,n) in
-        printer.reindex_meta <- MetaMap.add x y printer.reindex_meta;
-        printer.next_meta <- n + 1;
+        reindex_meta := MetaMap.add x y !reindex_meta;
+        next_meta := n + 1;
         y
   in
   print_meta_subs ?parentheses y ppf

@@ -1047,13 +1047,9 @@ let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
        check_comp c tx >>= fun c ->
        return_located ~loc (Rsyntax.TopNow (x, c))
 
-  | Dsyntax.TopDo c ->
+  | Dsyntax.TopComputation c ->
      comp c >>= fun (c, _) ->
-     return_located ~loc (Rsyntax.TopDo c)
-
-  | Dsyntax.TopFail c ->
-     comp c >>= fun (c, _) ->
-     return_located ~loc (Rsyntax.TopFail c)
+     return_located ~loc (Rsyntax.TopComputation c)
 
   | Dsyntax.Verbosity v ->
     return_located ~loc (Rsyntax.Verbosity v)

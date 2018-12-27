@@ -30,9 +30,9 @@ case "$OCAML_VERSION" in
     *)    echo Unknown compiler version; exit 1;;
 esac
 
-sudo add-apt-repository \
-     "deb mirror://mirrors.ubuntu.com/mirrors.txt trusty main restricted universe"
-sudo add-apt-repository --yes ppa:${ppa}
+# sudo add-apt-repository \
+#      "deb mirror://mirrors.ubuntu.com/mirrors.txt trusty main restricted universe"
+# sudo add-apt-repository --yes ppa:${ppa}
 sudo apt-get update -qq
 sudo apt-get install -y \
      $(full_apt_version ocaml $OCAML_VERSION) \
@@ -44,18 +44,17 @@ sudo apt-get install -y \
      $(full_apt_version ocaml-nox $OCAML_VERSION) \
      $(full_apt_version camlp4 $OCAML_VERSION) \
      $(full_apt_version camlp4-extra $OCAML_VERSION) \
-     opam
+     $(full_apt_version opam latest)
 
 ocaml -version
-
-export OPAMYES=1
-
-opam init -a ${BASE_REMOTE}
-eval $(opam config env)
-opam install depext
-
 opam --version
-opam --git-version
+export OPAMYES=1
+# opam init -a ${BASE_REMOTE}
+opam init
+eval $(opam config env)
+opam switch install 4.06.1
+opam switch 4.06.1
+eval $(opam config env)
 
 # install andromeda dependencies
 ! [ -z "$M31_DEPS" ] && opam install $M31_DEPS

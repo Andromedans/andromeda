@@ -105,7 +105,6 @@ and toplevel' =
   | TopLetRec of letrec_clause list
   | TopDynamic of Name.ident * ml_schema * comp
   | TopNow of comp * comp
-  | TopDo of comp
-  | TopFail of comp
+  | TopComputation of comp
   | Verbosity of int
   | Included of (string * toplevel list) list

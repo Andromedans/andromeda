@@ -555,10 +555,10 @@ and sequence ~loc v =
   match v with
     | Runtime.Tuple [] -> return ()
     | _ ->
-      Runtime.lookup_penv >>= fun penv ->
+      Runtime.lookup_names >>= fun names ->
       Print.warning "@[<hov 2>%t: the value %t should be the unit@]@."
         (Location.print loc)
-        (Runtime.print_value ~penv v) ;
+        (Runtime.print_value ~names v) ;
       return ()
 
 and let_bind
@@ -574,7 +574,6 @@ and let_bind
 
         then uss will be [[2;1]; [c; b; a]].
         Here v has de Bruijn index 0 and x has de Bruijn index 4. *)
-       Runtime.lookup_penv >>= fun penv ->
        List.fold_left
          (List.fold_left (fun cmp u -> Runtime.add_bound u cmp))
          cmp uss
@@ -582,9 +581,7 @@ and let_bind
        infer c >>= fun v ->
        Matching.match_pattern pt v >>= begin function
         | Some us -> fold (us :: uss) clauses
-        | None ->
-           Runtime.lookup_penv >>= fun penv ->
-           Runtime.(error ~loc (MatchFail v))
+        | None -> Runtime.(error ~loc (MatchFail v))
        end
 
   in
@@ -611,9 +608,7 @@ and match_cases
     List.fold_left (fun cmp v -> Runtime.add_bound v cmp) cmp vs
   in
   let rec fold = function
-    | [] ->
-      Runtime.lookup_penv >>= fun penv ->
-      Runtime.(error ~loc (MatchFail v))
+    | [] -> Runtime.(error ~loc (MatchFail v))
     | (p, g, c) :: cases ->
       Matching.match_pattern p v >>= begin function
         | None -> fold cases
@@ -869,148 +864,101 @@ let topletrec_bind ~loc ~quiet ~print_annot fxcs =
       fxcs) ;
   return ()
 
-type error =
-  | RuntimeError of Nucleus.print_env * Runtime.error
-  | NucleusError of Nucleus.print_env * Nucleus.error
-
-exception Error of error Location.located
-
-let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
-
-let print_error err ppf =
-  match err with
-    | RuntimeError (penv, err) -> Runtime.print_error ~penv err ppf
-    | NucleusError (penv, err) ->
-       Format.fprintf ppf
-         "AML runtime misused the nucleus (%t) -- please report"
-         (Nucleus.print_error ~penv err)
-
-
 let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
-  Runtime.catch ~loc (lazy (match c with
-    | Rsyntax.RuleIsType (x, prems) ->
-       let r = premises prems (Runtime.return ()) in
-       Runtime.top_handle ~loc r >>= fun (premises, ()) ->
-       let rule = Nucleus.form_rule_is_type premises in
-       Runtime.add_rule_is_type x rule
+  match c with
 
-    | Rsyntax.RuleIsTerm (x, prems, c) ->
-       let r = premises prems (check_is_type c) in
-       Runtime.top_handle ~loc r >>= fun (premises, head) ->
-       let rule = Nucleus.form_rule_is_term premises head in
-       Runtime.add_rule_is_term x rule
+  | Rsyntax.RuleIsType (x, prems) ->
+     let r = premises prems (Runtime.return ()) in
+     Runtime.top_handle ~loc r >>= fun (premises, ()) ->
+     let rule = Nucleus.form_rule_is_type premises in
+     Runtime.add_rule_is_type x rule
 
-    | Rsyntax.RuleEqType (x, prems, boundary) ->
-       let r = premises prems (check_eq_type_boundary boundary) in
-       Runtime.top_handle ~loc r >>= fun (premises, head) ->
-       let rule = Nucleus.form_rule_eq_type premises head in
-       Runtime.add_rule_eq_type x rule
+  | Rsyntax.RuleIsTerm (x, prems, c) ->
+     let r = premises prems (check_is_type c) in
+     Runtime.top_handle ~loc r >>= fun (premises, head) ->
+     let rule = Nucleus.form_rule_is_term premises head in
+     Runtime.add_rule_is_term x rule
 
-    | Rsyntax.RuleEqTerm (x, prems, boundary) ->
-       let r = premises prems (check_eq_term_boundary boundary) in
-       Runtime.top_handle ~loc r >>= fun (premises, head) ->
-       let rule = Nucleus.form_rule_eq_term premises head in
-       Runtime.add_rule_eq_term x rule
+  | Rsyntax.RuleEqType (x, prems, boundary) ->
+     let r = premises prems (check_eq_type_boundary boundary) in
+     Runtime.top_handle ~loc r >>= fun (premises, head) ->
+     let rule = Nucleus.form_rule_eq_type premises head in
+     Runtime.add_rule_eq_type x rule
 
-    | Rsyntax.DefMLType lst
+  | Rsyntax.RuleEqTerm (x, prems, boundary) ->
+     let r = premises prems (check_eq_term_boundary boundary) in
+     Runtime.top_handle ~loc r >>= fun (premises, head) ->
+     let rule = Nucleus.form_rule_eq_term premises head in
+     Runtime.add_rule_eq_term x rule
+
+  | Rsyntax.DefMLType lst
 
     | Rsyntax.DefMLTypeRec lst ->
-      (if not quiet then
-         Format.printf "@[<hov 2>ML type%s %t declared.@]@."
-                       (match lst with [_] -> "" | _ -> "s")
-                       (Print.sequence (fun (t,_) -> Name.print_ident t)
-                                       " " lst)) ;
-      return ()
+     (if not quiet then
+        Format.printf "@[<hov 2>ML type%s %t declared.@]@."
+          (match lst with [_] -> "" | _ -> "s")
+          (Print.sequence (fun (t,_) -> Name.print_ident t)
+             " " lst)) ;
+     return ()
 
-    | Rsyntax.DeclOperation (x, k) ->
-       (if not quiet then
-         Format.printf "@[<hov 2>Operation %t is declared.@]@."
-                       (Name.print_ident x)) ;
-       return ()
+  | Rsyntax.DeclOperation (x, k) ->
+     (if not quiet then
+        Format.printf "@[<hov 2>Operation %t is declared.@]@."
+          (Name.print_ident x)) ;
+     return ()
 
-    | Rsyntax.DeclExternal (x, sch, s) ->
-       begin
-         match External.lookup s with
-         | None -> Runtime.error ~loc (Runtime.UnknownExternal s)
-         | Some v ->
-            Runtime.add_topbound v >>= (fun () ->
-             if not quiet then
-               Format.printf "@[<hov 2>external %t :@ %t = \"%s\"@]@."
-                             (Name.print_ident x)
-                             (print_annot () sch)
-                             s ;
-             return ())
-       end
+  | Rsyntax.DeclExternal (x, sch, s) ->
+     begin
+       match External.lookup s with
+       | None -> Runtime.error ~loc (Runtime.UnknownExternal s)
+       | Some v ->
+          Runtime.add_topbound v >>= (fun () ->
+           if not quiet then
+             Format.printf "@[<hov 2>external %t :@ %t = \"%s\"@]@."
+               (Name.print_ident x)
+               (print_annot () sch)
+               s ;
+           return ())
+     end
 
-    | Rsyntax.TopHandle lst ->
-       Runtime.top_fold (fun () (op, xc) ->
-           comp_handle xc >>= fun f ->
-           Runtime.add_handle op f) () lst
+  | Rsyntax.TopHandle lst ->
+     Runtime.top_fold (fun () (op, xc) ->
+         comp_handle xc >>= fun f ->
+         Runtime.add_handle op f) () lst
 
-    | Rsyntax.TopLet clauses ->
-      let print_annot = print_annot () in
-      toplet_bind ~loc ~quiet ~print_annot clauses
+  | Rsyntax.TopLet clauses ->
+     let print_annot = print_annot () in
+     toplet_bind ~loc ~quiet ~print_annot clauses
 
-    | Rsyntax.TopLetRec fxcs ->
-      let print_annot = print_annot () in
-      topletrec_bind ~loc ~quiet ~print_annot fxcs
+  | Rsyntax.TopLetRec fxcs ->
+     let print_annot = print_annot () in
+     topletrec_bind ~loc ~quiet ~print_annot fxcs
 
-    | Rsyntax.TopDynamic (x, annot, c) ->
-       comp_value c >>= fun v ->
-       Runtime.add_dynamic ~loc x v
+  | Rsyntax.TopDynamic (x, annot, c) ->
+     comp_value c >>= fun v ->
+     Runtime.add_dynamic ~loc x v
 
-    | Rsyntax.TopNow (x,c) ->
-       let xloc = x.Location.loc in
-       comp_value x >>= fun x ->
-       let x = Runtime.as_dyn ~loc:xloc x in
-       comp_value c >>= fun v ->
-       Runtime.top_now x v
+  | Rsyntax.TopNow (x,c) ->
+     let xloc = x.Location.loc in
+     comp_value x >>= fun x ->
+     let x = Runtime.as_dyn ~loc:xloc x in
+     comp_value c >>= fun v ->
+     Runtime.top_now x v
 
-    | Rsyntax.TopDo c ->
-       comp_value c >>= fun v ->
-       Runtime.top_lookup_penv >>= fun penv ->
-       (begin if not quiet then
-            Format.printf "@[<hov 2>%t@]@." (Runtime.print_value ~penv v)
-        end;
-        return ())
+  | Rsyntax.TopComputation c ->
+     comp_value c >>= fun v ->
+     Runtime.top_lookup_names >>= fun names ->
+     (begin if not quiet then
+              Format.printf "@[<hov 2>%t@]@." (Runtime.print_value ~names v)
+      end;
+      return ())
 
-    | Rsyntax.TopFail c ->
-       Runtime.catch ~loc (lazy (comp_value c)) >>= begin function
+  | Rsyntax.Included lst ->
+     Runtime.top_fold (fun () (fn, cmds) ->
+         (if not quiet then Format.printf "@[<hov 2>#including %s@]@." fn);
+         Runtime.top_fold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
+         (if not quiet then Format.printf "@[<hov 2>#processed %s@]@." fn);
+         return ())
+       () lst
 
-       | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
-         Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "@[<hov 2>Successfully failed command with runtime error:@.%t:@ %t@]@."
-                                          (Location.print loc)
-                                          (Runtime.print_error ~penv err));
-         return ()
-
-       | Runtime.CaughtNucleus {Location.thing=err; loc}  ->
-         Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "@[<hov 2>Successfully failed command with judgment error:@.%t:@ %t@]@."
-                                          (Location.print loc)
-                                          (Nucleus.print_error ~penv err));
-         return ()
-
-       | Runtime.Result r ->
-         Runtime.error ~loc (Runtime.FailureFail r)
-       end
-
-    | Rsyntax.Included lst ->
-      Runtime.top_fold (fun () (fn, cmds) ->
-          (if not quiet then Format.printf "@[<hov 2>#including %s@]@." fn);
-          Runtime.top_fold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
-          (if not quiet then Format.printf "@[<hov 2>#processed %s@]@." fn);
-          return ())
-        () lst
-
-    | Rsyntax.Verbosity i -> Config.verbosity := i; return ()
-  )) >>= function
-  | Runtime.CaughtNucleus {Location.thing=err; loc}  ->
-    Runtime.top_lookup_penv >>= fun penv ->
-    error ~loc (NucleusError (penv, err))
-
-  | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
-    Runtime.top_lookup_penv >>= fun penv ->
-    error ~loc (RuntimeError (penv, err))
-
-  | Runtime.Result r -> return r
+  | Rsyntax.Verbosity i -> Config.verbosity := i; return ()

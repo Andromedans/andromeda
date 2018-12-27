@@ -6,11 +6,9 @@ type state
 (** The type of errors that may be reported to the toplevel. *)
 type error
 
-exception Error of error Location.located
+exception Error of error
 
-val print_error: error -> Format.formatter -> unit
-
-val print_located_error : error Location.located -> Format.formatter -> unit
+val print_error : state -> error -> Format.formatter -> unit
 
 (** Run a command from the interactive input. *)
 val exec_interactive : state -> state
@@ -19,4 +17,3 @@ val exec_interactive : state -> state
 val use_file : fn:string -> quiet:bool -> state -> state
 
 val initial : state
-
