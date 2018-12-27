@@ -60,10 +60,6 @@ let anonymous =
   incr k ;
   Ident ("anon", Anonymous !k)
 
-let is_anonymous = function
-  | Ident (_, Anonymous _) -> true
-  | _ -> false
-
 let make ?(fixity=Word) s = Ident (s, fixity)
 
 module Predefined = struct
@@ -248,6 +244,14 @@ let index_of_ident x ys =
   let rec fold k = function
     | [] -> None
     | y :: ys -> if eq_ident x y then Some k else fold (k + 1) ys
+  in
+  fold 0 ys
+
+let index_of_opt_ident x ys =
+  let rec fold k = function
+    | [] -> None
+    | None :: ys -> fold k ys
+    | Some y :: ys -> if eq_ident x y then Some k else fold (k + 1) ys
   in
   fold 0 ys
 

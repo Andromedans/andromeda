@@ -580,50 +580,50 @@ let print_error ~names err ppf =
 
   | AnnotationMismatch (t1, t2) ->
       Format.fprintf ppf
-      "the type annotation is@ @[<hov>%t@]@ but the surroundings imply it should be@ @[<hov>%t@]"
+      "the type annotation is@ %t@ but the surroundings imply it should be@ %t"
                     (Nucleus.print_is_type ~names t1)
                     (Nucleus.print_is_type_abstraction ~names t2)
 
   | TypeMismatchCheckingMode (v, t) ->
-      Format.fprintf ppf "the term@ @[<hov>%t@]@ is expected by its surroundings to have type@ @[<hov>%t@]"
+      Format.fprintf ppf "the term@ %t@ is expected by its surroundings to have type@ %t"
                     (Nucleus.print_is_term_abstraction ~names v)
                     (Nucleus.print_is_type_abstraction ~names t)
 
   | UnexpectedAbstraction t ->
-      Format.fprintf ppf "this term is an abstraction but the surroundings imply it shoule be@ @[<hov>%t@]"
+      Format.fprintf ppf "this term is an abstraction but the surroundings imply it shoule be@ %t"
                     (Nucleus.print_is_type ~names t)
 
   | TermEqualityFail (e1, e2) ->
-     Format.fprintf ppf "failed to check that@ @[<hov>%t@]@ and@ @[<hov>%t@]@ are equal"
+     Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
                     (Nucleus.print_is_term ~names e1)
                     (Nucleus.print_is_term ~names e2)
 
   | TypeEqualityFail (t1, t2) ->
-     Format.fprintf ppf "failed to check that@ @[<hov>%t@]@ and@ @[<hov>%t@]@ are equal"
+     Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
                     (Nucleus.print_is_type ~names t1)
                     (Nucleus.print_is_type ~names t2)
 
   | UnannotatedAbstract x ->
-     Format.fprintf ppf "cannot infer the type of the variable to abstract@ @[<hov>%t@]" (Name.print_ident x)
+     Format.fprintf ppf "cannot infer the type of@ %t@ in abstraction" (Name.print_ident x)
 
   | MatchFail v ->
-     Format.fprintf ppf "no matching pattern found for value@ @[<hov>%t@]"
+     Format.fprintf ppf "no matching pattern found for value@ %t"
                     (print_value ~names v)
 
   | FailureFail v ->
-     Format.fprintf ppf "expected to fail but computed@ @[<hov>%t@]"
+     Format.fprintf ppf "expected to fail but computed@ %t"
                     (print_value ~names v)
 
   | InvalidComparison ->
      Format.fprintf ppf "invalid comparison"
 
   | InvalidEqualTerm (e1, e2) ->
-     Format.fprintf ppf "this should be equality of terms@ @[<hov>%t@]@ and@ @[<hov>%t@]"
+     Format.fprintf ppf "this should be equality of terms@ %t@ and@ %t"
                     (Nucleus.print_is_term ~names e1)
                     (Nucleus.print_is_term ~names e2)
 
   | InvalidEqualType (t1, t2) ->
-     Format.fprintf ppf "this should be equality of types @[<hov>%t@]@ and@ @[<hov>%t@]"
+     Format.fprintf ppf "this should be equality of types %t@ and@ %t"
                     (Nucleus.print_is_type ~names t1)
                     (Nucleus.print_is_type ~names t2)
 
@@ -686,22 +686,22 @@ let print_error ~names err ppf =
 
   | InvalidConvertible (t1, t2, eq) ->
      Format.fprintf ppf
-       "expected an equality between@ @[<hov>%t@]@ and@ @[<hov>%t@]@ but got@ @[<hov>%t@]"
+       "expected an equality between@ %t@ and@ %t@ but got@ %t"
                     (Nucleus.print_is_type_abstraction ~names t1)
                     (Nucleus.print_is_type_abstraction ~names t2)
                     (Nucleus.print_eq_type_abstraction ~names eq)
 
   | InvalidCoerce (t, e) ->
-     Format.fprintf ppf "expected a term of type@ @[<hov>%t@]@ but got@ @[<hov>%t@]"
+     Format.fprintf ppf "expected a term of type@ %t@ but got@ %t"
                     (Nucleus.print_is_type_abstraction ~names t)
                     (Nucleus.print_is_term_abstraction ~names e)
 
   | UnhandledOperation (op, vs) ->
-     Format.fprintf ppf "unhandled operation @[<hov>%t@]"
+     Format.fprintf ppf "unhandled operation %t"
                     (print_operation ~names op vs)
 
   | InvalidPatternMatch v ->
-     Format.fprintf ppf "this pattern cannot match@ @[<hov>%t@]"
+     Format.fprintf ppf "this pattern cannot match@ %t"
                     (print_value ~names v)
 
   | InvalidHandlerMatch ->

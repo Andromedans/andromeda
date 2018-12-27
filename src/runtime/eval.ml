@@ -183,7 +183,11 @@ let rec infer {Location.thing=c'; loc} =
      sequence ~loc v >>= fun () ->
      infer c2
 
-  | Rsyntax.Assume ((x, c1), c2) ->
+  | Rsyntax.Assume ((None, c1), c2) ->
+     check_is_type c1 >>= fun _ ->
+     infer c2
+
+  | Rsyntax.Assume ((Some x, c1), c2) ->
      check_is_type c1 >>= fun t ->
      Runtime.add_free x t (fun _ -> infer c2)
 
@@ -450,17 +454,21 @@ and check ({Location.thing=c';loc} as c) t_check =
      infer c1 >>= fun v ->
      Runtime.now x v (check c2 t_check)
 
-  | Rsyntax.Assume ((x, t), c) ->
+  | Rsyntax.Assume ((Some x, t), c) ->
      check_is_type t >>= fun t ->
      Runtime.add_free x t (fun _ ->
      check c t_check)
+
+  | Rsyntax.Assume ((None, t), c) ->
+     check_is_type t >>= fun _ ->
+     check c t_check
 
   | Rsyntax.Match (c, cases) ->
      infer c >>=
      match_cases ~loc cases (fun c -> check c t_check)
 
-  | Rsyntax.Abstract (x, uopt, c) ->
-    check_abstract ~loc t_check x uopt c
+  | Rsyntax.Abstract (xopt, uopt, c) ->
+    check_abstract ~loc t_check xopt uopt c
 
 
 (** Check that the abstraction [Abstract(x, uopt, c)] has type [t_check]. *)
@@ -481,27 +489,6 @@ and check_abstract ~loc t_check x uopt c =
             check c t_check' >>= fun e ->
             return (Nucleus.abstract_is_term a e)
           end
-
-     (* | Some ({Location.loc=u_loc} as u) -> *)
-     (*    check_is_type u >>= fun u -> *)
-     (*    let a_type = Nucleus.type_of_atom a in *)
-     (*    Equal.equal_type ~loc:u_loc a_type u >>= *)
-     (*      begin function *)
-     (*        | None -> *)
-     (*           Runtime.(error ~loc:u_loc (AnnotationMismatch (u, a_type))) *)
-     (*        | Some eq (\* : a_type == u *\) -> *)
-     (*           Runtime.lookup_signature >>= fun sgn -> *)
-     (*           Runtime.add_free x u *)
-     (*           (fun a' -> *)
-     (*             let t_check' = *)
-     (*              Nucleus.apply_is_type_abstraction t_check (conv a' eq) *)
-
-     (*             in *)
-     (*             check c t_check' >>= fun e -> *)
-     (*             let e = (??) in *)
-     (*             return (Nucleus.abstract_is_term a e) *)
-     (*           ) *)
-     (*      end *)
 
      | Some ({Location.loc=u_loc;_} as u) ->
         check_is_type u >>= fun u ->
@@ -525,30 +512,6 @@ and check_abstract ~loc t_check x uopt c =
                end
           end
      end
-(*
-
-        check_is_type u >>= fun u' ->
-        Equal.equal_type ~loc:(u.Location.loc) u' (Nucleus.type_of_atom a) >>=
-          begin function
-            | Some equ -> return (u', equ)
-            | None ->
-               Runtime.(error ~loc:(u.Location.loc) (AnnotationMismatch (ju, (Nucleus.type_of_atom a))))
-          end
-
-
-
-     end >>= fun (ju, equ) -> (* equ : ju == typeof a *)
-     Runtime.add_free ~loc x ju (
-         fun jy -> (* jy is a free variable of type ju *)
-         let ja = Nucleus.atom_is_term ~loc jy in
-         Predefined.add_abstracting ja
-           (let b = Nucleus.substitute_ty ~loc b a (Nucleus.convert ~loc ja equ) in
-            check c b >>= fun e ->
-            form_is_term ~loc (Nucleus.Abstract (jy, e)) >>= fun abstr ->
-            let eq_abstr = Nucleus.congr_abstract_type ~loc equ jy a (Nucleus.reflexivity_ty b) in
-            let abstr = Nucleus.convert ~loc abstr eq_abstr in
-            return abstr))
-*)
 
 (* sequence: loc:Location.t -> Runtime.value -> unit Runtime.comp *)
 and sequence ~loc v =
@@ -730,24 +693,26 @@ let check_eq_term_boundary (c1, c2, c3) =
 
 let premise {Location.thing=prem;_} =
   match prem with
-    | Rsyntax.PremiseIsType (x, lctx) ->
+    | Rsyntax.PremiseIsType (xopt, lctx) ->
        local_context
          Nucleus.abstract_boundary_is_type
          lctx
          (return ())
        >>= fun abstr ->
        Runtime.lookup_signature >>= fun sgn ->
+       let x = (match xopt with Some x -> x | None -> Name.anonymous ()) in
        let mv = Nucleus.fresh_is_type_meta x abstr in
        let v = Runtime.mk_is_type (Nucleus.is_type_meta_eta_expanded sgn mv) in
        return ((Nucleus.meta_name mv, Nucleus.BoundaryIsType abstr), Some v)
 
-    | Rsyntax.PremiseIsTerm (x, lctx, c) ->
+    | Rsyntax.PremiseIsTerm (xopt, lctx, c) ->
        local_context
          Nucleus.abstract_boundary_is_term
          lctx
          (check_is_type c)
        >>= fun abstr ->
        Runtime.lookup_signature >>= fun sgn ->
+       let x = (match xopt with Some x -> x | None -> Name.anonymous ()) in
        let mv = Nucleus.fresh_is_term_meta x abstr in
        let v = Runtime.mk_is_term (Nucleus.is_term_meta_eta_expanded sgn mv) in
        return ((Nucleus.meta_name mv, Nucleus.BoundaryIsTerm abstr), Some v)
@@ -944,14 +909,6 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      let x = Runtime.as_dyn ~loc:xloc x in
      comp_value c >>= fun v ->
      Runtime.top_now x v
-
-  | Rsyntax.TopComputation c ->
-     comp_value c >>= fun v ->
-     Runtime.top_lookup_names >>= fun names ->
-     (begin if not quiet then
-              Format.printf "@[<hov 2>%t@]@." (Runtime.print_value ~names v)
-      end;
-      return ())
 
   | Rsyntax.Included lst ->
      Runtime.top_fold (fun () (fn, cmds) ->

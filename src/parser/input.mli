@@ -33,7 +33,7 @@ and ml_ty' =
   | ML_Anonymous
 
 type ml_schema = ml_schema' located
-and ml_schema' = ML_Forall of Name.ty list * ml_ty
+and ml_schema' = ML_Forall of Name.ty option list * ml_ty
 
 (** Annotation of an ML-function argument *)
 type arg_annotation =
@@ -92,7 +92,7 @@ and comp' =
   | Update of comp * comp
   | Ref of comp
   | Sequence of comp * comp
-  | Assume of (Name.ident * comp) * comp
+  | Assume of (Name.ident option * comp) * comp
   | Ascribe of comp * comp
   | Abstract of (Name.ident * comp option) list * comp
   (* Multi-argument substitutions are *not* treated as parallel substitutions
@@ -106,8 +106,8 @@ and comp' =
   | Natural of comp
 
 and let_clause =
-  | Let_clause_ML of Name.ident * ml_arg list * let_annotation * comp
-  | Let_clause_tt of Name.ident * comp * comp
+  | Let_clause_ML of (Name.ident * ml_arg list) option * let_annotation * comp
+  | Let_clause_tt of Name.ident option * comp * comp
   | Let_clause_patt of pattern * let_annotation * comp
 
 (* XXX we should be able to destruct the first argument of a recursive function with an
@@ -138,8 +138,8 @@ type local_context = (Name.ident * comp) list
 (** A premise to a rule *)
 type premise = premise' located
 and premise' =
-  | PremiseIsType of Name.ident * local_context
-  | PremiseIsTerm of Name.ident * local_context * comp
+  | PremiseIsType of Name.ident option * local_context
+  | PremiseIsTerm of Name.ident option * local_context * comp
   | PremiseEqType of Name.ident option * local_context * (comp * comp)
   | PremiseEqTerm of Name.ident option * local_context * (comp * comp * comp)
 
@@ -150,8 +150,8 @@ and toplevel' =
   | RuleIsTerm of Name.ident * premise list * comp
   | RuleEqType of Name.ident * premise list * (comp * comp)
   | RuleEqTerm of Name.ident * premise list * (comp * comp * comp)
-  | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
-  | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
+  | DefMLType of (Name.ty * (Name.ty option list * ml_tydef)) list
+  | DefMLTypeRec of (Name.ty * (Name.ty option list * ml_tydef)) list
   | DeclOperation of Name.ident * (ml_ty list * ml_ty)
   | DeclExternal of Name.ident * ml_schema * string
   | TopHandle of (Name.ident * top_op_case) list
@@ -159,6 +159,5 @@ and toplevel' =
   | TopLetRec of letrec_clause list
   | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of comp * comp
-  | TopComputation of comp (** evaluate a computation at top level *)
   | Verbosity of int
   | Require of string list
