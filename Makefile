@@ -9,8 +9,10 @@
 
 OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
 
-OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --strict"
-#OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
+# The --strict flag prevents --explain, so we make a separate Makefile target to get
+# menhir explanations
+OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --strict"
+OCAMLBUILD_MENHIRFLAGS_EXPLAIN = -use-menhir -menhir "menhir --explain"
 
 all: andromeda.native
 opt: andromeda.native
@@ -21,6 +23,9 @@ profile: andromeda.p.native
 
 andromeda.byte andromeda.native andromeda.d.byte andromeda.p.native: src/build.ml
 	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
+
+menhir-explain: andromeda.native
+	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS_EXPLAINa) $(OCAMLBUILD_FLAGS) $@
 
 # "make test" to see if anything broke
 test: default
