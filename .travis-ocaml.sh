@@ -51,7 +51,8 @@ opam --version
 
 export OPAMYES=1
 
-opam init -a ${BASE_REMOTE}
+# opam init -a ${BASE_REMOTE}
+opam init
 eval $(opam config env)
 # opam install depext
 
