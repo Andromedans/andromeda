@@ -48,13 +48,13 @@ sudo apt-get install -y \
 
 ocaml -version
 opam --version
-
 export OPAMYES=1
-
 # opam init -a ${BASE_REMOTE}
 opam init
 eval $(opam config env)
-# opam install depext
+opam switch install 4.06.1
+opam switch 4.06.1
+eval $(opam config env)
 
 # install andromeda dependencies
 ! [ -z "$M31_DEPS" ] && opam install $M31_DEPS
