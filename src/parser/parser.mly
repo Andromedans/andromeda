@@ -222,8 +222,8 @@ plain_simple_term:
                                                           | _ -> Tuple lst }
 
 list_contents:
-  | t=binop_term COMMA?                                 { [t] }
-  | t=binop_term COMMA lst=list_contents                { t::lst }
+  | t=binop_term SEMI?                                 { [t] }
+  | t=binop_term SEMI lst=list_contents                { t::lst }
 
 var_name:
   | NAME                     { $1 }
@@ -263,7 +263,7 @@ let_clause:
        { Let_clause_tt (Some x, t, c) }
   | UNDERSCORE COLON t=app_term EQ c=term
        { Let_clause_tt (None, t, c) }
-  | LPAREN pt=let_pattern RPAREN u=let_annotation EQ c=term
+  | pt=let_pattern u=let_annotation EQ c=term
        { Let_clause_patt (pt, u, c) }
 
 ml_arg:
@@ -382,7 +382,7 @@ plain_simple_pattern:
       | [{Location.thing=p;loc=_}] -> p
       | _ -> Patt_Tuple ps
     }
-  | LBRACK ps=separated_list(COMMA, pattern) RBRACK { Patt_List ps }
+  | LBRACK ps=separated_list(SEMI, pattern) RBRACK { Patt_List ps }
 
 (* Judgement pattern (further disambiguation is performed during desugaring) *)
 
@@ -434,11 +434,14 @@ tt_name:
 
 let_pattern: mark_location(plain_let_pattern) { $1 }
 plain_let_pattern:
-  | ps=separated_list(COMMA, pattern)
+  | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
       | [{Location.thing=p;_}] -> p
       | _ -> Patt_Tuple ps
     }
+  | LBRACK ps=separated_list(SEMI, pattern) RBRACK
+    { Patt_List ps }
+
 
 tt_maybe_typed_binder:
   | LBRACE xs=tt_name+ RBRACE                            { List.map (fun x -> (x, None)) xs }

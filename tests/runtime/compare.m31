@@ -1,4 +1,5 @@
-compare ["foo", "bar", "baz"] ["foo", "bar", "qux"] ;;
+compare ["foo"; "bar"; "baz"] ["foo"; "bar"; "qux"] ;;
+compare ("foo", "bar", "baz") ("foo", "bar", "qux") ;;
 compare mlless mlgreater ;;
 compare mlgreater mlless ;;
 compare [] [[]] ;;
