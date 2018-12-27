@@ -555,10 +555,10 @@ and sequence ~loc v =
   match v with
     | Runtime.Tuple [] -> return ()
     | _ ->
-      Runtime.lookup_forbidden >>= fun forbidden ->
+      Runtime.lookup_names >>= fun names ->
       Print.warning "@[<hov 2>%t: the value %t should be the unit@]@."
         (Location.print loc)
-        (Runtime.print_value ~forbidden v) ;
+        (Runtime.print_value ~names v) ;
       return ()
 
 and let_bind
@@ -947,9 +947,9 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
   | Rsyntax.TopComputation c ->
      comp_value c >>= fun v ->
-     Runtime.top_lookup_forbidden >>= fun forbidden ->
+     Runtime.top_lookup_names >>= fun names ->
      (begin if not quiet then
-              Format.printf "@[<hov 2>%t@]@." (Runtime.print_value ~forbidden v)
+              Format.printf "@[<hov 2>%t@]@." (Runtime.print_value ~names v)
       end;
       return ())
 

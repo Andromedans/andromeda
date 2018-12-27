@@ -113,7 +113,7 @@ val as_list_opt : value -> value list option
 
 (** Pretty-print a value. *)
 val print_value :
-  ?max_level:Level.t -> forbidden:(Name.ident list) -> value -> Format.formatter -> unit
+  ?max_level:Level.t -> names:(Name.ident list) -> value -> Format.formatter -> unit
 
 
 (** {6 Error Handling} *)
@@ -164,7 +164,7 @@ type error =
 exception Error of error Location.located
 
 (** Pretty-print a runtime error *)
-val print_error : forbidden:(Name.ident list) -> error -> Format.formatter -> unit
+val print_error : names:(Name.ident list) -> error -> Format.formatter -> unit
 
 (** Report a runtime error (raises an Error exception) *)
 val error : loc:Location.t -> error -> 'a
@@ -226,8 +226,8 @@ val now : dyn -> value -> 'a comp -> 'a comp
 (** Lookup the current continuation. Only usable while handling an operation. *)
 val continue : loc:Location.t -> value -> value comp
 
-(** Get the list of forbidden names of bound variables *)
-val lookup_forbidden : Name.ident list comp
+(** Get the list of names of bound variables *)
+val lookup_names : Name.ident list comp
 
 (** Gets the current rules of inference. *)
 val lookup_signature : Nucleus.signature comp
@@ -303,7 +303,7 @@ val add_rule_eq_term : Name.constructor -> Rule.rule_eq_term -> unit toplevel
 (** Handle a computation at the toplevel. *)
 val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
 
-val top_lookup_forbidden : Name.ident list toplevel
+val top_lookup_names : Name.ident list toplevel
 
 (** Get the signature from the toplevel monad *)
 val top_lookup_signature : Nucleus.signature toplevel
@@ -317,7 +317,7 @@ type topenv
 val empty : topenv
 
 (** Get the list of rule names (used to print constructors). *)
-val get_forbidden : topenv -> Name.ident list
+val get_names : topenv -> Name.ident list
 
 (** Execute a toplevel command in the given environment. *)
 val exec : 'a toplevel -> topenv -> 'a * topenv

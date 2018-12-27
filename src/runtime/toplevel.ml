@@ -28,12 +28,12 @@ let print_error state err ppf =
      Format.fprintf ppf "%t:@.@[<hov 2>Type error:@ %t@]" (Location.print loc) (Mlty.print_error err)
 
   | RuntimeError {Location.thing=err; loc} ->
-     let forbidden = Runtime.get_forbidden state.runtime in
-     Format.fprintf ppf "@[<hov 2>Runtime error:@ %t@]" (Runtime.print_error ~forbidden err)
+     let names = Runtime.get_names state.runtime in
+     Format.fprintf ppf "@[<hov 2>Runtime error:@ %t@]" (Runtime.print_error ~names err)
 
   | NucleusError err ->
-     let forbidden = Runtime.get_forbidden state.runtime in
-     Format.fprintf ppf "@[<hov 2>Nucleus error:@ %t@]" (Nucleus.print_error ~forbidden err)
+     let names = Runtime.get_names state.runtime in
+     Format.fprintf ppf "@[<hov 2>Nucleus error:@ %t@]" (Nucleus.print_error ~names err)
 
 let wrap_error f state =
   try f state
