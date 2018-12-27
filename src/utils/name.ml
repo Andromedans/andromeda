@@ -133,18 +133,16 @@ let ident_of_atom (Atom (s,fixity,_)) = Ident (s,fixity)
    ["x₄₂"], and ["x4₂"] are split into [("x", Some 42)], while ["xy"] is split into [("xy",
    None)]. *)
 let extract_suffix s =
-  let digits =
-    [("0",0); ("1",1); ("2",2); ("3",3); ("4",4); ("5",5); ("6",6); ("7",7); ("8",8); ("9",9);
-     ("₀",0); ("₁",1); ("₂",2); ("₃",3); ("₄",4); ("₅",5); ("₆",6); ("₇",7); ("₈",8); ("₉",9)]
+  let rec ends_with c k i =
+    k < 0 || (i >= 0 && c.[k] = s.[i] && ends_with c (k-1) (i-1))
   in
-  let rec ends_with i = function
+  let rec trailing_digit i = function
     | [] -> None
     | (c, d) :: lst ->
-       let k = String.length c in
-       let c' = if i + 1 - k >= 0 then String.sub s (i + 1 - k) k else "FOO" in
-       if i + 1 - k >= 0 && c = c'
-       then Some (d, i - k)
-       else ends_with i lst
+       let k = String.length c - 1 in
+       if ends_with c k i
+       then Some (d, i - k - 1)
+       else trailing_digit i lst
   in
 
   (* Convert a list of digits in reverse order to an integer *)
@@ -159,7 +157,11 @@ let extract_suffix s =
       (* If we get here [s] is made of digits only. *)
       (s, None)
     else
-      match ends_with i digits with
+      let digits =
+        [("0",0); ("1",1); ("2",2); ("3",3); ("4",4); ("5",5); ("6",6); ("7",7); ("8",8); ("9",9);
+         ("₀",0); ("₁",1); ("₂",2); ("₃",3); ("₄",4); ("₅",5); ("₆",6); ("₇",7); ("₈",8); ("₉",9)]
+      in
+      match trailing_digit i digits with
       | None ->
          if i = n - 1
          then (s, None)
