@@ -33,7 +33,7 @@ and ml_ty' =
   | ML_Anonymous
 
 type ml_schema = ml_schema' located
-and ml_schema' = ML_Forall of Name.ty list * ml_ty
+and ml_schema' = ML_Forall of Name.ty option list * ml_ty
 
 type arg_annotation =
   | Arg_annot_none
@@ -84,7 +84,7 @@ and comp' =
   | Update of comp * comp
   | Ref of comp
   | Sequence of comp * comp
-  | Assume of (Name.ident * comp) * comp
+  | Assume of (Name.ident option * comp) * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
   | TT_Constructor of Name.ident * comp list
@@ -126,8 +126,8 @@ type local_context = (Name.ident * comp) list
 
 type premise = premise' located
 and premise' =
-  | PremiseIsType of Name.ident * local_context
-  | PremiseIsTerm of Name.ident * local_context * comp
+  | PremiseIsType of Name.ident option * local_context
+  | PremiseIsTerm of Name.ident option * local_context * comp
   | PremiseEqType of Name.ident option * local_context * (comp * comp)
   | PremiseEqTerm of Name.ident option * local_context * (comp * comp * comp)
 
@@ -138,15 +138,15 @@ and toplevel' =
   | RuleIsTerm of Name.ident * premise list * comp
   | RuleEqType of Name.ident * premise list * (comp * comp)
   | RuleEqTerm of Name.ident * premise list * (comp * comp * comp)
-  | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
-  | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
+  | DefMLType of (Name.ty * (Name.ty option list * ml_tydef)) list
+  | DefMLTypeRec of (Name.ty * (Name.ty option list * ml_tydef)) list
   | DeclOperation of Name.operation * (ml_ty list * ml_ty)
   | DeclExternal of Name.ident * ml_schema * string
   | TopHandle of (Name.operation * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
+  | TopComputation of comp
   | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of comp * comp
-  | TopComputation of comp
   | Verbosity of int
   | Included of (string * toplevel list) list

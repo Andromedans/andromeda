@@ -317,9 +317,8 @@ let top_match_pattern p v =
 let match_pattern p v =
   (* collect values of pattern variables *)
   Runtime.get_env >>= fun env ->
-  let r = match_pattern_env p v env  in
+  let r = match_pattern_env p v env in
   return r
-
 
 let match_op_pattern ~loc ps p_out vs t_out =
   Runtime.get_env >>= fun env ->

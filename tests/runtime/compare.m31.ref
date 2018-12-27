@@ -1,8 +1,8 @@
-mlless
-mlgreater
-mlless
-mlgreater
-mlgreater
-"a"
-"b"
-"c"
+- : mlorder = mlless
+- : mlorder = mlgreater
+- : mlorder = mlless
+- : mlorder = mlgreater
+- : mlorder = mlgreater
+- : mlstring = "a"
+- : mlstring = "b"
+- : mlstring = "c"

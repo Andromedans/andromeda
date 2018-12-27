@@ -7,4 +7,14 @@ let cow =
     (a, b)
 ;;
 
-cow
+let (x,y) = ("x","y")
+and ((a,b),c) = (("a","b"), "c")
+;;
+
+let (_,y) = ("x","y")
+and ((a,_),c) = (("a","b"), "c")
+;;
+
+let (x :: _) = ["x","y"]
+and ([a,b,c])   = ["a","b","c"]
+

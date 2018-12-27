@@ -98,8 +98,12 @@ module Ctx = struct
     | Variable _ | TTConstructor _ | AMLConstructor _ as info ->
       error ~loc (OperationExpected (x, info))
 
-  let add_variable x ctx =
-    { ctx with bound = (x, Variable ()) :: ctx.bound }
+  let add_variable x ctx = { ctx with bound = (x, Variable ()) :: ctx.bound }
+
+  let add_opt_variable xopt ctx =
+    match xopt with
+    | None -> ctx
+    | Some x -> add_variable x ctx
 
   let add_operation ~loc op k ctx =
     if List.exists (function (op', Operation _) -> Name.eq_ident op op' | _ -> false) ctx.bound
@@ -194,7 +198,7 @@ let mlty ctx params ty =
 
       | Input.ML_TyApply (x, args) ->
          begin
-           match Name.index_of_ident x params with
+           match Name.index_of_opt_ident x params with
            | Some k ->
               (* It is a type parameter *)
               begin
@@ -241,7 +245,6 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
   | Input.Patt_TT_Anonymous ->
      ctx, locate Dsyntax.Patt_TT_Anonymous loc
 
-  (* pattern of the form [?x] *)
   | Input.Patt_TT_Var x ->
      (* NB: a pattern variable always shadows whatever it can *)
      let ctx = Ctx.add_variable x ctx in
@@ -541,7 +544,7 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
 
   | Input.Assume ((x, t), c) ->
      let t = comp ~yield ctx t in
-     let ctx = Ctx.add_variable x ctx in
+     let ctx = Ctx.add_opt_variable x ctx in
      let c = comp ~yield ctx c in
      locate (Dsyntax.Assume ((x, t), c)) loc
 
@@ -656,36 +659,52 @@ and let_clauses ~loc ~yield ctx lst =
     | [] ->
        let lst' = List.rev lst' in
        ctx', lst'
-    | Input.Let_clause_ML (x, ys, sch, c) :: clauses ->
+
+    | Input.Let_clause_ML (xys_opt, sch, c) :: clauses ->
+       let ys = (match xys_opt with None -> [] | Some (_, ys) -> ys) in
        let c = let_clause ~yield ctx ys c in
        let sch = let_annotation ctx sch in
-       let ctx' = Ctx.add_variable x ctx' in
-       (* XXX if x carried its location, we would use it here *)
-       let x = locate (Dsyntax.Patt_Var x) loc in
+       let x, ctx' =
+         begin match xys_opt with
+         | None -> locate Dsyntax.Patt_Anonymous loc, ctx'
+         (* XXX if x carried its location, we would use it here *)
+         | Some (x, _) -> locate (Dsyntax.Patt_Var x) loc, Ctx.add_variable x ctx'
+         end
+       in
        let lst' = Dsyntax.Let_clause (x, sch, c) :: lst' in
        fold ctx' lst' clauses
-    | Input.Let_clause_tt (x, t, c) :: clauses ->
+
+    | Input.Let_clause_tt (xopt, t, c) :: clauses ->
        let c = let_clause_tt ~yield ctx c t in
        let sch = Dsyntax.Let_annot_none in
-       let ctx' = Ctx.add_variable x ctx' in
-       (* XXX if x carried its location, we would use it here *)
-       let x = locate (Dsyntax.Patt_Var x) loc in
+       let x, ctx' =
+         begin match xopt with
+         | None -> locate Dsyntax.Patt_Anonymous loc, ctx'
+         (* XXX if x carried its location, we would use it here *)
+         | Some x -> locate (Dsyntax.Patt_Var x) loc, Ctx.add_variable x ctx'
+         end
+       in
        let lst' = Dsyntax.Let_clause (x, sch, c) :: lst' in
        fold ctx' lst' clauses
+
     | Input.Let_clause_patt (pt, sch, c) :: clauses ->
        let c = comp ~yield ctx c in
        let sch = let_annotation ctx sch in
        let ctx', pt = pattern ctx' pt in
        let lst' = Dsyntax.Let_clause (pt, sch, c) :: lst' in
+
      fold ctx' lst' clauses
   in
   let rec check_unique forbidden = function
     | [] -> ()
-    | Input.Let_clause_ML (x, _, _, _) :: lst
-    | Input.Let_clause_tt (x, _, _) :: lst ->
+    | Input.Let_clause_ML (Some (x, _), _, _) :: lst
+    | Input.Let_clause_tt (Some x, _, _) :: lst ->
        if Name.IdentSet.mem x forbidden
        then error ~loc (ParallelShadowing x)
        else check_unique (Name.IdentSet.add x forbidden) lst
+    | Input.Let_clause_ML (None, _, _) :: lst
+    | Input.Let_clause_tt (None, _, _) :: lst ->
+       check_unique forbidden lst
     | Input.Let_clause_patt (pt, _, _) :: lst ->
        let forbidden = check_linear ~forbidden pt in
        check_unique forbidden lst
@@ -965,7 +984,7 @@ let premise ctx {Location.thing=prem;loc} =
   match prem with
   | Input.PremiseIsType (mvar, local_ctx) ->
      let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
-     let ctx = Ctx.add_variable mvar ctx in
+     let ctx = Ctx.add_opt_variable mvar ctx in
      ctx, locate (Dsyntax.PremiseIsType (mvar, local_ctx)) loc
 
   | Input.PremiseIsTerm (mvar, local_ctx, c) ->
@@ -974,7 +993,7 @@ let premise ctx {Location.thing=prem;loc} =
          ctx local_ctx
          (fun ctx -> comp ~yield:false ctx c)
      in
-     let ctx = Ctx.add_variable mvar ctx in
+     let ctx = Ctx.add_opt_variable mvar ctx in
      ctx, locate (Dsyntax.PremiseIsTerm (mvar, local_ctx, c)) loc
 
   | Input.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
@@ -1114,6 +1133,10 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
      let ctx, lst = letrec_clauses ~loc ~yield:false ctx lst in
      (ctx, locate (Dsyntax.TopLetRec lst) loc)
 
+  | Input.TopComputation c ->
+     let c = comp ~yield:false ctx c in
+     (ctx, locate (Dsyntax.TopComputation c) loc)
+
   | Input.TopDynamic (x, annot, c) ->
      let c = comp ~yield:false ctx c in
      let ctx = Ctx.add_variable x ctx in
@@ -1124,10 +1147,6 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
      let x = comp ~yield:false ctx x in
      let c = comp ~yield:false ctx c in
      (ctx, locate (Dsyntax.TopNow (x, c)) loc)
-
-  | Input.TopComputation c ->
-     let c = comp ~yield:false ctx c in
-     (ctx, locate (Dsyntax.TopComputation c) loc)
 
   | Input.Verbosity n ->
      (ctx, locate (Dsyntax.Verbosity n) loc)

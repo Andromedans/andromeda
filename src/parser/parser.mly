@@ -139,21 +139,21 @@ premises:
 
 premise: mark_location(plain_premise) { $1 }
 plain_premise:
-  | lctx=local_context VDASH mv=name TYPE                 { PremiseIsType (mv, lctx) }
-  | lctx=local_context VDASH mv=name COLON ty=term        { PremiseIsTerm (mv, lctx, ty) }
+  | lctx=local_context VDASH mv=opt_name TYPE             { PremiseIsType (mv, lctx) }
+  | lctx=local_context VDASH mv=opt_name COLON ty=term    { PremiseIsTerm (mv, lctx, ty) }
   | lctx=local_context VDASH l=app_term EQEQ r=ty_term mv=equality_premise_name
     { PremiseEqType (mv, lctx, (l, r)) }
   | lctx=local_context VDASH l=app_term EQEQ r=app_term COLON ty=term mv=equality_premise_name
     { PremiseEqTerm (mv, lctx, (l, r, ty)) }
 
 equality_premise_name:
-  |             { None }
-  | AS x=name   { Some x }
+  |               { None }
+  | AS x=opt_name { x }
 
 local_context:
-  |                                             { []  }
-  | x=name COLON a=term                         { [(x, a)] }
-  | x=name COLON a=term COMMA ctx=local_context { (x, a) :: ctx }
+  |                                                 { []  }
+  | x=anon_name COLON a=term                         { [(x, a)] }
+  | x=anon_name COLON a=term COMMA ctx=local_context { (x, a) :: ctx }
 
 (* Main syntax tree *)
 
@@ -165,7 +165,7 @@ plain_term:
                                                                  { LetRec (lst, c) }
   | NOW x=app_term EQ c1=term IN c2=term                         { Now (x,c1,c2) }
   | CURRENT c=term                                               { Current c }
-  | ASSUME x=var_name COLON t=ty_term IN c=term                  { Assume ((x, t), c) }
+  | ASSUME x=opt_name COLON t=ty_term IN c=term                  { Assume ((x, t), c) }
   | MATCH e=term WITH lst=match_cases END                        { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_cases END                     { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                                    { With (h, c) }
@@ -226,7 +226,7 @@ list_contents:
   | t=binop_term COMMA lst=list_contents                { t::lst }
 
 var_name:
-  | NAME { $1 }
+  | NAME                     { $1 }
   | LPAREN op=infix RPAREN   { fst op }
   | LPAREN op=prefix RPAREN  { fst op }
 
@@ -243,24 +243,31 @@ var_name:
 %inline prefix:
   | op=PREFIXOP { op }
 
-name:
-  | x=var_name { x }
-  | UNDERSCORE { Name.anonymous () }
+opt_name:
+  | x=var_name      { Some x }
+  | UNDERSCORE      { None }
+
+anon_name:
+  | x=opt_name      { match x with Some x -> x | None -> Name.anonymous () }
 
 recursive_clause:
-  | f=name y=ml_arg ys=ml_arg* u=let_annotation EQ c=term
+  | f=var_name y=ml_arg ys=ml_arg* u=let_annotation EQ c=term
        { (f, y, ys, u, c) }
 
 let_clause:
-  | x=name ys=ml_arg* u=let_annotation EQ c=term
-       { Let_clause_ML (x, ys, u, c) }
-  | x=name COLON t=app_term EQ c=term
-       { Let_clause_tt (x, t, c) }
+  | x=var_name ys=ml_arg* u=let_annotation EQ c=term
+       { Let_clause_ML (Some (x, ys), u, c) }
+  | UNDERSCORE u=let_annotation EQ c=term
+       { Let_clause_ML (None, u, c) }
+  | x=var_name COLON t=app_term EQ c=term
+       { Let_clause_tt (Some x, t, c) }
+  | UNDERSCORE COLON t=app_term EQ c=term
+       { Let_clause_tt (None, t, c) }
   | LPAREN pt=let_pattern RPAREN u=let_annotation EQ c=term
        { Let_clause_patt (pt, u, c) }
 
 ml_arg:
-  | x=name                              { (x, Arg_annot_none) }
+  | x=var_name                          { (x, Arg_annot_none) }
   | LPAREN x=NAME COLONGT t=mlty RPAREN { (x, Arg_annot_ty t) }
 
 let_annotation:
@@ -272,8 +279,8 @@ dyn_annotation:
   | COLONGT t=mlty { Arg_annot_ty t }
 
 maybe_typed_binder:
-  | LBRACE xs=name+ RBRACE                         { List.map (fun x -> (x, None)) xs }
-  | LBRACE xs=name+ COLON t=ty_term RBRACE         { List.map (fun x -> (x, Some t)) xs }
+  | LBRACE xs=anon_name+ RBRACE                     { List.map (fun x -> (x, None)) xs }
+  | LBRACE xs=anon_name+ COLON t=ty_term RBRACE     { List.map (fun x -> (x, Some t)) xs }
 
 abstraction:
   | lst=nonempty_list(maybe_typed_binder)          { List.concat lst }
@@ -454,7 +461,7 @@ op_mlsig:
 
 ml_schema: mark_location(plain_ml_schema)  { $1 }
 plain_ml_schema:
-  | MLFORALL params=var_name+ COMMA t=mlty { ML_Forall (params, t) }
+  | MLFORALL params=opt_name+ COMMA t=mlty { ML_Forall (params, t) }
   | t=mlty                                 { ML_Forall ([], t) }
 
 mlty: mark_location(plain_mlty) { $1 }
@@ -502,7 +509,7 @@ mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def) { lst }
 
 mlty_def:
-  | a=var_name xs=list(name) EQ body=mlty_def_body { (a, (xs, body)) }
+  | a=var_name xs=list(opt_name) EQ body=mlty_def_body { (a, (xs, body)) }
 
 mlty_def_body:
   | t=mlty                                                       { ML_Alias t }

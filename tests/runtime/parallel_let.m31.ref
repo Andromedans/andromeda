@@ -1,2 +1,13 @@
-val cow :> mlstring * mlstring
-("y", "x")
+val cow :> mlstring * mlstring = ("y", "x")
+val x :> mlstring = "x"
+val y :> mlstring = "y"
+val a :> mlstring = "a"
+val b :> mlstring = "b"
+val c :> mlstring = "c"
+val y :> mlstring = "y"
+val a :> mlstring = "a"
+val c :> mlstring = "c"
+val x :> mlstring = "x"
+val a :> mlstring = "a"
+val b :> mlstring = "b"
+val c :> mlstring = "c"

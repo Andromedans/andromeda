@@ -481,13 +481,17 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     comp c2 >>= fun (c2, t) ->
     return (locate ~loc (Rsyntax.Sequence (c1, c2)), t)
 
-  | Dsyntax.Assume ((x, c1), c2) ->
-     let t = Mlty.is_type in
-     check_comp c1 t >>= fun c1 ->
+  | Dsyntax.Assume ((None, c1), c2) ->
+     check_comp c1 Mlty.is_type >>= fun c1 ->
+     comp c2 >>= fun (c2, u) ->
+     return (locate ~loc (Rsyntax.Assume ((None, c1), c2)), u)
+
+  | Dsyntax.Assume ((Some x, c1), c2) ->
+     check_comp c1 Mlty.is_type >>= fun c1 ->
      Tyenv.locally_add_var x Mlty.is_term
      begin
        comp c2 >>= fun (c2, u) ->
-       return (locate ~loc (Rsyntax.Assume ((x, c1), c2)), u)
+       return (locate ~loc (Rsyntax.Assume ((Some x, c1), c2)), u)
      end
 
   | Dsyntax.Match (c, cases) ->
@@ -916,13 +920,13 @@ let premise {Location.thing=prem;loc} =
      local_context lctx (return ()) >>= fun (lctx, ()) ->
      let p = locate ~loc (Rsyntax.PremiseIsType (x, lctx))
      and t = abstractify Mlty.IsType lctx in
-     return_premise (Some x) p t
+     return_premise x p t
 
   | Dsyntax.PremiseIsTerm (x, lctx, c) ->
      local_context lctx (check_comp c Mlty.is_type) >>= fun (lctx, c) ->
      let p = locate ~loc (Rsyntax.PremiseIsTerm (x, lctx, c))
      and t = abstractify Mlty.IsTerm lctx in
-     return_premise (Some x) p t
+     return_premise x p t
 
   | Dsyntax.PremiseEqType (x, lctx, (c1, c2)) ->
      local_context lctx
@@ -1026,6 +1030,19 @@ let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
      letrec_clauses clauses (return ()) >>= fun (clauses, ()) ->
      return_located ~loc (Rsyntax.TopLetRec clauses)
 
+  | Dsyntax.TopComputation c ->
+     comp c >>= fun (c, t) ->
+     begin
+       match generalizable c with
+       | Generalizable ->
+          Tyenv.get_context >>= fun known_context ->
+          Tyenv.generalize ~known_context t >>= fun sch ->
+          return_located ~loc (Rsyntax.TopComputation (c, sch))
+       |  Ungeneralizable ->
+          Tyenv.ungeneralize t >>= fun sch ->
+          return_located ~loc (Rsyntax.TopComputation (c, sch))
+     end
+
   | Dsyntax.TopDynamic (x, annot, c) ->
      comp c >>= fun (c, t) ->
      begin match annot with
@@ -1046,10 +1063,6 @@ let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
        Tyenv.as_dynamic ~loc:x.Location.loc tx >>= fun tx ->
        check_comp c tx >>= fun c ->
        return_located ~loc (Rsyntax.TopNow (x, c))
-
-  | Dsyntax.TopComputation c ->
-     comp c >>= fun (c, _) ->
-     return_located ~loc (Rsyntax.TopComputation c)
 
   | Dsyntax.Verbosity v ->
     return_located ~loc (Rsyntax.Verbosity v)

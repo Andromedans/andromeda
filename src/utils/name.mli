@@ -102,9 +102,6 @@ val print_op : ident -> Format.formatter -> unit
 (** An new anonymous name that cannot be referenced by the user. *)
 val anonymous : unit -> ident
 
-(** Is the given identifier anonymous? *)
-val is_anonymous : ident -> bool
-
 (** Make a name from a string. *)
 val make : ?fixity:fixity -> string -> ident
 
@@ -154,7 +151,10 @@ val index_of_atom : atom -> atom list -> int option
 (** [index_of_ident x xs] finds the index of [x] in list [xs] if it's there. *)
 val index_of_ident : ident -> ident list -> int option
 
-(** [index_of_ident x xs] finds the level of [x] in list [xs] if it's there. *)
+(** [index_of_opt_ident x xs] finds the index of [x] in list of optional names [xs] if it's there. *)
+val index_of_opt_ident : ident -> ident option list -> int option
+
+(** [level_of_ident x xs] finds the level of [x] in list [xs] if it's there. *)
 val level_of_ident : ident -> ident list -> int option
 
 (** Like List.assoc, but using [eq_ident] and without exceptions. *)
