@@ -53,7 +53,7 @@ export OPAMYES=1
 
 opam init
 eval $(opam config env)
-opam install depext
+# opam install depext
 
 # install andromeda dependencies
 ! [ -z "$M31_DEPS" ] && opam install $M31_DEPS
