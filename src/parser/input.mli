@@ -157,6 +157,7 @@ and toplevel' =
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
+  | TopComputation of comp
   | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of comp * comp
   | Verbosity of int

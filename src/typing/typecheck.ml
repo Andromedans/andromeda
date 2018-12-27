@@ -1030,6 +1030,19 @@ let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
      letrec_clauses clauses (return ()) >>= fun (clauses, ()) ->
      return_located ~loc (Rsyntax.TopLetRec clauses)
 
+  | Dsyntax.TopComputation c ->
+     comp c >>= fun (c, t) ->
+     begin
+       match generalizable c with
+       | Generalizable ->
+          Tyenv.get_context >>= fun known_context ->
+          Tyenv.generalize ~known_context t >>= fun sch ->
+          return_located ~loc (Rsyntax.TopComputation (c, sch))
+       |  Ungeneralizable ->
+          Tyenv.ungeneralize t >>= fun sch ->
+          return_located ~loc (Rsyntax.TopComputation (c, sch))
+     end
+
   | Dsyntax.TopDynamic (x, annot, c) ->
      comp c >>= fun (c, t) ->
      begin match annot with

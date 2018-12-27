@@ -791,7 +791,7 @@ let toplet_bind ~loc ~quiet ~print_annot clauses =
        (* parallel let: only bind at the end *)
        List.fold_left
          (List.fold_left (fun cmp u -> Runtime.add_topbound u >>= fun () -> cmp))
-         (return ())
+         (return uss)
          uss
 
     | Rsyntax.Let_clause (_, pt, c) :: clauses ->
@@ -801,16 +801,22 @@ let toplet_bind ~loc ~quiet ~print_annot clauses =
         | Some us -> fold (us :: uss) clauses
        end
   in
-  fold [] clauses >>= fun () ->
-    if not quiet then
-      (List.iter (function
-       | Rsyntax.Let_clause (xts, _, _) ->
-          List.iter
-            (fun (x, sch) -> Format.printf "@[<hov 2>val %t :>@ %t@]@."
-                                           (Name.print_ident x)
-                                           (print_annot sch))
-               xts)
-         clauses) ;
+  fold [] clauses >>= fun uss ->
+  Runtime.top_lookup_names >>= fun names ->
+    if not quiet
+    then
+      begin
+        let vss = List.rev (List.map List.rev uss) in
+        List.iter2
+          (fun (Rsyntax.Let_clause (xts, _, _)) vs ->
+            List.iter2
+              (fun (x, sch) v -> Format.printf "@[<hov 2>val %t :>@ %t@ =@ %t@]@."
+                                   (Name.print_ident x)
+                                   (print_annot sch)
+                                   (Runtime.print_value ~names v))
+              xts vs)
+          clauses vss
+       end ;
     return ()
 
 let topletrec_bind ~loc ~quiet ~print_annot fxcs =
@@ -899,6 +905,15 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      let print_annot = print_annot () in
      topletrec_bind ~loc ~quiet ~print_annot fxcs
 
+  | Rsyntax.TopComputation (c, sch) ->
+     comp_value c >>= fun v ->
+     Runtime.top_lookup_names >>= fun names ->
+     if not quiet then
+       Format.printf "@[<hov 2>- :@ %t@ =@ %t@]@."
+           (print_annot () sch)
+           (Runtime.print_value ~names v) ;
+     return ()
+
   | Rsyntax.TopDynamic (x, annot, c) ->
      comp_value c >>= fun v ->
      Runtime.add_dynamic ~loc x v
@@ -912,9 +927,9 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
   | Rsyntax.Included lst ->
      Runtime.top_fold (fun () (fn, cmds) ->
-         (if not quiet then Format.printf "@[<hov 2>#including %s@]@." fn);
+         (if not quiet then Format.printf "@[<hov 2>Including %s@]@." fn);
          Runtime.top_fold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
-         (if not quiet then Format.printf "@[<hov 2>#processed %s@]@." fn);
+         (if not quiet then Format.printf "@[<hov 2>Included %s@]@." fn);
          return ())
        () lst
 

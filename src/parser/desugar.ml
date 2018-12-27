@@ -1133,6 +1133,10 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
      let ctx, lst = letrec_clauses ~loc ~yield:false ctx lst in
      (ctx, locate (Dsyntax.TopLetRec lst) loc)
 
+  | Input.TopComputation c ->
+     let c = comp ~yield:false ctx c in
+     (ctx, locate (Dsyntax.TopComputation c) loc)
+
   | Input.TopDynamic (x, annot, c) ->
      let c = comp ~yield:false ctx c in
      let ctx = Ctx.add_variable x ctx in

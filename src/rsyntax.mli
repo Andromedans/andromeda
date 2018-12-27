@@ -103,6 +103,7 @@ and toplevel' =
   | TopHandle of (Name.operation * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
+  | TopComputation of comp * ml_schema
   | TopDynamic of Name.ident * ml_schema * comp
   | TopNow of comp * comp
   | Verbosity of int

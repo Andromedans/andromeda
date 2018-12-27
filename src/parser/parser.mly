@@ -103,7 +103,7 @@ commandline:
 (* Toplevel term *)
 top_term: mark_location(plain_top_term) { $1 }
 plain_top_term:
-  | t=term { TopLet [Let_clause_ML (None, Let_annot_none, t)] }
+  | t=term { TopComputation t }
 
 (* Toplevel commands that need not be preceeded by double semicolon. *)
 top_command: mark_location(plain_top_command) { $1 }
