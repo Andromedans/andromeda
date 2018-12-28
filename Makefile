@@ -24,8 +24,8 @@ profile: andromeda.p.native
 andromeda.byte andromeda.native andromeda.d.byte andromeda.p.native: src/build.ml
 	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
 
-menhir-explain: andromeda.native
-	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS_EXPLAINa) $(OCAMLBUILD_FLAGS) $@
+menhir-explain:
+	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS_EXPLAIN) $(OCAMLBUILD_FLAGS) andromeda.native
 
 # "make test" to see if anything broke
 test: default
@@ -120,6 +120,18 @@ uninstall-examples:
 clean:
 	ocamlbuild -clean
 
-.PHONY: doc src/build.ml clean andromeda.byte andromeda.native version \
-install install-binary install-doc install-examples install-lib uninstall \
-andromeda.docdir/andromeda.dot andromeda.odocl
+.PHONY: andromeda.byte \
+	andromeda.docdir/andromeda.dot \
+	andromeda.native \
+	andromeda.odocl \
+	clean \
+	doc \
+	install \
+	install-binary \
+	install-doc \
+	install-examples \
+	install-lib \
+	menhir-explain \
+	src/build.ml \
+	uninstall \
+	version \

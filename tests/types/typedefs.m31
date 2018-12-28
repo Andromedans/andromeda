@@ -1,0 +1,19 @@
+mltype test_empty = |
+
+mltype test_unit1 = | test_cow1
+
+mltype test_unit2 = test_cow2 |
+
+mltype test_unit3 = test_unit1
+
+mltype fruit = ananas | banana
+
+mltype part a = ear | tail | paw of a * a | wing
+
+mltype rec rodent a =
+  | Hare of part (rodent (a * fruit)) with a with a
+  | Squirrel of part fruit * part fruit
+
+and insect =
+  | Bee
+  | Ant of part fruit with rodent insect -> part (part fruit)

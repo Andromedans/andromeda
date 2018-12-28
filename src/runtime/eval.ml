@@ -868,8 +868,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      (if not quiet then
         Format.printf "@[<hov 2>ML type%s %t declared.@]@."
           (match lst with [_] -> "" | _ -> "s")
-          (Print.sequence (fun (t,_) -> Name.print_ident t)
-             " " lst)) ;
+          (Print.sequence (fun (t,_) -> Name.print_ident t) "," lst)) ;
      return ()
 
   | Rsyntax.DeclOperation (x, k) ->
