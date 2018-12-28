@@ -515,13 +515,13 @@ mlty_def:
   | a=var_name xs=list(opt_name) EQ body=mlty_def_body { (a, (xs, body)) }
 
 mlty_def_body:
-  | t=mlty                                                       { ML_Alias t }
-  | lst=separated_list(BAR, mlty_constructor) END                { ML_Sum lst }
-  | BAR lst=separated_nonempty_list(BAR, mlty_constructor) END   { ML_Sum lst }
+  | t=mlty                                                           { ML_Alias t }
+  | c=mlty_constructor BAR lst=separated_list(BAR, mlty_constructor) { ML_Sum (c :: lst) }
+  | BAR lst=separated_list(BAR, mlty_constructor)                    { ML_Sum lst }
 
 mlty_constructor:
-  | c=var_name OF lst=separated_nonempty_list(AND, mlty)      { (c, lst) }
-  | c=var_name                                                { (c, []) }
+  | c=var_name OF lst=separated_nonempty_list(WITH, mlty)            { (c, lst) }
+  | c=var_name                                                       { (c, []) }
 
 mark_location(X):
   x=X

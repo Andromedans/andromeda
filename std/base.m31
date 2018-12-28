@@ -13,7 +13,8 @@ external print_json : mlforall a, mlunit -> a = "print_json"
 external compare : mlforall a, a -> a -> mlorder = "compare"
 
 (* Poor man's debugging mechanism. *)
-mltype debug a = (!!) of a end
+mltype debug a = | (!!) of a ;;
+
 let debug x = print (!! x)
 
 (* Top-level handlers default to failure. *)
@@ -40,7 +41,6 @@ let ( = ) x y =
 mltype eagerness =
   | eager
   | lazy
-  end
 
 (*
 constant funext : forall (A : Type) (B : A -> Type) (f g : forall x : A, B x),
@@ -49,4 +49,4 @@ constant funext : forall (A : Type) (B : A -> Type) (f g : forall x : A, B x),
 constant uip : forall (A : Type) (lhs rhs : A) (p q : lhs ≡ rhs), p ≡ q
 *)
 
-mltype empty = end
+mltype mlempty = |
