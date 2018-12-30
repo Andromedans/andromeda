@@ -332,6 +332,10 @@ and check_pattern ~bind_var ({Location.thing=p'; loc} as p) t =
 
 let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty) Tyenv.tyenvM =
   match c with
+
+  | Dsyntax.Open _ ->
+     failwith "typechecking: Open not implemented"
+
   | Dsyntax.Bound k ->
     Tyenv.lookup_var k >>= fun t ->
     return (locate ~loc (Rsyntax.Bound k), t)

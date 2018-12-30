@@ -1,4 +1,4 @@
-(** Evaluation of top level commands *)
+(** Evaluation of interactive commands and files *)
 
 (** Contains the desugaring context, the typing context and the runtime environment synchronized with each other. *)
 type state

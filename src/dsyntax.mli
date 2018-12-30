@@ -68,6 +68,7 @@ and ml_pattern' =
 (** Desugared computations *)
 type comp = comp' located
 and comp' =
+  | Open of bound * comp
   | Bound of bound
   | Function of Name.ident * arg_annotation * comp
   | Handler of handler

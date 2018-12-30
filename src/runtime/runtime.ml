@@ -1,7 +1,7 @@
 (** Runtime values and computations *)
 
-type ref = Store.Ref.key (* TODO rename to aml_ref, or just get rid of this *)
-type dyn = Store.Dyn.key (* TODO rename to aml_dyn, or just get rid of this *)
+type aml_ref = Store.Ref.key
+type aml_dyn = Store.Dyn.key
 
 (** This module defines 2 monads:
     - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
@@ -30,9 +30,10 @@ and dynamic = {
 }
 
 and lexical = {
-  (* for printing only *)
+  (* names of de Bruijn indices *)
   names : Name.ident list;
 
+  (* values to which de Bruijn indices are bound *)
   bound : value list;
 
   (* current continuation if we're handling an operation *)
@@ -53,8 +54,8 @@ and value =
   | Handler of handler
   | Tag of Name.ident * value list
   | Tuple of value list
-  | Ref of ref
-  | Dyn of dyn
+  | Ref of aml_ref
+  | Dyn of aml_dyn
   | String of string
 
 (* It's important not to confuse the closure and the underlying ocaml function *)

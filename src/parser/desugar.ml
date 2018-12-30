@@ -654,6 +654,9 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      let c = comp ~yield ctx c in
      locate (Dsyntax.Natural c) loc
 
+  | Input.Open (mdl, c) ->
+     failwith "modules not implemented"
+
 and let_clauses ~loc ~yield ctx lst =
   let rec fold ctx' lst' = function
     | [] ->

@@ -3,10 +3,10 @@
 (** {6 Values} *)
 
 (** An AML reference cell. *)
-type ref
+type aml_ref
 
 (** An AML dynamic variable. *)
-type dyn
+type aml_dyn
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
 type value = private
@@ -16,11 +16,11 @@ type value = private
   | EqType of Nucleus.eq_type_abstraction    (** A type equality *)
   | Closure of (value,value) closure         (** An AML function *)
   | Handler of handler                       (** Handler value *)
-  | Tag of Name.ident * value list   (** Application of a data constructor *)
-  | Tuple of value list              (** Tuple of values *)
-  | Ref of ref                       (** Ref cell *)
-  | Dyn of dyn                       (** Dynamic variable *)
-  | String of string                 (** String constant (opaque, not a list) *)
+  | Tag of Name.ident * value list           (** Application of a data constructor *)
+  | Tuple of value list                      (** Tuple of values *)
+  | Ref of aml_ref                           (** Ref cell *)
+  | Dyn of aml_dyn                           (** Dynamic variable *)
+  | String of string                         (** String constant (opaque, not a list) *)
 
 and operation_args = { args : value list; checking : Nucleus.is_type_abstraction option }
 
@@ -31,7 +31,7 @@ and handler
 (** Maps an ['a] to a ['b comp]. In practice ['b] is usually [value] *)
 and ('a,'b) closure
 
-(** a descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
+(** A descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
 val name_of : value -> string
 
 (** {b Value construction} *)
@@ -94,10 +94,10 @@ val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
 
 (** Convert, or fail with [RefExpected] *)
-val as_ref : loc:Location.t -> value -> ref
+val as_ref : loc:Location.t -> value -> aml_ref
 
 (** Convert, or fail with [DynExpected] *)
-val as_dyn : loc:Location.t -> value -> dyn
+val as_dyn : loc:Location.t -> value -> aml_dyn
 
 (** Convert, or fail with [StringExpected] *)
 val as_string : loc:Location.t -> value -> string
@@ -209,10 +209,10 @@ val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 val mk_ref : value -> value comp
 
 (** A computation that dereferences the given reference cell. *)
-val lookup_ref : ref -> value comp
+val lookup_ref : aml_ref -> value comp
 
 (** A computation that updates the given reference cell with the given value. *)
-val update_ref : ref -> value -> unit comp
+val update_ref : aml_ref -> value -> unit comp
 
 (** A computation that invokes the specified operation. *)
 val operation : Name.operation -> ?checking:Nucleus.is_type_abstraction -> value list -> value comp
@@ -221,7 +221,7 @@ val operation : Name.operation -> ?checking:Nucleus.is_type_abstraction -> value
 val handle_comp : handler -> value comp -> value comp
 
 (** Wrap the given computation with a dynamic variable binding. *)
-val now : dyn -> value -> 'a comp -> 'a comp
+val now : aml_dyn -> value -> 'a comp -> 'a comp
 
 (** Lookup the current continuation. Only usable while handling an operation. *)
 val continue : loc:Location.t -> value -> value comp
@@ -252,7 +252,7 @@ val add_free: Name.ident -> Nucleus.is_type -> (Nucleus.is_atom -> 'a comp) -> '
 val lookup_bound : loc:Location.t -> int -> value comp
 
 (** Lookup the current value of a dynamic variable. *)
-val lookup_dyn : dyn -> value comp
+val lookup_dyn : aml_dyn -> value comp
 
 (** {6 Toplevel} *)
 
@@ -286,7 +286,7 @@ val add_handle : Name.ident -> (value list * Nucleus.is_type_abstraction option,
                  -> unit toplevel
 
 (** Modify the value bound by a dynamic variable *)
-val top_now : dyn -> value -> unit toplevel
+val top_now : aml_dyn -> value -> unit toplevel
 
 (** Extend the signature with a new is_type rule *)
 val add_rule_is_type : Name.constructor -> Rule.rule_is_type -> unit toplevel

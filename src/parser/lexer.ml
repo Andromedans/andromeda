@@ -42,14 +42,19 @@ let reserved = [
   ("when", WHEN) ;
   ("with", WITH) ;
   ("yield", YIELD) ;
-  ("⊢", VDASH) ;
 ]
 
-let name =
-  [%sedlex.regexp? (('_' | alphabetic),
+let lower_name =
+  [%sedlex.regexp? (('_' | lowercase),
                  Star ('_' | alphabetic
                       | 185 | 178 | 179 | 8304 .. 8351 (* sub-/super-scripts *)
                       | '0'..'9' | '\'')) | math]
+
+let upper_name =
+  [%sedlex.regexp? (uppercase,
+                 Star ('_' | alphabetic
+                      | 185 | 178 | 179 | 8304 .. 8351 (* sub-/super-scripts *)
+                      | '0'..'9' | '\''))]
 
 let digit = [%sedlex.regexp? '0'..'9']
 let numeral = [%sedlex.regexp? Plus digit]
@@ -109,7 +114,8 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ':'                      -> f (); COLON
   | ":>"                     -> f (); COLONGT
   | ','                      -> f (); COMMA
-  | "|-"                     -> f (); VDASH
+  | '.'                      -> f (); PERIOD
+  | "|-" | 8866              -> f (); VDASH
   | '|'                      -> f (); BAR
   | "->" | 8594 | 10230      -> f (); ARROW
   | "=>" | 8658 | 10233      -> f (); DARROW
@@ -118,38 +124,44 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ":="                     -> f (); COLONEQ
   | ";;"                     -> f (); SEMISEMI
   | ';'                      -> f (); SEMI
-  (* Comes before prefixop because it also matches prefixop. It's a hack to allow
-     '?' as an identifier, which may not be so smart. *)
-  | '?'                      -> f (); NAME (Name.make ~fixity:Name.Word "?")
   (* We record the location of operators here because menhir cannot handle %infix and
      mark_location simultaneously, it seems. *)
   | prefixop                 -> f (); PREFIXOP (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.make ~fixity:Name.Prefix s, loc_of lexbuf)
+                                                Name.mk_ident ~fixity:Name.Prefix s, loc_of lexbuf)
   (* Comes before infixop0 because it also matches infixop0. *)
-  | '='                      -> f (); EQ (Name.make ~fixity:(Name.Infix Level.Infix0) "=", loc_of lexbuf)
+  | '='                      -> f (); EQ (Name.mk_ident ~fixity:(Name.Infix Level.Infix0) "=", loc_of lexbuf)
   | infixop0                 -> f (); INFIXOP0 (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.make ~fixity:(Name.Infix Level.Infix0) s, loc_of lexbuf)
+                                                Name.mk_ident ~fixity:(Name.Infix Level.Infix0) s, loc_of lexbuf)
   | infixop1                 -> f (); INFIXOP1 (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.make ~fixity:(Name.Infix Level.Infix1) s, loc_of lexbuf)
+                                                Name.mk_ident ~fixity:(Name.Infix Level.Infix1) s, loc_of lexbuf)
   | infixcons                -> f (); INFIXCONS(let s = Ulexbuf.lexeme lexbuf in
-                                                Name.make ~fixity:(Name.Infix Level.InfixCons) s, loc_of lexbuf)
+                                                Name.mk_ident ~fixity:(Name.Infix Level.InfixCons) s, loc_of lexbuf)
   | infixop2                 -> f (); INFIXOP2 (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.make ~fixity:(Name.Infix Level.Infix2) s, loc_of lexbuf)
+                                                Name.mk_ident ~fixity:(Name.Infix Level.Infix2) s, loc_of lexbuf)
   (* Comes before infixop3 because ** matches the infixop3 pattern too *)
   | infixop4                 -> f (); INFIXOP4 (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.make ~fixity:(Name.Infix Level.Infix4) s, loc_of lexbuf)
+                                                Name.mk_ident ~fixity:(Name.Infix Level.Infix4) s, loc_of lexbuf)
   (* Comes before infixop3 because * matches the infixop3 pattern too *)
-  | '*'                      -> f (); STAR (Name.make ~fixity:(Name.Infix Level.Infix3) "*", loc_of lexbuf)
+  | '*'                      -> f (); STAR (Name.mk_ident ~fixity:(Name.Infix Level.Infix3) "*", loc_of lexbuf)
   | infixop3                 -> f (); INFIXOP3 (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.make ~fixity:(Name.Infix Level.Infix3) s, loc_of lexbuf)
+                                                Name.mk_ident ~fixity:(Name.Infix Level.Infix3) s, loc_of lexbuf)
 
   | eof                      -> f (); EOF
-  | name                     -> f ();
+
+  | upper_name               -> f ();
     let n = Ulexbuf.lexeme lexbuf in
     begin try List.assoc n reserved
-    with Not_found -> NAME (Name.make n)
+    with Not_found -> UPPER_NAME (Name.mk_ident n)
     end
+
+  | lower_name               -> f ();
+    let n = Ulexbuf.lexeme lexbuf in
+    begin try List.assoc n reserved
+    with Not_found -> LOWER_NAME (Name.mk_ident n)
+    end
+
   | numeral                  -> f (); let k = safe_int_of_string lexbuf in NUMERAL k
+
   | any -> f ();
      let w = Ulexbuf.lexeme lexbuf in
      let loc = loc_of lexbuf in

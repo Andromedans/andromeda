@@ -14,11 +14,15 @@ type atom = private Atom of string * fixity * int
 type meta = private Meta of string * fixity * int
 
 (** Aliases with different semantics *)
-type constant = ident
+
 type constructor = ident
 
+type aml_module = ident
+
 type operation = ident
+
 type ty = ident
+
 type aml_constructor = ident
 
 module Predefined : sig
@@ -103,7 +107,7 @@ val print_op : ident -> Format.formatter -> unit
 val anonymous : unit -> ident
 
 (** Make a name from a string. *)
-val make : ?fixity:fixity -> string -> ident
+val mk_ident : ?fixity:fixity -> string -> ident
 
 (** Generate a variant of a given name that is guaranteed to not yet exist. *)
 val fresh : ident -> atom

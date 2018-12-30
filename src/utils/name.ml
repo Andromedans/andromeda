@@ -12,11 +12,14 @@ type atom = Atom of string * fixity * int
 
 type meta = Meta of string * fixity * int
 
-type constant = ident
 type constructor = ident
 
+type aml_module = ident
+
 type operation = ident
+
 type ty = ident
+
 type aml_constructor = ident
 
 (** Make a nice subscript from an integer. *)
@@ -60,61 +63,61 @@ let anonymous =
   incr k ;
   Ident ("anon", Anonymous !k)
 
-let make ?(fixity=Word) s = Ident (s, fixity)
+let mk_ident ?(fixity=Word) s = Ident (s, fixity)
 
 module Predefined = struct
 
   (** Booleans *)
 
-  let bool = make "mlbool"
+  let bool = mk_ident "mlbool"
 
-  let mlfalse = make "mlfalse"
+  let mlfalse = mk_ident "mlfalse"
 
-  let mltrue = make "mltrue"
+  let mltrue = mk_ident "mltrue"
 
   (** Lists *)
 
-  let list = make "list"
+  let list = mk_ident "list"
 
-  let nil = make "[]"
+  let nil = mk_ident "[]"
 
-  let cons = make ~fixity:(Infix Level.InfixCons) "::"
+  let cons = mk_ident ~fixity:(Infix Level.InfixCons) "::"
 
   (** Comparison *)
 
-  let mlorder = make "mlorder"
+  let mlorder = mk_ident "mlorder"
 
-  let mlless = make "mlless"
+  let mlless = mk_ident "mlless"
 
-  let mlequal = make "mlequal"
+  let mlequal = mk_ident "mlequal"
 
-  let mlgreater = make "mlgreater"
+  let mlgreater = mk_ident "mlgreater"
 
   (** Option type *)
 
-  let option = make "option"
+  let option = mk_ident "option"
 
-  let some = make "Some"
+  let some = mk_ident "Some"
 
-  let none = make "None"
+  let none = mk_ident "None"
 
   (** Builtin commands *)
 
-  let equal_term = make "equal_term"
+  let equal_term = mk_ident "equal_term"
 
-  let equal_type = make "equal_type"
+  let equal_type = mk_ident "equal_type"
 
-  let coercible_ty = make "coercible"
+  let coercible_ty = mk_ident "coercible"
 
-  let coercible_constructor = make "Coercible"
+  let coercible_constructor = mk_ident "Coercible"
 
-  let convertible = make "Convertible"
+  let convertible = mk_ident "Convertible"
 
-  let notcoercible = make "NotCoercible"
+  let notcoercible = mk_ident "NotCoercible"
 
-  let coerce = make "coerce"
+  let coerce = mk_ident "coerce"
 
-  let hypotheses = make "hypotheses"
+  let hypotheses = mk_ident "hypotheses"
 end
 
 let fresh =

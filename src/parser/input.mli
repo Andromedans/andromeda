@@ -75,6 +75,7 @@ and pattern' =
 (** Sugared terms *)
 type comp = comp' located
 and comp' =
+  | Open of Name.aml_module * comp
   | Var of Name.ident
   | Function of ml_arg list * comp
   | Handler of handle_case list

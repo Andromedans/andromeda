@@ -7,7 +7,7 @@ type coercible =
 (* Built-in Definitions *)
 (************************)
 
-let name_alpha = Name.make (Name.greek 0)
+let name_alpha = Name.mk_ident (Name.greek 0)
 
 let predefined_aml_types =
   let unloc x = Location.locate x Location.unknown in
