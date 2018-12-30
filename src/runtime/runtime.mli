@@ -281,10 +281,6 @@ val add_topbound_rec : (value -> value comp) list -> unit toplevel
 (** Add a dynamic variable. *)
 val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
 
-(** Add a top-level handler case to the environment. *)
-val add_handle : Name.ident -> (value list * Nucleus.is_type_abstraction option, value) closure
-                 -> unit toplevel
-
 (** Modify the value bound by a dynamic variable *)
 val top_now : aml_dyn -> value -> unit toplevel
 

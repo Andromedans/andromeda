@@ -637,24 +637,6 @@ let comp_value c =
   let r = infer c in
   Runtime.top_handle ~loc:c.Location.loc r
 
-let comp_handle (xs,y,c) =
-  Runtime.top_return_closure (fun (vs,checking) ->
-      let rec bind = function
-        | [] ->
-           begin match y with
-           | Some _ ->
-              let checking = match checking with
-                | Some jt -> Some (Runtime.mk_is_type jt)
-                | None -> None
-              in
-              let vy = Predefined.from_option checking in
-              Runtime.add_bound vy (infer c)
-           | None -> infer c
-           end
-        | v::vs -> Runtime.add_bound v (bind vs)
-      in
-      bind vs)
-
 (** Evaluation of rules *)
 
 (* Evaluate the computation [cmp] in local context [lctx].
@@ -890,11 +872,6 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
                s ;
            return ())
      end
-
-  | Rsyntax.TopHandle lst ->
-     Runtime.top_fold (fun () (op, xc) ->
-         comp_handle xc >>= fun f ->
-         Runtime.add_handle op f) () lst
 
   | Rsyntax.TopLet clauses ->
      let print_annot = print_annot () in

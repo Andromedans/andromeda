@@ -335,30 +335,6 @@ handler_checking:
   |                     { None }
   | COLON pt=tt_pattern { Some pt }
 
-(* top_handler_cases:
- *   | BAR lst=separated_nonempty_list(BAR, top_handler_case)  { lst }
- *   | lst=separated_list(BAR, top_handler_case)               { lst }
- *
- * (\* XXX allow patterns here *\)
- * top_handler_case:
- *   | op=var_name xs=top_patt_maybe_var* y=top_handler_checking DARROW t=term
- *     { (op, (xs, y, t)) }
- *   | oploc=prefix x=top_patt_maybe_var y=top_handler_checking DARROW t=term
- *     { let (op, _) = oploc in
- *       (op, ([x], y, t))
- *     }
- *   | x1=top_patt_maybe_var oploc=infix x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
- *     { let (op, _) = oploc in
- *       (op, ([x1;x2], y, t)) }
- *
- * top_patt_maybe_var:
- *   | x=var_name                   { Some x }
- *   | UNDERSCORE                   { None }
- *
- * top_handler_checking:
- *   |                            { None }
- *   | COLON x=top_patt_maybe_var { x } *)
-
 match_cases:
   | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }
   | lst=separated_list(BAR, match_case)               { lst }

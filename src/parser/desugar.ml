@@ -1100,34 +1100,6 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
      let ctx = Ctx.add_variable x ctx in
      (ctx, locate (Dsyntax.DeclExternal (x, sch, s)) loc)
 
-  | Input.TopHandle lst ->
-     let lst =
-       List.map
-         (fun (op, (xs, y, c)) ->
-           let k = Ctx.get_operation ~loc op ctx in
-           let n = List.length xs in
-           if n <> k
-           then
-             error ~loc (ArityMismatch (op, n, k))
-           else
-             let rec fold ctx xs' = function
-               | [] -> ctx, List.rev xs'
-               | None :: xs ->
-                  let x = Name.anonymous () in
-                  fold (Ctx.add_variable x ctx) (x::xs') xs
-               | Some x :: xs ->
-                  if List.exists (function None -> false | Some y -> Name.eq_ident x y) xs
-                  then error ~loc (ParallelShadowing x)
-                  else fold (Ctx.add_variable x ctx) (x::xs') xs
-             in
-             let ctx, xs = fold ctx [] xs in
-             let ctx = match y with | Some y -> Ctx.add_variable y ctx | None -> ctx in
-             op, (xs, y, comp ~yield:false ctx c)
-         )
-         lst
-     in
-     (ctx, locate (Dsyntax.TopHandle lst) loc)
-
   | Input.TopLet lst ->
      let ctx, lst = let_clauses ~loc ~yield:false ctx lst in
      (ctx, locate (Dsyntax.TopLet lst) loc)

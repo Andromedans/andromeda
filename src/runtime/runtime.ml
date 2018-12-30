@@ -38,9 +38,6 @@ and lexical = {
 
   (* current continuation if we're handling an operation *)
   continuation : value continuation option;
-
-  (* toplevel handlers *)
-  handle : (Name.ident * (value list * Nucleus.is_type_abstraction option,value) closure) list;
 }
 
 and state = value Store.Ref.t
@@ -419,22 +416,9 @@ let add_dynamic0 ~loc x v env =
 
 let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
 
-let add_handle0 op xsc env =
-  { env with lexical =
-               { env.lexical with
-                 handle = (op, xsc) :: env.lexical.handle } }
-
-let add_handle op xsc env = (), add_handle0 op xsc env
-
 let add_topbound_rec lst env =
   let env = add_bound_rec0 lst env in
   (), env
-
-(* This function for internal use *)
-let lookup_handle op {lexical={handle=lst;_};_} =
-  try
-    Some (List.assoc op lst)
-  with Not_found -> None
 
 let continue ~loc v ({lexical={continuation;_};_} as env) =
   match continuation with
@@ -713,7 +697,6 @@ let empty = {
   lexical = {
     names = [] ;
     bound = [] ;
-    handle = [] ;
     continuation = None ;
   } ;
   dynamic = {
@@ -749,23 +732,12 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
     | Some f -> apply_closure f v
     | None -> return v
 
-let top_handle ~loc r env =
-  let rec handle r env =
-    match r with
-    | Return v, state -> v, state
-    | Operation (op, vs, checking, dynamic, k), state ->
-       let env = {env with dynamic;state} in
-       begin match lookup_handle op env with
-        | None -> error ~loc (UnhandledOperation (op, vs))
-        | Some f ->
-          let r = apply_closure f (vs,checking) >>=
-            apply_cont k
-          in
-          handle (r env) env
-       end
-  in
-  let v, state = handle (r env) env in
-  v, { env with state }
+let top_handle ~loc c env =
+  let r = c env in
+  match r with
+    | Return v, state -> v, env
+    | Operation (op, vs, _, _, _), _ ->
+       error ~loc (UnhandledOperation (op, vs))
 
 (** Equality *)
 let rec equal_value v1 v2 =

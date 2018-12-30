@@ -857,30 +857,6 @@ and letrec_clauses
   return (clauses, x)
 
 
-let top_handler ~loc lst =
-  let rec fold cases = function
-    | [] -> return (List.rev cases)
-    | (op, (xs, yopt, c)) :: lst ->
-      Tyenv.lookup_op op >>= fun (argts, out) ->
-      let xts = List.combine xs argts in
-      let rec bind = function
-        | [] ->
-          let bindy m = match yopt with
-            | Some y ->
-               Tyenv.predefined_type
-                 Name.Predefined.option [Mlty.is_type] >>= fun jdg_opt ->
-               Tyenv.locally_add_var y jdg_opt m
-            | None -> m
-          in
-          bindy (check_comp c out)
-        | (x, t) :: xts ->
-          Tyenv.locally_add_var x t (bind xts)
-      in
-      bind xts >>= fun c ->
-      fold ((op, (xs, yopt, c)) :: cases) lst
-  in
-  fold [] lst
-
 let add_tydef (t, (params, def)) =
   let params = List.map (fun _ -> Mlty.fresh_param ()) params in
   match def with
@@ -1021,10 +997,6 @@ let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
      let sch = ml_schema sch in
      Tyenv.add_let x sch >>= fun () ->
      return_located ~loc (Rsyntax.DeclExternal (x, sch, s))
-
-  | Dsyntax.TopHandle lst ->
-     top_handler ~loc lst >>= fun lst ->
-     return_located ~loc (Rsyntax.TopHandle lst)
 
   | Dsyntax.TopLet clauses ->
      let_clauses ~locally:false clauses (return ()) >>= fun (clauses, ()) ->

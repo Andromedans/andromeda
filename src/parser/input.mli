@@ -155,7 +155,6 @@ and toplevel' =
   | DefMLTypeRec of (Name.ty * (Name.ty option list * ml_tydef)) list
   | DeclOperation of Name.ident * (ml_ty list * ml_ty)
   | DeclExternal of Name.ident * ml_schema * string
-  | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
   | TopComputation of comp
