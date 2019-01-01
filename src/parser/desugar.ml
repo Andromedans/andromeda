@@ -34,21 +34,70 @@ type error =
   | RequiredFileMissing of string
 
 let print_error err ppf = match err with
-  | UnknownName x -> Format.fprintf ppf "Unknown name %t." (Name.print_ident x)
-  | UnknownTypeName x -> Format.fprintf ppf "Unknown type name %t." (Name.print_ident x)
-  | OperationExpected (x, info) -> Format.fprintf ppf "%t should be an operation, but is %t." (Name.print_ident x) (print_info info)
-  | OperationAlreadyDeclared x -> Format.fprintf ppf "An operation %t is already declared." (Name.print_ident x)
-  | AMLConstructorAlreadyDeclared x -> Format.fprintf ppf "The AML constructor %t is already declared." (Name.print_ident x)
-  | TTConstructorAlreadyDeclared x -> Format.fprintf ppf "The rule %t is already declared." (Name.print_ident x)
-  | InvalidTermPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a term pattern as it is %t." (Name.print_ident x) (print_info info)
-  | InvalidPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a pattern as it is %t." (Name.print_ident x) (print_info info)
-  | InvalidAppliedPatternName (x, info) -> Format.fprintf ppf "%t cannot be applied in a pattern as it is %t." (Name.print_ident x) (print_info info)
-  | NonlinearPattern x -> Format.fprintf ppf "non-linear pattern variable %t is not allowed (but you may interpolate it)." (Name.print_ident x)
-  | ArityMismatch (x, used, expected) -> Format.fprintf ppf "%t expects %d arguments but is used with %d." (Name.print_ident x) expected used
-  | UnboundYield -> Format.fprintf ppf "yield may only appear in a handler's operation cases."
-  | ParallelShadowing x -> Format.fprintf ppf "%t is bound more than once." (Name.print_ident x)
-  | AppliedTyParam -> Format.fprintf ppf "AML type parameters cannot be applied."
-  | RequiredFileMissing fn -> Format.fprintf ppf "Required file \"%s\" does not exist." fn
+
+  | UnknownName x ->
+     Format.fprintf ppf "Unknown name %t."
+       (Name.print_ident x)
+
+  | UnknownTypeName x ->
+     Format.fprintf ppf "Unknown type name %t."
+       (Name.print_ident x)
+
+  | OperationExpected (x, info) ->
+     Format.fprintf ppf "%t should be an operation, but is %t."
+       (Name.print_ident x)
+       (print_info info)
+
+  | OperationAlreadyDeclared x ->
+     Format.fprintf ppf
+       "An operation %t is already declared."
+       (Name.print_ident x)
+
+  | AMLConstructorAlreadyDeclared x ->
+     Format.fprintf ppf "The AML constructor %t is already declared."
+       (Name.print_ident x)
+
+  | TTConstructorAlreadyDeclared x ->
+     Format.fprintf ppf "The rule %t is already declared."
+       (Name.print_ident x)
+
+  | InvalidTermPatternName (x, info) ->
+     Format.fprintf ppf "%t cannot be used in a term pattern as it is %t."
+       (Name.print_ident x) (print_info info)
+
+  | InvalidPatternName (x, info) ->
+     Format.fprintf ppf "%t cannot be used in a pattern as it is %t."
+       (Name.print_ident x)
+       (print_info info)
+
+  | InvalidAppliedPatternName (x, info) ->
+     Format.fprintf ppf "%t cannot be applied in a pattern as it is %t."
+       (Name.print_ident x)
+       (print_info info)
+
+  | NonlinearPattern x ->
+     Format.fprintf ppf "non-linear pattern variable %t is not allowed."
+       (Name.print_ident x)
+
+  | ArityMismatch (x, used, expected) ->
+     Format.fprintf ppf "%t expects %d arguments but is used with %d."
+       (Name.print_ident x)
+       expected
+       used
+
+  | UnboundYield ->
+     Format.fprintf ppf "yield may only appear in a handler's operation cases."
+
+  | ParallelShadowing x ->
+     Format.fprintf ppf "%t is bound more than once."
+       (Name.print_ident x)
+
+  | AppliedTyParam ->
+     Format.fprintf ppf "AML type parameters cannot be applied."
+
+  | RequiredFileMissing fn ->
+     Format.fprintf ppf "Required file \"%s\" does not exist."
+       fn
 
 exception Error of error Location.located
 
