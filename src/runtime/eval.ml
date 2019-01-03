@@ -901,11 +901,10 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      comp_value c >>= fun v ->
      Runtime.top_now x v
 
-  | Rsyntax.Included lst ->
-     Runtime.top_fold (fun () (fn, cmds) ->
-         (if not quiet then Format.printf "@[<hov 2>Including %s@]@." fn);
+  | Rsyntax.AMLModules lst ->
+     Runtime.top_fold (fun () (mdl_name, cmds) ->
+         (if not quiet then Format.printf "@[<hov 2>Including %t@]@." (Name.print_ident mdl_name));
          Runtime.top_fold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
-         (if not quiet then Format.printf "@[<hov 2>Included %s@]@." fn);
          return ())
        () lst
 

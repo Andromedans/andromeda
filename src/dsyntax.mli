@@ -149,4 +149,4 @@ and toplevel' =
   | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of comp * comp
   | Verbosity of int
-  | Included of (string * toplevel list) list
+  | AMLModules of (Name.aml_module * toplevel list) list

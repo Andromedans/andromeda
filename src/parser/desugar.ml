@@ -31,20 +31,21 @@ type error =
   | UnboundYield
   | ParallelShadowing of Name.ident
   | AppliedTyParam
-  | RequiredFileMissing of string
+  | RequiredModuleMissing of string * string list
+  | CircularRequire of string list
 
 let print_error err ppf = match err with
 
   | UnknownName x ->
-     Format.fprintf ppf "Unknown name %t."
+     Format.fprintf ppf "unknown name %t"
        (Name.print_ident x)
 
   | UnknownTypeName x ->
-     Format.fprintf ppf "Unknown type name %t."
+     Format.fprintf ppf "unknown type %t"
        (Name.print_ident x)
 
   | OperationExpected (x, info) ->
-     Format.fprintf ppf "%t should be an operation, but is %t."
+     Format.fprintf ppf "%t should be an operation but is %t"
        (Name.print_ident x)
        (print_info info)
 
@@ -54,24 +55,25 @@ let print_error err ppf = match err with
        (Name.print_ident x)
 
   | AMLConstructorAlreadyDeclared x ->
-     Format.fprintf ppf "The AML constructor %t is already declared."
+     Format.fprintf ppf "the AML constructor %t is already declared"
        (Name.print_ident x)
 
   | TTConstructorAlreadyDeclared x ->
-     Format.fprintf ppf "The rule %t is already declared."
+     Format.fprintf ppf "the rule %t is already declared"
        (Name.print_ident x)
 
   | InvalidTermPatternName (x, info) ->
-     Format.fprintf ppf "%t cannot be used in a term pattern as it is %t."
-       (Name.print_ident x) (print_info info)
+     Format.fprintf ppf "%t cannot be used in a term pattern as it is %t"
+       (Name.print_ident x)
+       (print_info info)
 
   | InvalidPatternName (x, info) ->
-     Format.fprintf ppf "%t cannot be used in a pattern as it is %t."
+     Format.fprintf ppf "%t cannot be used in a pattern as it is %t"
        (Name.print_ident x)
        (print_info info)
 
   | InvalidAppliedPatternName (x, info) ->
-     Format.fprintf ppf "%t cannot be applied in a pattern as it is %t."
+     Format.fprintf ppf "%t cannot be applied in a pattern as it is %t"
        (Name.print_ident x)
        (print_info info)
 
@@ -80,24 +82,29 @@ let print_error err ppf = match err with
        (Name.print_ident x)
 
   | ArityMismatch (x, used, expected) ->
-     Format.fprintf ppf "%t expects %d arguments but is used with %d."
+     Format.fprintf ppf "%t expects %d arguments but is used with %d"
        (Name.print_ident x)
        expected
        used
 
   | UnboundYield ->
-     Format.fprintf ppf "yield may only appear in a handler's operation cases."
+     Format.fprintf ppf "yield may only appear in a handler"
 
   | ParallelShadowing x ->
-     Format.fprintf ppf "%t is bound more than once."
+     Format.fprintf ppf "%t is bound more than once"
        (Name.print_ident x)
 
   | AppliedTyParam ->
-     Format.fprintf ppf "AML type parameters cannot be applied."
+     Format.fprintf ppf "AML type parameters cannot be applied"
 
-  | RequiredFileMissing fn ->
-     Format.fprintf ppf "Required file \"%s\" does not exist."
-       fn
+  | RequiredModuleMissing (mdl, files) ->
+     Format.fprintf ppf "required module %s could not be found, looked in: @[<hov -2>%t@]"
+       mdl
+       (Print.sequence (fun fn ppf -> Format.fprintf ppf "%s" fn) "," files)
+
+  | CircularRequire files ->
+     Format.fprintf ppf "circuar module dependency: @[<hov -2>%t@]"
+        (Print.sequence (fun fn ppf -> Format.fprintf ppf "%s" fn) "," files)
 
 exception Error of error Location.located
 
@@ -106,19 +113,32 @@ let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 (** Ctx variable management *)
 module Ctx = struct
 
-  type t = {
-      bound : (Name.ident * unit info) list;
+  type aml_module = {
+      idents : (Name.ident * unit info) list;
       tydefs : (Name.ident * arity) list;
-      files : string list;
+    }
+
+  let empty_module = {
+      idents = [];
+      tydefs = []
+    }
+
+  type t = {
+      (* Known AML modules (name, filename, contents) *)
+      aml_modules : (Name.ident * string * aml_module) list;
+      (* Current module *)
+      current : aml_module ;
+      (* Chain of files being loaded *)
+      loading : string list;
     }
 
   let empty = {
-      bound = [];
-      tydefs = [];
-      files = [];
+      aml_modules = [];
+      current = empty_module;
+      loading = []
     }
 
-  let find_opt x {bound; _} =
+  let find_opt_ident x {current={idents; _}; _} =
     let at_index i = function
       | Variable () -> Variable i
       | TTConstructor k -> TTConstructor k
@@ -132,56 +152,60 @@ module Ctx = struct
       | (_, (TTConstructor _ | AMLConstructor _ | Operation _)) :: bound ->
          search i bound
     in
-    search 0 bound
+    search 0 idents
 
-  let find ~loc x ctx =
-    match find_opt x ctx with
+  let find_ident ~loc x ctx =
+    match find_opt_ident x ctx with
     | None -> error ~loc (UnknownName x)
     | Some info -> info
 
   (* XXX we allow shadowing an operation by a variable, if anything we should
      complain there *)
   let get_operation ~loc x ctx =
-    match find ~loc x ctx with
+    match find_ident ~loc x ctx with
     | Operation k -> k
     | Variable _ | TTConstructor _ | AMLConstructor _ as info ->
       error ~loc (OperationExpected (x, info))
 
-  let add_variable x ctx = { ctx with bound = (x, Variable ()) :: ctx.bound }
+  let add_module mdl_name filename mdl ctx =
+    { ctx with aml_modules = (mdl_name, filename, mdl) :: ctx.aml_modules }
+
+  let add_variable x ({current; _} as ctx) =
+    { ctx with current = { current with idents = (x, Variable ()) :: current.idents } }
 
   let add_opt_variable xopt ctx =
     match xopt with
     | None -> ctx
     | Some x -> add_variable x ctx
 
-  let add_operation ~loc op k ctx =
-    if List.exists (function (op', Operation _) -> Name.eq_ident op op' | _ -> false) ctx.bound
+  let add_operation ~loc op k ({current; _} as ctx) =
+    if List.exists (function (op', Operation _) -> Name.eq_ident op op' | _ -> false) current.idents
     then
       error ~loc (OperationAlreadyDeclared op)
     else
-      { ctx with bound = (op, Operation k) :: ctx.bound }
+      { ctx with current = { current with idents = (op, Operation k) :: current.idents } }
 
-  let add_aml_constructor ~loc c k ctx =
-    if List.exists (function (c', AMLConstructor _) -> Name.eq_ident c c' | _ -> false) ctx.bound
+  let add_aml_constructor ~loc c k ({current;_} as ctx) =
+    if List.exists (function (c', AMLConstructor _) -> Name.eq_ident c c' | _ -> false) current.idents
     then
       error ~loc (AMLConstructorAlreadyDeclared c)
     else
-      { ctx with bound = (c, AMLConstructor k) :: ctx.bound }
+      { ctx with current = { current with idents = (c, AMLConstructor k) :: current.idents } }
 
-  let add_tt_constructor ~loc c k ctx =
-    if List.exists (function (c', TTConstructor _) -> Name.eq_ident c c' | _ -> false) ctx.bound
+  let add_tt_constructor ~loc c k ({current; _} as ctx) =
+    if List.exists (function (c', TTConstructor _) -> Name.eq_ident c c' | _ -> false) current.idents
     then
       error ~loc (TTConstructorAlreadyDeclared c)
     else
-      { ctx with bound = (c, TTConstructor k) :: ctx.bound }
+      { ctx with current = { current with  idents = (c, TTConstructor k) :: current.idents } }
 
   (* Add to the context the fact that [ty] is a type constructor with
      [k] parameters. *)
-  let add_tydef t k ctx =
-    { ctx with tydefs = List.append ctx.tydefs [(t, k)] }
+  let add_tydef t k ({current; _} as ctx) =
+    { ctx with current = { current with  tydefs = List.append current.tydefs [(t, k)] } }
 
   (* Get the arity and de Bruijn level of type named [t] and its definition *)
-  let get_tydef ~loc t {tydefs=lst; _} =
+  let get_tydef ~loc t {current={tydefs=lst; _}; _} =
     let rec find k = function
       | [] -> error ~loc (UnknownTypeName t)
       | (u, arity) :: lst ->
@@ -191,12 +215,16 @@ module Ctx = struct
     in
     find 0 lst
 
-  let push_file f ctx =
-    { ctx with
-      files = (Filename.basename f) :: ctx.files }
+  (* Has the given file already been loaded? *)
+  let loaded fn {aml_modules; _} =
+    List.exists (fun (_, f, _) -> (fn = f)) aml_modules
 
-  let included f ctx =
-    List.mem (Filename.basename f) ctx.files
+  (* Record the fact that we are loading the given filename *)
+  let push_file fn ctx = { ctx with loading = fn :: ctx.loading }
+
+  (* Is the given file being loaded at the moment? *)
+  let loading fn {loading; _} =
+    List.mem fn loading
 
 end (* module Ctx *)
 
@@ -305,7 +333,7 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
      ctx, locate (Dsyntax.Patt_TT_As (p1, p2)) loc
 
   | Input.Patt_TT_Constructor (c, ps) ->
-     begin match Ctx.find ~loc c ctx with
+     begin match Ctx.find_ident ~loc c ctx with
      | TTConstructor k -> pattern_tt_constructor ~loc ctx c k ps
      | (AMLConstructor _ | Operation _ | Variable _) as info ->
         error ~loc (InvalidTermPatternName (c, info))
@@ -381,7 +409,7 @@ let rec pattern ctx {Location.thing=p; loc} =
      ctx, locate Dsyntax.Patt_Anonymous loc
 
   | Input.Patt_Var x ->
-     begin match Ctx.find_opt x ctx with
+     begin match Ctx.find_opt_ident x ctx with
 
      | Some (Variable _)
         (* We allow shadowing. *)
@@ -409,7 +437,7 @@ let rec pattern ctx {Location.thing=p; loc} =
      ctx, locate (Dsyntax.Patt_Judgement p) loc
 
   | Input.Patt_Constr (c,ps) ->
-     begin match Ctx.find ~loc c ctx with
+     begin match Ctx.find_ident ~loc c ctx with
      | AMLConstructor k ->
         let len = List.length ps in
         if k = len
@@ -638,7 +666,7 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      spine ~yield ctx e cs
 
   | Input.Var x ->
-     begin match Ctx.find ~loc x ctx with
+     begin match Ctx.find_ident ~loc x ctx with
      | Variable i -> locate (Dsyntax.Bound i) loc
      | TTConstructor k ->
         if k = 0 then locate (Dsyntax.TT_Constructor (x, [])) loc
@@ -850,7 +878,7 @@ and spine ~yield ctx ({Location.thing=c';loc} as c) cs =
   let head, cs =
     match c' with
     | Input.Var x ->
-       begin match Ctx.find ~loc x ctx with
+       begin match Ctx.find_ident ~loc x ctx with
        | Variable i ->
           locate (Dsyntax.Bound i) loc, cs
        | TTConstructor k ->
@@ -1175,39 +1203,79 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
   | Input.Verbosity n ->
      (ctx, locate (Dsyntax.Verbosity n) loc)
 
-  | Input.Require fs ->
-     let rec fold ctx res = function
-       | [] -> (ctx, locate (Dsyntax.Included (List.rev res)) loc)
-       | fn::fs ->
-          let fn =
-            if Filename.is_relative fn
-            then Filename.concat basedir fn
-            else fn
-          in
-          if Ctx.included fn ctx
-          then
-            fold ctx res fs
-          else
-            begin if Sys.file_exists fn then
-                    let ctx, cmds = file ctx fn in
-                    fold ctx ((fn, cmds)::res) fs
-                  else
-                    error ~loc (RequiredFileMissing fn)
-            end
-     in
-     fold ctx [] fs
+  | Input.Require mdls ->
+     aml_modules ~loc ~basedir ctx mdls
 
-and file ctx fn =
-  if Ctx.included fn ctx
-  then
-    ctx, []
-  else
-    let basedir = Filename.dirname fn in
-    let ctx = Ctx.push_file fn ctx in
-    let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
-    let ctx, cmds = List.fold_left (fun (ctx,cmds) cmd ->
-                        let ctx, cmd = toplevel ~basedir ctx cmd in
-                        (ctx, cmd::cmds))
-                      (ctx,[]) cmds
-    in
-    ctx, List.rev cmds
+and aml_modules ~loc ~basedir ctx mdls =
+  let rec fold loaded ctx = function
+    | [] ->
+       let loaded = List.rev loaded in
+       (ctx, locate (Dsyntax.AMLModules loaded) loc)
+    | mdl_name :: mdls ->
+       begin match aml_module ~loc ~basedir ctx mdl_name with
+       | ctx, None -> fold loaded ctx mdls
+       | ctx, Some (fn, mdl, cmds) ->
+          let mdl_name = Name.mk_ident mdl_name in
+          let ctx = Ctx.add_module mdl_name fn mdl ctx in
+          fold ((mdl_name, cmds) :: loaded) ctx mdls
+       end
+  in
+  fold [] ctx mdls
+
+and aml_module ~loc ~basedir ctx mdl_name =
+  let rec unique xs = function
+    | [] -> []
+    | y :: ys ->
+       let ys = unique (y :: xs) ys in
+       if List.mem y xs then ys else y :: ys
+  in
+  let basename = mdl_name ^ ".m31" in
+  let fns =
+    unique []
+    [ basename ;
+      String.capitalize_ascii basename ^ ".m31" ;
+      String.uncapitalize_ascii basename ^ ".m31" ;
+      Filename.concat basedir basename ;
+      Filename.concat basedir (String.capitalize_ascii basename ^ ".m31") ;
+      Filename.concat basedir (String.uncapitalize_ascii basename ^ ".m31") ;
+    ]
+  in
+  match List.find_opt Sys.file_exists fns with
+
+  | None ->
+     error ~loc (RequiredModuleMissing (mdl_name, fns))
+
+  | Some fn ->
+     Format.printf "Found %s when looking for module %s@." fn mdl_name ;
+     if Ctx.loaded fn ctx then
+       (* We already loaded this module *)
+       ctx, None
+     else if Ctx.loading fn ctx then
+       (* We are in the process of loading this module, circular dependency *)
+       error ~loc (CircularRequire (List.rev (fn :: ctx.Ctx.loading)))
+     else
+       let ctx, mdl, cmds = load_file ~basedir ctx fn in
+       ctx, Some (fn, mdl, cmds)
+
+
+and load_file ~basedir ctx fn =
+  let loading = ctx.Ctx.loading in
+  let current = ctx.Ctx.current in
+  let ctx = Ctx.push_file fn ctx in
+  let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
+  let ctx = { ctx with Ctx.current = Ctx.empty_module } in
+  let ctx, cmds = List.fold_left (fun (ctx,cmds) cmd ->
+                      let ctx, cmd = toplevel ~basedir ctx cmd in
+                      (ctx, cmd::cmds))
+                    (ctx,[]) cmds
+  in
+  (* pick up the loaded module *)
+  let mdl = ctx.Ctx.current in
+  (* restore loading and current module *)
+  let ctx = { ctx with Ctx.loading=loading; Ctx.current=current } in
+  ctx, mdl, List.rev cmds
+
+let file ctx fn =
+  let basedir = Filename.dirname fn in
+  let ctx, _, cmds = load_file ~basedir ctx fn in
+  ctx, cmds

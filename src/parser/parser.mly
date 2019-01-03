@@ -109,7 +109,7 @@ plain_top_term:
 (* Toplevel commands that need not be preceeded by double semicolon. *)
 top_command: mark_location(plain_top_command) { $1 }
 plain_top_command:
-  | REQUIRE fs=QUOTED_STRING+                         { Require fs }
+  | REQUIRE mdls=module_string+                       { Require mdls }
   | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
                                                       { TopLetRec lst }
@@ -237,7 +237,10 @@ aml_name:
 op_name:
   | LOWER_NAME               { $1 }
 
-(* AML module name (upper case word) *)
+(* AML module name as a string*)
+module_string:
+  | mdl=UPPER_NAME           { let (Name.Ident (mdl, _)) = mdl in mdl }
+
 module_name:
   | UPPER_NAME               { $1 }
 

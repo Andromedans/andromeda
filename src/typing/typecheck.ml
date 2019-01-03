@@ -940,7 +940,7 @@ let premises prems m =
   in
   Tyenv.locally (fold [] prems)
 
-let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
+let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
   match c with
 
   | Dsyntax.RuleIsType (rname, prems) ->
@@ -1043,20 +1043,20 @@ let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
   | Dsyntax.Verbosity v ->
     return_located ~loc (Rsyntax.Verbosity v)
 
-  | Dsyntax.Included fcs ->
-    let rec fold_files fcs = function
-      | [] -> return (List.rev fcs)
+  | Dsyntax.AMLModules mdls ->
+    let rec fold_modules mdls = function
+      | [] -> return (List.rev mdls)
       | (f, cs) :: rem ->
          let rec fold cs_out = function
            | [] -> return (List.rev cs_out)
            | c :: cs ->
-              toplevel c >>= fun c ->
+              toplevel' c >>= fun c ->
               fold (c :: cs_out) cs
          in
          fold [] cs >>= fun cs ->
-         fold_files ((f, cs) :: fcs) rem
+         fold_modules ((f, cs) :: mdls) rem
     in
-    fold_files [] fcs >>= fun fcs ->
-    return_located ~loc (Rsyntax.Included fcs)
+    fold_modules [] mdls >>= fun mdls ->
+    return_located ~loc (Rsyntax.AMLModules mdls)
 
-let toplevel env c = Tyenv.run env (toplevel c)
+let toplevel env c = Tyenv.run env (toplevel' c)
