@@ -31,8 +31,8 @@ type error =
   | UnboundYield
   | ParallelShadowing of Name.ident
   | AppliedTyParam
-  | RequiredModuleMissing of string * string list
-  | CircularRequire of string list
+  | RequiredModuleMissing of Name.aml_module * string list
+  | CircularRequire of Name.aml_module list
 
 let print_error err ppf = match err with
 
@@ -98,13 +98,13 @@ let print_error err ppf = match err with
      Format.fprintf ppf "AML type parameters cannot be applied"
 
   | RequiredModuleMissing (mdl, files) ->
-     Format.fprintf ppf "required module %s could not be found, looked in: @[<hov -2>%t@]"
-       mdl
+     Format.fprintf ppf "required module %t could not be found, looked in:@\n@[<hv>%t@]"
+       (Name.print_ident mdl)
        (Print.sequence (fun fn ppf -> Format.fprintf ppf "%s" fn) "," files)
 
-  | CircularRequire files ->
-     Format.fprintf ppf "circuar module dependency: @[<hov -2>%t@]"
-        (Print.sequence (fun fn ppf -> Format.fprintf ppf "%s" fn) "," files)
+  | CircularRequire mdls ->
+     Format.fprintf ppf "circuar module dependency (@[<hov -2>%t@])"
+        (Print.sequence (Name.print_ident ~parentheses:false) "," mdls)
 
 exception Error of error Location.located
 
@@ -125,11 +125,11 @@ module Ctx = struct
 
   type t = {
       (* Known AML modules (name, filename, contents) *)
-      aml_modules : (Name.ident * string * aml_module) list;
+      aml_modules : (Name.ident * aml_module) list;
       (* Current module *)
       current : aml_module ;
       (* Chain of files being loaded *)
-      loading : string list;
+      loading : Name.aml_module list;
     }
 
   let empty = {
@@ -167,8 +167,8 @@ module Ctx = struct
     | Variable _ | TTConstructor _ | AMLConstructor _ as info ->
       error ~loc (OperationExpected (x, info))
 
-  let add_module mdl_name filename mdl ctx =
-    { ctx with aml_modules = (mdl_name, filename, mdl) :: ctx.aml_modules }
+  let add_module mdl_name mdl ctx =
+    { ctx with aml_modules = (mdl_name, mdl) :: ctx.aml_modules }
 
   let add_variable x ({current; _} as ctx) =
     { ctx with current = { current with idents = (x, Variable ()) :: current.idents } }
@@ -216,15 +216,22 @@ module Ctx = struct
     find 0 lst
 
   (* Has the given file already been loaded? *)
-  let loaded fn {aml_modules; _} =
-    List.exists (fun (_, f, _) -> (fn = f)) aml_modules
+  let loaded mdl {aml_modules; _} =
+    List.exists (fun (m, _) -> (mdl = m)) aml_modules
 
-  (* Record the fact that we are loading the given filename *)
-  let push_file fn ctx = { ctx with loading = fn :: ctx.loading }
+  (* Record the fact that we are loading the given module *)
+  let push_module mdl ctx = { ctx with loading = mdl :: ctx.loading }
+
+  let pop_module ctx =
+    { ctx with loading =
+                 match ctx.loading with
+                 | [] -> []
+                 | _ :: mdls -> mdls
+    }
 
   (* Is the given file being loaded at the moment? *)
-  let loading fn {loading; _} =
-    List.mem fn loading
+  let loading mdl {loading; _} =
+    List.mem mdl loading
 
 end (* module Ctx *)
 
@@ -1215,53 +1222,48 @@ and aml_modules ~loc ~basedir ctx mdls =
        begin match aml_module ~loc ~basedir ctx mdl_name with
        | ctx, None -> fold loaded ctx mdls
        | ctx, Some (fn, mdl, cmds) ->
-          let mdl_name = Name.mk_ident mdl_name in
-          let ctx = Ctx.add_module mdl_name fn mdl ctx in
+          let ctx = Ctx.add_module mdl_name mdl ctx in
           fold ((mdl_name, cmds) :: loaded) ctx mdls
        end
   in
   fold [] ctx mdls
 
 and aml_module ~loc ~basedir ctx mdl_name =
-  let rec unique xs = function
-    | [] -> []
-    | y :: ys ->
-       let ys = unique (y :: xs) ys in
-       if List.mem y xs then ys else y :: ys
-  in
-  let basename = mdl_name ^ ".m31" in
-  let fns =
-    unique []
-    [ basename ;
-      String.capitalize_ascii basename ^ ".m31" ;
-      String.uncapitalize_ascii basename ^ ".m31" ;
-      Filename.concat basedir basename ;
-      Filename.concat basedir (String.capitalize_ascii basename ^ ".m31") ;
-      Filename.concat basedir (String.uncapitalize_ascii basename ^ ".m31") ;
-    ]
-  in
-  match List.find_opt Sys.file_exists fns with
+  if Ctx.loaded mdl_name ctx then
+    (* We already loaded this module *)
+    ctx, None
+  else if Ctx.loading mdl_name ctx then
+    (* We are in the process of loading this module, circular dependency *)
+    error ~loc (CircularRequire (List.rev (mdl_name :: ctx.Ctx.loading)))
+  else
+    let rec unique xs = function
+      | [] -> []
+      | y :: ys ->
+         let ys = unique (y :: xs) ys in
+         if List.mem y xs then ys else y :: ys
+    in
+    let basename = Name.module_filename mdl_name in
+    let fns =
+      unique []
+        [
+          Filename.concat basedir basename ;
+        ]
+    in
+    match List.find_opt Sys.file_exists fns with
 
-  | None ->
-     error ~loc (RequiredModuleMissing (mdl_name, fns))
+    | None ->
+       error ~loc (RequiredModuleMissing (mdl_name, fns))
 
-  | Some fn ->
-     Format.printf "Found %s when looking for module %s@." fn mdl_name ;
-     if Ctx.loaded fn ctx then
-       (* We already loaded this module *)
-       ctx, None
-     else if Ctx.loading fn ctx then
-       (* We are in the process of loading this module, circular dependency *)
-       error ~loc (CircularRequire (List.rev (fn :: ctx.Ctx.loading)))
-     else
+    | Some fn ->
+       let ctx = Ctx.push_module mdl_name ctx in
        let ctx, mdl, cmds = load_file ~basedir ctx fn in
+       let ctx = Ctx.pop_module ctx in
        ctx, Some (fn, mdl, cmds)
 
 
 and load_file ~basedir ctx fn =
   let loading = ctx.Ctx.loading in
   let current = ctx.Ctx.current in
-  let ctx = Ctx.push_file fn ctx in
   let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
   let ctx = { ctx with Ctx.current = Ctx.empty_module } in
   let ctx, cmds = List.fold_left (fun (ctx,cmds) cmd ->

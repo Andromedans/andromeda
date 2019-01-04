@@ -63,6 +63,8 @@ let anonymous =
   incr k ;
   Ident ("anon", Anonymous !k)
 
+let module_filename (Ident (s, _)) = s ^ ".m31"
+
 let mk_ident ?(fixity=Word) s = Ident (s, fixity)
 
 module Predefined = struct

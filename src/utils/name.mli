@@ -106,6 +106,9 @@ val print_op : ident -> Format.formatter -> unit
 (** An new anonymous name that cannot be referenced by the user. *)
 val anonymous : unit -> ident
 
+(** The basename of a file nime associated with the given module name. *)
+val module_filename : aml_module -> string
+
 (** Make a name from a string. *)
 val mk_ident : ?fixity:fixity -> string -> ident
 

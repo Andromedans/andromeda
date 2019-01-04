@@ -161,4 +161,4 @@ and toplevel' =
   | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of comp * comp
   | Verbosity of int
-  | Require of string list
+  | Require of Name.aml_module list

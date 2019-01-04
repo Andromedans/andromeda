@@ -109,7 +109,7 @@ plain_top_term:
 (* Toplevel commands that need not be preceeded by double semicolon. *)
 top_command: mark_location(plain_top_command) { $1 }
 plain_top_command:
-  | REQUIRE mdls=module_string+                       { Require mdls }
+  | REQUIRE mdls=module_name+                         { Require mdls }
   | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
                                                       { TopLetRec lst }
@@ -230,19 +230,19 @@ list_contents:
 (* AML variable name (lower case) *)
 aml_name:
   | LOWER_NAME               { $1 }
+  | UPPER_NAME               { $1 }
   | LPAREN op=infix RPAREN   { fst op }
   | LPAREN op=prefix RPAREN  { fst op }
 
-(* AML operation name *)
+(* AML operation name (lower case) *)
 op_name:
+  | UPPER_NAME               { $1 }
   | LOWER_NAME               { $1 }
 
-(* AML module name as a string*)
-module_string:
-  | mdl=UPPER_NAME           { let (Name.Ident (mdl, _)) = mdl in mdl }
-
+(* AML module name *)
 module_name:
   | UPPER_NAME               { $1 }
+  | LOWER_NAME               { $1 }
 
 (* Type theory variable name (lower or upper case) *)
 tt_name:

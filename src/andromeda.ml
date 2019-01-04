@@ -13,6 +13,9 @@ let add_file quiet filename = (files := (filename, quiet) :: !files)
 
 (** Command-line options *)
 let options = Arg.align [
+    ("-I",
+     Arg.String (fun dir -> Config.require_dirs := !Config.require_dirs @ [dir]),
+     " Look for required files in the given directory");
 
     ("--ascii",
       Arg.Set Config.ascii,
@@ -59,10 +62,6 @@ let options = Arg.align [
     ("-n",
      Arg.Clear Config.interactive_shell,
      " Do not run the interactive toplevel");
-
-    ("-l",
-     Arg.String (fun str -> add_file true str),
-     "<file> Load <file> into the initial environment");
   ]
 
 (** Interactive toplevel *)
