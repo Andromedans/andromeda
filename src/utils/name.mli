@@ -25,6 +25,9 @@ type ty = ident
 
 type aml_constructor = ident
 
+(** A name that is possibly qualified by a module *)
+type 'a long = private Long of aml_module option * 'a
+
 module Predefined : sig
   (** The name of the boolean type *)
   val bool : ty
@@ -111,6 +114,12 @@ val module_filename : aml_module -> string
 
 (** Make a name from a string. *)
 val mk_ident : ?fixity:fixity -> string -> ident
+
+(** Make a name without module information. *)
+val mk_short : 'a -> 'a long
+
+(** Make a name with module information. *)
+val mk_long : aml_module -> 'a -> 'a long
 
 (** Generate a variant of a given name that is guaranteed to not yet exist. *)
 val fresh : ident -> atom

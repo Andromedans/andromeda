@@ -22,6 +22,9 @@ type ty = ident
 
 type aml_constructor = ident
 
+(** A name that is possibly qualified by a module *)
+type 'a long = Long of aml_module option * 'a
+
 (** Make a nice subscript from an integer. *)
 let subscript k =
   let subdigit = [|"₀"; "₁"; "₂"; "₃"; "₄"; "₅"; "₆"; "₇"; "₈"; "₉"|] in
@@ -66,6 +69,10 @@ let anonymous =
 let module_filename (Ident (s, _)) = s ^ ".m31"
 
 let mk_ident ?(fixity=Word) s = Ident (s, fixity)
+
+let mk_short x = Long (None, x)
+
+let mk_long mdl x = Long (Some mdl, x)
 
 module Predefined = struct
 

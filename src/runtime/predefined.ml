@@ -11,7 +11,7 @@ let name_alpha = Name.mk_ident (Name.greek 0)
 
 let predefined_aml_types =
   let unloc x = Location.locate x Location.unknown in
-  let ty_alpha = unloc (Input.ML_TyApply (name_alpha, [])) in
+  let ty_alpha = unloc (Input.ML_TyApply (Name.mk_short name_alpha, [])) in
   let un_ml_is_term = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_IsTerm)) in
   let un_ml_eq_type = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_EqType)) in
   let decl_bool = Input.DefMLType [Name.Predefined.bool, ([],
@@ -28,7 +28,7 @@ let predefined_aml_types =
   and decl_list = Input.DefMLTypeRec [Name.Predefined.list, ([Some name_alpha],
     Input.ML_Sum [
     (Name.Predefined.nil, []);
-    (Name.Predefined.cons, [ty_alpha; unloc (Input.ML_TyApply (Name.Predefined.list, [ty_alpha]))])
+    (Name.Predefined.cons, [ty_alpha; unloc (Input.ML_TyApply (Name.mk_short Name.Predefined.list, [ty_alpha]))])
     ])]
 
   and decl_coercible = Input.DefMLType [Name.Predefined.coercible_ty, ([],
@@ -58,17 +58,17 @@ let predefined_ops =
     Input.DeclOperation
       (Name.Predefined.equal_term,
        ([un_ml_is_term; un_ml_is_term],
-        unloc (Input.ML_TyApply (Name.Predefined.option, [un_ml_eq_term]))))
+        unloc (Input.ML_TyApply (Name.mk_short Name.Predefined.option, [un_ml_eq_term]))))
   and decl_equal_type =
     Input.DeclOperation
       (Name.Predefined.equal_type,
        ([un_ml_is_type; un_ml_is_type],
-        unloc (Input.ML_TyApply (Name.Predefined.option, [un_ml_eq_type]))))
+        unloc (Input.ML_TyApply (Name.mk_short Name.Predefined.option, [un_ml_eq_type]))))
   and decl_coerce =
     Input.DeclOperation
       (Name.Predefined.coerce,
        ([un_ml_is_term; un_ml_is_type],
-        unloc (Input.ML_TyApply (Name.Predefined.coercible_ty, []))))
+        unloc (Input.ML_TyApply (Name.mk_short Name.Predefined.coercible_ty, []))))
   in
   [unloc decl_equal_term;
    unloc decl_equal_type;
@@ -77,7 +77,7 @@ let predefined_ops =
 let predefined_bound =
   let unloc x = Location.locate x Location.unknown in
   let un_ml_is_term = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_IsTerm)) in
-  let hyps_annot = unloc (Input.ML_TyApply (Name.Predefined.list, [un_ml_is_term])) in
+  let hyps_annot = unloc (Input.ML_TyApply (Name.mk_short Name.Predefined.list, [un_ml_is_term])) in
   let decl_hyps = Input.TopDynamic
                     (Name.Predefined.hypotheses, Input.Arg_annot_ty hyps_annot, unloc (Input.List [])) in
   [unloc decl_hyps]

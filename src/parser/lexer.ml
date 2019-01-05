@@ -44,17 +44,11 @@ let reserved = [
   ("yield", YIELD) ;
 ]
 
-let lower_name =
-  [%sedlex.regexp? (('_' | lowercase),
+let name =
+  [%sedlex.regexp? (('_' | alphabetic),
                  Star ('_' | alphabetic
                       | 185 | 178 | 179 | 8304 .. 8351 (* sub-/super-scripts *)
                       | '0'..'9' | '\'')) | math]
-
-let upper_name =
-  [%sedlex.regexp? (uppercase,
-                 Star ('_' | alphabetic
-                      | 185 | 178 | 179 | 8304 .. 8351 (* sub-/super-scripts *)
-                      | '0'..'9' | '\''))]
 
 let digit = [%sedlex.regexp? '0'..'9']
 let numeral = [%sedlex.regexp? Plus digit]
@@ -148,16 +142,10 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
 
   | eof                      -> f (); EOF
 
-  | upper_name               -> f ();
+  | name               -> f ();
     let n = Ulexbuf.lexeme lexbuf in
     begin try List.assoc n reserved
-    with Not_found -> UPPER_NAME (Name.mk_ident n)
-    end
-
-  | lower_name               -> f ();
-    let n = Ulexbuf.lexeme lexbuf in
-    begin try List.assoc n reserved
-    with Not_found -> LOWER_NAME (Name.mk_ident n)
+    with Not_found -> NAME (Name.mk_ident n)
     end
 
   | numeral                  -> f (); let k = safe_int_of_string lexbuf in NUMERAL k

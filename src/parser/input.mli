@@ -24,7 +24,7 @@ type ml_ty = ml_ty' located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
   | ML_Prod of ml_ty list
-  | ML_TyApply of Name.ty * ml_ty list
+  | ML_TyApply of Name.ty Name.long * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
@@ -54,7 +54,7 @@ and tt_pattern' =
   | Patt_TT_Anonymous
   | Patt_TT_Var of Name.ident (* pattern variable *)
   | Patt_TT_As of tt_pattern * tt_pattern
-  | Patt_TT_Constructor of Name.ident * tt_pattern list
+  | Patt_TT_Constructor of Name.constructor Name.long * tt_pattern list
   | Patt_TT_GenAtom of tt_pattern
   | Patt_TT_IsType of tt_pattern
   | Patt_TT_IsTerm of tt_pattern * tt_pattern
@@ -68,7 +68,7 @@ and pattern' =
   | Patt_Var of Name.ident
   | Patt_As of pattern * pattern
   | Patt_Judgement of tt_pattern
-  | Patt_Constr of Name.ident * pattern list
+  | Patt_Constructor of Name.constructor Name.long * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
 
@@ -76,7 +76,7 @@ and pattern' =
 type comp = comp' located
 and comp' =
   | Open of Name.aml_module * comp
-  | Var of Name.ident
+  | Var of Name.ident Name.long
   | Function of ml_arg list * comp
   | Handler of handle_case list
   | Handle of comp * handle_case list
@@ -118,14 +118,12 @@ and letrec_clause = Name.ident * ml_arg * ml_arg list * let_annotation * comp
 (** Handle cases *)
 and handle_case =
   | CaseVal of match_case (* val p -> c *)
-  | CaseOp of Name.ident * match_op_case (* op p1 ... pn -> c *)
+  | CaseOp of Name.operation Name.long * match_op_case (* op p1 ... pn -> c *)
   | CaseFinally of match_case (* finally p -> c *)
 
 and match_case = pattern * comp option * comp
 
 and match_op_case = pattern list * tt_pattern option * comp
-
-type top_op_case = Name.ident option list * Name.ident option * comp
 
 type constructor_decl = Name.aml_constructor * ml_ty list
 

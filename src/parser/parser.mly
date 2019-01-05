@@ -7,8 +7,7 @@
 
 (* Names and numerals *)
 %token UNDERSCORE
-%token <Name.ident> LOWER_NAME
-%token <Name.ident> UPPER_NAME
+%token <Name.ident> NAME
 %token <int> NUMERAL
 
 (* Parentheses & punctuations *)
@@ -188,7 +187,7 @@ plain_binop_term:
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
   | e1=binop_term oploc=infix e2=binop_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Var op) loc in
+      let op = Location.locate (Var (Name.mk_short op)) loc in
       Spine (op, [e1; e2])
     }
 
@@ -205,16 +204,15 @@ plain_prefix_term:
   | BANG e=prefix_term                         { Lookup e }
   | oploc=prefix e2=prefix_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Var op) loc in
+      let op = Location.locate (Var (Name.mk_short op)) loc in
       Spine (op, [e2])
     }
   | NATURAL t=prefix_term                      { Natural t }
   | YIELD e=prefix_term                        { Yield e }
 
-simple_term: mark_location(plain_simple_term) { $1 }
+(* simple_term: mark_location(plain_simple_term) { $1 } *)
 plain_simple_term:
-  | mdl=module_name PERIOD t=simple_term                { Open (mdl, t) }
-  | x=any_name                                          { Var x }
+  | x=long(any_name)                                    { Var x }
   | s=QUOTED_STRING                                     { String s }
   | LBRACK lst=list_contents RBRACK                     { List lst }
   | LBRACK RBRACK                                       { List [] }
@@ -227,27 +225,23 @@ list_contents:
   | t=binop_term SEMI?                                 { [t] }
   | t=binop_term SEMI lst=list_contents                { t::lst }
 
-(* AML variable name (lower case) *)
+(* AML variable name *)
 aml_name:
-  | LOWER_NAME               { $1 }
-  | UPPER_NAME               { $1 }
+  | NAME                     { $1 }
   | LPAREN op=infix RPAREN   { fst op }
   | LPAREN op=prefix RPAREN  { fst op }
 
-(* AML operation name (lower case) *)
+(* AML operation name *)
 op_name:
-  | UPPER_NAME               { $1 }
-  | LOWER_NAME               { $1 }
+  | NAME                     { $1 }
 
 (* AML module name *)
 module_name:
-  | UPPER_NAME               { $1 }
-  | LOWER_NAME               { $1 }
+  | NAME                     { $1 }
 
-(* Type theory variable name (lower or upper case) *)
+(* Type theory variable name *)
 tt_name:
-  | LOWER_NAME               { $1 }
-  | UPPER_NAME               { $1 }
+  | NAME                     { $1 }
   | LPAREN op=infix RPAREN   { fst op }
   | LPAREN op=prefix RPAREN  { fst op }
 
@@ -255,12 +249,16 @@ tt_name:
 any_name:
   | tt_name                  { $1 }
 
-(* AML constructor (lower or upper case) *)
+(* AML constructor *)
 constr_name:
-  | LOWER_NAME               { $1 }
-  | UPPER_NAME               { $1 }
+  | NAME                     { $1 }
   | LPAREN op=infix RPAREN   { fst op }
   | LPAREN op=prefix RPAREN  { fst op }
+
+(* Possibly a name qualified with a module *)
+%inline long(N):
+  | x=N                        { Name.mk_short x }
+  | mdl=module_name PERIOD x=N { Name.mk_long mdl x }
 
 (* Infix operators *)
 %inline infix:
@@ -330,9 +328,9 @@ handler_cases:
   | lst=separated_list(BAR, handler_case)               { lst }
 
 handler_case:
-  | VAL c=match_case DARROW t=term                                      { CaseVal c }
-  | op=op_name ps=prefix_pattern* pt=handler_checking DARROW t=term    { CaseOp (op, (ps, pt, t)) }
-  | FINALLY c=match_case                                                { CaseFinally c }
+  | VAL c=match_case DARROW t=term                                        { CaseVal c }
+  | op=long(op_name) ps=prefix_pattern* pt=handler_checking DARROW t=term { CaseOp (op, (ps, pt, t)) }
+  | FINALLY c=match_case                                                  { CaseFinally c }
 
 handler_checking:
   |                     { None }
@@ -362,20 +360,20 @@ plain_binop_pattern:
   | e=plain_app_pattern                                { e }
   | e1=binop_pattern oploc=infix e2=binop_pattern
     { let (op, _) = oploc in
-      Patt_Constr (op, [e1; e2])
+      Patt_Constructor (Name.mk_short op, [e1; e2])
     }
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
 plain_app_pattern:
-  | e=plain_prefix_pattern                    { e }
-  | t=constr_name ps=prefix_pattern+          { Patt_Constr (t, ps) }
+  | e=plain_prefix_pattern                          { e }
+  | t=long(constr_name) ps=prefix_pattern+          { Patt_Constructor (t, ps) }
 
 prefix_pattern: mark_location(plain_prefix_pattern) { $1 }
 plain_prefix_pattern:
   | e=plain_simple_pattern            { e }
   | oploc=prefix e=prefix_pattern
     { let (op, _) = oploc in
-      Patt_Constr (op, [e])
+      Patt_Constructor (Name.mk_short op, [e])
     }
 
 (* simple_pattern: mark_location(plain_simple_pattern) { $1 } *)
@@ -410,13 +408,13 @@ plain_binop_tt_pattern:
   | p=plain_app_tt_pattern                        { p }
   | e1=binop_tt_pattern oploc=infix e2=binop_tt_pattern
     { let (op, _loc) = oploc in
-      Patt_TT_Constructor (op, [e1; e2])
+      Patt_TT_Constructor (Name.mk_short op, [e1; e2])
     }
 
 (* app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 } *)
 plain_app_tt_pattern:
-  | p=plain_prefix_tt_pattern                       { p }
-  | c=tt_name ps=nonempty_list(prefix_tt_pattern)   { Patt_TT_Constructor (c, ps) }
+  | p=plain_prefix_tt_pattern                             { p }
+  | c=long(tt_name) ps=nonempty_list(prefix_tt_pattern)   { Patt_TT_Constructor (c, ps) }
 
 prefix_tt_pattern: op=mark_location(plain_prefix_tt_pattern) { op }
 plain_prefix_tt_pattern:
@@ -424,7 +422,7 @@ plain_prefix_tt_pattern:
   | UATOM p=prefix_tt_pattern        { Patt_TT_GenAtom p }
   | oploc=prefix e=prefix_tt_pattern
     { let (op, _loc) = oploc in
-      Patt_TT_Constructor (op, [e])
+      Patt_TT_Constructor (Name.mk_short op, [e])
     }
 
 (* simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 } *)
@@ -483,15 +481,15 @@ plain_prod_mlty:
 
 app_mlty: mark_location(plain_app_mlty) { $1 }
 plain_app_mlty:
-  | plain_simple_mlty                          { $1 }
-  | REF t=simple_mlty                          { ML_Ref t }
-  | DYNAMIC t=simple_mlty                      { ML_Dynamic t }
-  | c=aml_name args=nonempty_list(simple_mlty) { ML_TyApply (c, args) }
+  | plain_simple_mlty                                { $1 }
+  | REF t=simple_mlty                                { ML_Ref t }
+  | DYNAMIC t=simple_mlty                            { ML_Dynamic t }
+  | c=long(aml_name) args=nonempty_list(simple_mlty) { ML_TyApply (c, args) }
 
 simple_mlty: mark_location(plain_simple_mlty) { $1 }
 plain_simple_mlty:
   | LPAREN t=plain_mlty RPAREN          { t }
-  | c=aml_name                          { ML_TyApply (c, []) }
+  | c=long(aml_name)                    { ML_TyApply (c, []) }
   | abstr=mlty_abstracted_judgement     { ML_Judgement abstr }
   | MLUNIT                              { ML_Prod [] }
   | MLSTRING                            { ML_String }
