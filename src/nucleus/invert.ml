@@ -1,5 +1,7 @@
 open Nucleus_types
 
+let atom_name {atom_nonce=x;_} = Nonce.name x
+
 (** Destructors *)
 
 let invert_argument = function
@@ -42,24 +44,22 @@ let as_not_abstract = function
   | Abstract _ -> None
   | NotAbstract v -> Some v
 
-let invert_abstraction ?atom_name inst_v = function
-  | Abstract (x, t, abstr) ->
-     let x = (match atom_name with None -> x | Some y -> y) in
+let invert_abstraction ?name inst_v = function
+  | Abstract ({atom_nonce=x; atom_type=t}, abstr) ->
+     let x = (match name with None -> Nonce.name x | Some y -> y) in
      let a = Mk.fresh_atom x t in
      let abstr = Instantiate_bound.abstraction inst_v (Mk.atom a) abstr in
      Stump_Abstract (a, abstr)
   | NotAbstract v -> Stump_NotAbstract v
 
-let invert_is_type_abstraction ?atom_name t =
-  invert_abstraction ?atom_name Instantiate_bound.is_type t
+let invert_is_type_abstraction ?name t =
+  invert_abstraction ?name Instantiate_bound.is_type t
 
-let invert_is_term_abstraction ?atom_name e =
-  invert_abstraction ?atom_name Instantiate_bound.is_term e
+let invert_is_term_abstraction ?name e =
+  invert_abstraction ?name Instantiate_bound.is_term e
 
-let invert_eq_type_abstraction ?atom_name eq =
-  invert_abstraction ?atom_name Instantiate_bound.eq_type eq
+let invert_eq_type_abstraction ?name eq =
+  invert_abstraction ?name Instantiate_bound.eq_type eq
 
-let invert_eq_term_abstraction ?atom_name eq =
-  invert_abstraction ?atom_name Instantiate_bound.eq_term eq
-
-let atom_name {atom_name=n;_} = n
+let invert_eq_term_abstraction ?name eq =
+  invert_abstraction ?name Instantiate_bound.eq_term eq

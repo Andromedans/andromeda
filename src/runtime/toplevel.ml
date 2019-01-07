@@ -93,7 +93,8 @@ let use_file ~fn ~quiet =
     end
 
 let initial =
-  let desugar, cmds = List.fold_left (fun (desugar, cmds) cmd ->
+  let desugar, cmds =
+    List.fold_left (fun (desugar, cmds) cmd ->
       let desugar, cmd = Desugar.toplevel ~basedir:Filename.current_dir_name desugar cmd in
       (desugar, cmd :: cmds))
     (Desugar.Ctx.empty, []) Predefined.definitions

@@ -9,26 +9,26 @@ type bound = int
 type judgement = judgement' located
 and judgement' =
   | TTAnonymous
-  | TTVar of Name.ident    (* XXX are the idents used anywhere? *)
+  | TTVar of Name.t    (* XXX are the names used anywhere? *)
   | TTAs of judgement * judgement
-  | TTConstructor of Name.constructor * argument list
+  | TTConstructor of Ident.t * argument list
   | TTGenAtom of is_term
   | TTIsType of is_type
   | TTIsTerm of is_term * is_type
   | TTEqType of is_type * is_type
   | TTEqTerm of is_term * is_term * is_type
-  | TTAbstract of Name.ident option * is_type * judgement
+  | TTAbstract of Name.t option * is_type * judgement
 
 and is_type = judgement
 and is_term = judgement
 and argument = judgement
 
-(** AML pattern *)
+(** ML pattern *)
 type aml = aml' located
 and aml' =
   | Anonymous
-  | Var of Name.ident
+  | Var of Name.t
   | As of aml * aml
   | Judgement of judgement
-  | AMLConstructor of Name.ident * aml list
+  | MLConstructor of Ident.t * aml list
   | Tuple of aml list

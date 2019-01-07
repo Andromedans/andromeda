@@ -33,7 +33,7 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
      | Some e ->
         let sgn = Runtime.get_signature env in
         begin match Nucleus.invert_is_term sgn e with
-        | Nucleus.Stump_TermConstructor (c', args) when Name.eq_ident c c' ->
+        | Nucleus.Stump_TermConstructor (c', args) when Ident.equal c c' ->
            begin
              match collect_args env xvs ps args with
              | None -> Runtime.(error ~loc (InvalidPatternMatch (mk_is_term v)))
@@ -257,7 +257,7 @@ and collect_pattern env xvs {Location.thing=p';loc} v =
   | Pattern.Judgement p, Runtime.EqTerm eq ->
      collect_eq_term env xvs p eq
 
-  | Pattern.AMLConstructor (tag, ps), Runtime.Tag (tag', vs) ->
+  | Pattern.MLConstructor (tag, ps), Runtime.Tag (tag', vs) ->
      if not (Name.eq_ident tag tag')
      then
        raise Match_fail
@@ -280,7 +280,7 @@ and collect_pattern env xvs {Location.thing=p';loc} v =
                           Runtime.Ref _ | Runtime.Dyn _ |
                           Runtime.Tuple _ | Runtime.String _)
 
-  | Pattern.AMLConstructor _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
+  | Pattern.MLConstructor _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
                                Runtime.Closure _ | Runtime.Handler _ |
                                Runtime.Ref _ | Runtime.Dyn _ |
                                Runtime.Tuple _ | Runtime.String _)

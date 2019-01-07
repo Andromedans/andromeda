@@ -21,8 +21,8 @@ and is_term x ?(lvl=0) = function
   (* we should never get here because abstracting should always introduce a
      highest-level bound index. *)
 
-  | (TermAtom {atom_name=y; atom_type=t}) as e ->
-     begin match Name.eq_atom x y with
+  | (TermAtom {atom_nonce=y; atom_type=t}) as e ->
+     begin match Nonce.equal x y with
      | false ->
         let asmp = Collect_assumptions.is_type t in
         if Assumption.mem_atom x asmp
@@ -68,18 +68,18 @@ and assumptions x ?(lvl=0) asmp =
   Assumption.abstract x ~lvl asmp
 
 and abstraction
-  : 'a . (Name.atom -> ?lvl:int -> 'a -> 'a) ->
-    Name.atom -> ?lvl:int -> 'a abstraction -> 'a abstraction
+  : 'a . (Nonce.t -> ?lvl:int -> 'a -> 'a) ->
+    Nonce.t -> ?lvl:int -> 'a abstraction -> 'a abstraction
   = fun abstr_v x ?(lvl=0) ->
     function
     | NotAbstract v ->
        let v = abstr_v x ~lvl v in
        NotAbstract v
 
-    | Abstract (y, u, abstr) ->
+    | Abstract ({atom_nonce=y; atom_type=u}, abstr) ->
        let u = is_type x ~lvl u in
        let abstr = abstraction abstr_v x ~lvl:(lvl+1) abstr in
-       Abstract (y, u, abstr)
+       Abstract ({atom_nonce=y; atom_type=u}, abstr)
 
 and term_arguments x ?(lvl=0) args = List.map (is_term x ~lvl) args
 
@@ -102,46 +102,46 @@ and argument x ?(lvl=0) = function
 
 let not_abstract u = Mk.not_abstract u
 
-let is_type_abstraction {atom_name=x; atom_type=t} abstr =
+let is_type_abstraction atm abstr =
   (* XXX occurs check?! *)
-  let abstr = abstraction is_type x abstr in
-  Mk.abstract (Name.ident_of_atom x) t abstr
+  let abstr = abstraction is_type atm.atom_nonce abstr in
+  Mk.abstract atm abstr
 
-let is_term_abstraction {atom_name=x; atom_type=t} abstr =
-  let abstr = abstraction is_term x abstr in
-  Mk.abstract (Name.ident_of_atom x) t abstr
+let is_term_abstraction atm abstr =
+  let abstr = abstraction is_term atm.atom_nonce abstr in
+  Mk.abstract atm abstr
 
-let eq_type_abstraction {atom_name=x; atom_type=t} abstr =
-  let abstr = abstraction eq_type x abstr in
-  Mk.abstract (Name.ident_of_atom x) t abstr
+let eq_type_abstraction atm abstr =
+  let abstr = abstraction eq_type atm.atom_nonce abstr in
+  Mk.abstract atm abstr
 
-let eq_term_abstraction {atom_name=x; atom_type=t} abstr =
-  let abstr = abstraction eq_term x abstr in
-  Mk.abstract (Name.ident_of_atom x) t abstr
+let eq_term_abstraction atm abstr =
+  let abstr = abstraction eq_term atm.atom_nonce abstr in
+  Mk.abstract atm abstr
 
-let boundary_is_type_abstraction {atom_name=x; atom_type=t} abstr =
-  let abstr = abstraction (fun _a ?lvl t -> ()) x abstr in
-  Mk.abstract (Name.ident_of_atom x) t abstr
+let boundary_is_type_abstraction atm abstr =
+  let abstr = abstraction (fun _a ?lvl t -> ()) atm.atom_nonce abstr in
+  Mk.abstract atm abstr
 
-let boundary_is_term_abstraction {atom_name=x; atom_type=t} abstr =
-  let abstr = abstraction is_type x abstr in
-  Mk.abstract (Name.ident_of_atom x) t abstr
+let boundary_is_term_abstraction atm abstr =
+  let abstr = abstraction is_type atm.atom_nonce abstr in
+  Mk.abstract atm abstr
 
-let boundary_eq_type_abstraction {atom_name=x; atom_type=t} abstr =
+let boundary_eq_type_abstraction atm abstr =
   let abstr = abstraction
       (fun a ?lvl (lhs, rhs) ->
          let lhs = is_type ?lvl a lhs
          and rhs = is_type ?lvl a rhs in
          (lhs, rhs))
-      x abstr in
-  Mk.abstract (Name.ident_of_atom x) t abstr
+      atm.atom_nonce abstr in
+  Mk.abstract atm abstr
 
-let boundary_eq_term_abstraction {atom_name=x; atom_type=t} abstr =
+let boundary_eq_term_abstraction atm abstr =
   let abstr = abstraction
       (fun a ?lvl (lhs, rhs, t) ->
          let lhs = is_term ?lvl a lhs
          and rhs = is_term ?lvl a rhs
          and t = is_type ?lvl a t in
          (lhs, rhs, t))
-      x abstr in
-  Mk.abstract (Name.ident_of_atom x) t abstr
+      atm.atom_nonce abstr in
+  Mk.abstract atm abstr

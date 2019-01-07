@@ -56,7 +56,7 @@ let rec infer {Location.thing=c'; loc} =
        in
        Runtime.return_closure f
 
-    | Rsyntax.AMLConstructor (t, cs) ->
+    | Rsyntax.MLConstructor (t, cs) ->
        let rec fold vs = function
          | [] ->
             let vs = List.rev vs in
@@ -401,7 +401,7 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.Function _
   | Rsyntax.Handler _
   | Rsyntax.Ascribe _
-  | Rsyntax.AMLConstructor _
+  | Rsyntax.MLConstructor _
   | Rsyntax.IsTypeConstructor _
   | Rsyntax.IsTermConstructor _
   | Rsyntax.EqTypeConstructor _
@@ -901,7 +901,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      comp_value c >>= fun v ->
      Runtime.top_now x v
 
-  | Rsyntax.AMLModules lst ->
+  | Rsyntax.MLModules lst ->
      Runtime.top_fold (fun () (mdl_name, cmds) ->
          (if not quiet then Format.printf "@[<hov 2>Including %t@]@." (Name.print_ident mdl_name));
          Runtime.top_fold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->

@@ -1,8 +1,8 @@
 open Nucleus_types
 
-let name m = m.meta_name
-
 (** Meta-variables *)
+
+let name {meta_nonce=x;_} = Nonce.name x
 
 let rec check_term_arguments sgn abstr args =
   (* NB: We don't actually need to instantiate the body of the abstraction,
@@ -12,7 +12,7 @@ let rec check_term_arguments sgn abstr args =
   | NotAbstract u, [] -> ()
   | Abstract _, [] -> Error.raise TooFewArguments
   | NotAbstract _, _::_ -> Error.raise TooManyArguments
-  | Abstract (x, t, abstr), arg :: args ->
+  | Abstract ({atom_nonce=x; atom_type=t}, abstr), arg :: args ->
      let t_arg = Sanity.type_of_term sgn arg in
      if Alpha_equal.is_type t t_arg
      then
@@ -29,8 +29,8 @@ let form_is_term_meta sgn m args =
   check_term_arguments sgn m.meta_type args ;
   Mk.term_meta m args
 
-let form_eq_type_meta sgn {meta_name ; meta_type} args =
-  let asmp = Assumption.add_eq_type_meta meta_name meta_type Assumption.empty in
+let form_eq_type_meta sgn {meta_nonce; meta_type} args =
+  let asmp = Assumption.add_eq_type_meta meta_nonce meta_type Assumption.empty in
   let (lhs, rhs) =
     let inst_eq_type_boundary e0 ?lvl (lhs, rhs) =
       let lhs = Instantiate_bound.is_type e0 ?lvl lhs
@@ -41,8 +41,8 @@ let form_eq_type_meta sgn {meta_name ; meta_type} args =
   in
   Mk.eq_type asmp lhs rhs
 
-let form_eq_term_meta sgn {meta_name ; meta_type} args =
-  let asmp = Assumption.add_eq_term_meta meta_name meta_type Assumption.empty in
+let form_eq_term_meta sgn {meta_nonce; meta_type} args =
+  let asmp = Assumption.add_eq_term_meta meta_nonce meta_type Assumption.empty in
   let (lhs, rhs, t) =
     let inst_eq_term_boundary e0 ?lvl (lhs, rhs, t) =
       let lhs = Instantiate_bound.is_term e0 ?lvl lhs
@@ -60,12 +60,12 @@ let meta_eta_expanded instantiate_meta form_meta abstract_meta sgn mv =
     | NotAbstract u ->
        Mk.not_abstract (form_meta sgn mv (List.rev args))
 
-    | Abstract (x, ty, abstr) ->
+    | Abstract (atm, abstr) ->
        let a, abstr =
-         Unabstract.abstraction instantiate_meta x ty abstr in
+         Unabstract.abstraction instantiate_meta (Nonce.name atm.atom_nonce) atm.atom_type abstr in
        let abstr = fold ((Form.form_is_term_atom a) :: args) abstr in
-       let abstr = Abstract.abstraction abstract_meta a.atom_name abstr in
-       Mk.abstract x ty abstr
+       let abstr = Abstract.abstraction abstract_meta a.atom_nonce abstr in
+       Mk.abstract atm abstr
 
   in fold [] mv.meta_type
 

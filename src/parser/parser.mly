@@ -3,11 +3,11 @@
 %}
 
 (* Infix operations *)
-%token <Name.ident * Location.t> PREFIXOP EQ INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
+%token <Name.t * Location.t> PREFIXOP EQ INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
 
 (* Names and numerals *)
 %token UNDERSCORE
-%token <Name.ident> NAME
+%token <Name.t> NAME
 %token <int> NUMERAL
 
 (* Parentheses & punctuations *)
@@ -112,14 +112,14 @@ plain_top_command:
   | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
                                                       { TopLetRec lst }
-  | DYNAMIC x=aml_name u=dyn_annotation EQ c=term     { TopDynamic (x, u, c) }
+  | DYNAMIC x=ml_name u=dyn_annotation EQ c=term     { TopDynamic (x, u, c) }
   | NOW x=app_term EQ c=term                          { TopNow (x,c) }
   (* | HANDLE lst=top_handler_cases END                  { TopHandle lst } *)
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
   | OPERATION op=op_name COLON opsig=op_mlsig        { DeclOperation (op, opsig) }
   | VERBOSITY n=NUMERAL                               { Verbosity n }
-  | EXTERNAL n=aml_name COLON sch=ml_schema EQ s=QUOTED_STRING
+  | EXTERNAL n=ml_name COLON sch=ml_schema EQ s=QUOTED_STRING
                                                       { DeclExternal (n, sch, s) }
   | RULE r=plain_rule                                 { r }
 
@@ -165,7 +165,7 @@ plain_term:
                                                                  { LetRec (lst, c) }
   | NOW x=app_term EQ c1=term IN c2=term                         { Now (x,c1,c2) }
   | CURRENT c=term                                               { Current c }
-  | ASSUME x=opt_name(aml_name) COLON t=ty_term IN c=term        { Assume ((x, t), c) }
+  | ASSUME x=opt_name(ml_name) COLON t=ty_term IN c=term        { Assume ((x, t), c) }
   | MATCH e=term WITH lst=match_cases END                        { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_cases END                     { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                                    { With (h, c) }
@@ -187,7 +187,7 @@ plain_binop_term:
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
   | e1=binop_term oploc=infix e2=binop_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Var (Name.mk_short op)) loc in
+      let op = Location.locate (Var (Name.path_direct op)) loc in
       Spine (op, [e1; e2])
     }
 
@@ -204,7 +204,7 @@ plain_prefix_term:
   | BANG e=prefix_term                         { Lookup e }
   | oploc=prefix e2=prefix_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Var (Name.mk_short op)) loc in
+      let op = Location.locate (Var (Name.path_direct op)) loc in
       Spine (op, [e2])
     }
   | NATURAL t=prefix_term                      { Natural t }
@@ -225,17 +225,17 @@ list_contents:
   | t=binop_term SEMI?                                 { [t] }
   | t=binop_term SEMI lst=list_contents                { t::lst }
 
-(* AML variable name *)
-aml_name:
+(* ML variable name *)
+ml_name:
   | NAME                     { $1 }
   | LPAREN op=infix RPAREN   { fst op }
   | LPAREN op=prefix RPAREN  { fst op }
 
-(* AML operation name *)
+(* ML operation name *)
 op_name:
   | NAME                     { $1 }
 
-(* AML module name *)
+(* ML module name *)
 module_name:
   | NAME                     { $1 }
 
@@ -245,11 +245,11 @@ tt_name:
   | LPAREN op=infix RPAREN   { fst op }
   | LPAREN op=prefix RPAREN  { fst op }
 
-(* AML or type theory name *)
+(* ML or type theory name *)
 any_name:
   | tt_name                  { $1 }
 
-(* AML constructor *)
+(* ML constructor *)
 constr_name:
   | NAME                     { $1 }
   | LPAREN op=infix RPAREN   { fst op }
@@ -257,8 +257,8 @@ constr_name:
 
 (* Possibly a name qualified with a module *)
 %inline long(N):
-  | x=N                        { Name.mk_short x }
-  | mdl=module_name PERIOD x=N { Name.mk_long mdl x }
+  | x=N                        { Name.path_direct x }
+  | mdl=module_name PERIOD x=N { Name.path_module mdl x }
 
 (* Infix operators *)
 %inline infix:
@@ -285,25 +285,25 @@ anon_name(X):
   | x=opt_name(X)   { match x with Some x -> x | None -> Name.anonymous () }
 
 recursive_clause:
-  | f=aml_name y=ml_arg ys=ml_arg* u=let_annotation EQ c=term
+  | f=ml_name y=ml_arg ys=ml_arg* u=let_annotation EQ c=term
        { (f, y, ys, u, c) }
 
 let_clause:
-  | x=aml_name ys=ml_arg* u=let_annotation EQ c=term
+  | x=ml_name ys=ml_arg* u=let_annotation EQ c=term
        { Let_clause_ML (Some (x, ys), u, c) }
   | UNDERSCORE u=let_annotation EQ c=term
        { Let_clause_ML (None, u, c) }
-  | x=aml_name COLON t=app_term EQ c=term
+  | x=ml_name COLON t=app_term EQ c=term
        { Let_clause_tt (Some x, t, c) }
   | UNDERSCORE COLON t=app_term EQ c=term
        { Let_clause_tt (None, t, c) }
   | pt=let_pattern u=let_annotation EQ c=term
        { Let_clause_patt (pt, u, c) }
 
-(* A possibly annotated argument of an AML function *)
+(* A possibly annotated argument of an ML function *)
 ml_arg:
-  | x=aml_name                              { (x, Arg_annot_none) }
-  | LPAREN x=aml_name COLONGT t=mlty RPAREN { (x, Arg_annot_ty t) }
+  | x=ml_name                              { (x, Arg_annot_none) }
+  | LPAREN x=ml_name COLONGT t=mlty RPAREN { (x, Arg_annot_ty t) }
 
 let_annotation:
   |                       { Let_annot_none }
@@ -360,7 +360,7 @@ plain_binop_pattern:
   | e=plain_app_pattern                                { e }
   | e1=binop_pattern oploc=infix e2=binop_pattern
     { let (op, _) = oploc in
-      Patt_Constructor (Name.mk_short op, [e1; e2])
+      Patt_Constructor (Name.path_direct op, [e1; e2])
     }
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
@@ -373,13 +373,13 @@ plain_prefix_pattern:
   | e=plain_simple_pattern            { e }
   | oploc=prefix e=prefix_pattern
     { let (op, _) = oploc in
-      Patt_Constructor (Name.mk_short op, [e])
+      Patt_Constructor (Name.path_direct op, [e])
     }
 
 (* simple_pattern: mark_location(plain_simple_pattern) { $1 } *)
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
-  | x=aml_name                     { Patt_Var x }
+  | x=ml_name                     { Patt_Var x }
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
       | [{Location.thing=p;loc=_}] -> p
@@ -408,7 +408,7 @@ plain_binop_tt_pattern:
   | p=plain_app_tt_pattern                        { p }
   | e1=binop_tt_pattern oploc=infix e2=binop_tt_pattern
     { let (op, _loc) = oploc in
-      Patt_TT_Constructor (Name.mk_short op, [e1; e2])
+      Patt_TT_Constructor (Name.path_direct op, [e1; e2])
     }
 
 (* app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 } *)
@@ -422,7 +422,7 @@ plain_prefix_tt_pattern:
   | UATOM p=prefix_tt_pattern        { Patt_TT_GenAtom p }
   | oploc=prefix e=prefix_tt_pattern
     { let (op, _loc) = oploc in
-      Patt_TT_Constructor (Name.mk_short op, [e])
+      Patt_TT_Constructor (Name.path_direct op, [e])
     }
 
 (* simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 } *)
@@ -461,7 +461,7 @@ op_mlsig:
 
 ml_schema: mark_location(plain_ml_schema)  { $1 }
 plain_ml_schema:
-  | MLFORALL params=opt_name(aml_name)+ COMMA t=mlty { ML_Forall (params, t) }
+  | MLFORALL params=opt_name(ml_name)+ COMMA t=mlty { ML_Forall (params, t) }
   | t=mlty                                           { ML_Forall ([], t) }
 
 mlty: mark_location(plain_mlty) { $1 }
@@ -484,12 +484,12 @@ plain_app_mlty:
   | plain_simple_mlty                                { $1 }
   | REF t=simple_mlty                                { ML_Ref t }
   | DYNAMIC t=simple_mlty                            { ML_Dynamic t }
-  | c=long(aml_name) args=nonempty_list(simple_mlty) { ML_TyApply (c, args) }
+  | c=long(ml_name) args=nonempty_list(simple_mlty) { ML_TyApply (c, args) }
 
 simple_mlty: mark_location(plain_simple_mlty) { $1 }
 plain_simple_mlty:
   | LPAREN t=plain_mlty RPAREN          { t }
-  | c=long(aml_name)                    { ML_TyApply (c, []) }
+  | c=long(ml_name)                    { ML_TyApply (c, []) }
   | abstr=mlty_abstracted_judgement     { ML_Judgement abstr }
   | MLUNIT                              { ML_Prod [] }
   | MLSTRING                            { ML_String }
@@ -509,7 +509,7 @@ mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def) { lst }
 
 mlty_def:
-  | a=aml_name xs=list(opt_name(aml_name)) EQ body=mlty_def_body { (a, (xs, body)) }
+  | a=ml_name xs=list(opt_name(ml_name)) EQ body=mlty_def_body { (a, (xs, body)) }
 
 mlty_def_body:
   | t=mlty                                                           { ML_Alias t }

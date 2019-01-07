@@ -54,12 +54,12 @@ type eq_term_meta = eq_term_boundary meta
 (** A stump is obtained when we invert a judgement. *)
 
 type nonrec stump_is_type =
-  | Stump_TypeConstructor of Name.constructor * argument list
+  | Stump_TypeConstructor of Ident.t * argument list
   | Stump_TypeMeta of is_type_meta * is_term list
 
 and stump_is_term =
   | Stump_TermAtom of is_atom
-  | Stump_TermConstructor of Name.constructor * argument list
+  | Stump_TermConstructor of Ident.t * argument list
   | Stump_TermMeta of is_term_meta * is_term list
   | Stump_TermConvert of is_term * eq_type
 
@@ -87,35 +87,35 @@ module Signature : sig
 
   val empty : signature
 
-  val add_rule_is_type : Name.constructor -> Rule.rule_is_type -> signature -> signature
-  val add_rule_is_term : Name.constructor -> Rule.rule_is_term -> signature -> signature
-  val add_rule_eq_type : Name.constructor -> Rule.rule_eq_type -> signature -> signature
-  val add_rule_eq_term : Name.constructor -> Rule.rule_eq_term -> signature -> signature
+  val add_rule_is_type : Ident.t -> Rule.rule_is_type -> signature -> signature
+  val add_rule_is_term : Ident.t -> Rule.rule_is_term -> signature -> signature
+  val add_rule_eq_type : Ident.t -> Rule.rule_eq_type -> signature -> signature
+  val add_rule_eq_term : Ident.t -> Rule.rule_eq_term -> signature -> signature
 
 end
 
 val form_rule_is_type :
-  (Name.meta * boundary) list -> Rule.rule_is_type
+  (Nonce.t * boundary) list -> Rule.rule_is_type
 
 val form_rule_is_term :
-  (Name.meta * boundary) list -> is_type -> Rule.rule_is_term
+  (Nonce.t * boundary) list -> is_type -> Rule.rule_is_term
 
 val form_rule_eq_type :
-  (Name.meta * boundary) list -> is_type * is_type -> Rule.rule_eq_type
+  (Nonce.t * boundary) list -> is_type * is_type -> Rule.rule_eq_type
 
 val form_rule_eq_term :
-  (Name.meta * boundary) list -> is_term * is_term * is_type -> Rule.rule_eq_term
+  (Nonce.t * boundary) list -> is_term * is_term * is_type -> Rule.rule_eq_term
 
 (** Given a type formation rule and a list of arguments, match the rule
    against the given arguments, make sure they fit the rule, and return the
    judgement corresponding to the conclusion of the rule. *)
-val form_is_type : signature -> Name.constructor -> argument list -> is_type
+val form_is_type : signature -> Ident.t -> argument list -> is_type
 
 (** Given a term rule and a list of arguments, match the rule against the given
     arguments, make sure they fit the rule, and return the list of arguments that
     the term constructor should be applied to, together with the natural type of
     the resulting term. *)
-val form_is_term : signature -> Name.constructor -> argument list -> is_term
+val form_is_term : signature -> Ident.t -> argument list -> is_term
 
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
@@ -135,7 +135,7 @@ val form_is_term_convert : signature -> is_term -> eq_type -> is_term
 (** Given an equality type rule and a list of arguments, match the rule against
     the given arguments, make sure they fit the rule, and return the conclusion
     of the instance of the rule so obtained. *)
-val form_eq_type : signature -> Name.constructor -> argument list -> eq_type
+val form_eq_type : signature -> Ident.t -> argument list -> eq_type
 
 val form_eq_type_meta : signature -> eq_type_meta -> is_term list -> eq_type
 
@@ -144,7 +144,7 @@ val form_eq_term_meta : signature -> eq_term_meta -> is_term list -> eq_term
 (** Given an terms equality type rule and a list of arguments, match the rule
     against the given arguments, make sure they fit the rule, and return the
     conclusion of the instance of the rule so obtained. *)
-val form_eq_term : signature -> Name.constructor -> argument list -> eq_term
+val form_eq_term : signature -> Ident.t -> argument list -> eq_term
 
 (** Form a non-abstracted abstraction *)
 val abstract_not_abstract : 'a -> 'a abstraction
@@ -161,13 +161,13 @@ val abstract_boundary_eq_type : is_atom -> eq_type_boundary -> eq_type_boundary
 val abstract_boundary_eq_term : is_atom -> eq_term_boundary -> eq_term_boundary
 
 (** [fresh_atom x t] Create a fresh atom from name [x] with type [t] *)
-val fresh_atom : Name.ident -> is_type -> is_atom
+val fresh_atom : Name.t -> is_type -> is_atom
 
 (** [fresh_is_type_meta x abstr] creates a fresh type meta-variable of type [abstr] *)
-val fresh_is_type_meta : Name.ident -> is_type_boundary -> is_type_meta
-val fresh_is_term_meta : Name.ident -> is_term_boundary -> is_term_meta
-val fresh_eq_type_meta : Name.ident -> eq_type_boundary -> eq_type_meta
-val fresh_eq_term_meta : Name.ident -> eq_term_boundary -> eq_term_meta
+val fresh_is_type_meta : Name.t -> is_type_boundary -> is_type_meta
+val fresh_is_term_meta : Name.t -> is_term_boundary -> is_term_meta
+val fresh_eq_type_meta : Name.t -> eq_type_boundary -> eq_type_meta
+val fresh_eq_term_meta : Name.t -> eq_term_boundary -> eq_term_meta
 
 val is_type_meta_eta_expanded : signature -> is_type_meta -> is_type_abstraction
 val is_term_meta_eta_expanded : signature -> is_term_meta -> is_term_abstraction
@@ -185,21 +185,21 @@ val invert_eq_type : eq_type -> stump_eq_type
 
 val invert_eq_term : eq_term -> stump_eq_term
 
-val atom_name : is_atom -> Name.atom
+val atom_name : is_atom -> Name.t
 
-val meta_name : 'a meta -> Name.meta
+val meta_name : 'a meta -> Name.t
 
 val invert_is_term_abstraction :
-  ?atom_name:Name.ident -> is_term_abstraction -> is_term stump_abstraction
+  ?name:Name.t -> is_term_abstraction -> is_term stump_abstraction
 
 val invert_is_type_abstraction :
-  ?atom_name:Name.ident -> is_type_abstraction -> is_type stump_abstraction
+  ?name:Name.t -> is_type_abstraction -> is_type stump_abstraction
 
 val invert_eq_type_abstraction :
-  ?atom_name:Name.ident -> eq_type_abstraction -> eq_type stump_abstraction
+  ?name:Name.t -> eq_type_abstraction -> eq_type stump_abstraction
 
 val invert_eq_term_abstraction :
-  ?atom_name:Name.ident -> eq_term_abstraction -> eq_term stump_abstraction
+  ?name:Name.t -> eq_term_abstraction -> eq_term stump_abstraction
 
 val context_is_type_abstraction : is_type_abstraction -> is_atom list
 val context_is_term_abstraction : is_term_abstraction -> is_atom list
@@ -284,39 +284,39 @@ val natural_type_eq : signature -> is_term -> eq_type
 (** Congruence rules *)
 
 val congruence_type_constructor :
-  signature -> Name.constructor -> congruence_argument list -> eq_type
+  signature -> Ident.t -> congruence_argument list -> eq_type
 
 val congruence_term_constructor :
-  signature -> Name.constructor -> congruence_argument list -> eq_term
+  signature -> Ident.t -> congruence_argument list -> eq_term
 
 (** Printing routines *)
 
 val print_is_term :
-  ?max_level:Level.t -> names:(Name.ident list) -> is_term -> Format.formatter -> unit
+  ?max_level:Level.t -> names:(Name.t list) -> is_term -> Format.formatter -> unit
 
 val print_is_type :
-  ?max_level:Level.t -> names:(Name.ident list) -> is_type -> Format.formatter -> unit
+  ?max_level:Level.t -> names:(Name.t list) -> is_type -> Format.formatter -> unit
 
 val print_eq_term :
-  ?max_level:Level.t -> names:(Name.ident list) -> eq_term -> Format.formatter -> unit
+  ?max_level:Level.t -> names:(Name.t list) -> eq_term -> Format.formatter -> unit
 
 val print_eq_type :
-  ?max_level:Level.t -> names:(Name.ident list) -> eq_type -> Format.formatter -> unit
+  ?max_level:Level.t -> names:(Name.t list) -> eq_type -> Format.formatter -> unit
 
 val print_is_term_abstraction :
-  ?max_level:Level.t -> names:(Name.ident list) -> is_term_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> names:(Name.t list) -> is_term_abstraction -> Format.formatter -> unit
 
 val print_is_type_abstraction :
-  ?max_level:Level.t -> names:(Name.ident list) -> is_type_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> names:(Name.t list) -> is_type_abstraction -> Format.formatter -> unit
 
 val print_eq_term_abstraction :
-  ?max_level:Level.t -> names:(Name.ident list) -> eq_term_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> names:(Name.t list) -> eq_term_abstraction -> Format.formatter -> unit
 
 val print_eq_type_abstraction :
-  ?max_level:Level.t -> names:(Name.ident list) -> eq_type_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> names:(Name.t list) -> eq_type_abstraction -> Format.formatter -> unit
 
 (** Print a nucleus error *)
-val print_error : names:(Name.ident list) -> error -> Format.formatter -> unit
+val print_error : names:(Name.t list) -> error -> Format.formatter -> unit
 
 module Json :
 sig

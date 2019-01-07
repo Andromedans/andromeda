@@ -39,13 +39,13 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
      | None -> None
      | Some eq -> Some (Mk.not_abstract eq)
      end
-  | Abstract (x1, t1, abstr1), Abstract (_x2, t2, abstr2) ->
-     begin match Alpha_equal.is_type t1 t2 with
+  | Abstract (atm1, abstr1), Abstract (atm2, abstr2) ->
+     begin match Alpha_equal.is_type atm1.atom_type atm2.atom_type with
      | false -> None
      | true ->
         begin match form_alpha_equal_abstraction equal_u abstr1 abstr2 with
         | None -> None
-        | Some eq -> Some (Mk.abstract x1 t1 eq)
+        | Some eq -> Some (Mk.abstract atm1 eq)
         end
      end
   | (NotAbstract _, Abstract _)

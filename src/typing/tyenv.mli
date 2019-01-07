@@ -29,7 +29,7 @@ val lookup_var : Rsyntax.bound -> Mlty.ty tyenvM
 (** Lookup an operation, returning the expected types of its arguments and the type it returns. *)
 val lookup_op : Name.operation -> (Mlty.ty list * Mlty.ty) tyenvM
 
-(** Lookup an AML constructor, returning the expected types of its arguments and the type it returns. *)
+(** Lookup an ML constructor, returning the expected types of its arguments and the type it returns. *)
 val lookup_aml_constructor : Name.constructor -> (Mlty.ty list * Mlty.ty) tyenvM
 
 (** Lookup a TT constructor, returning its expected form. *)
@@ -60,7 +60,7 @@ val op_cases : Name.operation -> output:Mlty.ty -> (Mlty.ty list -> 'a tyenvM) -
 
 (** [predefined_type x ts] creates the type [x ts] assuming the type definition for [x]
     can be found in the environment. *)
-val predefined_type : Name.ty -> Mlty.ty list -> Mlty.ty tyenvM
+val predefined_type : Name.ml_type -> Mlty.ty list -> Mlty.ty tyenvM
 
 (** Generalize the given type as much as possible in the current environment,
     but using only [known_context] as typing context, possibly solving
@@ -109,7 +109,7 @@ val locally_add_var : Name.ident -> Mlty.ty -> 'a tyenvM -> 'a tyenvM
 val add_var : Name.ident -> Mlty.ty -> unit tyenvM
 
 (** Define a new type. The type definition may refer to not-yet-defined types, relying on the caller to add them afterwards. *)
-val add_tydef : Name.ty -> Mlty.ty_def -> unit tyenvM
+val add_tydef : Name.ml_type -> Mlty.ty_def -> unit tyenvM
 
 (** Declare a new operation. *)
 val add_operation : Name.operation -> Mlty.ty list * Mlty.ty -> unit tyenvM

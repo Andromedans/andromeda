@@ -1,7 +1,7 @@
 (** Runtime values and computations *)
 
-type aml_ref = Store.Ref.key
-type aml_dyn = Store.Dyn.key
+type ml_ref = Store.Ref.key
+type ml_dyn = Store.Dyn.key
 
 (** This module defines 2 monads:
     - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
@@ -31,7 +31,7 @@ and dynamic = {
 
 and lexical = {
   (* names of de Bruijn indices *)
-  names : Name.ident list;
+  names : Name.t list;
 
   (* values to which de Bruijn indices are bound *)
   bound : value list;
@@ -49,10 +49,10 @@ and value =
   | EqType of Nucleus.eq_type_abstraction
   | Closure of (value, value) closure
   | Handler of handler
-  | Tag of Name.ident * value list
+  | Tag of Ident.t * value list
   | Tuple of value list
-  | Ref of aml_ref
-  | Dyn of aml_dyn
+  | Ref of ml_ref
+  | Dyn of ml_dyn
   | String of string
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
@@ -60,7 +60,7 @@ and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
 and 'a result =
   | Return of 'a
-  | Operation of Name.ident * value list * Nucleus.is_type_abstraction option * dynamic * 'a continuation
+  | Operation of Ident.t * value list * Nucleus.is_type_abstraction option * dynamic * 'a continuation
 
 and 'a comp = env -> 'a result * state
 
@@ -68,7 +68,7 @@ and operation_args = { args : value list; checking : Nucleus.is_type_abstraction
 
 and handler = {
   handler_val: (value,value) closure option;
-  handler_ops: (value continuation -> (operation_args, value) closure) Name.IdentMap.t;
+  handler_ops: (value continuation -> (operation_args, value) closure) Ident.map;
   handler_finally: (value,value) closure option;
 }
 
@@ -87,7 +87,7 @@ type error =
   | UnexpectedAbstraction of Nucleus.is_type
   | TermEqualityFail of Nucleus.is_term * Nucleus.is_term
   | TypeEqualityFail of Nucleus.is_type * Nucleus.is_type
-  | UnannotatedAbstract of Name.ident
+  | UnannotatedAbstract of Name.t
   | MatchFail of value
   | FailureFail of value
   | InvalidComparison
@@ -114,7 +114,7 @@ type error =
   | CoercibleExpected of value
   | InvalidConvertible of Nucleus.is_type_abstraction * Nucleus.is_type_abstraction * Nucleus.eq_type_abstraction
   | InvalidCoerce of Nucleus.is_type_abstraction * Nucleus.is_term_abstraction
-  | UnhandledOperation of Name.operation * value list
+  | UnhandledOperation of Ident.t * value list
   | InvalidPatternMatch of value
   | InvalidHandlerMatch
 
@@ -192,7 +192,7 @@ let return_handler handler_val handler_ops handler_finally env =
   let option_map g = function None -> None | Some x -> Some (g x) in
   let h = {
     handler_val = option_map (fun v -> mk_closure0 v env) handler_val ;
-    handler_ops = Name.IdentMap.map (fun f ->
+    handler_ops = Ident.map (fun f ->
       fun k -> mk_closure0 f {env with lexical = {env.lexical with continuation = Some k}}) handler_ops ;
     handler_finally = option_map (fun v -> mk_closure0 v env) handler_finally ;
   } in
@@ -335,7 +335,7 @@ let lookup_signature env =
 
 let add_rule add_rule_to_signature rname rule env =
   let signature = add_rule_to_signature rname rule env.dynamic.signature
-  and names = rname :: env.lexical.names in
+  and names = Ident.name rname :: env.lexical.names in
   let env = { env
               with dynamic = { env.dynamic with signature }
                  ; lexical = { env.lexical with names }
@@ -440,8 +440,8 @@ let top_lookup_signature env =
   get_signature env, env
 
 let rec as_list_opt = function
-  | Tag (t, []) when Name.eq_ident t Name.Predefined.nil -> Some []
-  | Tag (t, [x;xs]) when Name.eq_ident t Name.Predefined.cons ->
+  | Tag (t, []) when Name.equal (Ident.name t) Name.Predefined.nil -> Some []
+  | Tag (t, [x;xs]) when Name.equal (Ident.name t) Name.Predefined.cons ->
      begin
        match as_list_opt xs with
        | None -> None
@@ -471,7 +471,7 @@ let rec print_value ?max_level ~names v ppf =
        match as_list_opt v with
        | Some lst -> Format.fprintf ppf "@[<hov 1>[%t]@]"
                        (Print.sequence (print_value ~max_level:Level.highest ~names) ";" lst)
-       | None ->  print_tag ?max_level ~names t lst ppf
+       | None ->  print_tag ?max_level ~names (Ident.name t) lst ppf
      end
 
   | Tuple lst -> Format.fprintf ppf "@[<hov 1>(%t)@]"
@@ -488,7 +488,7 @@ let rec print_value ?max_level ~names v ppf =
 and print_tag ?max_level ~names t lst ppf =
   match t, lst with
 
-  | Name.Ident (_, Name.Prefix), [v] ->
+  | {Name.fixity=Name.Prefix;_}, [v] ->
      (* prefix tag applied to one argument *)
      (* Although it is reasonable to parse prefix operators as
         binding very tightly, it can be confusing to see
@@ -498,51 +498,51 @@ and print_tag ?max_level ~names t lst ppf =
         Level.app and Level.app_right instead of
         Level.prefix and Level.prefix_arg *)
      Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
-                 (Name.print_ident ~parentheses:false t)
+                 (Name.print ~parentheses:false t)
                  (print_value ~max_level:Level.prefix_arg ~names v)
 
-  | Name.Ident (_, Name.Infix fixity), [v1; v2] ->
+  | {Name.fixity=Name.Infix fixity;_}, [v1; v2] ->
      (* infix tag applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
                  (print_value ~max_level:lvl_left ~names v1)
-                 (Name.print_ident ~parentheses:false t)
+                 (Name.print ~parentheses:false t)
                  (print_value ~max_level:lvl_right ~names v2)
 
   | _ ->
      (* print as application *)
      begin
        match lst with
-       | [] -> Name.print_ident t ppf
+       | [] -> Name.print t ppf
        | (_::_) -> Print.print ?max_level ~at_level:Level.ml_tag ppf "@[<hov 2>%t@ %t@]"
-                     (Name.print_ident t)
+                     (Name.print t)
                      (Print.sequence (print_value ~max_level:Level.ml_tag_arg ~names) "" lst)
      end
 
 let print_operation ~names op vs ppf =
   match op, vs with
 
-  | Name.Ident (_, Name.Prefix), [v] ->
+  | {Name.fixity=Name.Prefix;_}, [v] ->
      (* prefix op applied to one argument *)
      Print.print ppf ~at_level:Level.prefix "%t@ %t"
-       (Name.print_ident ~parentheses:false op)
+       (Name.print ~parentheses:false op)
        (print_value ~max_level:Level.prefix_arg ~names v)
 
-  | Name.Ident (_, Name.Infix fixity), [v1; v2] ->
+  | {Name.fixity=Name.Infix fixity;_}, [v1; v2] ->
      (* infix op applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ~at_level:lvl_op "%t@ %t@ %t"
        (print_value ~max_level:lvl_left ~names v1)
-       (Name.print_ident ~parentheses:false op)
+       (Name.print ~parentheses:false op)
        (print_value ~max_level:lvl_right ~names v2)
 
   | _ ->
      (* print as application *)
      begin
        match vs with
-       | [] -> Name.print_ident op ppf
+       | [] -> Name.print op ppf
        | (_::_) -> Print.print ~at_level:Level.ml_operation ppf "[@<hov 2>%t@ %t@]"
-                     (Name.print_ident op)
+                     (Name.print op)
                      (Print.sequence (print_value ~max_level:Level.ml_operation_arg ~names) "" vs)
      end
 
@@ -589,7 +589,7 @@ let print_error ~names err ppf =
                     (Nucleus.print_is_type ~names t2)
 
   | UnannotatedAbstract x ->
-     Format.fprintf ppf "cannot infer the type of@ %t@ in abstraction" (Name.print_ident x)
+     Format.fprintf ppf "cannot infer the type of@ %t@ in abstraction" (Name.print x)
 
   | MatchFail v ->
      Format.fprintf ppf "no matching pattern found for value@ %t"
@@ -683,7 +683,7 @@ let print_error ~names err ppf =
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "unhandled operation %t"
-                    (print_operation ~names op vs)
+                    (print_operation ~names (Ident.name op) vs)
 
   | InvalidPatternMatch v ->
      Format.fprintf ppf "this pattern cannot match@ %t"
@@ -721,7 +721,7 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
      let cont = mk_cont (fun v env -> handle_comp h (apply_cont cont v) env) env in
      begin
        try
-         let f = (Name.IdentMap.find op handler_ops) cont in
+         let f = (Ident.find op handler_ops) cont in
          (apply_closure f {args=vs;checking=jt}) env
        with
          Not_found ->
@@ -757,7 +757,7 @@ let rec equal_value v1 v2 =
        eq1 == eq2
 
     | Tag (t1,vs1), Tag (t2,vs2) ->
-      Name.eq_ident t1 t2 &&
+      Ident.equal t1 t2 &&
       let rec fold vs1 vs2 =
         match vs1, vs2 with
           | [], [] -> true
@@ -829,7 +829,7 @@ struct
 
     | Handler _ -> Json.tag "<handler>" []
 
-    | Tag (c, lst) -> Json.tag "Tag" [Name.Json.ident c; Json.List (List.map value lst)]
+    | Tag (c, lst) -> Json.tag "Tag" [Ident.Json.ident c; Json.List (List.map value lst)]
 
     | Tuple lst -> Json.tag "Tuple" [Json.List (List.map value lst)]
 

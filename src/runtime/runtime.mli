@@ -2,11 +2,11 @@
 
 (** {6 Values} *)
 
-(** An AML reference cell. *)
-type aml_ref
+(** An ML reference cell. *)
+type ml_ref
 
-(** An AML dynamic variable. *)
-type aml_dyn
+(** An ML dynamic variable. *)
+type ml_dyn
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
 type value = private
@@ -14,17 +14,17 @@ type value = private
   | IsType of Nucleus.is_type_abstraction    (** A type judgment *)
   | EqTerm of Nucleus.eq_term_abstraction    (** A term equality *)
   | EqType of Nucleus.eq_type_abstraction    (** A type equality *)
-  | Closure of (value,value) closure         (** An AML function *)
+  | Closure of (value,value) closure         (** An ML function *)
   | Handler of handler                       (** Handler value *)
-  | Tag of Name.ident * value list           (** Application of a data constructor *)
+  | Tag of Ident.t * value list              (** Application of a data constructor *)
   | Tuple of value list                      (** Tuple of values *)
-  | Ref of aml_ref                           (** Ref cell *)
-  | Dyn of aml_dyn                           (** Dynamic variable *)
+  | Ref of ml_ref                            (** Ref cell *)
+  | Dyn of ml_dyn                            (** Dynamic variable *)
   | String of string                         (** String constant (opaque, not a list) *)
 
 and operation_args = { args : value list; checking : Nucleus.is_type_abstraction option }
 
-(** A handler contains AML code for handling zero or more operations,
+(** A handler contains ML code for handling zero or more operations,
     plus the default case *)
 and handler
 
@@ -52,13 +52,13 @@ val mk_eq_type : Nucleus.eq_type_abstraction -> value
 val mk_handler : handler -> value
 
 (** Build a [Tag] value *)
-val mk_tag     : Name.ident -> value list -> value
+val mk_tag : Ident.t -> value list -> value
 
 (** Build a [Tuple] value *)
-val mk_tuple   : value list -> value
+val mk_tuple : value list -> value
 
 (** Build a [String] value *)
-val mk_string  : string -> value
+val mk_string : string -> value
 
 
 (** {b Value extraction} *)
@@ -94,10 +94,10 @@ val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
 
 (** Convert, or fail with [RefExpected] *)
-val as_ref : loc:Location.t -> value -> aml_ref
+val as_ref : loc:Location.t -> value -> ml_ref
 
 (** Convert, or fail with [DynExpected] *)
-val as_dyn : loc:Location.t -> value -> aml_dyn
+val as_dyn : loc:Location.t -> value -> ml_dyn
 
 (** Convert, or fail with [StringExpected] *)
 val as_string : loc:Location.t -> value -> string
@@ -108,12 +108,12 @@ val as_string : loc:Location.t -> value -> string
 (** Check whether two values are equal. *)
 val equal_value: value -> value -> bool
 
-(** Check whether the given value represents an AML list *)
+(** Check whether the given value represents an ML list *)
 val as_list_opt : value -> value list option
 
 (** Pretty-print a value. *)
 val print_value :
-  ?max_level:Level.t -> names:(Name.ident list) -> value -> Format.formatter -> unit
+  ?max_level:Level.t -> names:(Name.t list) -> value -> Format.formatter -> unit
 
 
 (** {6 Error Handling} *)
@@ -129,7 +129,7 @@ type error =
   | UnexpectedAbstraction of Nucleus.is_type
   | TermEqualityFail of Nucleus.is_term * Nucleus.is_term
   | TypeEqualityFail of Nucleus.is_type * Nucleus.is_type
-  | UnannotatedAbstract of Name.ident
+  | UnannotatedAbstract of Name.t
   | MatchFail of value
   | FailureFail of value
   | InvalidComparison
@@ -156,7 +156,7 @@ type error =
   | CoercibleExpected of value
   | InvalidConvertible of Nucleus.is_type_abstraction * Nucleus.is_type_abstraction * Nucleus.eq_type_abstraction
   | InvalidCoerce of Nucleus.is_type_abstraction * Nucleus.is_term_abstraction
-  | UnhandledOperation of Name.operation * value list
+  | UnhandledOperation of Ident.t * value list
   | InvalidPatternMatch of value
   | InvalidHandlerMatch
 
@@ -164,7 +164,7 @@ type error =
 exception Error of error Location.located
 
 (** Pretty-print a runtime error *)
-val print_error : names:(Name.ident list) -> error -> Format.formatter -> unit
+val print_error : names:(Name.t list) -> error -> Format.formatter -> unit
 
 (** Report a runtime error (raises an Error exception) *)
 val error : loc:Location.t -> error -> 'a
@@ -195,7 +195,7 @@ val return_eq_type : Nucleus.eq_type_abstraction -> value comp
 val return_closure : (value -> value comp) -> value comp
 val return_handler :
    (value -> value comp) option ->
-   (operation_args -> value comp) Name.IdentMap.t ->
+   (operation_args -> value comp) Ident.map ->
    (value -> value comp) option ->
    value comp
 
@@ -209,25 +209,25 @@ val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 val mk_ref : value -> value comp
 
 (** A computation that dereferences the given reference cell. *)
-val lookup_ref : aml_ref -> value comp
+val lookup_ref : ml_ref -> value comp
 
 (** A computation that updates the given reference cell with the given value. *)
-val update_ref : aml_ref -> value -> unit comp
+val update_ref : ml_ref -> value -> unit comp
 
 (** A computation that invokes the specified operation. *)
-val operation : Name.operation -> ?checking:Nucleus.is_type_abstraction -> value list -> value comp
+val operation : Ident.t -> ?checking:Nucleus.is_type_abstraction -> value list -> value comp
 
 (** Wrap the given computation with a handler. *)
 val handle_comp : handler -> value comp -> value comp
 
 (** Wrap the given computation with a dynamic variable binding. *)
-val now : aml_dyn -> value -> 'a comp -> 'a comp
+val now : ml_dyn -> value -> 'a comp -> 'a comp
 
 (** Lookup the current continuation. Only usable while handling an operation. *)
 val continue : loc:Location.t -> value -> value comp
 
 (** Get the list of names of bound variables *)
-val lookup_names : Name.ident list comp
+val lookup_names : Name.t list comp
 
 (** Gets the current rules of inference. *)
 val lookup_signature : Nucleus.signature comp
@@ -246,13 +246,13 @@ val index_of_level : Rsyntax.level -> Rsyntax.bound comp
 (** [add_free ~loc x t f] generates a fresh atom [a] from identifier [x],
     and runs [f a] in the environment extended with [a : t].
     NB: This is an effectful computation, as it increases a global counter. *)
-val add_free: Name.ident -> Nucleus.is_type -> (Nucleus.is_atom -> 'a comp) -> 'a comp
+val add_free: Name.t -> Nucleus.is_type -> (Nucleus.is_atom -> 'a comp) -> 'a comp
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> int -> value comp
 
 (** Lookup the current value of a dynamic variable. *)
-val lookup_dyn : aml_dyn -> value comp
+val lookup_dyn : ml_dyn -> value comp
 
 (** {6 Toplevel} *)
 
@@ -279,27 +279,27 @@ val add_topbound : value -> unit toplevel
 val add_topbound_rec : (value -> value comp) list -> unit toplevel
 
 (** Add a dynamic variable. *)
-val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
+val add_dynamic : loc:Location.t -> Name.t -> value -> unit toplevel
 
 (** Modify the value bound by a dynamic variable *)
-val top_now : aml_dyn -> value -> unit toplevel
+val top_now : ml_dyn -> value -> unit toplevel
 
 (** Extend the signature with a new is_type rule *)
-val add_rule_is_type : Name.constructor -> Rule.rule_is_type -> unit toplevel
+val add_rule_is_type : Ident.t -> Rule.rule_is_type -> unit toplevel
 
 (** Extend the signature with a new is_term rule *)
-val add_rule_is_term : Name.constructor -> Rule.rule_is_term -> unit toplevel
+val add_rule_is_term : Ident.t -> Rule.rule_is_term -> unit toplevel
 
 (** Extend the signature with a new is_type rule *)
-val add_rule_eq_type : Name.constructor -> Rule.rule_eq_type -> unit toplevel
+val add_rule_eq_type : Ident.t -> Rule.rule_eq_type -> unit toplevel
 
 (** Extend the signature with a new is_term rule *)
-val add_rule_eq_term : Name.constructor -> Rule.rule_eq_term -> unit toplevel
+val add_rule_eq_term : Ident.t -> Rule.rule_eq_term -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
 val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
 
-val top_lookup_names : Name.ident list toplevel
+val top_lookup_names : Name.t list toplevel
 
 (** Get the signature from the toplevel monad *)
 val top_lookup_signature : Nucleus.signature toplevel
@@ -313,7 +313,7 @@ type topenv
 val empty : topenv
 
 (** Get the list of rule names (used to print constructors). *)
-val get_names : topenv -> Name.ident list
+val get_names : topenv -> Name.t list
 
 (** Execute a toplevel command in the given environment. *)
 val exec : 'a toplevel -> topenv -> 'a * topenv

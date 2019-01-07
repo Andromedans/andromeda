@@ -86,7 +86,7 @@ let apply_is_type_abstraction = Apply_abstraction.apply_is_type_abstraction
 
 let occurs_abstraction assumptions_u a abstr =
   let asmp = Collect_assumptions.abstraction assumptions_u abstr in
-  Assumption.mem_atom a.atom_name asmp
+  Assumption.mem_atom a.atom_nonce asmp
 
 let occurs_is_type_abstraction = occurs_abstraction Collect_assumptions.is_type
 let occurs_is_term_abstraction = occurs_abstraction Collect_assumptions.is_term

@@ -17,7 +17,7 @@ let rec generalizable c =
   (* yes *)
   | Rsyntax.Bound _ | Rsyntax.Function _ | Rsyntax.Handler _| Rsyntax.String _ ->
      Generalizable
-  | Rsyntax.AMLConstructor (_, cs) | Rsyntax.Tuple cs ->
+  | Rsyntax.MLConstructor (_, cs) | Rsyntax.Tuple cs ->
     if List.for_all (fun c -> generalizable c = Generalizable) cs
     then Generalizable
     else Ungeneralizable
@@ -253,7 +253,7 @@ let rec pattern ~bind_var {Location.thing=p;loc} =
       match ps, ts with
       | [], [] ->
          let qs = List.rev qs in
-         return (locate ~loc (Pattern.AMLConstructor (c, qs)), out)
+         return (locate ~loc (Pattern.MLConstructor (c, qs)), out)
       | p::ps, t::ts ->
         check_pattern ~bind_var p t >>= fun q ->
         fold (q::qs) ps ts
@@ -380,13 +380,13 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     in
     fold [] cs ts
 
-  | Dsyntax.AMLConstructor (c, cs) ->
+  | Dsyntax.MLConstructor (c, cs) ->
     Tyenv.lookup_aml_constructor c >>= fun (ts, out) ->
     let tcs = List.combine ts cs in
     let rec fold cs = function
       | [] ->
         let cs = List.rev cs in
-        return (locate ~loc (Rsyntax.AMLConstructor (c, cs)), out)
+        return (locate ~loc (Rsyntax.MLConstructor (c, cs)), out)
       | (t, c) :: tcs ->
         check_comp c t >>= fun c ->
         fold (c :: cs) tcs
@@ -1043,7 +1043,7 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
   | Dsyntax.Verbosity v ->
     return_located ~loc (Rsyntax.Verbosity v)
 
-  | Dsyntax.AMLModules mdls ->
+  | Dsyntax.MLModules mdls ->
     let rec fold_modules mdls = function
       | [] -> return (List.rev mdls)
       | (f, cs) :: rem ->
@@ -1057,6 +1057,6 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
          fold_modules ((f, cs) :: mdls) rem
     in
     fold_modules [] mdls >>= fun mdls ->
-    return_located ~loc (Rsyntax.AMLModules mdls)
+    return_located ~loc (Rsyntax.MLModules mdls)
 
 let toplevel env c = Tyenv.run env (toplevel' c)

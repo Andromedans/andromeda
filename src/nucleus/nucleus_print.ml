@@ -16,8 +16,8 @@ let rec ty ?max_level ~names t ppf =
 
 and term ?max_level ~names e ppf =
   match e with
-  | TermAtom {atom_name=x; _} ->
-     Name.print_atom x ppf
+  | TermAtom {atom_nonce=x; _} ->
+     Nonce.print ~parentheses:true x ppf
 
   | TermBound k -> Name.print_debruijn names k ppf
 
@@ -53,31 +53,31 @@ and eq_term ?max_level ~names (EqTerm (_asmp, e1, e2, t)) ppf =
     (ty ~names t)
 
 and meta :
-  type a . ?max_level:Level.t -> names:(Name.ident list)
+  type a . ?max_level:Level.t -> names:(Name.t list)
             -> a meta -> is_term list -> Format.formatter -> unit
-  = fun ?max_level ~names {meta_name;_} args ppf ->
+  = fun ?max_level ~names {meta_nonce;_} args ppf ->
   match args with
   | [] ->
-     Name.print_meta ~parentheses:true meta_name ppf
+     Nonce.print ~parentheses:true meta_nonce ppf
   | _::_ ->
      Print.print ~at_level:Level.meta ?max_level ppf "%t@ %t"
-    (Name.print_meta meta_name)
+    (Nonce.print ~parentheses:true meta_nonce)
     (Print.sequence (term ~max_level:Level.meta_arg ~names) "" args) ;
 
 and constructor ?max_level ~names c args ppf =
   match args with
   | [] ->
-     Name.print_ident ~parentheses:true c ppf
+     Ident.print ~parentheses:true c ppf
   | _::_ ->
      Print.print ~at_level:Level.constructor ?max_level ppf "%t@ %t"
-       (Name.print_ident c)
+       (Ident.print c)
        (Print.sequence (argument ~names) "" args) ;
 
 and abstraction
    : 'b . (bound -> 'b -> bool) ->
-          (?max_level:Level.t -> names:(Name.ident list) -> 'b -> Format.formatter -> unit) ->
+          (?max_level:Level.t -> names:(Name.t list) -> 'b -> Format.formatter -> unit) ->
           ?max_level:Level.t ->
-          names:(Name.ident list) ->
+          names:(Name.t list) ->
           'b abstraction ->
           Format.formatter -> unit
   = fun occurs_v print_v ?max_level ~names abstr ppf ->
@@ -87,10 +87,10 @@ and abstraction
     | NotAbstract v ->
           print_v ~max_level:Level.abstraction_body ~names v ppf
 
-    | Abstract (x, u, abstr) ->
+    | Abstract ({atom_nonce=x; atom_type=u}, abstr) ->
        let x =
          (if Occurs.abstraction occurs_v 0 abstr then
-            Name.refresh names x
+            Name.refresh names (Nonce.name x)
           else
             Name.anonymous ())
        in
@@ -116,7 +116,7 @@ and argument ~names arg ppf =
 
 and binder ~names (x,t) ppf =
   Print.print ppf "{%t@ :@ %t}"
-    (Name.print_ident ~parentheses:true x)
+    (Name.print ~parentheses:true x)
     (ty ~max_level:Level.binder ~names t)
 
 

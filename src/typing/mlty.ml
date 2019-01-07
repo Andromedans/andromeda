@@ -55,7 +55,7 @@ type ty =
   | Prod of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
-  | App of Name.ident * Dsyntax.level * ty list
+  | App of Ident.t * Dsyntax.level * ty list
   | Ref of ty
   | Dynamic of ty
 
@@ -76,11 +76,9 @@ type 'a forall = param list * 'a
 
 type ty_schema = ty forall
 
-type aml_constructor = Name.constructor * ty list
-
 type ty_def =
   | Alias of ty forall
-  | Sum of aml_constructor list forall
+  | Sum of (Name.t * ty list) list forall
 
 type error =
   | InvalidApplication of ty * ty * ty
@@ -187,11 +185,11 @@ let rec print_ty ~penv ?max_level t ppf =
                  (print_ty ~penv ~max_level:(Level.ml_handler_right) t2)
 
   | App (x, _, []) ->
-     Format.fprintf ppf "%t" (Name.print_ident x)
+     Format.fprintf ppf "%t" (Ident.print x)
 
   | App (x, _, ts) ->
      Print.print ?max_level ~at_level:Level.ml_app ppf "%t@ %t"
-                 (Name.print_ident x)
+                 (Ident.print x)
                  (Print.sequence (print_ty ~penv ~max_level:Level.ml_app_arg) "" ts)
 
   | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "ref@ %t"

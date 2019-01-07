@@ -3,87 +3,88 @@
 (** The arity of an operation or a data constructor. *)
 type arity = int
 
+
 (** Information about names *)
-type 'a info =
-  | Variable of 'a
+type info =
+  | Variable of int
   | TTConstructor of arity
-  | AMLConstructor of arity
+  | MLConstructor of arity
   | Operation of arity
 
 let print_info info ppf = match info with
   | Variable _ -> Format.fprintf ppf "a variable"
   | TTConstructor _ -> Format.fprintf ppf "a constructor"
-  | AMLConstructor _ -> Format.fprintf ppf "an AML constructor"
+  | MLConstructor _ -> Format.fprintf ppf "an ML constructor"
   | Operation _ -> Format.fprintf ppf "an operation"
 
 type error =
-  | UnknownName of Name.ident
-  | UnknownTypeName of Name.ident
-  | OperationExpected : Name.ident * 'a info -> error
-  | OperationAlreadyDeclared of Name.ident
-  | AMLConstructorAlreadyDeclared of Name.ident
-  | TTConstructorAlreadyDeclared of Name.ident
-  | InvalidTermPatternName : Name.ident * 'a info -> error
-  | InvalidPatternName : Name.ident * 'a info -> error
-  | InvalidAppliedPatternName : Name.ident * 'a info -> error
-  | NonlinearPattern : Name.ident -> error
-  | ArityMismatch of Name.ident * int * int
+  | UnknownName of Path.t
+  | UnknownTypeName of Path.t
+  | OperationExpected : Path.t * 'a info -> error
+  | OperationAlreadyDeclared of Name.t
+  | MLConstructorAlreadyDeclared of Name.t
+  | TTConstructorAlreadyDeclared of Name.t
+  | InvalidTermPatternName : Name.t * 'a info -> error
+  | InvalidPatternName : Name.t * 'a info -> error
+  | InvalidAppliedPatternName : Name.t * 'a info -> error
+  | NonlinearPattern : Name.t -> error
+  | ArityMismatch of Path.t * int * int
   | UnboundYield
-  | ParallelShadowing of Name.ident
+  | ParallelShadowing of Name.t
   | AppliedTyParam
-  | RequiredModuleMissing of Name.aml_module * string list
-  | CircularRequire of Name.aml_module list
+  | RequiredModuleMissing of Path.t * string list
+  | CircularRequire of Path.t list
 
 let print_error err ppf = match err with
 
   | UnknownName x ->
      Format.fprintf ppf "unknown name %t"
-       (Name.print_ident x)
+       (Path.print x)
 
   | UnknownTypeName x ->
      Format.fprintf ppf "unknown type %t"
-       (Name.print_ident x)
+       (Path.print x)
 
   | OperationExpected (x, info) ->
      Format.fprintf ppf "%t should be an operation but is %t"
-       (Name.print_ident x)
+       (Path.print x)
        (print_info info)
 
   | OperationAlreadyDeclared x ->
      Format.fprintf ppf
        "An operation %t is already declared."
-       (Name.print_ident x)
+       (Name.print x)
 
-  | AMLConstructorAlreadyDeclared x ->
-     Format.fprintf ppf "the AML constructor %t is already declared"
-       (Name.print_ident x)
+  | MLConstructorAlreadyDeclared x ->
+     Format.fprintf ppf "the ML constructor %t is already declared"
+       (Name.print x)
 
   | TTConstructorAlreadyDeclared x ->
      Format.fprintf ppf "the rule %t is already declared"
-       (Name.print_ident x)
+       (Name.print x)
 
   | InvalidTermPatternName (x, info) ->
      Format.fprintf ppf "%t cannot be used in a term pattern as it is %t"
-       (Name.print_ident x)
+       (Name.print x)
        (print_info info)
 
   | InvalidPatternName (x, info) ->
      Format.fprintf ppf "%t cannot be used in a pattern as it is %t"
-       (Name.print_ident x)
+       (Name.print x)
        (print_info info)
 
   | InvalidAppliedPatternName (x, info) ->
      Format.fprintf ppf "%t cannot be applied in a pattern as it is %t"
-       (Name.print_ident x)
+       (Name.print x)
        (print_info info)
 
   | NonlinearPattern x ->
      Format.fprintf ppf "non-linear pattern variable %t is not allowed."
-       (Name.print_ident x)
+       (Name.print x)
 
   | ArityMismatch (x, used, expected) ->
      Format.fprintf ppf "%t expects %d arguments but is used with %d"
-       (Name.print_ident x)
+       (Path.print x)
        expected
        used
 
@@ -92,19 +93,19 @@ let print_error err ppf = match err with
 
   | ParallelShadowing x ->
      Format.fprintf ppf "%t is bound more than once"
-       (Name.print_ident x)
+       (Name.print x)
 
   | AppliedTyParam ->
-     Format.fprintf ppf "AML type parameters cannot be applied"
+     Format.fprintf ppf "ML type parameters cannot be applied"
 
   | RequiredModuleMissing (mdl, files) ->
      Format.fprintf ppf "required module %t could not be found, looked in:@\n@[<hv>%t@]"
-       (Name.print_ident mdl)
+       (Path.print mdl)
        (Print.sequence (fun fn ppf -> Format.fprintf ppf "%s" fn) "," files)
 
   | CircularRequire mdls ->
      Format.fprintf ppf "circuar module dependency (@[<hov -2>%t@])"
-        (Print.sequence (Name.print_ident ~parentheses:false) "," mdls)
+        (Print.sequence Path.print "," mdls)
 
 exception Error of error Location.located
 
@@ -113,49 +114,79 @@ let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 (** Ctx variable management *)
 module Ctx = struct
 
-  type aml_module = {
-      idents : (Name.ident * unit info) list;
-      tydefs : (Name.ident * arity) list;
+  type ml_module = {
+      names : Ident.t list; (* bound named values *)
+      tt_constructors : (Ident.t * arity) list;
+      ml_constructors : (Ident.t * arity) list;
+      ml_types : (Ident.t * arity) list;
     }
 
   let empty_module = {
-      idents = [];
-      tydefs = []
+      names = [];
+      tt_constructors  = [];
+      ml_constructors = [];
+      ml_types = []
     }
 
   type t = {
-      (* Known AML modules (name, filename, contents) *)
-      aml_modules : (Name.ident * aml_module) list;
+      (* Known ML modules *)
+      ml_modules : (Ident.t * ml_module) list;
       (* Current module *)
-      current : aml_module ;
+      current : ml_module ;
       (* Chain of files being loaded *)
-      loading : Name.aml_module list;
+      loading : Ident.t list;
     }
 
   let empty = {
-      aml_modules = [];
+      ml_modules = [];
       current = empty_module;
       loading = []
     }
 
-  let find_opt_ident x {current={idents; _}; _} =
+  let find_module mdl_name {ml_modules=mdls;_} =
+    let rec search i = function
+      | [] -> None
+      | (mdl_ident', mdl') :: mdls ->
+         if Name.equal mdl_name (Ident.name mdl_ident')
+         then
+           Some (i, mdl')
+         else
+           search (i+1) mdls
+    in
+    search 0 mdls
+
+  let find_name x {names; _} =
     let at_index i = function
       | Variable () -> Variable i
-      | TTConstructor k -> TTConstructor k
-      | AMLConstructor k -> AMLConstructor k
-      | Operation k -> Operation k
+      | (TTConstructor _ | MLConstructor _ | Operation _) as e -> e
     in
     let rec search i = function
       | [] -> None
-      | (y, info) :: _ when Name.eq_ident y x -> Some (at_index i info)
+      | (y, info) :: _ when Name.equal x (Ident.name y) -> Some (at_index i info)
       | (_, Variable _) :: bound -> search (i+1) bound
-      | (_, (TTConstructor _ | AMLConstructor _ | Operation _)) :: bound ->
+      | (_, (TTConstructor _ | MLConstructor _ | Operation _)) :: bound ->
          search i bound
     in
-    search 0 idents
+    search 0 names
 
-  let find_ident ~loc x ctx =
-    match find_opt_ident x ctx with
+  let find_level x mdl =
+    match find_index x mdl with
+    | None -> None
+    | Some (i,
+
+  let find_path pth {ml_modules=mdls; current} =
+    match pth with
+    | Name.PName x -> find_name x current
+    | Name.PModule (mdl_name, x) ->
+       begin
+         match find_module mdl_name ml_modules with
+         | None -> None
+         | Some (lvl, mdl) ->
+            let
+       end
+
+  let get_name ~loc pth ctx =
+    match find_name x ctx with
     | None -> error ~loc (UnknownName x)
     | Some info -> info
 
@@ -164,11 +195,11 @@ module Ctx = struct
   let get_operation ~loc x ctx =
     match find_ident ~loc x ctx with
     | Operation k -> k
-    | Variable _ | TTConstructor _ | AMLConstructor _ as info ->
+    | Variable _ | TTConstructor _ | MLConstructor _ as info ->
       error ~loc (OperationExpected (x, info))
 
   let add_module mdl_name mdl ctx =
-    { ctx with aml_modules = (mdl_name, mdl) :: ctx.aml_modules }
+    { ctx with ml_modules = (mdl_name, mdl) :: ctx.ml_modules }
 
   let add_variable x ({current; _} as ctx) =
     { ctx with current = { current with idents = (x, Variable ()) :: current.idents } }
@@ -185,12 +216,12 @@ module Ctx = struct
     else
       { ctx with current = { current with idents = (op, Operation k) :: current.idents } }
 
-  let add_aml_constructor ~loc c k ({current;_} as ctx) =
-    if List.exists (function (c', AMLConstructor _) -> Name.eq_ident c c' | _ -> false) current.idents
+  let add_ml_constructor ~loc c k ({current;_} as ctx) =
+    if List.exists (function (c', MLConstructor _) -> Name.eq_ident c c' | _ -> false) current.idents
     then
-      error ~loc (AMLConstructorAlreadyDeclared c)
+      error ~loc (MLConstructorAlreadyDeclared c)
     else
-      { ctx with current = { current with idents = (c, AMLConstructor k) :: current.idents } }
+      { ctx with current = { current with idents = (c, MLConstructor k) :: current.idents } }
 
   let add_tt_constructor ~loc c k ({current; _} as ctx) =
     if List.exists (function (c', TTConstructor _) -> Name.eq_ident c c' | _ -> false) current.idents
@@ -216,8 +247,8 @@ module Ctx = struct
     find 0 lst
 
   (* Has the given file already been loaded? *)
-  let loaded mdl {aml_modules; _} =
-    List.exists (fun (m, _) -> (mdl = m)) aml_modules
+  let loaded mdl {ml_modules; _} =
+    List.exists (fun (m, _) -> (mdl = m)) ml_modules
 
   (* Record the fact that we are loading the given module *)
   let push_module mdl ctx = { ctx with loading = mdl :: ctx.loading }
@@ -342,7 +373,7 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
   | Input.Patt_TT_Constructor (c, ps) ->
      begin match Ctx.find_ident ~loc c ctx with
      | TTConstructor k -> pattern_tt_constructor ~loc ctx c k ps
-     | (AMLConstructor _ | Operation _ | Variable _) as info ->
+     | (MLConstructor _ | Operation _ | Variable _) as info ->
         error ~loc (InvalidTermPatternName (c, info))
      end
 
@@ -424,7 +455,7 @@ let rec pattern ctx {Location.thing=p; loc} =
         let ctx = Ctx.add_variable x ctx in
         ctx, locate (Dsyntax.Patt_Var x) loc
 
-     | Some (AMLConstructor k) ->
+     | Some (MLConstructor k) ->
         if k = 0
         then ctx, locate (Dsyntax.Patt_Constr (x,[])) loc
         else error ~loc (ArityMismatch (x, 0, k))
@@ -445,7 +476,7 @@ let rec pattern ctx {Location.thing=p; loc} =
 
   | Input.Patt_Constr (c,ps) ->
      begin match Ctx.find_ident ~loc c ctx with
-     | AMLConstructor k ->
+     | MLConstructor k ->
         let len = List.length ps in
         if k = len
         then
@@ -678,8 +709,8 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      | TTConstructor k ->
         if k = 0 then locate (Dsyntax.TT_Constructor (x, [])) loc
         else error ~loc (ArityMismatch (x, 0, k))
-     | AMLConstructor k ->
-        if k = 0 then locate (Dsyntax.AMLConstructor (x, [])) loc
+     | MLConstructor k ->
+        if k = 0 then locate (Dsyntax.MLConstructor (x, [])) loc
         else error ~loc (ArityMismatch (x, 0, k))
      | Operation k ->
         if k = 0 then locate (Dsyntax.Operation (x, [])) loc
@@ -710,11 +741,11 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
 
   | Input.List cs ->
      let rec fold ~loc = function
-       | [] -> locate (Dsyntax.AMLConstructor (Name.Predefined.nil, [])) loc
+       | [] -> locate (Dsyntax.MLConstructor (Name.Predefined.nil, [])) loc
        | c :: cs ->
           let c = comp ~yield ctx c in
           let cs = fold ~loc:(c.Location.loc) cs in
-          locate (Dsyntax.AMLConstructor (Name.Predefined.cons, [c ; cs])) loc
+          locate (Dsyntax.MLConstructor (Name.Predefined.cons, [c ; cs])) loc
      in
      fold ~loc cs
 
@@ -891,9 +922,9 @@ and spine ~yield ctx ({Location.thing=c';loc} as c) cs =
        | TTConstructor k ->
           let cs', cs = split_at x k cs in
           tt_constructor ~loc ~yield ctx x cs', cs
-       | AMLConstructor k ->
+       | MLConstructor k ->
           let cs', cs = split_at x k cs in
-          aml_constructor ~loc ~yield ctx x cs', cs
+          ml_constructor ~loc ~yield ctx x cs', cs
        | Operation k ->
           let cs', cs = split_at x k cs in
           operation ~loc ~yield ctx x cs', cs
@@ -981,9 +1012,9 @@ and match_op_case ~yield ctx (ps, pt, c) =
   in
   fold ctx [] ps
 
-and aml_constructor ~loc ~yield ctx x cs =
+and ml_constructor ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in
-  locate (Dsyntax.AMLConstructor (x, cs)) loc
+  locate (Dsyntax.MLConstructor (x, cs)) loc
 
 and tt_constructor ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in
@@ -1010,7 +1041,7 @@ let mlty_def ~loc ctx outctx params def =
       | [] -> outctx, Dsyntax.ML_Sum (List.rev res)
       | (c, args) :: lst ->
         let args = List.map (mlty ctx params) args in
-        let outctx = Ctx.add_aml_constructor ~loc c (List.length args) outctx in
+        let outctx = Ctx.add_ml_constructor ~loc c (List.length args) outctx in
         fold outctx ((c, args)::res) lst
     in
     fold outctx [] lst
@@ -1025,7 +1056,7 @@ let mlty_rec_def ~loc ctx params def =
       | [] -> ctx, Dsyntax.ML_Sum (List.rev res)
       | (c, args) :: lst ->
         let args = List.map (mlty ctx params) args in
-        let ctx = Ctx.add_aml_constructor ~loc c (List.length args) ctx in
+        let ctx = Ctx.add_ml_constructor ~loc c (List.length args) ctx in
         fold ctx ((c, args)::res) lst
     in
     fold ctx [] lst
@@ -1211,15 +1242,15 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
      (ctx, locate (Dsyntax.Verbosity n) loc)
 
   | Input.Require mdls ->
-     aml_modules ~loc ~basedir ctx mdls
+     ml_modules ~loc ~basedir ctx mdls
 
-and aml_modules ~loc ~basedir ctx mdls =
+and ml_modules ~loc ~basedir ctx mdls =
   let rec fold loaded ctx = function
     | [] ->
        let loaded = List.rev loaded in
-       (ctx, locate (Dsyntax.AMLModules loaded) loc)
+       (ctx, locate (Dsyntax.MLModules loaded) loc)
     | mdl_name :: mdls ->
-       begin match aml_module ~loc ~basedir ctx mdl_name with
+       begin match ml_module ~loc ~basedir ctx mdl_name with
        | ctx, None -> fold loaded ctx mdls
        | ctx, Some (fn, mdl, cmds) ->
           let ctx = Ctx.add_module mdl_name mdl ctx in
@@ -1228,7 +1259,7 @@ and aml_modules ~loc ~basedir ctx mdls =
   in
   fold [] ctx mdls
 
-and aml_module ~loc ~basedir ctx mdl_name =
+and ml_module ~loc ~basedir ctx mdl_name =
   if Ctx.loaded mdl_name ctx then
     (* We already loaded this module *)
     ctx, None

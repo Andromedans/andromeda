@@ -6,24 +6,12 @@ type fixity =
   | Prefix
   | Infix of Level.infix
 
-type ident = Ident of string * fixity
-
-type atom = Atom of string * fixity * int
-
-type meta = Meta of string * fixity * int
-
-type constructor = ident
-
-type aml_module = ident
-
-type operation = ident
-
-type ty = ident
-
-type aml_constructor = ident
+type t = { name : string ; fixity : fixity }
 
 (** A name that is possibly qualified by a module *)
-type 'a long = Long of aml_module option * 'a
+type path =
+  | PName of t
+  | PModule of t * t
 
 (** Make a nice subscript from an integer. *)
 let subscript k =
@@ -48,94 +36,84 @@ let greek k =
   let base = (if !Config.ascii then snd greek.(j) else fst greek.(j)) in
   if i = 0 then base else (base ^ subscript i)
 
-let print_ident ?(parentheses=true) x ppf =
-  match x with
-  | Ident (s, Word) -> Format.fprintf ppf "%s" s
-  | Ident (_, Anonymous k) -> Format.fprintf ppf "_"
-  | Ident (s, (Prefix|Infix _)) ->
+let print ?(parentheses=true) {name;fixity} ppf =
+  match fixity with
+  | Word -> Format.fprintf ppf "%s" name
+  | Anonymous k -> Format.fprintf ppf "_"
+  | (Prefix|Infix _) ->
      if parentheses then
-       Format.fprintf ppf "( %s )" s
+       Format.fprintf ppf "( %s )" name
      else
-       Format.fprintf ppf "%s" s
-
-let print_op = print_ident ~parentheses:true
+       Format.fprintf ppf "%s" name
 
 let anonymous =
   let k = ref (-1) in
   fun () ->
   incr k ;
-  Ident ("anon", Anonymous !k)
+  { name = "anon"; fixity = Anonymous !k }
 
-let module_filename (Ident (s, _)) = s ^ ".m31"
+let module_filename {name;_} = name ^ ".m31"
 
-let mk_ident ?(fixity=Word) s = Ident (s, fixity)
+let mk_name ?(fixity=Word) name = {name; fixity}
 
-let mk_short x = Long (None, x)
+let path_direct x = PName x
 
-let mk_long mdl x = Long (Some mdl, x)
+let path_module mdl x = PModule (mdl, x)
 
 module Predefined = struct
 
   (** Booleans *)
 
-  let bool = mk_ident "mlbool"
+  let bool = mk_name "mlbool"
 
-  let mlfalse = mk_ident "mlfalse"
+  let mlfalse = mk_name "mlfalse"
 
-  let mltrue = mk_ident "mltrue"
+  let mltrue = mk_name "mltrue"
 
   (** Lists *)
 
-  let list = mk_ident "list"
+  let list = mk_name "list"
 
-  let nil = mk_ident "[]"
+  let nil = mk_name "[]"
 
-  let cons = mk_ident ~fixity:(Infix Level.InfixCons) "::"
+  let cons = mk_name ~fixity:(Infix Level.InfixCons) "::"
 
   (** Comparison *)
 
-  let mlorder = mk_ident "mlorder"
+  let mlorder = mk_name "mlorder"
 
-  let mlless = mk_ident "mlless"
+  let mlless = mk_name "mlless"
 
-  let mlequal = mk_ident "mlequal"
+  let mlequal = mk_name "mlequal"
 
-  let mlgreater = mk_ident "mlgreater"
+  let mlgreater = mk_name "mlgreater"
 
   (** Option type *)
 
-  let option = mk_ident "option"
+  let option = mk_name "option"
 
-  let some = mk_ident "Some"
+  let some = mk_name "Some"
 
-  let none = mk_ident "None"
+  let none = mk_name "None"
 
   (** Builtin commands *)
 
-  let equal_term = mk_ident "equal_term"
+  let equal_term = mk_name "equal_term"
 
-  let equal_type = mk_ident "equal_type"
+  let equal_type = mk_name "equal_type"
 
-  let coercible_ty = mk_ident "coercible"
+  let coercible_ty = mk_name "coercible"
 
-  let coercible_constructor = mk_ident "Coercible"
+  let coercible_constructor = mk_name "Coercible"
 
-  let convertible = mk_ident "Convertible"
+  let convertible = mk_name "Convertible"
 
-  let notcoercible = mk_ident "NotCoercible"
+  let notcoercible = mk_name "NotCoercible"
 
-  let coerce = mk_ident "coerce"
+  let coerce = mk_name "coerce"
 
-  let hypotheses = mk_ident "hypotheses"
+  let hypotheses = mk_name "hypotheses"
 end
-
-let fresh =
-  let counter = ref (-1) in
-  function Ident (s, fixity) ->
-    incr counter;
-    Atom (s, fixity, !counter)
-
-let ident_of_atom (Atom (s,fixity,_)) = Ident (s,fixity)
 
 (** Split a string into base and an optional numerical suffix, e.g., ["x42"],
    ["x₄₂"], and ["x4₂"] are split into [("x", Some 42)], while ["xy"] is split into [("xy",
@@ -179,187 +157,80 @@ let extract_suffix s =
   in
   extract [] (n-1)
 
-let refresh xs ((Ident (s, fixity)) as x) =
+let equal {name=x;_} {name=y;_} = String.equal x y
+
+let refresh xs ({name; fixity} as x) =
   let rec used s = function
       | [] -> false
-      | Ident (t, _) :: lst -> s = t || used s lst
+      | {name=t;_} :: lst -> String.equal s t || used s lst
   in
-  if not (used s xs) then
+  if not (used name xs) then
      x
   else
-    let (s, k) = extract_suffix s in
+    let (s, k) = extract_suffix name in
     let k = ref (match k with Some k -> k | None -> 0) in
     while used (s ^ subscript !k) xs do incr k done;
-    Ident (s ^ subscript !k, fixity)
+    { name = s ^ subscript !k ; fixity }
 
-let eq_ident (x : ident) (y : ident) = (x = y)
+module NameSet = Set.Make (
+  struct
+    type t_name = t
+    type t = t_name
+    let compare {name=x;_} {name=y;_} = String.compare x y
+  end)
 
-(* XXX why do we compare fixities? *)
-let compare_ident (x : ident) (y : ident) = Pervasives.compare x y
+type set = NameSet.t
 
-module IdentSet = Set.Make (struct
-                    type t = ident
-                    let compare = compare_ident
-                  end)
+let set_empty = NameSet.empty
 
-module IdentMap = Map.Make (struct
-                    type t = ident
-                    let compare = compare_ident
-                  end)
+let set_add = NameSet.add
 
-let eq_atom (Atom (_, _, k)) (Atom (_, _, m)) = (k = m)
+let set_mem = NameSet.mem
 
-let compare_atom (Atom (_, _, x)) (Atom (_, _, y)) =
-  if x < y then -1 else if x > y then 1 else 0
+module NameMap = Map.Make (
+  struct
+    type t_name = t
+    type t = t_name
+    let compare {name=x;_} {name=y;_} = String.compare x y
+  end)
 
-module AtomSet = Set.Make (struct
-                    type t = atom
-                    let compare = compare_atom
-                  end)
+type 'a map = 'a NameMap.t
 
-module AtomMap = Map.Make (struct
-                    type t = atom
-                    let compare = compare_atom
-                  end)
+let map_empty = NameMap.empty
 
-let fresh_meta =
-  let counter = ref (-1) in
-  function Ident (s, fixity) ->
-    incr counter;
-    Meta (s, fixity, !counter)
+let map_add = NameMap.add
 
-let ident_of_meta (Meta (s, fixity, _)) = Ident (s, fixity)
+let map_find = NameMap.find
 
-let eq_meta (Meta (_, _, k)) (Meta (_, _, m)) = (k = m)
-
-let compare_meta (Meta (_, _, x)) (Meta (_, _, y)) =
-  if x < y then -1 else if x > y then 1 else 0
-
-module MetaSet = Set.Make (struct
-                    type t = meta
-                    let compare = compare_meta
-                  end)
-
-module MetaMap = Map.Make (struct
-                    type t = meta
-                    let compare = compare_meta
-                  end)
-
-let index_of_atom x ys =
+let index x ys =
   let rec fold k = function
     | [] -> None
-    | y :: ys -> if eq_atom x y then Some k else fold (k + 1) ys
+    | y :: ys -> if equal x y then Some k else fold (k + 1) ys
   in
   fold 0 ys
 
-let index_of_ident x ys =
-  let rec fold k = function
-    | [] -> None
-    | y :: ys -> if eq_ident x y then Some k else fold (k + 1) ys
-  in
-  fold 0 ys
-
-let index_of_opt_ident x ys =
+let index_opt x ys =
   let rec fold k = function
     | [] -> None
     | None :: ys -> fold k ys
-    | Some y :: ys -> if eq_ident x y then Some k else fold (k + 1) ys
+    | Some y :: ys -> if equal x y then Some k else fold (k + 1) ys
   in
   fold 0 ys
 
-let level_of_ident x ys = index_of_ident x (List.rev ys)
+let level x ys = index x (List.rev ys)
 
-let rec assoc_ident x = function
-  | [] -> None
-  | (y,v)::_ when (eq_ident x y) -> Some v
-  | _::l -> assoc_ident x l
+(* let rec assoc_ident x = function
+ *   | [] -> None
+ *   | (y,v)::_ when (equal x y) -> Some v
+ *   | _::l -> assoc_ident x l *)
 
 let print_debruijn xs k ppf =
   let x = List.nth xs k in
-  print_ident x ppf
-
-(* We expect that most atoms are never printed. Therefore,
-   for the purposes of printing, we remap the ones that do get printed
-   so that the user sees them numbered consecutively starting from 0. *)
-let reindex_atom = ref AtomMap.empty
-let next_atom = ref 0
-
-let print_atom_subs ?(parentheses=true) x ppf =
-  match x with
-  | Atom (s, Word, k) ->
-     Format.fprintf ppf "%s%s" s (subscript k)
-
-  | Atom (_, Anonymous j, k) ->
-     Format.fprintf ppf "anon%d%s" j (subscript k)
-
-  | Atom (s, (Prefix|Infix _), k) ->
-     if parentheses then
-       Format.fprintf ppf "( %s%s )" s (subscript k)
-     else
-       Format.fprintf ppf "%s%s" s (subscript k)
-
-let print_atom ?parentheses x ppf =
-  let y =
-    try
-      AtomMap.find x !reindex_atom
-    with
-      Not_found ->
-        let n = !next_atom in
-        let y = match x with Atom (s,fixity,_) -> Atom (s,fixity,n) in
-        reindex_atom := AtomMap.add x y !reindex_atom ;
-        next_atom := n + 1;
-        y
-  in
-  print_atom_subs ?parentheses y ppf
-
-(* We expect that most meta-variables are never printed. Therefore,
-   for the purposes of printing, we remap the ones that do get printed
-   so that the user sees them numbered consecutively starting from 0. *)
-let reindex_meta = ref MetaMap.empty
-let next_meta = ref 0
-
-let print_meta_subs ?(parentheses=true) x ppf =
-  match x with
-  | Meta (s, Word, k) ->
-     Format.fprintf ppf "%s%s" s (subscript k)
-
-  | Meta (_, Anonymous j, k) ->
-     Format.fprintf ppf "anon%d%s" j (subscript k)
-
-  | Meta (s, (Prefix|Infix _), k) ->
-     if parentheses then
-       Format.fprintf ppf "( %s%s )" s (subscript k)
-     else
-       Format.fprintf ppf "%s%s" s (subscript k)
-
-let print_meta ?parentheses x ppf =
-  let y =
-    try
-      MetaMap.find x !reindex_meta
-    with
-      Not_found ->
-        let n = !next_meta in
-        let y = match x with Meta (s,fixity,_) -> Meta (s,fixity,n) in
-        reindex_meta := MetaMap.add x y !reindex_meta;
-        next_meta := n + 1;
-        y
-  in
-  print_meta_subs ?parentheses y ppf
+  print x ppf
 
 module Json =
 struct
-  let ident = function
-    | Ident (s, Anonymous k) -> Json.tuple [Json.String s; Json.Int k]
-    | Ident (s, (Word|Prefix|Infix _)) -> Json.String s
-
-  let atom (Atom (s, _, k)) = Json.tuple [Json.String s; Json.Int k]
-
-  let meta (Meta (s, _, k)) = Json.tuple [Json.String s; Json.Int k]
-
-  let atomset s = Json.List (List.map atom (AtomSet.elements s))
-
-  let atommap s = Json.List (List.map (fun (x, _) -> atom x) (AtomMap.bindings s))
-
-  let metamap s = Json.List (List.map (fun (x, _) -> meta x) (MetaMap.bindings s))
-
+  let name = function
+    | {name=s; fixity=Anonymous k} -> Json.tuple [Json.String s; Json.Int k]
+    | {name=s; fixity=(Word|Prefix|Infix _)} -> Json.String s
 end

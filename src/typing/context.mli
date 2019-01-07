@@ -13,7 +13,7 @@ val lookup_var : Dsyntax.bound -> t -> Mlty.ty
 (** Lookup an operation, returning the expected types of its arguments and the type it returns. *)
 val lookup_op : Name.operation -> t -> Mlty.ty list * Mlty.ty
 
-(** Lookup an AML constructor, returning the expected types of its arguments and the type it returns. *)
+(** Lookup an ML constructor, returning the expected types of its arguments and the type it returns. *)
 val lookup_aml_constructor : Name.constructor -> t -> Mlty.ty list * Mlty.ty
 
 (** Lookup an TT constructor, returning the expected types of its arguments and the type it returns. *)
@@ -44,6 +44,6 @@ val unfold : t -> Dsyntax.level -> Mlty.ty list -> Mlty.ty option
 val gather_known : Substitution.t -> t -> Mlty.MetaSet.t
 
 (** [predefined_type x ts ctx] creates the type [x ts] assuming the type definition for [x] can be found in [ctx]. *)
-val predefined_type : Name.ty -> Mlty.ty list -> t -> Mlty.ty
+val predefined_type : Name.ml_type -> Mlty.ty list -> t -> Mlty.ty
 
 val print_context : t -> unit

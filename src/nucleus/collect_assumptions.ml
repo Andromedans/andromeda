@@ -19,7 +19,7 @@ and is_term ?(lvl=0) = function
      else
        Assumption.singleton_bound (k - lvl)
 
-  | TermAtom {atom_name=x; atom_type=t} ->
+  | TermAtom {atom_nonce=x; atom_type=t} ->
      Assumption.add_free x t (is_type ~lvl t)
 
   | TermMeta (mv, args) ->
@@ -45,22 +45,22 @@ and eq_term ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
     (Assumption.union (assumptions ~lvl asmp) (is_type ~lvl t))
     (Assumption.union (is_term ~lvl e1) (is_term ~lvl e2))
 
-and is_type_meta ~lvl {meta_name; meta_type} =
+and is_type_meta ~lvl {meta_nonce; meta_type} =
   let asmp = abstraction (fun ?lvl () -> Assumption.empty) ~lvl meta_type in
-  Assumption.add_is_type_meta meta_name meta_type asmp
+  Assumption.add_is_type_meta meta_nonce meta_type asmp
 
-and is_term_meta ~lvl {meta_name; meta_type} =
+and is_term_meta ~lvl {meta_nonce; meta_type} =
   let asmp = abstraction is_type ~lvl meta_type in
-  Assumption.add_is_term_meta meta_name meta_type asmp
+  Assumption.add_is_term_meta meta_nonce meta_type asmp
 
 and abstraction
   : 'a . (?lvl:bound -> 'a -> assumption) ->
     ?lvl:bound -> 'a abstraction -> assumption
   = fun asmp_v ?(lvl=0) -> function
     | NotAbstract v -> asmp_v ~lvl v
-    | Abstract (x, u, abstr) ->
+    | Abstract (atm, abstr) ->
        Assumption.union
-         (is_type ~lvl u)
+         (is_type ~lvl atm.atom_type)
          (abstraction asmp_v ~lvl:(lvl+1) abstr)
 
 and term_arguments ~lvl ts =
@@ -91,8 +91,8 @@ let context_u assumptions_u t =
   let asmp = assumptions_u t in
   let {free; bound; _} = asmp in
   assert (Bound_set.is_empty bound) ;
-  let free = Name.AtomMap.bindings free in
-  List.map (fun (atom_name, atom_type) -> {atom_name; atom_type}) free
+  let free = Nonce.map_bindings free in
+  List.map (fun (atom_nonce, atom_type) -> {atom_nonce; atom_type}) free
 
 (** Compute the list of atoms occurring in an abstraction. Similar to
     assumptions_XYZ functions, but allows use of the assumptions as atoms.
