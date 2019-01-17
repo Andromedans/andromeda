@@ -1,10 +1,22 @@
 (** Desugared input syntax *)
 
-(** Bound variables are de Bruijn indices *)
-type bound = int
+(** Bound variables are de Bruijn indices, we keep their original names
+    for printing purposes. *)
+type index = Index of Name.t * int
 
-(** ML type declarations are referred to by de Bruijn levels *)
-type level = int
+(** ML type declarations are referred to by de Bruijn levels, we keep
+    their original names for printing purposes *)
+type level = Level of Name.t * int
+
+(** An access path to a name *)
+type path =
+  | PName of index
+  | PModule of level * level
+
+(** An access path to an ML type *)
+type ml_type_path =
+  | TName of level
+  | TModule of level * level
 
 type 'a located = 'a Location.located
 
@@ -22,13 +34,13 @@ type ml_ty = ml_ty' located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
   | ML_Prod of ml_ty list
-  | ML_TyApply of Path.t * level * ml_ty list
+  | ML_TyApply of ml_type_path * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
   | ML_Judgement of ml_abstracted_judgement
   | ML_String
-  | ML_Bound of bound
+  | ML_Bound of index
   | ML_Anonymous
 
 type ml_schema = ml_schema' located
@@ -47,7 +59,7 @@ and tt_pattern' =
   | Patt_TT_Anonymous
   | Patt_TT_Var of Name.t
   | Patt_TT_As of tt_pattern * tt_pattern
-  | Patt_TT_Constructor of Path.t * tt_pattern list
+  | Patt_TT_Constructor of path * tt_pattern list
   | Patt_TT_GenAtom of tt_pattern
   | Patt_TT_IsType of tt_pattern
   | Patt_TT_IsTerm of tt_pattern * tt_pattern
@@ -61,19 +73,18 @@ and ml_pattern' =
   | Patt_Var of Name.t
   | Patt_As of ml_pattern * ml_pattern
   | Patt_Judgement of tt_pattern
-  | Patt_Constructor of Path.t * ml_pattern list
+  | Patt_Constructor of path * ml_pattern list
   | Patt_Tuple of ml_pattern list
 
 (** Desugared computations *)
 type comp = comp' located
 and comp' =
-  | Open of bound * comp
-  | Bound of bound
+  | Bound of path
   | Function of Name.t * arg_annotation * comp
   | Handler of handler
-  | MLConstructor of Path.t * comp list
+  | MLConstructor of path * comp list
   | Tuple of comp list
-  | Operation of Path.t * comp list
+  | Operation of path * comp list
   | With of comp * comp
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
@@ -87,7 +98,7 @@ and comp' =
   | Assume of (Name.t option * comp) * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | TTConstructor of Path.t * comp list
+  | TTConstructor of path * comp list
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp
   | Substitute of comp * comp

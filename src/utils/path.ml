@@ -12,7 +12,7 @@ let equal p q =
   | Dot (p1, n1), Dot (p2, n2) -> Ident.equal p1 p2 && Name.equal n1 n2
   | Ident _, Dot _ | Dot _, Ident _ -> false
 
-let rec print p ppf =
+let print p ppf =
   match p with
   | Ident x -> Ident.print x ppf
   | Dot (mdl, n) -> Format.fprintf ppf "%t.%t" (Ident.print mdl) (Name.print n)

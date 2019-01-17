@@ -49,7 +49,7 @@ let rec infer {Location.thing=c'; loc} =
     | Rsyntax.Bound i ->
        Runtime.lookup_bound ~loc i
 
-    | Rsyntax.Function (_, c) ->
+    | Rsyntax.Function c ->
        let f v =
          Runtime.add_bound v
            (infer c)

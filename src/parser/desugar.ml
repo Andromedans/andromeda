@@ -1,67 +1,79 @@
-(** Conversion from sugared to desugared input syntax *)
+(** Conversion from sugared to desugared input syntax.
+    The responsibilities of this phase are:
+
+    - Convert all references to entities to de Bruijn indices, levels,
+      and paths (i.e., sequences of levels).
+
+    - Check that the following entities are applied with the correct arity:
+      operations, type constructors, TT constructors, ML constructors.
+      (This may be delegate to typechecking in the future, it's here for
+       historic reasons.)
+*)
 
 (** The arity of an operation or a data constructor. *)
-type arity = int
+type arity = Arity of int
 
+(** De bruijn level *)
+type level = Level of int
+
+(** de Bruijn index *)
+type index = Index of int
 
 (** Information about names *)
 type info =
-  | Variable of int
+  | Variable
   | TTConstructor of arity
   | MLConstructor of arity
   | Operation of arity
 
 let print_info info ppf = match info with
-  | Variable _ -> Format.fprintf ppf "a variable"
+  | Variable -> Format.fprintf ppf "a value"
   | TTConstructor _ -> Format.fprintf ppf "a constructor"
   | MLConstructor _ -> Format.fprintf ppf "an ML constructor"
   | Operation _ -> Format.fprintf ppf "an operation"
 
 type error =
-  | UnknownName of Path.t
-  | UnknownTypeName of Path.t
-  | OperationExpected : Path.t * 'a info -> error
-  | OperationAlreadyDeclared of Name.t
-  | MLConstructorAlreadyDeclared of Name.t
-  | TTConstructorAlreadyDeclared of Name.t
-  | InvalidTermPatternName : Name.t * 'a info -> error
-  | InvalidPatternName : Name.t * 'a info -> error
-  | InvalidAppliedPatternName : Name.t * 'a info -> error
+  | UnknownPath of Name.path
+  | UnknownType of Name.path
+  | NameAlreadyDeclared of Name.t * info
+  | MLTypeAlreadyDeclared of Name.t
+  | OperationExpected : Name.path * info -> error
+  | InvalidTermPatternName : Name.t * info -> error
+  | InvalidPatternName : Name.t * info -> error
+  | InvalidAppliedPatternName : Name.t * info -> error
   | NonlinearPattern : Name.t -> error
-  | ArityMismatch of Path.t * int * int
+  | ArityMismatch of Name.path * int * arity
   | UnboundYield
   | ParallelShadowing of Name.t
   | AppliedTyParam
-  | RequiredModuleMissing of Path.t * string list
-  | CircularRequire of Path.t list
+  | RequiredModuleMissing of Name.t * string list
+  | CircularRequire of Name.t list
 
 let print_error err ppf = match err with
 
-  | UnknownName x ->
+  | UnknownPath pth ->
      Format.fprintf ppf "unknown name %t"
-       (Path.print x)
+       (Name.print_path pth)
 
-  | UnknownTypeName x ->
+  | UnknownType pth ->
      Format.fprintf ppf "unknown type %t"
-       (Path.print x)
+       (Name.print_path pth)
 
-  | OperationExpected (x, info) ->
-     Format.fprintf ppf "%t should be an operation but is %t"
-       (Path.print x)
+  | NameAlreadyDeclared (x, info) ->
+     Format.fprintf ppf
+       "%t is already declared as a %t"
+       (Name.print x)
        (print_info info)
 
-  | OperationAlreadyDeclared x ->
+  | MLTypeAlreadyDeclared x ->
      Format.fprintf ppf
-       "An operation %t is already declared."
+       "%t is already a defind ML type"
        (Name.print x)
 
-  | MLConstructorAlreadyDeclared x ->
-     Format.fprintf ppf "the ML constructor %t is already declared"
-       (Name.print x)
-
-  | TTConstructorAlreadyDeclared x ->
-     Format.fprintf ppf "the rule %t is already declared"
-       (Name.print x)
+  | OperationExpected (pth, info) ->
+     Format.fprintf ppf "%t should be an operation but is %t"
+       (Name.print_path pth)
+       (print_info info)
 
   | InvalidTermPatternName (x, info) ->
      Format.fprintf ppf "%t cannot be used in a term pattern as it is %t"
@@ -82,9 +94,9 @@ let print_error err ppf = match err with
      Format.fprintf ppf "non-linear pattern variable %t is not allowed."
        (Name.print x)
 
-  | ArityMismatch (x, used, expected) ->
+  | ArityMismatch (pth, used, Arity expected) ->
      Format.fprintf ppf "%t expects %d arguments but is used with %d"
-       (Path.print x)
+       (Name.print_path pth)
        expected
        used
 
@@ -96,45 +108,39 @@ let print_error err ppf = match err with
        (Name.print x)
 
   | AppliedTyParam ->
-     Format.fprintf ppf "ML type parameters cannot be applied"
+     Format.fprintf ppf "an ML type parameter cannot be applied"
 
-  | RequiredModuleMissing (mdl, files) ->
+  | RequiredModuleMissing (mdl_name, files) ->
      Format.fprintf ppf "required module %t could not be found, looked in:@\n@[<hv>%t@]"
-       (Path.print mdl)
+       (Name.print mdl_name)
        (Print.sequence (fun fn ppf -> Format.fprintf ppf "%s" fn) "," files)
 
   | CircularRequire mdls ->
      Format.fprintf ppf "circuar module dependency (@[<hov -2>%t@])"
-        (Print.sequence Path.print "," mdls)
+        (Print.sequence Name.print "," mdls)
 
 exception Error of error Location.located
 
 let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 
-(** Ctx variable management *)
 module Ctx = struct
 
+  (* A module has two name spaces, one for ML types and the other for everything
+     else. *)
   type ml_module = {
-      names : Ident.t list; (* bound named values *)
-      tt_constructors : (Ident.t * arity) list;
-      ml_constructors : (Ident.t * arity) list;
-      ml_types : (Ident.t * arity) list;
+      ml_types : (Name.t * arity) list ;
+      ml_names : (Name.t * info) list
     }
 
-  let empty_module = {
-      names = [];
-      tt_constructors  = [];
-      ml_constructors = [];
-      ml_types = []
-    }
+  let empty_module = { ml_types = []; ml_names = [] }
 
   type t = {
       (* Known ML modules *)
-      ml_modules : (Ident.t * ml_module) list;
+      ml_modules : (Name.t * ml_module) list;
       (* Current module *)
       current : ml_module ;
-      (* Chain of files being loaded *)
-      loading : Ident.t list;
+      (* Chain of modules being loaded (for dependency cycle detection) *)
+      loading : Name.t list;
     }
 
   let empty = {
@@ -143,116 +149,142 @@ module Ctx = struct
       loading = []
     }
 
-  let find_module mdl_name {ml_modules=mdls;_} =
+  (* Lookup functions named [find_XYZ] return optional results,
+     while those named [get_XYZ] require a location and either return
+     a result or trigger an error. *)
+
+  (* Find in the association list and return with de Bruijn index. *)
+  let find_index x lst =
     let rec search i = function
       | [] -> None
-      | (mdl_ident', mdl') :: mdls ->
-         if Name.equal mdl_name (Ident.name mdl_ident')
-         then
-           Some (i, mdl')
-         else
-           search (i+1) mdls
+      | (y, d) :: ys ->
+         if Name.equal x y then Some (d, Index i) else search (i+1) ys
     in
-    search 0 mdls
+    search 0 lst
 
-  let find_name x {names; _} =
-    let at_index i = function
-      | Variable () -> Variable i
-      | (TTConstructor _ | MLConstructor _ | Operation _) as e -> e
-    in
-    let rec search i = function
+  (* Find in the association list and return with de Bruijn level. *)
+  let find_level x lst =
+    let rec search = function
       | [] -> None
-      | (y, info) :: _ when Name.equal x (Ident.name y) -> Some (at_index i info)
-      | (_, Variable _) :: bound -> search (i+1) bound
-      | (_, (TTConstructor _ | MLConstructor _ | Operation _)) :: bound ->
-         search i bound
+      | (y, d) :: ys ->
+         if Name.equal x y then Some (d, Level (List.length ys)) else search ys
     in
-    search 0 names
+    search lst
 
-  let find_level x mdl =
-    match find_index x mdl with
-    | None -> None
-    | Some (i,
+  (* Find the level of the module and its contents *)
+  let find_module mdl_name mdls =
+    find_level mdl_name mdls
 
-  let find_path pth {ml_modules=mdls; current} =
+  (* Find the information about the given path *)
+  let find_info_path pth ctx =
     match pth with
-    | Name.PName x -> find_name x current
-    | Name.PModule (mdl_name, x) ->
+
+    | Name.PName x ->
        begin
-         match find_module mdl_name ml_modules with
+         match find_index x ctx.current.ml_names with
          | None -> None
-         | Some (lvl, mdl) ->
-            let
+         | Some (info, Index x_ind) -> Some (info, Dsyntax.PName (Dsyntax.Index (x, x_ind)))
        end
 
-  let get_name ~loc pth ctx =
-    match find_name x ctx with
-    | None -> error ~loc (UnknownName x)
+    | Name.PModule (mdl_name, x) ->
+       begin match find_module mdl_name ctx.ml_modules with
+         | None -> None
+         | Some (mdl, Level mdl_lvl) ->
+            begin
+              match find_level x mdl.ml_names with
+              | None -> None
+              | Some (info, Level x_lvl) ->
+                 Some (info,
+                       Dsyntax.PModule (Dsyntax.Level (mdl_name, mdl_lvl), Dsyntax.Level (x, x_lvl)))
+            end
+       end
+
+  (* Find the path and arity of the given ML type *)
+  let find_ml_type_path pth ctx =
+    match pth with
+
+    | Name.PName t ->
+       begin
+         match find_level t ctx.current.ml_types with
+         | None -> None
+         | Some (info, Level t_lvl) ->
+       end
+
+    | Name.PModule (mdl_name, t) ->
+       begin match find_module mdl_name ctx.ml_modules with
+         | None -> None
+         | Some (mdl, _) -> find_ml_type_name t mdl.ml_types
+       end
+
+  (* Check that the name is not bound already *)
+  let check_is_fresh_name ~loc x ctx =
+    match find_info_name x ctx.current.ml_names with
+    | None -> ()
+    | Some info -> error ~loc (NameAlreadyDeclared (x, info))
+
+  (* Check that the type is not bound already *)
+  let check_is_fresh_type ~loc x ctx =
+    match find_info_name x ctx.current.ml_types with
+    | None -> ()
+    | Some _ -> error ~loc (MLTypeAlreadyDeclared x)
+
+  (* Get the info about a path, or fail *)
+  let get_info_path ~loc pth ctx =
+    match find_info_path pth ctx with
+    | None -> error ~loc (UnknownPath pth)
     | Some info -> info
 
-  (* XXX we allow shadowing an operation by a variable, if anything we should
-     complain there *)
-  let get_operation ~loc x ctx =
-    match find_ident ~loc x ctx with
+  (* Get the arity of an operation, or fail *)
+  let get_operation ~loc pth ctx =
+    match get_info_path ~loc pth ctx with
     | Operation k -> k
-    | Variable _ | TTConstructor _ | MLConstructor _ as info ->
-      error ~loc (OperationExpected (x, info))
+    | (Variable | TTConstructor _ | MLConstructor _) as info ->
+      error ~loc (OperationExpected (pth, info))
 
+  (* Get the arity and de Bruijn level of type named [t] and its definition *)
+  let get_ml_type ~loc pth ctx =
+    match find_ml_type_path pth ctx with
+    | None -> error ~loc (UnknownType pth)
+    | Some a -> a
+
+  (* Add a module to the module list, allow shadowing. *)
   let add_module mdl_name mdl ctx =
     { ctx with ml_modules = (mdl_name, mdl) :: ctx.ml_modules }
 
-  let add_variable x ({current; _} as ctx) =
-    { ctx with current = { current with idents = (x, Variable ()) :: current.idents } }
+  (* Add infomation about a name *)
+  let add_info ~loc ~shadow x info ctx =
+    if not shadow then check_is_fresh_name ~loc x ctx ;
+    { ctx with current = { ctx.current with ml_names = (x, info) :: ctx.current.ml_names } }
 
-  let add_opt_variable xopt ctx =
-    match xopt with
-    | None -> ctx
-    | Some x -> add_variable x ctx
+  (* Add a local named value, may shadow existing names *)
+  let add_value ~loc x ctx =
+    add_info ~loc ~shadow:true x Variable ctx
 
-  let add_operation ~loc op k ({current; _} as ctx) =
-    if List.exists (function (op', Operation _) -> Name.eq_ident op op' | _ -> false) current.idents
-    then
-      error ~loc (OperationAlreadyDeclared op)
-    else
-      { ctx with current = { current with idents = (op, Operation k) :: current.idents } }
+  (* Add a toplevel named value, may not shadow existing names *)
+  let add_top_value ~loc x ctx =
+    add_info ~loc ~shadow:false x Variable ctx
 
-  let add_ml_constructor ~loc c k ({current;_} as ctx) =
-    if List.exists (function (c', MLConstructor _) -> Name.eq_ident c c' | _ -> false) current.idents
-    then
-      error ~loc (MLConstructorAlreadyDeclared c)
-    else
-      { ctx with current = { current with idents = (c, MLConstructor k) :: current.idents } }
+  (* Add an ML constructor of given arity *)
+  let add_ml_constructor ~loc c arity ctx =
+    add_info ~loc ~shadow:false c (MLConstructor (Arity arity)) ctx
 
-  let add_tt_constructor ~loc c k ({current; _} as ctx) =
-    if List.exists (function (c', TTConstructor _) -> Name.eq_ident c c' | _ -> false) current.idents
-    then
-      error ~loc (TTConstructorAlreadyDeclared c)
-    else
-      { ctx with current = { current with  idents = (c, TTConstructor k) :: current.idents } }
+  (* Add a TT constructor of given arity *)
+  let add_tt_constructor ~loc c arity ctx =
+    add_info ~loc ~shadow:false c (TTConstructor (Arity arity)) ctx
 
-  (* Add to the context the fact that [ty] is a type constructor with
-     [k] parameters. *)
-  let add_tydef t k ({current; _} as ctx) =
-    { ctx with current = { current with  tydefs = List.append current.tydefs [(t, k)] } }
-
-  (* Get the arity and de Bruijn level of type named [t] and its definition *)
-  let get_tydef ~loc t {current={tydefs=lst; _}; _} =
-    let rec find k = function
-      | [] -> error ~loc (UnknownTypeName t)
-      | (u, arity) :: lst ->
-         if Name.eq_ident t u
-         then (k, arity)
-         else find (k+1) lst
-    in
-    find 0 lst
+  (* Add to the context the fact that [t] is a type constructor with [k] parameters. *)
+  let add_ml_type ~loc t k ctx  =
+    check_is_fresh_type ~loc t ctx ;
+    { ctx with current = { ctx.current with  ml_types = (t, Arity k) :: ctx.current.ml_types } }
 
   (* Has the given file already been loaded? *)
   let loaded mdl {ml_modules; _} =
     List.exists (fun (m, _) -> (mdl = m)) ml_modules
 
-  (* Record the fact that we are loading the given module *)
-  let push_module mdl ctx = { ctx with loading = mdl :: ctx.loading }
+  (* Push a module onto the loading stack. *)
+  let push_module mdl_name ctx = { ctx with loading = mdl_name :: ctx.loading }
 
+  (* Pop a module off the loading stack. *)
   let pop_module ctx =
     { ctx with loading =
                  match ctx.loading with
@@ -261,8 +293,8 @@ module Ctx = struct
     }
 
   (* Is the given file being loaded at the moment? *)
-  let loading mdl {loading; _} =
-    List.mem mdl loading
+  let loading mdl_name {loading; _} =
+    List.mem mdl_name loading
 
 end (* module Ctx *)
 
@@ -284,6 +316,7 @@ let rec mlty_abstracted_judgement = function
      let abstr = mlty_abstracted_judgement abstr in
      Dsyntax.ML_Abstract abstr
 
+(* Desugar an ML type, with the given list of known type parameters *)
 let mlty ctx params ty =
   let rec mlty ({Location.thing=ty';loc}) =
     let ty' =
@@ -311,28 +344,39 @@ let mlty ctx params ty =
          let tys = List.map mlty tys in
          Dsyntax.ML_Prod tys
 
-      | Input.ML_TyApply (x, args) ->
-         begin
-           match Name.index_of_opt_ident x params with
-           | Some k ->
-              (* It is a type parameter *)
+      | Input.ML_TyApply (pth, args) ->
+         begin match pth with
+
+         | Name.PName x ->
+
+            let rec search k = function
+              | [] ->
+              (* It's a type name *)
               begin
-                match args with
-                | [] -> Dsyntax.ML_Bound k
-                | _::_ -> error ~loc AppliedTyParam
-              end
-           | None ->
-              (* It is a type name *)
-              begin
-                let (level, arity) = Ctx.get_tydef ~loc x ctx in
+                let (l, arity) = Ctx.get_ml_type_name ~loc x ctx in
                 let n = List.length args in
                 if arity = n
                 then
                   let args = List.map mlty args in
-                  Dsyntax.ML_TyApply (x, level, args)
+                  Dsyntax.ML_TyApply (Dsyntax.TName (Dsyntax.Level (x, l)), args)
                 else
-                  error ~loc (ArityMismatch (x, n, arity))
+                  error ~loc (ArityMismatch (pth, n, arity))
               end
+              | None :: lst -> search k lst
+              | Some y :: lst ->
+                 if Name.equal x y then
+                   (* It's a type parameter *)
+                   begin match args with
+                   | [] -> Dsyntax.ML_Bound k
+                   | _::_ -> error ~loc AppliedTyParam
+                   end
+                 else search (k+1)
+            in
+            search 0 params
+
+         | Name.PModule _ ->
+            begin
+            end
          end
 
       | Input.ML_Anonymous ->

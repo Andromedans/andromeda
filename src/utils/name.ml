@@ -46,6 +46,12 @@ let print ?(parentheses=true) {name;fixity} ppf =
      else
        Format.fprintf ppf "%s" name
 
+let print_path pth ppf =
+  match pth with
+  | PName x -> print x ppf
+  | PModule (mdl, x) ->
+     Format.fprintf ppf "%t.%t" (print mdl) (print x)
+
 let anonymous =
   let k = ref (-1) in
   fun () ->

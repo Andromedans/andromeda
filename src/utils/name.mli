@@ -25,6 +25,9 @@ val greek : int -> string
 (** Print a name *)
 val print : ?parentheses:bool -> t -> Format.formatter -> unit
 
+(** Print a path *)
+val print_path : path -> Format.formatter -> unit
+
 (** A new anonymous name that cannot be referenced by the user. *)
 val anonymous : unit -> t
 

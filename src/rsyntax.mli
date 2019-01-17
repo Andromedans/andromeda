@@ -1,20 +1,21 @@
 (** Runtime syntax *)
 
-(** Bound variables are de Bruijn indices *)
+(** Bound values are referred to by de Bruijn indices *)
 type bound = int
 
 (** ML type declarations are referred to by de Bruijn levels *)
-type level = int
+type ml_type = int
+
+(** An ML constructor is referred to by its position in the type definition *)
+type ml_constructor = int
 
 type 'a located = 'a Location.located
-
-type ml_ty = Mlty.ty
 
 type ml_schema = Mlty.ty_schema
 
 type arg_annotation =
   | Arg_annot_none
-  | Arg_annot_ty of ml_ty
+  | Arg_annot_ty of Mlty.ty
 
 type let_annotation =
   | Let_annot_none
@@ -24,7 +25,7 @@ type let_annotation =
 type comp = comp' located
 and comp' =
   | Bound of bound
-  | Function of Name.t * comp
+  | Function of comp
   | Handler of handler
   | MLConstructor of Path.t * comp list
   | Tuple of comp list
