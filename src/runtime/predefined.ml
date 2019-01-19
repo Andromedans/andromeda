@@ -82,9 +82,6 @@ let predefined_bound =
                     (Name.Predefined.hypotheses, Input.Arg_annot_ty hyps_annot, unloc (Input.List [])) in
   [unloc decl_hyps]
 
-let predefined_bound_names =
-  [Name.Predefined.hypotheses]
-
 let definitions = List.concat [predefined_aml_types; predefined_ops; predefined_bound]
 
 (** Conversions between OCaml list and ML list *)
@@ -184,22 +181,3 @@ let operation_coerce ~loc e t =
   and v2 = Runtime.mk_is_type t in
   Runtime.operation op_coerce [v1;v2] >>= fun v ->
   Runtime.return (as_coercible ~loc v)
-
-(* Possibly this should be in Runtime? It seems to be here only because
-   predefined_bound_names isn't in the interface. *)
-
-let add_abstracting j m =
-  let loc = Location.unknown in
-  (* In practice k will be 0 because hypothesis is the first dynamic variable *)
-  let k = match Name.level Name.Predefined.hypotheses predefined_bound_names with
-    | Some k -> k
-    | None -> assert false
-  in
-  let v = Runtime.mk_is_term j in               (* The given variable as an ML value *)
-  Runtime.index_of_level k >>= fun k ->         (* Switch k from counting from the
-                                                   beginning to counting from the end *)
-  Runtime.lookup_bound ~loc k >>= fun hypsx ->   (* Get the ML list of [hypotheses] *)
-  let hypsx = Runtime.as_dyn ~loc hypsx in
-  Runtime.lookup_dyn hypsx >>= fun hyps ->
-  let hyps = list_cons v hyps in                (* Add v to the front of that ML list *)
-  Runtime.now hypsx hyps m                     (* Run computation m in this dynamic scope *)

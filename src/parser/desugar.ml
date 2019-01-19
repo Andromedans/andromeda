@@ -1,16 +1,7 @@
-(** Conversion from sugared to desugared input syntax.
-    The responsibilities of this phase are:
+(** Conversion from sugared to desugared input syntax. The responsibilities of
+   this phase is to resolve all names to levels and indices. *)
 
-    - Convert all references to entities to de Bruijn indices, levels,
-      and paths (i.e., sequences of levels).
-
-    - Check that the following entities are applied with the correct arity:
-      operations, type constructors, TT constructors, ML constructors.
-      (This may be delegate to typechecking in the future, it's here for
-       historic reasons.)
-*)
-
-(** The arity of an operation or a data constructor. *)
+(** Arity of an operator *)
 type arity = Arity of int
 
 (** De bruijn level *)
@@ -21,13 +12,14 @@ type index = Index of int
 
 (** Information about names *)
 type info =
-  | Variable
-  | TTConstructor of arity
-  | MLConstructor of arity
-  | Operation of arity
+  | Bound of Dsyntax.index
+  | Value of Dsyntax.path
+  | TTConstructor of Dsyntax.path * arity
+  | MLConstructor of (Dsyntax.path * Dsyntax.level) * arity
+  | Operation of Dsyntax.path * arity
 
 let print_info info ppf = match info with
-  | Variable -> Format.fprintf ppf "a value"
+  | Bound _ | Value _ -> Format.fprintf ppf "a value"
   | TTConstructor _ -> Format.fprintf ppf "a constructor"
   | MLConstructor _ -> Format.fprintf ppf "an ML constructor"
   | Operation _ -> Format.fprintf ppf "an operation"
@@ -38,9 +30,9 @@ type error =
   | NameAlreadyDeclared of Name.t * info
   | MLTypeAlreadyDeclared of Name.t
   | OperationExpected : Name.path * info -> error
-  | InvalidTermPatternName : Name.t * info -> error
+  | InvalidTermPatternName : Name.path * info -> error
   | InvalidPatternName : Name.t * info -> error
-  | InvalidAppliedPatternName : Name.t * info -> error
+  | InvalidAppliedPatternName : Name.path * info -> error
   | NonlinearPattern : Name.t -> error
   | ArityMismatch of Name.path * int * arity
   | UnboundYield
@@ -75,9 +67,9 @@ let print_error err ppf = match err with
        (Name.print_path pth)
        (print_info info)
 
-  | InvalidTermPatternName (x, info) ->
+  | InvalidTermPatternName (pth, info) ->
      Format.fprintf ppf "%t cannot be used in a term pattern as it is %t"
-       (Name.print x)
+       (Name.print_path pth)
        (print_info info)
 
   | InvalidPatternName (x, info) ->
@@ -85,9 +77,9 @@ let print_error err ppf = match err with
        (Name.print x)
        (print_info info)
 
-  | InvalidAppliedPatternName (x, info) ->
+  | InvalidAppliedPatternName (pth, info) ->
      Format.fprintf ppf "%t cannot be applied in a pattern as it is %t"
-       (Name.print x)
+       (Name.print_path pth)
        (print_info info)
 
   | NonlinearPattern x ->
@@ -117,7 +109,7 @@ let print_error err ppf = match err with
 
   | CircularRequire mdls ->
      Format.fprintf ppf "circuar module dependency (@[<hov -2>%t@])"
-        (Print.sequence Name.print "," mdls)
+        (Print.sequence (Name.print ~parentheses:false) "," mdls)
 
 exception Error of error Location.located
 
@@ -125,14 +117,28 @@ let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 
 module Ctx = struct
 
+  (** An association list taking names to values *)
+  type 'a assoc = (Name.t * 'a) list
+
+  (* For each type construct we store its arity, and possibly the constructors with their arities *)
+  type ml_type_info = arity * arity assoc option
+
   (* A module has two name spaces, one for ML types and the other for everything
-     else. *)
+     else. However, we keep operations, TT constructors and values in separate
+     lists because we need to compute their indices. *)
   type ml_module = {
-      ml_types : (Name.t * arity) list ;
-      ml_names : (Name.t * info) list
+      ml_types : ml_type_info assoc ;
+      ml_operations : arity assoc ;
+      ml_tt_constructors : arity assoc ;
+      ml_values : unit assoc
     }
 
-  let empty_module = { ml_types = []; ml_names = [] }
+  let empty_module = {
+      ml_types = [];
+      ml_operations = [];
+      ml_tt_constructors = [];
+      ml_values = []
+    }
 
   type t = {
       (* Known ML modules *)
@@ -171,62 +177,112 @@ module Ctx = struct
     in
     search lst
 
-  (* Find the level of the module and its contents *)
-  let find_module mdl_name mdls =
-    find_level mdl_name mdls
+  let find_module mdl_name ctx = find_level mdl_name ctx.ml_modules
+
+  (* Find an ML constructor *)
+  let find_ml_constructor x ml_types =
+    let rec search k = function
+      | [] -> None
+      | (_, (_, None)) :: css -> search (k+1) css
+      | (t, (_, Some cs)) :: css ->
+         begin match find_level x cs with
+         | None -> search (k+1) css
+         | Some (arity, Level l) -> Some ((Dsyntax.Direct (Dsyntax.Level (t, k)), Dsyntax.Level (x, l)), arity)
+         end
+    in
+    search 0 ml_types
+
+  let find_ml_type pth ctx =
+    match pth with
+
+    | Name.PName t ->
+       begin match find_level t ctx.current.ml_types with
+       | Some (_, Level l) -> Some (Dsyntax.Direct (Dsyntax.Level (t, l)))
+       | None -> None
+       end
+
+    | Name.PModule (mdl_name, t) ->
+       begin match find_module mdl_name ctx with
+       | Some (mdl, Level mdl_level) ->
+          begin match find_level t mdl.ml_types with
+          | Some (_, Level l) -> Some (Dsyntax.Module (Dsyntax.Level (mdl_name, mdl_level),
+                                                       Dsyntax.Level (t, l)))
+          | None -> None
+          end
+       | None -> None
+       end
+
+  (* Find the information about the given name in the given module.
+     The [index] flag tells whether values should be looked up by index or level.*)
+  let find_info_name ~index x mdl =
+    let value =
+      if index then
+        match find_index x mdl.ml_values with
+        | None -> None
+        | Some ((), Index i) -> Some (Bound (Dsyntax.Index (x, i)))
+      else
+        match find_level x mdl.ml_values with
+        | None -> None
+        | Some ((), Level l) -> Some (Value (Dsyntax.Direct (Dsyntax.Level (x, l))))
+    in
+    match value with
+    | Some _ -> value
+    | None ->
+       begin match find_level x mdl.ml_tt_constructors with
+       | Some (arity, Level l) -> Some (TTConstructor ((Dsyntax.Direct (Dsyntax.Level (x, l))), arity))
+       | None ->
+          begin match find_level x mdl.ml_operations with
+          | Some (arity, Level l) -> Some (Operation ((Dsyntax.Direct (Dsyntax.Level (x, l)), arity)))
+          | None ->
+             begin match find_ml_constructor x mdl.ml_types with
+             | Some (pth, arity) -> Some (MLConstructor (pth, arity))
+             | None -> None
+             end
+          end
+       end
+
+  (* Extend a path with a module *)
+  let extend_path lvl = function
+
+    | Dsyntax.Direct x ->
+       Dsyntax.Module (lvl, x)
+
+    | Dsyntax.Module _ ->
+       (* in the future we will nest modules, so this case will succeed *)
+       assert false
 
   (* Find the information about the given path *)
   let find_info_path pth ctx =
     match pth with
 
     | Name.PName x ->
-       begin
-         match find_index x ctx.current.ml_names with
-         | None -> None
-         | Some (info, Index x_ind) -> Some (info, Dsyntax.PName (Dsyntax.Index (x, x_ind)))
-       end
+       find_info_name ~index:true x ctx.current
 
     | Name.PModule (mdl_name, x) ->
-       begin match find_module mdl_name ctx.ml_modules with
+       begin match find_module mdl_name ctx with
          | None -> None
-         | Some (mdl, Level mdl_lvl) ->
-            begin
-              match find_level x mdl.ml_names with
-              | None -> None
-              | Some (info, Level x_lvl) ->
-                 Some (info,
-                       Dsyntax.PModule (Dsyntax.Level (mdl_name, mdl_lvl), Dsyntax.Level (x, x_lvl)))
+         | Some (mdl, Level mdl_level) ->
+            let lvl = Dsyntax.Level (mdl_name, mdl_level) in
+            begin match find_info_name ~index:false x mdl with
+            | None -> None
+            | Some (Bound _) -> assert false
+            | Some (Value pth) -> Some (Value (extend_path lvl pth))
+            | Some (TTConstructor (pth, arity)) -> Some (TTConstructor (extend_path lvl pth, arity))
+            | Some (MLConstructor ((pth, l), arity)) -> Some (MLConstructor ((extend_path lvl pth, l), arity))
+            | Some (Operation (pth, arity)) -> Some (Operation (extend_path lvl pth, arity))
             end
-       end
-
-  (* Find the path and arity of the given ML type *)
-  let find_ml_type_path pth ctx =
-    match pth with
-
-    | Name.PName t ->
-       begin
-         match find_level t ctx.current.ml_types with
-         | None -> None
-         | Some (info, Level t_lvl) ->
-       end
-
-    | Name.PModule (mdl_name, t) ->
-       begin match find_module mdl_name ctx.ml_modules with
-         | None -> None
-         | Some (mdl, _) -> find_ml_type_name t mdl.ml_types
        end
 
   (* Check that the name is not bound already *)
   let check_is_fresh_name ~loc x ctx =
-    match find_info_name x ctx.current.ml_names with
+    match find_info_name ~index:true x ctx.current with
     | None -> ()
     | Some info -> error ~loc (NameAlreadyDeclared (x, info))
 
   (* Check that the type is not bound already *)
   let check_is_fresh_type ~loc x ctx =
-    match find_info_name x ctx.current.ml_types with
-    | None -> ()
-    | Some _ -> error ~loc (MLTypeAlreadyDeclared x)
+    if List.mem_assoc x ctx.current.ml_types then
+      error ~loc (MLTypeAlreadyDeclared x)
 
   (* Get the info about a path, or fail *)
   let get_info_path ~loc pth ctx =
@@ -234,48 +290,51 @@ module Ctx = struct
     | None -> error ~loc (UnknownPath pth)
     | Some info -> info
 
-  (* Get the arity of an operation, or fail *)
-  let get_operation ~loc pth ctx =
-    match get_info_path ~loc pth ctx with
-    | Operation k -> k
-    | (Variable | TTConstructor _ | MLConstructor _) as info ->
-      error ~loc (OperationExpected (pth, info))
+  (* Get information about the list empty list constructor *)
+  let get_path_nil ctx =
+    match find_info_name ~index:false Name.Predefined.nil ctx.current with
+    | Some (MLConstructor (pth, Arity 0)) -> pth
+    | None |Some (Bound _ | Value _ | MLConstructor _ | TTConstructor _ | Operation _) ->
+       assert false
+
+  let get_path_cons ctx =
+    match find_info_name ~index:false Name.Predefined.cons ctx.current with
+    | Some (MLConstructor (pth, Arity 2)) -> pth
+    | None |Some (Bound _ | Value _ | MLConstructor _ | TTConstructor _ | Operation _) ->
+       assert false
 
   (* Get the arity and de Bruijn level of type named [t] and its definition *)
   let get_ml_type ~loc pth ctx =
-    match find_ml_type_path pth ctx with
+    match find_ml_type pth ctx with
     | None -> error ~loc (UnknownType pth)
-    | Some a -> a
+    | Some info -> info
 
   (* Add a module to the module list, allow shadowing. *)
   let add_module mdl_name mdl ctx =
     { ctx with ml_modules = (mdl_name, mdl) :: ctx.ml_modules }
 
-  (* Add infomation about a name *)
-  let add_info ~loc ~shadow x info ctx =
-    if not shadow then check_is_fresh_name ~loc x ctx ;
-    { ctx with current = { ctx.current with ml_names = (x, info) :: ctx.current.ml_names } }
-
-  (* Add a local named value, may shadow existing names *)
-  let add_value ~loc x ctx =
-    add_info ~loc ~shadow:true x Variable ctx
-
-  (* Add a toplevel named value, may not shadow existing names *)
-  let add_top_value ~loc x ctx =
-    add_info ~loc ~shadow:false x Variable ctx
-
-  (* Add an ML constructor of given arity *)
-  let add_ml_constructor ~loc c arity ctx =
-    add_info ~loc ~shadow:false c (MLConstructor (Arity arity)) ctx
+  (* Add a local bound value. If [~fresh] is given, shadowing is prevented. *)
+  let add_bound ?(fresh=None) x ctx =
+    begin match fresh with
+    | None -> ()
+    | Some loc -> check_is_fresh_name ~loc x ctx
+    end ;
+    { ctx with current = { ctx.current with ml_values = (x, ()) :: ctx.current.ml_values } }
 
   (* Add a TT constructor of given arity *)
   let add_tt_constructor ~loc c arity ctx =
-    add_info ~loc ~shadow:false c (TTConstructor (Arity arity)) ctx
+    check_is_fresh_name ~loc c ctx ;
+    { ctx with current = { ctx.current with ml_tt_constructors = (c, arity) :: ctx.current.ml_tt_constructors } }
 
-  (* Add to the context the fact that [t] is a type constructor with [k] parameters. *)
-  let add_ml_type ~loc t k ctx  =
+  (* Add an operation of given arity *)
+  let add_operation ~loc op arity ctx =
+    check_is_fresh_name ~loc op ctx ;
+    { ctx with current = { ctx.current with ml_operations = (op, arity) :: ctx.current.ml_operations } }
+
+  (* Add to the context the fact that [t] is a type constructor with given constructors and arities. *)
+  let add_ml_type ~loc t cs ctx  =
     check_is_fresh_type ~loc t ctx ;
-    { ctx with current = { ctx.current with  ml_types = (t, Arity k) :: ctx.current.ml_types } }
+    { ctx with current = { ctx.current with  ml_types = (t, cs) :: ctx.current.ml_types } }
 
   (* Has the given file already been loaded? *)
   let loaded mdl {ml_modules; _} =
@@ -297,6 +356,11 @@ module Ctx = struct
     List.mem mdl_name loading
 
 end (* module Ctx *)
+
+  (* Check that the arity is the expected one. *)
+  let check_arity ~loc pth used (Arity a as expected) =
+    if used <> a then
+      error ~loc (ArityMismatch (pth, used, expected))
 
 let locate = Location.locate
 
@@ -347,36 +411,32 @@ let mlty ctx params ty =
       | Input.ML_TyApply (pth, args) ->
          begin match pth with
 
-         | Name.PName x ->
+         | Name.PModule _ ->
+                let pth  = Ctx.get_ml_type ~loc pth ctx in
+                let args = List.map mlty args in
+                Dsyntax.ML_TyApply (pth, args)
 
+         | Name.PName x ->
+            (* It could be one of the bound type parameters *)
             let rec search k = function
               | [] ->
               (* It's a type name *)
               begin
-                let (l, arity) = Ctx.get_ml_type_name ~loc x ctx in
-                let n = List.length args in
-                if arity = n
-                then
-                  let args = List.map mlty args in
-                  Dsyntax.ML_TyApply (Dsyntax.TName (Dsyntax.Level (x, l)), args)
-                else
-                  error ~loc (ArityMismatch (pth, n, arity))
+                let pth  = Ctx.get_ml_type ~loc pth ctx in
+                let args = List.map mlty args in
+                Dsyntax.ML_TyApply (pth, args)
               end
               | None :: lst -> search k lst
               | Some y :: lst ->
                  if Name.equal x y then
                    (* It's a type parameter *)
                    begin match args with
-                   | [] -> Dsyntax.ML_Bound k
+                   | [] -> Dsyntax.ML_Bound (Dsyntax.Index (x, k))
                    | _::_ -> error ~loc AppliedTyParam
                    end
-                 else search (k+1)
+                 else search (k+1) params
             in
             search 0 params
-
-         | Name.PModule _ ->
-            begin
-            end
          end
 
       | Input.ML_Anonymous ->
@@ -406,7 +466,7 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
 
   | Input.Patt_TT_Var x ->
      (* NB: a pattern variable always shadows whatever it can *)
-     let ctx = Ctx.add_variable x ctx in
+     let ctx = Ctx.add_bound x ctx in
      ctx, (locate (Dsyntax.Patt_TT_Var x) loc)
 
   | Input.Patt_TT_As (p1, p2) ->
@@ -415,9 +475,11 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
      ctx, locate (Dsyntax.Patt_TT_As (p1, p2)) loc
 
   | Input.Patt_TT_Constructor (c, ps) ->
-     begin match Ctx.find_ident ~loc c ctx with
-     | TTConstructor k -> pattern_tt_constructor ~loc ctx c k ps
-     | (MLConstructor _ | Operation _ | Variable _) as info ->
+     begin match Ctx.get_info_path ~loc c ctx with
+     | TTConstructor (pth, arity) ->
+        check_arity ~loc c (List.length ps) arity ;
+        pattern_tt_constructor ~loc ctx pth ps
+     | (MLConstructor _ | Operation _ | Value _ | Bound _) as info ->
         error ~loc (InvalidTermPatternName (c, info))
      end
 
@@ -460,7 +522,7 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
             begin
               match xopt with
               | Some x ->
-                 let ctx = Ctx.add_variable x ctx in
+                 let ctx = Ctx.add_bound x ctx in
                  ctx, Some x
               | None -> ctx, None
             end
@@ -470,20 +532,16 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
      in
      fold ctx abstr
 
-and pattern_tt_constructor ~loc ctx c k ps =
-  let k' = List.length ps in
-  if k <> k' then
-    error ~loc (ArityMismatch (c, k, k'))
-  else
-    let rec fold ctx ps = function
-       | [] ->
-          let ps = List.rev ps in
-          ctx, locate (Dsyntax.Patt_TT_Constructor (c, ps)) loc
-       | q :: qs ->
-          let ctx, p = tt_pattern ctx q in
-          fold ctx (p :: ps) qs
-     in
-     fold ctx [] ps
+and pattern_tt_constructor ~loc ctx pth ps =
+  let rec fold ctx ps = function
+    | [] ->
+       let ps = List.rev ps in
+       ctx, locate (Dsyntax.Patt_TT_Constructor (pth, ps)) loc
+    | q :: qs ->
+       let ctx, p = tt_pattern ctx q in
+       fold ctx (p :: ps) qs
+  in
+  fold ctx [] ps
 
 let rec pattern ctx {Location.thing=p; loc} =
   match p with
@@ -491,18 +549,16 @@ let rec pattern ctx {Location.thing=p; loc} =
      ctx, locate Dsyntax.Patt_Anonymous loc
 
   | Input.Patt_Var x ->
-     begin match Ctx.find_opt_ident x ctx with
+     begin match Ctx.find_info_name ~index:true x ctx.Ctx.current with
 
-     | Some (Variable _)
-        (* We allow shadowing. *)
+     | Some (Bound _ | Value _) (* we allow shadowing of named values *)
      | None ->
-        let ctx = Ctx.add_variable x ctx in
+        let ctx = Ctx.add_bound x ctx in
         ctx, locate (Dsyntax.Patt_Var x) loc
 
-     | Some (MLConstructor k) ->
-        if k = 0
-        then ctx, locate (Dsyntax.Patt_Constr (x,[])) loc
-        else error ~loc (ArityMismatch (x, 0, k))
+     | Some (MLConstructor (pth, arity)) ->
+        check_arity ~loc (Name.path_direct x) 0 arity ;
+        ctx, locate (Dsyntax.Patt_Constructor (pth, [])) loc
 
      | Some ((TTConstructor _ | Operation _) as info) ->
         error ~loc (InvalidPatternName (x, info))
@@ -518,34 +574,33 @@ let rec pattern ctx {Location.thing=p; loc} =
      let ctx, p = tt_pattern ctx p in
      ctx, locate (Dsyntax.Patt_Judgement p) loc
 
-  | Input.Patt_Constr (c,ps) ->
-     begin match Ctx.find_ident ~loc c ctx with
-     | MLConstructor k ->
-        let len = List.length ps in
-        if k = len
-        then
-          let rec fold ctx ps = function
-            | [] ->
-               let ps = List.rev ps in
-               ctx, locate (Dsyntax.Patt_Constr (c, ps)) loc
-            | p::rem ->
-               let ctx, p = pattern ctx p in
-               fold ctx (p::ps) rem
-          in
-          fold ctx [] ps
-        else
-          error ~loc (ArityMismatch (c, List.length ps, k))
-     | (Variable _ | TTConstructor _ | Operation _) as info ->
+  | Input.Patt_Constructor (c, ps) ->
+     begin match Ctx.get_info_path ~loc c ctx with
+     | MLConstructor (pth, arity) ->
+        check_arity ~loc c (List.length ps) arity ;
+        let rec fold ctx ps = function
+          | [] ->
+             let ps = List.rev ps in
+             ctx, locate (Dsyntax.Patt_Constructor (pth, ps)) loc
+          | p::rem ->
+             let ctx, p = pattern ctx p in
+             fold ctx (p::ps) rem
+        in
+        fold ctx [] ps
+
+     | (Bound _ | Value _ | TTConstructor _ | Operation _) as info ->
         error ~loc (InvalidAppliedPatternName (c, info))
      end
 
   | Input.Patt_List ps ->
+     let nil_path = Ctx.get_path_nil ctx
+     and cons_path = Ctx.get_path_cons ctx in
      let rec fold ~loc ctx = function
-       | [] -> ctx, locate (Dsyntax.Patt_Constr (Name.Predefined.nil, [])) loc
+       | [] -> ctx, locate (Dsyntax.Patt_Constructor (nil_path, [])) loc
        | p :: ps ->
           let ctx, p = pattern ctx  p in
           let ctx, ps = fold ~loc:(p.Location.loc) ctx ps in
-          ctx, locate (Dsyntax.Patt_Constr (Name.Predefined.cons, [p ; ps])) loc
+          ctx, locate (Dsyntax.Patt_Constructor (cons_path, [p ; ps])) loc
      in
      fold ~loc ctx ps
 
@@ -567,12 +622,12 @@ let rec pattern ctx {Location.thing=p; loc} =
     extended with the names that this pattern binds. *)
 
 let check_linear_pattern_variable ~loc ~forbidden x =
-     if Name.IdentSet.mem x forbidden then
+     if Name.set_mem x forbidden then
        error ~loc (NonlinearPattern x)
      else
-       Name.IdentSet.add x forbidden
+       Name.set_add x forbidden
 
-let rec check_linear_tt ?(forbidden=Name.IdentSet.empty) {Location.thing=p';loc} =
+let rec check_linear_tt ?(forbidden=Name.set_empty) {Location.thing=p';loc} =
   match p' with
 
   | Input.Patt_TT_Anonymous -> forbidden
@@ -620,7 +675,7 @@ and check_linear_abstraction ~loc ~forbidden = function
      check_linear_abstraction ~loc ~forbidden args
 
 
-let rec check_linear ?(forbidden=Name.IdentSet.empty) {Location.thing=p';loc} =
+let rec check_linear ?(forbidden=Name.set_empty) {Location.thing=p';loc} =
   match p' with
 
   | Input.Patt_Anonymous -> forbidden
@@ -635,7 +690,7 @@ let rec check_linear ?(forbidden=Name.IdentSet.empty) {Location.thing=p';loc} =
   | Input.Patt_Judgement pt ->
      check_linear_tt ~forbidden pt
 
-  | Input.Patt_Constr (_, ps)
+  | Input.Patt_Constructor (_, ps)
   | Input.Patt_List ps
   | Input.Patt_Tuple ps ->
      check_linear_list ~forbidden ps
@@ -659,12 +714,12 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      locate (Dsyntax.With (c1, c2)) loc
 
   | Input.Let (lst, c) ->
-     let ctx, lst = let_clauses ~loc ~yield ctx lst in
+     let ctx, lst = let_clauses ~loc ~toplevel:false ~yield ctx lst in
      let c = comp ~yield ctx c in
      locate (Dsyntax.Let (lst, c)) loc
 
   | Input.LetRec (lst, c) ->
-     let ctx, lst = letrec_clauses ~loc ~yield ctx lst in
+     let ctx, lst = letrec_clauses ~loc ~toplevel:false ~yield ctx lst in
      let c = comp ~yield ctx c in
      locate (Dsyntax.LetRec (lst, c)) loc
 
@@ -701,11 +756,12 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      and c2 = comp ~yield ctx c2 in
      locate (Dsyntax.Sequence (c1, c2)) loc
 
-  | Input.Assume ((x, t), c) ->
+
+  | Input.Assume ((xopt, t), c) ->
      let t = comp ~yield ctx t in
-     let ctx = Ctx.add_opt_variable x ctx in
+     let ctx = (match xopt with None -> ctx | Some x -> Ctx.add_bound x ctx) in
      let c = comp ~yield ctx c in
-     locate (Dsyntax.Assume ((x, t), c)) loc
+     locate (Dsyntax.Assume ((xopt, t), c)) loc
 
   | Input.Match (c, cases) ->
      let c = comp ~yield ctx c
@@ -724,12 +780,12 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
           let c = comp ~yield ctx c in
           mk_abstract ~loc ys c
        | (x, None) :: xs ->
-          let ctx = Ctx.add_variable x ctx
+          let ctx = Ctx.add_bound x ctx
           and ys = (x, None) :: ys in
           fold ctx ys xs
        | (x, Some t) :: xs ->
           let ys = (let t = comp ~yield ctx t in (x, Some t) :: ys)
-          and ctx = Ctx.add_variable x ctx in
+          and ctx = Ctx.add_bound x ctx in
           fold ctx ys xs
      in
      fold ctx [] xs
@@ -748,17 +804,24 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      spine ~yield ctx e cs
 
   | Input.Var x ->
-     begin match Ctx.find_ident ~loc x ctx with
-     | Variable i -> locate (Dsyntax.Bound i) loc
-     | TTConstructor k ->
-        if k = 0 then locate (Dsyntax.TT_Constructor (x, [])) loc
-        else error ~loc (ArityMismatch (x, 0, k))
-     | MLConstructor k ->
-        if k = 0 then locate (Dsyntax.MLConstructor (x, [])) loc
-        else error ~loc (ArityMismatch (x, 0, k))
-     | Operation k ->
-        if k = 0 then locate (Dsyntax.Operation (x, [])) loc
-        else error ~loc (ArityMismatch (x, 0, k))
+
+     begin match Ctx.get_info_path ~loc x ctx with
+
+     | Bound i -> locate (Dsyntax.Bound i) loc
+
+     | Value pth -> locate (Dsyntax.Value pth) loc
+
+     | TTConstructor (pth, arity) ->
+        check_arity ~loc x 0 arity ;
+        locate (Dsyntax.TTConstructor (pth, [])) loc
+
+     | MLConstructor (pth, arity) ->
+        check_arity ~loc x 0 arity ;
+        locate (Dsyntax.MLConstructor (pth, [])) loc
+
+     | Operation (pth, arity) ->
+        check_arity ~loc x 0 arity ;
+        locate (Dsyntax.Operation (pth, [])) loc
      end
 
   | Input.Yield c ->
@@ -773,7 +836,7 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      let rec fold ctx = function
        | [] -> comp ~yield ctx c
        | (x, t) :: xs ->
-          let ctx = Ctx.add_variable x ctx in
+          let ctx = Ctx.add_bound x ctx in
           let c = fold ctx xs in
           let t = arg_annotation ctx t in
           locate (Dsyntax.Function (x, t, c)) loc
@@ -784,12 +847,14 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      handler ~loc ctx hcs
 
   | Input.List cs ->
+     let nil_path = Ctx.get_path_nil ctx
+     and cons_path = Ctx.get_path_cons ctx in
      let rec fold ~loc = function
-       | [] -> locate (Dsyntax.MLConstructor (Name.Predefined.nil, [])) loc
+       | [] -> locate (Dsyntax.MLConstructor (nil_path, [])) loc
        | c :: cs ->
           let c = comp ~yield ctx c in
           let cs = fold ~loc:(c.Location.loc) cs in
-          locate (Dsyntax.MLConstructor (Name.Predefined.cons, [c ; cs])) loc
+          locate (Dsyntax.MLConstructor (cons_path, [c ; cs])) loc
      in
      fold ~loc cs
 
@@ -816,7 +881,8 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
   | Input.Open (mdl, c) ->
      failwith "modules not implemented"
 
-and let_clauses ~loc ~yield ctx lst =
+and let_clauses ~loc ~toplevel ~yield ctx lst =
+  let fresh = if toplevel then Some loc else None in
   let rec fold ctx' lst' = function
     | [] ->
        let lst' = List.rev lst' in
@@ -824,13 +890,13 @@ and let_clauses ~loc ~yield ctx lst =
 
     | Input.Let_clause_ML (xys_opt, sch, c) :: clauses ->
        let ys = (match xys_opt with None -> [] | Some (_, ys) -> ys) in
-       let c = let_clause ~yield ctx ys c in
+       let c = let_clause ~loc ~fresh ~yield ctx ys c in
        let sch = let_annotation ctx sch in
        let x, ctx' =
          begin match xys_opt with
          | None -> locate Dsyntax.Patt_Anonymous loc, ctx'
          (* XXX if x carried its location, we would use it here *)
-         | Some (x, _) -> locate (Dsyntax.Patt_Var x) loc, Ctx.add_variable x ctx'
+         | Some (x, _) -> locate (Dsyntax.Patt_Var x) loc, Ctx.add_bound ~fresh x ctx'
          end
        in
        let lst' = Dsyntax.Let_clause (x, sch, c) :: lst' in
@@ -843,7 +909,7 @@ and let_clauses ~loc ~yield ctx lst =
          begin match xopt with
          | None -> locate Dsyntax.Patt_Anonymous loc, ctx'
          (* XXX if x carried its location, we would use it here *)
-         | Some x -> locate (Dsyntax.Patt_Var x) loc, Ctx.add_variable x ctx'
+         | Some x -> locate (Dsyntax.Patt_Var x) loc, Ctx.add_bound ~fresh x ctx'
          end
        in
        let lst' = Dsyntax.Let_clause (x, sch, c) :: lst' in
@@ -861,9 +927,9 @@ and let_clauses ~loc ~yield ctx lst =
     | [] -> ()
     | Input.Let_clause_ML (Some (x, _), _, _) :: lst
     | Input.Let_clause_tt (Some x, _, _) :: lst ->
-       if Name.IdentSet.mem x forbidden
+       if Name.set_mem x forbidden
        then error ~loc (ParallelShadowing x)
-       else check_unique (Name.IdentSet.add x forbidden) lst
+       else check_unique (Name.set_add x forbidden) lst
     | Input.Let_clause_ML (None, _, _) :: lst
     | Input.Let_clause_tt (None, _, _) :: lst ->
        check_unique forbidden lst
@@ -871,35 +937,36 @@ and let_clauses ~loc ~yield ctx lst =
        let forbidden = check_linear ~forbidden pt in
        check_unique forbidden lst
   in
-  check_unique Name.IdentSet.empty lst ;
+  check_unique Name.set_empty lst ;
   fold ctx [] lst
 
-and letrec_clauses ~loc ~yield ctx lst =
+and letrec_clauses ~loc ~toplevel ~yield ctx lst =
+  let fresh = if toplevel then Some loc else None in
   let ctx =
-    List.fold_left (fun ctx (f, _, _, _, _) -> Ctx.add_variable f ctx) ctx lst
+    List.fold_left (fun ctx (f, _, _, _, _) -> Ctx.add_bound ~fresh f ctx) ctx lst
   in
   let rec fold lst' = function
     | [] ->
        let lst' = List.rev lst' in
        ctx, lst'
     | (f, yt, ys, sch, c) :: xcs ->
-       if List.exists (fun (g, _, _, _, _) -> Name.eq_ident f g) xcs
+       if List.exists (fun (g, _, _, _, _) -> Name.equal f g) xcs
        then
          error ~loc (ParallelShadowing f)
        else
-         let yt, c = letrec_clause ~yield ctx yt ys c in
+         let yt, c = letrec_clause ~loc ~fresh ~yield ctx yt ys c in
          let sch = let_annotation ctx sch in
          let lst' = Dsyntax.Letrec_clause (f, yt, sch, c) :: lst' in
          fold lst' xcs
   in
   fold [] lst
 
-and let_clause ~yield ctx ys c =
+and let_clause ~loc ~fresh ~yield ctx ys c =
   let rec fold ctx = function
     | [] ->
        comp ~yield ctx c
     | (y, t) :: ys ->
-       let ctx = Ctx.add_variable y ctx in
+       let ctx = Ctx.add_bound ~fresh y ctx in
        let c = fold ctx ys in
        let t = arg_annotation ctx t in
        locate (Dsyntax.Function (y, t, c)) (c.Location.loc) (* XXX improve location *)
@@ -911,10 +978,10 @@ and let_clause_tt ~yield ctx c t =
   and t = comp ~yield ctx t in
   locate (Dsyntax.Ascribe (c, t)) (c.Location.loc)
 
-and letrec_clause ~yield ctx (y, t) ys c =
+and letrec_clause ~loc ~fresh ~yield ctx (y, t) ys c =
   let t = arg_annotation ctx t in
-  let ctx = Ctx.add_variable y ctx in
-  let c = let_clause ~yield ctx ys c in
+  let ctx = Ctx.add_bound ~fresh y ctx in
+  let c = let_clause ~loc ~fresh ~yield ctx ys c in
   (y, t), c
 
 
@@ -944,13 +1011,13 @@ and spine ~yield ctx ({Location.thing=c';loc} as c) cs =
 
   (* Auxiliary function which splits a list into two parts with k
      elements in the first part. *)
-  let split_at constr k lst =
+  let split_at constr (Arity k as arity) lst =
     let rec split acc m lst =
       if m = 0 then
         List.rev acc, lst
       else
         match lst with
-        | [] -> error ~loc (ArityMismatch (constr, List.length acc, k))
+        | [] -> error ~loc (ArityMismatch (constr, List.length acc, arity))
         | x :: lst -> split (x :: acc) (m - 1) lst
     in
     split [] k lst
@@ -959,19 +1026,28 @@ and spine ~yield ctx ({Location.thing=c';loc} as c) cs =
   (* First we calculate the head of the spine, and the remaining arguments. *)
   let head, cs =
     match c' with
+
     | Input.Var x ->
-       begin match Ctx.find_ident ~loc x ctx with
-       | Variable i ->
+       begin match Ctx.get_info_path ~loc x ctx with
+
+       | Bound i ->
           locate (Dsyntax.Bound i) loc, cs
-       | TTConstructor k ->
-          let cs', cs = split_at x k cs in
-          tt_constructor ~loc ~yield ctx x cs', cs
-       | MLConstructor k ->
-          let cs', cs = split_at x k cs in
-          ml_constructor ~loc ~yield ctx x cs', cs
-       | Operation k ->
-          let cs', cs = split_at x k cs in
-          operation ~loc ~yield ctx x cs', cs
+
+       | Value pth ->
+          locate (Dsyntax.Value pth) loc, cs
+
+       | TTConstructor (pth, arity) ->
+          let cs', cs = split_at x arity cs in
+          tt_constructor ~loc ~yield ctx pth cs', cs
+
+       | MLConstructor (pth, arity) ->
+          let cs', cs = split_at x arity cs in
+          ml_constructor ~loc ~yield ctx pth cs', cs
+
+       | Operation (pth, arity) ->
+          let cs', cs = split_at x arity cs in
+          operation ~loc ~yield ctx pth cs', cs
+
        end
 
     | _ -> comp ~yield ctx c, cs
@@ -989,10 +1065,12 @@ and spine ~yield ctx ({Location.thing=c';loc} as c) cs =
 
 (* Desugar handler cases. *)
 and handler ~loc ctx hcs =
-  (* for every case | #op p => c we do #op binder => match binder with | p => c end *)
+  (* for every case | op p => c we do op binder => match binder with | p => c end *)
   let rec fold val_cases op_cases finally_cases = function
     | [] ->
-       List.rev val_cases, Name.IdentMap.map List.rev op_cases, List.rev finally_cases
+       List.rev val_cases,
+       List.map (fun (op, cs) -> (op, List.rev cs)) op_cases,
+       List.rev finally_cases
 
     | Input.CaseVal c :: hcs ->
        (* XXX if this handler is in a outer handler's operation case, should we use its yield?
@@ -1001,23 +1079,28 @@ and handler ~loc ctx hcs =
        fold (case::val_cases) op_cases finally_cases hcs
 
     | Input.CaseOp (op, ((ps,_,_) as c)) :: hcs ->
-       let k = Ctx.get_operation ~loc op ctx in
-       let n = List.length ps in
-       if n = k
-       then
-         let case = match_op_case ~yield:true ctx c in
-         let my_cases = try Name.IdentMap.find op op_cases with | Not_found -> [] in
-         let my_cases = case::my_cases in
-         fold val_cases (Name.IdentMap.add op my_cases op_cases) finally_cases hcs
-       else
-         error ~loc (ArityMismatch (op, n, k))
+
+       begin match Ctx.get_info_path ~loc op ctx with
+
+       | Operation (pth, arity) ->
+          check_arity ~loc op (List.length ps) arity ;
+          let case = match_op_case ~yield:true ctx c in
+          let my_cases = try List.assoc pth op_cases with Not_found -> [] in
+          let my_cases = case::my_cases in
+          fold val_cases ((pth, my_cases) :: op_cases) finally_cases hcs
+
+       | (Bound _ | Value _ | TTConstructor _ | MLConstructor _) as info ->
+          error ~loc (OperationExpected (op, info))
+
+       end
+
 
     | Input.CaseFinally c :: hcs ->
        let case = match_case ~yield:false ctx c in
        fold val_cases op_cases (case::finally_cases) hcs
 
   in
-  let handler_val, handler_ops, handler_finally = fold [] Name.IdentMap.empty [] hcs in
+  let handler_val, handler_ops, handler_finally = fold [] [] [] hcs in
   locate (Dsyntax.Handler (Dsyntax.{ handler_val ; handler_ops ; handler_finally })) loc
 
 (* Desugar a match case *)
@@ -1060,74 +1143,66 @@ and ml_constructor ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in
   locate (Dsyntax.MLConstructor (x, cs)) loc
 
-and tt_constructor ~loc ~yield ctx x cs =
+and tt_constructor ~loc ~yield ctx pth cs =
   let cs = List.map (comp ~yield ctx) cs in
-  locate (Dsyntax.TT_Constructor (x, cs)) loc
+  locate (Dsyntax.TTConstructor (pth, cs)) loc
 
 and operation ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in
   locate (Dsyntax.Operation (x, cs)) loc
-
 
 let decl_operation ~loc ctx args res =
   let args = List.map (mlty ctx []) args
   and res = mlty ctx [] res in
   args, res
 
+let mlty_def ~loc ctx params = function
 
-let mlty_def ~loc ctx outctx params def =
-  match def with
   | Input.ML_Alias ty ->
      let ty = mlty ctx params ty in
-     outctx, Dsyntax.ML_Alias ty
-  | Input.ML_Sum lst ->
-    let rec fold outctx res = function
-      | [] -> outctx, Dsyntax.ML_Sum (List.rev res)
-      | (c, args) :: lst ->
-        let args = List.map (mlty ctx params) args in
-        let outctx = Ctx.add_ml_constructor ~loc c (List.length args) outctx in
-        fold outctx ((c, args)::res) lst
-    in
-    fold outctx [] lst
+     Dsyntax.ML_Alias ty
 
-let mlty_rec_def ~loc ctx params def =
-  match def with
-  | Input.ML_Alias ty ->
-     let ty = mlty ctx params ty in
-     ctx, Dsyntax.ML_Alias ty
   | Input.ML_Sum lst ->
-    let rec fold ctx res = function
-      | [] -> ctx, Dsyntax.ML_Sum (List.rev res)
-      | (c, args) :: lst ->
-        let args = List.map (mlty ctx params) args in
-        let ctx = Ctx.add_ml_constructor ~loc c (List.length args) ctx in
-        fold ctx ((c, args)::res) lst
-    in
-    fold ctx [] lst
+     let lst = List.map (fun (c, args) -> (c, List.map (mlty ctx params) args)) lst in
+     Dsyntax.ML_Sum lst
 
-let mlty_defs ~loc ctx lst =
-  let rec fold outctx res = function
-    | [] -> outctx, List.rev res
-    | (t, (params, def)) :: lst ->
-      let outctx = Ctx.add_tydef t (List.length params) outctx in
-      let outctx, def = mlty_def ~loc ctx outctx params def in
-      fold outctx ((t, (params, def)) :: res) lst
+let mlty_info params = function
+
+  | Input.ML_Alias _ -> Arity (List.length params), None
+
+  | Input.ML_Sum lst ->
+     Arity (List.length params),
+     Some (List.map (fun (c, args) -> (c, Arity (List.length args))) lst)
+
+let mlty_defs ~loc ctx defs =
+  (* we process the definitions and the context in parallel *)
+  let defs =
+    List.map (fun (t, (params, def)) -> (t, (params, mlty_def ~loc ctx params def))) defs
+  and ctx =
+    List.fold_left
+      (fun ctx (t, (params, def)) -> Ctx.add_ml_type ~loc t (mlty_info params def) ctx)
+      ctx defs
   in
-  fold ctx [] lst
+  ctx, defs
 
-let mlty_rec_defs ~loc ctx lst =
-  let ctx = List.fold_left (fun ctx (t, (params,_)) -> Ctx.add_tydef t (List.length params) ctx) ctx lst in
-  let rec fold ctx defs = function
-    | [] -> (ctx, List.rev defs)
-    | (t, (params, def)) :: lst ->
-       if List.exists (fun (t', _) -> Name.eq_ident t t') lst
-       then
+let mlty_rec_defs ~loc ctx defs =
+  (* first change the context  *)
+  let ctx =
+    List.fold_left
+      (fun ctx (t, (param, def)) -> Ctx.add_ml_type ~loc t (mlty_info param def) ctx)
+      ctx defs
+  in
+  (* check for parallel shadowing *)
+  let check_shadow = function
+    | [] -> ()
+    | (t, _) :: defs ->
+       if List.exists (fun (t', _) -> Name.equal t t') defs then
          error ~loc (ParallelShadowing t)
-       else
-         let ctx, def = mlty_rec_def ~loc ctx params def in
-         fold ctx ((t, (params, def)) :: defs) lst
   in
-  fold ctx [] lst
+  check_shadow defs ;
+  let defs =
+    List.map (fun (t, (params, def)) -> (t, (params, mlty_def ~loc ctx params def))) defs in
+  ctx, defs
 
 let local_context ctx xcs m =
   let rec fold ctx xcs_out = function
@@ -1137,7 +1212,7 @@ let local_context ctx xcs m =
        v, xcs_out
     | (x, c) :: xcs ->
        let c = comp ~yield:false ctx c in
-       let ctx = Ctx.add_variable x ctx in
+       let ctx = Ctx.add_bound x ctx in
        fold ctx ((x,c) :: xcs_out) xcs
   in
   fold ctx [] xcs
@@ -1146,7 +1221,7 @@ let premise ctx {Location.thing=prem;loc} =
   match prem with
   | Input.PremiseIsType (mvar, local_ctx) ->
      let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
-     let ctx = Ctx.add_opt_variable mvar ctx in
+     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
      ctx, locate (Dsyntax.PremiseIsType (mvar, local_ctx)) loc
 
   | Input.PremiseIsTerm (mvar, local_ctx, c) ->
@@ -1155,7 +1230,7 @@ let premise ctx {Location.thing=prem;loc} =
          ctx local_ctx
          (fun ctx -> comp ~yield:false ctx c)
      in
-     let ctx = Ctx.add_opt_variable mvar ctx in
+     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
      ctx, locate (Dsyntax.PremiseIsTerm (mvar, local_ctx, c)) loc
 
   | Input.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
@@ -1166,11 +1241,7 @@ let premise ctx {Location.thing=prem;loc} =
            comp ~yield:false ctx c1,
            comp ~yield:false ctx c2)
      in
-     let ctx =
-       match mvar with
-       | None -> ctx
-       | Some x -> Ctx.add_variable x ctx
-     in
+     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
      ctx, locate (Dsyntax.PremiseEqType (mvar, local_ctx, c12)) loc
 
   | Input.PremiseEqTerm (mvar, local_ctx, (c1, c2, c3)) ->
@@ -1181,11 +1252,7 @@ let premise ctx {Location.thing=prem;loc} =
          comp ~yield:false ctx c2,
          comp ~yield:false ctx c3)
      in
-     let ctx =
-       match mvar with
-       | None -> ctx
-       | Some x -> Ctx.add_variable x ctx
-     in
+     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
      ctx, locate (Dsyntax.PremiseEqTerm (mvar, local_ctx, c123)) loc
 
 let premises ctx prems m =
@@ -1206,7 +1273,7 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
 
   | Input.RuleIsType (rname, prems) ->
      let (), prems = premises ctx prems (fun _ -> ()) in
-     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
+     let ctx = Ctx.add_tt_constructor ~loc rname (Arity (List.length prems)) ctx in
      (ctx, locate (Dsyntax.RuleIsType (rname, prems)) loc)
 
   | Input.RuleIsTerm (rname, prems, c) ->
@@ -1215,7 +1282,7 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
          ctx prems
          (fun ctx -> comp ~yield:false ctx c)
      in
-     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
+     let ctx = Ctx.add_tt_constructor ~loc rname (Arity (List.length prems)) ctx in
      (ctx, locate (Dsyntax.RuleIsTerm (rname, prems, c)) loc)
 
   | Input.RuleEqType (rname, prems, (c1, c2)) ->
@@ -1226,7 +1293,7 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
            comp ~yield:false ctx c1,
            comp ~yield:false ctx c2)
      in
-     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
+     let ctx = Ctx.add_tt_constructor ~loc rname (Arity (List.length prems)) ctx in
      (ctx, locate (Dsyntax.RuleEqType (rname, prems, c12)) loc)
 
   | Input.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
@@ -1238,33 +1305,33 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
           comp ~yield:false ctx c2,
           comp ~yield:false ctx c3)
      in
-     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
+     let ctx = Ctx.add_tt_constructor ~loc rname (Arity (List.length prems)) ctx in
      (ctx, locate (Dsyntax.RuleEqTerm (rname, prems, c123)) loc)
 
   | Input.DeclOperation (op, (args, res)) ->
      let args, res = decl_operation ~loc ctx args res in
-     let ctx = Ctx.add_operation ~loc op (List.length args) ctx in
+     let ctx = Ctx.add_operation ~loc op (Arity (List.length args)) ctx in
      (ctx, locate (Dsyntax.DeclOperation (op, (args, res))) loc)
 
-  | Input.DefMLType lst ->
-     let ctx, lst = mlty_defs ~loc ctx lst in
-     (ctx, locate (Dsyntax.DefMLType lst) loc)
+  | Input.DefMLType defs ->
+     let ctx, defs = mlty_defs ~loc ctx defs in
+     (ctx, locate (Dsyntax.DefMLType defs) loc)
 
-  | Input.DefMLTypeRec lst ->
-     let ctx, lst = mlty_rec_defs ~loc ctx lst in
-     (ctx, locate (Dsyntax.DefMLTypeRec lst) loc)
+  | Input.DefMLTypeRec defs ->
+     let ctx, defs = mlty_rec_defs ~loc ctx defs in
+     (ctx, locate (Dsyntax.DefMLTypeRec defs) loc)
 
   | Input.DeclExternal (x, sch, s) ->
      let sch = ml_schema ctx sch in
-     let ctx = Ctx.add_variable x ctx in
+     let ctx = Ctx.add_bound x ctx in
      (ctx, locate (Dsyntax.DeclExternal (x, sch, s)) loc)
 
   | Input.TopLet lst ->
-     let ctx, lst = let_clauses ~loc ~yield:false ctx lst in
+     let ctx, lst = let_clauses ~loc ~toplevel:true ~yield:false ctx lst in
      (ctx, locate (Dsyntax.TopLet lst) loc)
 
   | Input.TopLetRec lst ->
-     let ctx, lst = letrec_clauses ~loc ~yield:false ctx lst in
+     let ctx, lst = letrec_clauses ~loc ~toplevel:true ~yield:false ctx lst in
      (ctx, locate (Dsyntax.TopLetRec lst) loc)
 
   | Input.TopComputation c ->
@@ -1273,7 +1340,7 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
 
   | Input.TopDynamic (x, annot, c) ->
      let c = comp ~yield:false ctx c in
-     let ctx = Ctx.add_variable x ctx in
+     let ctx = Ctx.add_bound x ctx in
      let annot = arg_annotation ctx annot in
      (ctx, locate (Dsyntax.TopDynamic (x, annot, c)) loc)
 

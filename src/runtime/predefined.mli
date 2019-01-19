@@ -58,11 +58,3 @@ val from_option : Runtime.value option -> Runtime.value
     Fails if the given value is not an ML [option]
  *)
 val as_option : loc:Location.t -> Runtime.value -> Runtime.value option
-
-(** {6 Other} *)
-
-(** Takes a variable (a judgment describing a variable/atom within a context),
-    temporarily adds it to the the front of the list contained in the
-    dynamic variable [hypotheses] to run the given computation.
- *)
-val add_abstracting : Nucleus.is_term Nucleus.abstraction -> 'a Runtime.comp -> 'a Runtime.comp

@@ -234,14 +234,15 @@ val lookup_signature : Nucleus.signature comp
 
 (** Bound and free variable stuff *)
 
+(* A hack which will probably disappear: add an atom to the dynamic variable
+   [hypotheses] *)
+val add_abstracting : Nucleus.is_term Nucleus.abstraction -> 'a comp -> 'a comp
+
 (** Add a bound variable to the environment. *)
 val add_bound : value -> 'a comp -> 'a comp
 
 val add_bound_rec :
   (value -> value comp) list -> 'a comp -> 'a comp
-
-(** [index_of_level n] gives the De Bruijn index of the variable whose De Bruijn level is [n]. *)
-val index_of_level : Rsyntax.level -> Rsyntax.bound comp
 
 (** [add_free ~loc x t f] generates a fresh atom [a] from identifier [x],
     and runs [f a] in the environment extended with [a : t].

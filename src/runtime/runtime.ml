@@ -347,10 +347,6 @@ let add_rule_is_term = add_rule Nucleus.Signature.add_rule_is_term
 let add_rule_eq_type = add_rule Nucleus.Signature.add_rule_eq_type
 let add_rule_eq_term = add_rule Nucleus.Signature.add_rule_eq_term
 
-let index_of_level k env =
-  let n = List.length env.lexical.bound - k - 1 in
-  Return n, env.state
-
 let get_bound ~loc k env = List.nth env.lexical.bound k
 
 let lookup_bound ~loc k env =
@@ -424,6 +420,25 @@ let continue ~loc v ({lexical={continuation;_};_} as env) =
   match continuation with
     | Some cont -> apply_cont cont v env
     | None -> assert false
+
+let add_abstracting j m =
+  failwith "add_abstracting needs fixed"
+  (**
+  let loc = Location.unknown in
+  (* In practice k will be 0 because hypothesis is the first dynamic variable *)
+  let k = match Name.level Name.Predefined.hypotheses predefined_bound_names with
+    | Some k -> k
+    | None -> assert false
+  in
+  let v = mk_is_term j in               (* The given variable as an ML value *)
+  index_of_level k >>= fun k ->         (* Switch k from counting from the
+                                                   beginning to counting from the end *)
+  lookup_bound ~loc k >>= fun hypsx ->   (* Get the ML list of [hypotheses] *)
+  let hypsx = as_dyn ~loc hypsx in
+  lookup_dyn hypsx >>= fun hyps ->
+  let hyps = list_cons v hyps in                (* Add v to the front of that ML list *)
+  now hypsx hyps m                     (* Run computation m in this dynamic scope *)
+  *)
 
 (** Printers *)
 

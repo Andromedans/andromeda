@@ -379,7 +379,7 @@ plain_prefix_pattern:
 (* simple_pattern: mark_location(plain_simple_pattern) { $1 } *)
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
-  | x=ml_name                     { Patt_Var x }
+  | x=ml_name                      { Patt_Var x }
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
       | [{Location.thing=p;loc=_}] -> p

@@ -207,7 +207,7 @@ let rec infer {Location.thing=c'; loc} =
      check_is_type u >>= fun u ->
      Runtime.add_free x u
        (fun a ->
-         Predefined.add_abstracting
+         Runtime.add_abstracting
            (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a))
            begin infer c >>=
              function

@@ -11,15 +11,13 @@ type ml_constructor = int
 
 type 'a located = 'a Location.located
 
-type ml_schema = Mlty.ty_schema
-
 type arg_annotation =
   | Arg_annot_none
   | Arg_annot_ty of Mlty.ty
 
 type let_annotation =
   | Let_annot_none
-  | Let_annot_schema of ml_schema
+  | Let_annot_schema of Mlty.ty_schema
 
 (** Computations *)
 type comp = comp' located
@@ -59,10 +57,10 @@ and comp' =
   | Natural of comp
 
 and let_clause =
-  | Let_clause of (Name.t * ml_schema) list * Pattern.aml * comp
+  | Let_clause of (Name.t * Mlty.ty_schema) list * Pattern.aml * comp
 
 and letrec_clause =
-  | Letrec_clause of Name.t * Name.t * ml_schema * comp
+  | Letrec_clause of Name.t * Name.t * Mlty.ty_schema * comp
 
 and handler = {
   handler_val: match_case list;
@@ -95,12 +93,12 @@ and toplevel' =
   | RuleEqTerm of Name.t * premise list * (comp * comp * comp)
   | DefMLType of (Name.t * (Name.t option list * ml_tydef)) list
   | DefMLTypeRec of (Name.t * (Name.t option list * ml_tydef)) list
-  | DeclOperation of Name.t * (ml_ty list * ml_ty)
-  | DeclExternal of Name.t * ml_schema * string
+  | DeclOperation of Name.t * (Mlty.ty list * Mlty.ty)
+  | DeclExternal of Name.t * Mlty.ty_schema * string
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
-  | TopComputation of comp * ml_schema
-  | TopDynamic of Name.t * ml_schema * comp
+  | TopComputation of comp * Mlty.ty_schema
+  | TopDynamic of Name.t * Mlty.ty_schema * comp
   | TopNow of comp * comp
   | Verbosity of int
   | MLModules of (Name.t * toplevel list) list

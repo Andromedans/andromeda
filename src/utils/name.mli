@@ -73,6 +73,9 @@ val map_add : t -> 'a -> 'a map -> 'a map
 (** Map a key to its value, or raise [Not_found] *)
 val map_find : t -> 'a map -> 'a
 
+(** Map a function on the values of a map *)
+val map_map : ('a -> 'b) -> 'a map -> 'b map
+
 (** [index x xs] finds the index of name [x] in list [xs] if it's there *)
 val index : t -> t list -> int option
 

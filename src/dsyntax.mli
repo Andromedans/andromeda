@@ -8,15 +8,13 @@ type index = Index of Name.t * int
     their original names for printing purposes *)
 type level = Level of Name.t * int
 
-(** An access path to a name *)
+(** Access path to a named entity *)
 type path =
-  | PName of index
-  | PModule of level * level
+  | Direct of level
+  | Module of level * level
 
-(** An access path to an ML type *)
-type ml_type_path =
-  | TName of level
-  | TModule of level * level
+(** Access path to an ML constructor *)
+type ml_constructor_path = path * level
 
 type 'a located = 'a Location.located
 
@@ -34,7 +32,7 @@ type ml_ty = ml_ty' located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
   | ML_Prod of ml_ty list
-  | ML_TyApply of ml_type_path * ml_ty list
+  | ML_TyApply of path * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
@@ -73,16 +71,17 @@ and ml_pattern' =
   | Patt_Var of Name.t
   | Patt_As of ml_pattern * ml_pattern
   | Patt_Judgement of tt_pattern
-  | Patt_Constructor of path * ml_pattern list
+  | Patt_Constructor of ml_constructor_path * ml_pattern list
   | Patt_Tuple of ml_pattern list
 
 (** Desugared computations *)
 type comp = comp' located
 and comp' =
-  | Bound of path
+  | Bound of index
+  | Value of path
   | Function of Name.t * arg_annotation * comp
   | Handler of handler
-  | MLConstructor of path * comp list
+  | MLConstructor of ml_constructor_path * comp list
   | Tuple of comp list
   | Operation of path * comp list
   | With of comp * comp
@@ -116,7 +115,7 @@ and letrec_clause =
 
 and handler = {
   handler_val: match_case list;
-  handler_ops: match_op_case list Ident.map;
+  handler_ops: (path * match_op_case list) list ;
   handler_finally : match_case list;
 }
 

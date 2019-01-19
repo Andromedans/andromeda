@@ -208,6 +208,8 @@ let map_add = NameMap.add
 
 let map_find = NameMap.find
 
+let map_map = NameMap.map
+
 let index x ys =
   let rec fold k = function
     | [] -> None
