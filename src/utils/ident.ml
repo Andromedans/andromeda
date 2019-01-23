@@ -39,6 +39,8 @@ let map = IdentMap.map
 
 let mapi = IdentMap.mapi
 
+let bindings = IdentMap.bindings
+
 let print ?parentheses {name;_} ppf = Name.print ?parentheses name ppf
 
 module Json =

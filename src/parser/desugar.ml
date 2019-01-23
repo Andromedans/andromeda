@@ -214,7 +214,7 @@ module Ctx = struct
           end
        end
 
-  (* Find the information about the given name in the given module. *)
+  (* Find the information about the current context. *)
   let find_in_current x {current_ml_values; current_tt_constructors; current_ml_operations; current_ml_types; _} =
     match Name.AssocIndex.find x current_ml_values with
     | Some ((), i) -> Some (Bound (Path.Index (x, i)))
@@ -260,38 +260,39 @@ module Ctx = struct
     | None -> ()
     | Some _ -> error ~loc (MLTypeAlreadyDeclared x)
 
+  (* Get information about the given ML constructor. *)
+  let get_ml_constructor c ctx =
+    match find_in_current c ctx with
+    | Some (MLConstructor (pth, arity)) -> pth, arity
+    | None |Some (Bound _ | Value _ | TTConstructor _ | Operation _) ->
+       assert false
+
+  (* Get information about the given ML operation. *)
+  let get_ml_operation op ctx =
+    match find_in_current op ctx with
+    | Some (Operation (pth, arity)) -> pth, arity
+    | None | Some (Bound _ | Value _ | TTConstructor _ | MLConstructor _) ->
+       assert false
+
   (* Get the info about a path, or fail *)
   let get_info_path ~loc pth ctx =
     match find_info_path pth ctx with
     | None -> error ~loc (UnknownPath pth)
     | Some info -> info
 
+  (* Get the de Bruijn index of a bound value, or fail *)
+  let get_ml_bound x ctx =
+    match find_in_current x ctx with
+    | Some (Bound info) -> info
+    | None | Some (Value _ | TTConstructor _ | MLConstructor _ | Operation _) ->
+       assert false
+
   (* Get information about the list empty list constructor *)
   let get_path_nil ctx =
-    match find_in_current Name.Predefined.nil ctx with
-    | Some (MLConstructor (pth, 0)) -> pth
-    | None |Some (Bound _ | Value _ | MLConstructor _ | TTConstructor _ | Operation _) ->
-       assert false
+    get_ml_constructor Name.Predefined.nil ctx
 
   let get_path_cons ctx =
-    match find_in_current Name.Predefined.cons ctx with
-    | Some (MLConstructor (pth, 2)) -> pth
-    | None |Some (Bound _ | Value _ | MLConstructor _ | TTConstructor _ | Operation _) ->
-       assert false
-
-  (* Get information about the empty list constructor *)
-  let get_path_nil ctx =
-    match find_in_current Name.Predefined.nil ctx with
-    | Some (MLConstructor (pth, 0)) -> pth
-    | None |Some (Bound _ | Value _ | MLConstructor _ | TTConstructor _ | Operation _) ->
-       assert false
-
-  (* Get information about the cons list constructor *)
-  let get_path_cons ctx =
-    match find_in_current Name.Predefined.cons ctx with
-    | Some (MLConstructor (pth, 2)) -> pth
-    | None |Some (Bound _ | Value _ | MLConstructor _ | TTConstructor _ | Operation _) ->
-       assert false
+    get_ml_constructor Name.Predefined.cons ctx
 
   (* Get the arity and de Bruijn level of type named [t] and its definition *)
   let get_ml_type ~loc pth ctx =
@@ -592,8 +593,8 @@ let rec pattern ctx {Location.thing=p; loc} =
      end
 
   | Input.Patt_List ps ->
-     let nil_path = Ctx.get_path_nil ctx
-     and cons_path = Ctx.get_path_cons ctx in
+     let nil_path, _ = Ctx.get_path_nil ctx
+     and cons_path, _ = Ctx.get_path_cons ctx in
      let rec fold ~loc ctx = function
        | [] -> ctx, locate (Dsyntax.Patt_Constructor (nil_path, [])) loc
        | p :: ps ->
@@ -843,8 +844,8 @@ let rec comp ctx {Location.thing=c';loc} =
      handler ~loc ctx hcs
 
   | Input.List cs ->
-     let nil_path = Ctx.get_path_nil ctx
-     and cons_path = Ctx.get_path_cons ctx in
+     let nil_path, _ = Ctx.get_path_nil ctx
+     and cons_path, _ = Ctx.get_path_cons ctx in
      let rec fold ~loc = function
        | [] -> locate (Dsyntax.MLConstructor (nil_path, [])) loc
        | c :: cs ->
@@ -1434,3 +1435,39 @@ let file ctx fn =
   let basedir = Filename.dirname fn in
   let ctx, _, cmds = load_file ~basedir ctx fn in
   ctx, cmds
+
+let initial_context, initial_commands =
+  let ctx, cmds =
+    List.fold_left
+      (fun (desugar, cmds) cmd ->
+        let desugar, cmd = toplevel ~basedir:Filename.current_dir_name desugar cmd in
+        (desugar, cmd :: cmds))
+      (Ctx.empty, []) Builtin.initial
+  in
+  let cmds = List.rev cmds in
+  ctx, cmds
+
+module Builtin =
+struct
+  let bool = Ctx.get_ml_type ~loc:Location.unknown (Name.path_direct Name.Predefined.bool) initial_context
+  let mlfalse = Ctx.get_ml_constructor Name.Predefined.mlfalse initial_context
+  let mltrue = Ctx.get_ml_constructor Name.Predefined.mltrue initial_context
+
+  let list = Ctx.get_ml_type ~loc:Location.unknown (Name.path_direct Name.Predefined.list) initial_context
+  let nil = Ctx.get_ml_constructor Name.Predefined.nil initial_context
+  let cons = Ctx.get_ml_constructor Name.Predefined.cons initial_context
+
+  let option = Ctx.get_ml_type ~loc:Location.unknown (Name.path_direct Name.Predefined.option) initial_context
+  let none = Ctx.get_ml_constructor Name.Predefined.none initial_context
+  let some = Ctx.get_ml_constructor Name.Predefined.some initial_context
+
+  let notcoercible = Ctx.get_ml_constructor Name.Predefined.notcoercible initial_context
+  let convertible = Ctx.get_ml_constructor Name.Predefined.convertible initial_context
+  let coercible_constructor = Ctx.get_ml_constructor Name.Predefined.coercible_constructor initial_context
+
+  let equal_term = Ctx.get_ml_operation Name.Predefined.equal_term initial_context
+  let equal_type = Ctx.get_ml_operation Name.Predefined.equal_type initial_context
+  let coerce = Ctx.get_ml_operation Name.Predefined.coerce initial_context
+
+  let hypotheses ctx = Ctx.get_ml_bound Name.Predefined.hypotheses ctx
+end

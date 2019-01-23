@@ -7,10 +7,6 @@ exception Match_fail
 
 let add_var (v : Runtime.value) vs = v :: vs
 
-(** This should be part of [Rsyntax] *)
-let eq_tag ((i, _) : Rsyntax.ml_constructor) ((j, _) : Rsyntax.ml_constructor) =
-  (i = j)
-
 (* There is a lot of repetition in the [collect_is_XYZ] functions below,
    but this seems to be the price to pay for the discrepancy between the
    syntax of patterns and the structure of runtime values. *)
@@ -262,7 +258,7 @@ and collect_pattern env xvs {Location.thing=p';loc} v =
      collect_eq_term env xvs p eq
 
   | Rsyntax.Pattern.MLConstructor (tag, ps), Runtime.Tag (tag', vs) ->
-     if not (eq_tag tag tag')
+     if not (Runtime.equal_tag tag tag')
      then
        raise Match_fail
      else

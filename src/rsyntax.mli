@@ -47,6 +47,7 @@ end
 type comp = comp' located
 and comp' =
   | Bound of Path.index
+  | Value of Path.t
   | Function of comp
   | Handler of handler
   | MLConstructor of ml_constructor * comp list
@@ -122,8 +123,8 @@ and toplevel' =
   | RuleIsTerm of Name.t * premise list * comp
   | RuleEqType of Name.t * premise list * (comp * comp)
   | RuleEqTerm of Name.t * premise list * (comp * comp * comp)
-  | DefMLType of (Name.t * (Name.t option list * ml_tydef)) list
-  | DefMLTypeRec of (Name.t * (Name.t option list * ml_tydef)) list
+  | DefMLType of Name.t list (* we only need the names *)
+  | DefMLTypeRec of Name.t list
   | DeclOperation of Name.t * (Mlty.ty list * Mlty.ty)
   | DeclExternal of Name.t * Mlty.ty_schema * string
   | TopLet of let_clause list

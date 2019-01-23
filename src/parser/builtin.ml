@@ -78,26 +78,4 @@ let predefined_bound =
                     (Name.Predefined.hypotheses, Input.Arg_annot_ty hyps_annot, unloc (Input.List [])) in
   [unloc decl_hyps]
 
-let definitions = List.concat [predefined_ml_types; predefined_ops; predefined_bound]
-
-(** The order must match the one in [predefined_ml_types]  *)
-let ml_false = Path.Level (Name.Predefined.mlfalse, 0)
-let ml_true = Path.Level (Name.Predefined.mltrue, 1)
-
-(** The order must match the one in [predefined_ml_types]  *)
-let tag_nil = Path.Level (Name.Predefined.nil, 0)
-let tag_cons = Path.Level (Name.Predefined.cons, 1)
-
-(** The order must match the one in [predefined_ml_types]  *)
-let tag_none = Path.Level (Name.Predefined.none, 0)
-let tag_some = Path.Level (Name.Predefined.some, 1)
-
-(** The order must match the one in [predefined_ml_types]  *)
-let tag_notcoercible = Path.Level (Name.Predefined.notcoercible, 0)
-let tag_convertible = Path.Level (Name.Predefined.convertible, 1)
-let tag_coercible_constructor = Path.Level (Name.Predefined.coercible_constructor, 2)
-
-(* XXX we need to export these or else the user cannot refer to the operation in a handler *)
-(* let op_equal_term = Ident.create Name.Predefined.equal_term
- * let op_equal_type = Ident.create Name.Predefined.equal_type
- * let op_coerce = Ident.create Name.Predefined.coerce *)
+let initial = List.concat [predefined_ml_types; predefined_ops; predefined_bound]

@@ -13,11 +13,11 @@ type ml_constructor = Path.level
 
 (** This module defines 2 monads:
     - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
-      Primitives are like [add_bound].
+      Primitives are like [add_value].
     - the toplevel monad [toplevel], a standard state monad with restricted accessors.
-      Primitives are like [top_add_bound].
+      Primitives are like [top_add_value].
       Some modifications of the environment may only be done at the top level, for instance declaring constants.
-    For internal use, functions which work on the environment may be defined, eg [add_bound0].
+    For internal use, functions which work on the environment may be defined, eg [add_value0].
 
     Finally in a small number of restricted circumstances the environment is accessed outside the monads.
 *)
@@ -37,15 +37,22 @@ and dynamic = {
   vars : value Store.Dyn.t
 }
 
+and ml_module = {
+    ml_names : Name.t list;
+    ml_values : value list;
+}
+
 and lexical = {
+  ml_modules : (Name.t * ml_module) list;
+
   (* names of de Bruijn indices *)
-  names : Name.t list;
+  current_names : Name.t list;
 
   (* values to which de Bruijn indices are bound *)
-  bound : value list;
+  current_values : value list;
 
   (* current continuation if we're handling an operation *)
-  continuation : value continuation option;
+  ml_yield : value continuation option;
 }
 
 and state = value Store.Ref.t
@@ -202,7 +209,7 @@ let return_handler handler_val handler_ops handler_finally env =
   let h = {
     handler_val = option_map (fun v -> mk_closure0 v env) handler_val ;
     handler_ops = Ident.map (fun f ->
-      fun k -> mk_closure0 f {env with lexical = {env.lexical with continuation = Some k}}) handler_ops ;
+      fun k -> mk_closure0 f {env with lexical = {env.lexical with ml_yield = Some k}}) handler_ops ;
     handler_finally = option_map (fun v -> mk_closure0 v env) handler_finally ;
   } in
   Return (Handler h), env.state
@@ -339,15 +346,18 @@ let top_get_env env = env, env
 
 let get_signature env = env.dynamic.signature
 
+let hypotheses env =
+  failwith "get_hypotheses"
+
 let lookup_signature env =
   Return env.dynamic.signature, env.state
 
 let add_rule add_rule_to_signature rname rule env =
   let signature = add_rule_to_signature rname rule env.dynamic.signature
-  and names = Ident.name rname :: env.lexical.names in
+  and current_names = Ident.name rname :: env.lexical.current_names in
   let env = { env
               with dynamic = { env.dynamic with signature }
-                 ; lexical = { env.lexical with names }
+                 ; lexical = { env.lexical with current_names }
             } in
   (), env
 
@@ -356,51 +366,64 @@ let add_rule_is_term = add_rule Nucleus.Signature.add_rule_is_term
 let add_rule_eq_type = add_rule Nucleus.Signature.add_rule_eq_type
 let add_rule_eq_term = add_rule Nucleus.Signature.add_rule_eq_term
 
-let get_bound ~loc (Path.Index (_, k)) env = List.nth env.lexical.bound k
+let get_bound ~loc (Path.Index (_, k)) env = List.nth env.lexical.current_values k
 
 let lookup_bound ~loc k env =
-  Return (get_bound ~loc k env), env.state
+  let v = get_bound ~loc k env in
+  Return v, env.state
+
+let get_value ~loc pth env =
+  match pth with
+
+  | Path.Direct _ -> assert false
+
+  | Path.Module (Path.Level (_, mdl_lvl), Path.Level (_, lvl)) ->
+     let _, mdl = List.nth env.lexical.ml_modules mdl_lvl in
+     List.nth mdl.ml_values lvl
+
+let lookup_value ~loc k env =
+  Return (get_value ~loc k env), env.state
 
 let get_dyn dyn env = Store.Dyn.lookup dyn env.dynamic.vars
 
 let lookup_dyn dyn env =
   Return (get_dyn dyn env), env.state
 
-let add_bound0 v env = {env with lexical = { env.lexical with
-                                             bound = v :: env.lexical.bound } }
+let add_value0 v env =
+  { env with lexical = { env.lexical with
+                         current_values = v :: env.lexical.current_values } }
 
 let add_free x jt m env =
   let jy = Nucleus.fresh_atom x jt in
   let y_val = mk_is_term (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom jy)) in
-  let env = add_bound0 y_val env in
+  let env = add_value0 y_val env in
   m jy env
 
 
-(* XXX rename to bind_value *)
-let add_bound v m env =
-  let env = add_bound0 v env in
+let add_value v m env =
+  let env = add_value0 v env in
   m env
 
-let add_bound_rec0 lst env =
+let add_value_rec0 lst env =
   let r = ref env in
   let env =
     List.fold_left
       (fun env g ->
         let v = Closure (mk_closure_ref g r) in
-        add_bound0 v env)
+        add_value0 v env)
       env lst
   in
   r := env ;
   env
 
-let add_bound_rec lst m env =
-  let env = add_bound_rec0 lst env in
+let add_value_rec lst m env =
+  let env = add_value_rec0 lst env in
   m env
 
-let push_bound = add_bound0
+let push_bound = add_value0
 
 let add_topbound v env =
-  (), add_bound0 v env
+  (), add_value0 v env
 
 let now0 x v env =
   { env with dynamic = {env.dynamic with vars = Store.Dyn.update x v env.dynamic.vars } }
@@ -417,140 +440,23 @@ let add_dynamic0 ~loc x v env =
   let y,vars = Store.Dyn.fresh v env.dynamic.vars in
   { env with dynamic = {env.dynamic with vars };
              lexical = {env.lexical with
-                        bound = Dyn y :: env.lexical.bound } }
+                        current_values = Dyn y :: env.lexical.current_values } }
 
 let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
 
 let add_topbound_rec lst env =
-  let env = add_bound_rec0 lst env in
+  let env = add_value_rec0 lst env in
   (), env
 
-let continue ~loc v ({lexical={continuation;_};_} as env) =
-  match continuation with
+let continue ~loc v ({lexical={ml_yield;_};_} as env) =
+  match ml_yield with
     | Some cont -> apply_cont cont v env
     | None -> assert false
-
-(* ***** Predefined operations and conversion from AML to OCaml ***** *)
-
-(** Conversions between OCaml list and ML list *)
-
-let list_nil = mk_tag Predefined.tag_nil []
-let list_cons v lst = mk_tag Predefined.tag_cons [v; lst]
-
-let rec mk_list = function
-  | []      -> list_nil
-  | x :: xs -> list_cons x (mk_list xs)
-
-
-(* A hack, until we have proper type-driven printing routines. At that point we should consider
-   equipping type definitions with custom printers, so that not only lists but other datatypes
-   can have their own printers. (And we're not going to implement Haskell classes.) *)
-let rec as_list_opt = function
-  | Tag (t, []) when equal_tag t Predefined.tag_nil -> Some []
-  | Tag (t, [x;xs]) when equal_tag t Predefined.tag_cons ->
-     begin
-       match as_list_opt xs with
-       | None -> None
-       | Some xs -> Some (x :: xs)
-     end
-  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
-     None
-
-let as_list ~loc v =
-  match as_list_opt v with
-  | Some lst -> lst
-  | None -> error ~loc (ListExpected v)
-
-(** Conversion between Ocaml option and ML option *)
-
-let from_option = function
-  | Some v -> mk_tag Predefined.tag_some [v]
-  | None -> mk_tag Predefined.tag_none []
-
-let as_option ~loc = function
-  | Tag (t,[]) when (equal_tag t Predefined.tag_none)  -> None
-  | Tag (t,[x]) when (equal_tag t Predefined.tag_some) -> Some x
-  | (IsType _ | IsTerm _ | EqType _ | EqTerm _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ |
-     Ref _ | Dyn _ | String _) as v ->
-     (error ~loc (OptionExpected v))
-
-
-
-(** Conversion between OCaml coercible and ML coercible *)
-
-let as_coercible ~loc = function
-  | Tag (t, []) when equal_tag t Predefined.tag_notcoercible ->
-    NotCoercible
-  | Tag (t, [v]) when equal_tag t Predefined.tag_convertible ->
-    let eq = as_eq_type_abstraction ~loc v in
-    Convertible eq
-  | Tag (t, [v]) when equal_tag t Predefined.tag_coercible_constructor ->
-    let e = as_is_term_abstraction ~loc v in
-    Coercible e
-  | (IsType _ | IsTerm _ | EqType _ | EqTerm _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ |
-     Ref _ | Dyn _ | String _) as v ->
-     (error ~loc (CoercibleExpected v))
-
-
-(** Computations that invoke operations *)
-
-(* Map ML-value-to-(term)-judgment across an option. Fail if given Some value
-   that is not a judgment. *)
-
-let as_eq_term_option ~loc v =
-  match as_option ~loc v with
-    | Some v -> Some (as_eq_term ~loc v)
-    | None -> None
-
-let as_eq_type_option ~loc v =
-  match as_option ~loc v with
-    | Some v -> Some (as_eq_type ~loc v)
-    | None -> None
-
-let operation_equal_term ~loc e1 e2 =
-  let v1 = mk_is_term (Nucleus.abstract_not_abstract e1)
-  and v2 = mk_is_term (Nucleus.abstract_not_abstract e2) in
-  operation Predefined.op_equal_term [v1;v2] >>= fun v ->
-  return (as_eq_term_option ~loc v)
-
-let operation_equal_type ~loc t1 t2 =
-  let v1 = mk_is_type (Nucleus.abstract_not_abstract t1)
-  and v2 = mk_is_type (Nucleus.abstract_not_abstract t2) in
-  operation Predefined.op_equal_type [v1;v2] >>= fun v ->
-  return (as_eq_type_option ~loc v)
-
-let operation_coerce ~loc e t =
-  let v1 = mk_is_term e
-  and v2 = mk_is_type t in
-  operation Predefined.op_coerce [v1;v2] >>= fun v ->
-  return (as_coercible ~loc v)
-
-let add_abstracting j m =
-  failwith "add_abstracting needs fixed"
-  (**
-  let loc = Location.unknown in
-  (* In practice k will be 0 because hypothesis is the first dynamic variable *)
-  let k = match Name.level Name.Predefined.hypotheses predefined_bound_names with
-    | Some k -> k
-    | None -> assert false
-  in
-  let v = mk_is_term j in               (* The given variable as an ML value *)
-  index_of_level k >>= fun k ->         (* Switch k from counting from the
-                                                   beginning to counting from the end *)
-  lookup_bound ~loc k >>= fun hypsx ->   (* Get the ML list of [hypotheses] *)
-  let hypsx = as_dyn ~loc hypsx in
-  lookup_dyn hypsx >>= fun hyps ->
-  let hyps = list_cons v hyps in                (* Add v to the front of that ML list *)
-  now hypsx hyps m                     (* Run computation m in this dynamic scope *)
-  *)
 
 (** Printers *)
 
 (** Generate a printing environment from runtime environment *)
-let get_names env = env.lexical.names
+let get_names env = env.lexical.current_names
 
 let lookup_names env =
   Return (get_names env), env.state
@@ -560,6 +466,24 @@ let top_lookup_names env =
 
 let top_lookup_signature env =
   get_signature env, env
+
+(* A hack, until we have proper type-driven printing routines. At that point we should consider
+   equipping type definitions with custom printers, so that not only lists but other datatypes
+   can have their own printers. (And we're not going to implement Haskell classes.) *)
+let rec as_list_opt =
+  let (_, tag_nil), _ = Desugar.Builtin.nil
+  and (_, tag_cons), _ = Desugar.Builtin.cons in
+  function
+  | Tag (t, []) when equal_tag t tag_nil -> Some []
+  | Tag (t, [x;xs]) when equal_tag t tag_cons ->
+     begin
+       match as_list_opt xs with
+       | None -> None
+       | Some xs -> Some (x :: xs)
+     end
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
+     None
 
 (** In the future this routine will be type-driven. One consequence is that
     constructor tags will be printed by looking up their names in type
@@ -809,9 +733,10 @@ let print_error ~names err ppf =
 
 let empty = {
   lexical = {
-    names = [] ;
-    bound = [] ;
-    continuation = None ;
+    ml_modules = [] ;
+    current_names = [] ;
+    current_values = [] ;
+    ml_yield = None ;
   } ;
   dynamic = {
     signature = Nucleus.Signature.empty ;

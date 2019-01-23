@@ -39,6 +39,9 @@ val map : ('a -> 'b) -> 'a map -> 'b map
 (** Map a function on the values of the map *)
 val mapi : (t -> 'a -> 'b) -> 'a map -> 'b map
 
+(** Give the list of bindings in a map *)
+val bindings : 'a map -> (t * 'a) list
+
 (** Print an identifier *)
 val print : ?parentheses:bool -> t -> Format.formatter -> unit
 

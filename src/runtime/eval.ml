@@ -13,12 +13,15 @@ let as_atom ~loc v =
     | Nucleus.(Stump_TermConstructor _ | Stump_TermMeta _ | Stump_TermConvert _) ->
        Runtime.(error ~loc (ExpectedAtom j))
 
+let ((_, mlfalse), _) = Desugar.Builtin.mlfalse
+let ((_, mltrue), _) = Desugar.Builtin.mltrue
+
 let as_bool ~loc v =
   match v with
   | Runtime.Tag (l, []) ->
-     if Runtime.equal_tag l Predefined.ml_false then
+     if Runtime.equal_tag l mlfalse then
        return false
-     else if Runtime.equal_tag l Predefined.ml_true then
+     else if Runtime.equal_tag l mltrue then
        return true
      else
      Runtime.(error ~loc (BoolExpected v))
@@ -49,9 +52,12 @@ let rec infer {Location.thing=c'; loc} =
     | Rsyntax.Bound i ->
        Runtime.lookup_bound ~loc i
 
+    | Rsyntax.Value pth ->
+       Runtime.lookup_value ~loc pth
+
     | Rsyntax.Function c ->
        let f v =
-         Runtime.add_bound v
+         Runtime.add_value v
            (infer c)
        in
        Runtime.return_closure f
@@ -207,7 +213,7 @@ let rec infer {Location.thing=c'; loc} =
      check_is_type u >>= fun u ->
      Runtime.add_free x u
        (fun a ->
-         Runtime.add_abstracting
+         Reflect.add_abstracting
            (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a))
            begin infer c >>=
              function
@@ -339,7 +345,7 @@ let rec infer {Location.thing=c'; loc} =
     let xts = Nucleus.context_is_term_abstraction j in
     let js = List.map (fun j -> Runtime.mk_is_term
                           (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom j))) xts in
-    return (Predefined.mk_list js)
+    return (Reflect.mk_list js)
 
   | Rsyntax.Natural c ->
     check_is_term c >>= fun j ->
@@ -368,9 +374,9 @@ and occurs
   | true ->
      let t = Nucleus.type_of_atom a in
      let t = Runtime.mk_is_type (Nucleus.abstract_not_abstract t) in
-     return (Predefined.from_option (Some t))
+     return (Reflect.mk_option (Some t))
   | false ->
-     return (Predefined.from_option None)
+     return (Reflect.mk_option None)
   end
 
 and check_default ~loc v t_check =
@@ -398,6 +404,7 @@ and check ({Location.thing=c';loc} as c) t_check =
 
   (* for these we switch to infer mode *)
   | Rsyntax.Bound _
+  | Rsyntax.Value _
   | Rsyntax.Function _
   | Rsyntax.Handler _
   | Rsyntax.Ascribe _
@@ -483,7 +490,7 @@ and check_abstract ~loc t_check x uopt c =
      begin match uopt with
 
      | None ->
-        Runtime.add_bound
+        Runtime.add_value
           (Runtime.mk_is_term (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a)))
           begin
             check c t_check' >>= fun e ->
@@ -505,7 +512,7 @@ and check_abstract ~loc t_check x uopt c =
                       (Nucleus.form_is_term_atom a)
                       eq)
                in
-               Runtime.add_bound (Runtime.mk_is_term a')
+               Runtime.add_value (Runtime.mk_is_term a')
                begin
                  check c t_check >>= fun e ->
                  return (Nucleus.abstract_is_term a e)
@@ -538,7 +545,7 @@ and let_bind
         then uss will be [[2;1]; [c; b; a]].
         Here v has de Bruijn index 0 and x has de Bruijn index 4. *)
        List.fold_left
-         (List.fold_left (fun cmp u -> Runtime.add_bound u cmp))
+         (List.fold_left (fun cmp u -> Runtime.add_value u cmp))
          cmp uss
     | Rsyntax.Let_clause (xs, pt, c) :: clauses ->
        infer c >>= fun v ->
@@ -555,10 +562,10 @@ and letrec_bind
   = fun fxcs ->
   let gs =
     List.map
-      (fun (Rsyntax.Letrec_clause (_, _, _, c)) -> (fun v -> Runtime.add_bound v (infer c)))
+      (fun (Rsyntax.Letrec_clause (_, _, _, c)) -> (fun v -> Runtime.add_value v (infer c)))
       fxcs
   in
-  Runtime.add_bound_rec gs
+  Runtime.add_value_rec gs
 
 (* [match_cases loc cases eval v] tries for each case in [cases] to match [v] and if
    successful continues on the computation using [eval] with the pattern variables bound.
@@ -568,7 +575,7 @@ and match_cases
          -> Runtime.value -> 'a Runtime.comp
   = fun ~loc cases eval v ->
   let bind_pattern_vars vs cmp =
-    List.fold_left (fun cmp v -> Runtime.add_bound v cmp) cmp vs
+    List.fold_left (fun cmp v -> Runtime.add_value v cmp) cmp vs
   in
   let rec fold = function
     | [] -> Runtime.(error ~loc (MatchFail v))
@@ -600,7 +607,7 @@ and match_op_cases ~loc op cases vs checking =
     | (ps, ptopt, c) :: cases ->
       Matching.match_op_pattern ~loc ps ptopt vs checking >>=
         begin function
-        | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (infer c) vs
+        | Some vs -> List.fold_left (fun cmp v -> Runtime.add_value v cmp) (infer c) vs
         | None -> fold cases
       end
   in
@@ -650,7 +657,7 @@ let local_context abstr_u lctx cmp =
        check_is_type c >>= fun t ->
        Runtime.add_free x t
          (fun a ->
-            Runtime.add_abstracting
+            Reflect.add_abstracting
               (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a))
               (fold lctx >>= fun abstr ->
                return (abstr_u a abstr)
@@ -757,7 +764,7 @@ let premises prems cmp =
        let cmp = fold (x_boundary :: prems_out) prems in
        match vopt with
        | None -> cmp
-       | Some v -> Runtime.add_bound v cmp
+       | Some v -> Runtime.add_value v cmp
   in
   fold [] prems
 
@@ -804,7 +811,7 @@ let toplet_bind ~loc ~quiet ~print_annot clauses =
 let topletrec_bind ~loc ~quiet ~print_annot fxcs =
   let gs =
     List.map
-      (fun (Rsyntax.Letrec_clause (_, _, _, c)) v -> Runtime.add_bound v (infer c))
+      (fun (Rsyntax.Letrec_clause (_, _, _, c)) v -> Runtime.add_value v (infer c))
       fxcs
   in
   Runtime.add_topbound_rec gs >>= fun () ->
@@ -828,30 +835,32 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      Runtime.add_rule_is_type x rule
 
   | Rsyntax.RuleIsTerm (x, prems, c) ->
+     let x = Ident.create x in
      let r = premises prems (check_is_type c) in
      Runtime.top_handle ~loc r >>= fun (premises, head) ->
      let rule = Nucleus.form_rule_is_term premises head in
      Runtime.add_rule_is_term x rule
 
   | Rsyntax.RuleEqType (x, prems, boundary) ->
+     let x = Ident.create x in
      let r = premises prems (check_eq_type_boundary boundary) in
      Runtime.top_handle ~loc r >>= fun (premises, head) ->
      let rule = Nucleus.form_rule_eq_type premises head in
      Runtime.add_rule_eq_type x rule
 
   | Rsyntax.RuleEqTerm (x, prems, boundary) ->
+     let x = Ident.create x in
      let r = premises prems (check_eq_term_boundary boundary) in
      Runtime.top_handle ~loc r >>= fun (premises, head) ->
      let rule = Nucleus.form_rule_eq_term premises head in
      Runtime.add_rule_eq_term x rule
 
   | Rsyntax.DefMLType lst
-
-    | Rsyntax.DefMLTypeRec lst ->
+  | Rsyntax.DefMLTypeRec lst ->
      (if not quiet then
         Format.printf "@[<hov 2>ML type%s %t declared.@]@."
           (match lst with [_] -> "" | _ -> "s")
-          (Print.sequence (fun (t,_) -> Name.print t) "," lst)) ;
+          (Print.sequence (fun t -> Name.print t) "," lst)) ;
      return ()
 
   | Rsyntax.DeclOperation (x, k) ->

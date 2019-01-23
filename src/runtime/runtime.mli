@@ -245,14 +245,10 @@ val lookup_signature : Nucleus.signature comp
 
 (** Bound and free variable stuff *)
 
-(* A hack which will probably disappear: add an atom to the dynamic variable
-   [hypotheses] *)
-val add_abstracting : Nucleus.is_term Nucleus.abstraction -> 'a comp -> 'a comp
-
 (** Add a bound variable to the environment. *)
-val add_bound : value -> 'a comp -> 'a comp
+val add_value : value -> 'a comp -> 'a comp
 
-val add_bound_rec :
+val add_value_rec :
   (value -> value comp) list -> 'a comp -> 'a comp
 
 (** [add_free ~loc x t f] generates a fresh atom [a] from identifier [x],
@@ -262,6 +258,9 @@ val add_free: Name.t -> Nucleus.is_type -> (Nucleus.is_atom -> 'a comp) -> 'a co
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> Path.index -> value comp
+
+(** Lookup a value *)
+val lookup_value : loc:Location.t -> Path.t -> value comp
 
 (** Lookup the current value of a dynamic variable. *)
 val lookup_dyn : ml_dyn -> value comp
@@ -345,6 +344,9 @@ val with_env : env -> 'a comp -> 'a comp
 val top_get_env : env toplevel
 
 val get_signature : env -> Nucleus.signature
+
+(** Get the [hypotheses]. *)
+val hypotheses : ml_dyn comp
 
 (** For matching *)
 val get_bound : loc:Location.t -> Path.index -> env -> value

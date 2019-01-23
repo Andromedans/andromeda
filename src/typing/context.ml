@@ -135,8 +135,8 @@ let add_ml_value x s ctx =
   { ctx with current_ml_values = (x, s) :: ctx.current_ml_values }
 
 let op_cases op ~output ctx =
-  let (_oid, (args, opout)) = lookup_ml_operation op ctx in
-  args, { ctx with ml_yield = Some (opout, output) }
+  let (oid, (args, opout)) = lookup_ml_operation op ctx in
+  oid, args, { ctx with ml_yield = Some (opout, output) }
 
 let unfold ctx t_pth ts =
   match lookup_ml_type t_pth ctx with

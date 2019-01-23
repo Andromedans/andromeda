@@ -59,7 +59,9 @@ val as_dynamic : loc:Location.t -> Mlty.ty -> Mlty.ty tyenvM
 
 (** [op_cases op output m] runs [m] with the expected types of the arguments of [op] and
    the continuation having the appropriate type. *)
-val op_cases : Path.t -> output:Mlty.ty -> (Mlty.ty list -> 'a tyenvM) -> 'a tyenvM
+val op_cases :
+  Path.t -> output:Mlty.ty ->
+    (Ident.t -> Mlty.ty list -> 'a tyenvM) -> 'a tyenvM
 
 (** Generalize the given type as much as possible in the current environment,
     but using only [known_context] as typing context, possibly solving
@@ -105,7 +107,7 @@ val locally_add_ml_value : Name.t -> Mlty.ty -> 'a tyenvM -> 'a tyenvM
 
 (** [add_ml_value x t m] binds a variable with name [x] and monomorphic type [t]. NB: if the
    scope of the variable is local then you probably want [locally_add_var], or even [locally]. *)
-(* val add_ml_value : Name.t -> Mlty.ty -> unit tyenvM *)
+val add_ml_value_monomorphic : Name.t -> Mlty.ty -> unit tyenvM
 
 (** Define a new type. The type definition may refer to not-yet-defined types, relying on the caller to add them afterwards. *)
 val add_ml_type : Name.t -> Mlty.ty_def -> unit tyenvM

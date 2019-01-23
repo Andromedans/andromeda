@@ -16,4 +16,4 @@ val exec_interactive : state -> state
 (** Run commands from the given file. *)
 val use_file : fn:string -> quiet:bool -> state -> state
 
-val initial : state
+val initial_environment : state

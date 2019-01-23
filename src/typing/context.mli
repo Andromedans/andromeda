@@ -44,7 +44,7 @@ val add_ml_operation : Name.t -> Mlty.ty list * Mlty.ty -> t -> t
 val add_ml_value : Name.t -> Mlty.ty_schema -> t -> t
 
 (** Creates the context for evaluating the operation handling of [op] *)
-val op_cases : Path.t -> output:Mlty.ty -> t -> Mlty.ty list * t
+val op_cases : Path.t -> output:Mlty.ty -> t -> Ident.t * Mlty.ty list * t
 
 (** If [x ps] is a type alias for [t] then [unfold ctx x ts] returns [Some] of [t] with the parameters [ps] instantiated with the types [ts], otherwise it returns [None] *)
 val unfold : t -> Path.t -> Mlty.ty list -> Mlty.ty option

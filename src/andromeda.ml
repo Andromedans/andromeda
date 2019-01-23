@@ -143,7 +143,7 @@ let main =
             exit 1
        end
   in
-  let state = process_files Toplevel.initial !files in
+  let state = process_files Toplevel.initial_environment !files in
   if !Config.interactive_shell
   then interactive_shell state
   else ()

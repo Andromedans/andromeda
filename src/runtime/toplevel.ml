@@ -92,28 +92,15 @@ let use_file ~fn ~quiet =
       {desugar;typing;runtime}
     end
 
-let initial =
-  let desugar, cmds =
-    List.fold_left (fun (desugar, cmds) cmd ->
-      let desugar, cmd = Desugar.toplevel ~basedir:Filename.current_dir_name desugar cmd in
-      (desugar, cmd :: cmds))
-    (Desugar.Ctx.empty, []) Predefined.definitions
+(** Set up the initial environment, with built-in definitions *)
+let initial_environment =
+  let comp =
+    List.fold_left
+      (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet:true ~print_annot cmd))
+      (Runtime.top_return ())
+      Typecheck.initial_commands
   in
-  let cmds = List.rev cmds in
-  let typing, cmds = List.fold_left (fun (typing, cmds) cmd ->
-      let typing, cmd = Typecheck.toplevel typing cmd in
-      (typing, cmd :: cmds))
-    (Tyenv.empty, []) cmds
-  in
-  let cmds = List.rev cmds in
-  let comp = List.fold_left
-    (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet:true ~print_annot cmd))
-    (Runtime.top_return ()) cmds
-  in
-  let (), runtime = Runtime.exec comp Runtime.empty in
-  {desugar;typing;runtime}
-
-module Builtin =
-struct
-  let ml_false = Desugar.
-end
+  let (), initial_runtime = Runtime.exec comp Runtime.empty in
+  { desugar = Desugar.initial_context;
+    typing = Typecheck.initial_context;
+    runtime = initial_runtime }

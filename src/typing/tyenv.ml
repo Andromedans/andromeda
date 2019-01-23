@@ -61,13 +61,13 @@ let record_ml_value x t env =
   let t = Substitution.apply env.substitution t in
   (), {env with local_values = (x,t) :: env.local_values}
 
-let add_ml_value x t env =
+let add_ml_value_monomorphic x t env =
   let t = Substitution.apply env.substitution t in
   let context = Context.add_ml_value x ([], t) env.context in
   (), {env with context}
 
 let locally_add_ml_value x t m =
-  locally (add_ml_value x t >>= fun () -> m)
+  locally (add_ml_value_monomorphic x t >>= fun () -> m)
 
 let add_ml_value x s env =
   let context = Context.add_ml_value x s env.context in
@@ -262,8 +262,8 @@ let as_dynamic ~loc t env =
      Mlty.error ~loc (Mlty.DynamicExpected t)
 
 let op_cases op ~output m env =
-  let argts, context = Context.op_cases op ~output env.context in
-  m argts {env with context}
+  let oid, argts, context = Context.op_cases op ~output env.context in
+  m oid argts {env with context}
 
 let generalizes_to ~loc ~known_context t (ps, u) env =
   let (), env = add_equation ~loc t u env in
