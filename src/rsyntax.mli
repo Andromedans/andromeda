@@ -1,33 +1,57 @@
-(** Runtime syntax *)
+(** Runtime syntax, suitable for evaluation. *)
 
-(** Bound values are referred to by de Bruijn indices *)
-type bound = int
+type ml_constructor = Path.level
 
-(** ML type declarations are referred to by de Bruijn levels *)
-type ml_type = int
+(** An operation is referred to by a unique identifier *)
+type operation = Ident.t
 
-(** An ML constructor is referred to by its position in the type definition *)
-type ml_constructor = int
+(** A TT constructor is referred to by a unique identifier *)
+type tt_constructor = Ident.t
 
+(** Runtime code keeps around locations of the source code that it was generated
+    from, so that we can print informative runtime error messages. *)
 type 'a located = 'a Location.located
 
-type arg_annotation =
-  | Arg_annot_none
-  | Arg_annot_ty of Mlty.ty
+module Pattern :
+sig
+(** Judgement pattern. *)
+  type judgement = judgement' located
+  and judgement' =
+    | TTAnonymous
+    | TTVar
+    | TTAs of judgement * judgement
+    | TTConstructor of tt_constructor * argument list
+    | TTGenAtom of is_term
+    | TTIsType of is_type
+    | TTIsTerm of is_term * is_type
+    | TTEqType of is_type * is_type
+    | TTEqTerm of is_term * is_term * is_type
+    | TTAbstract of Name.t option * is_type * judgement
 
-type let_annotation =
-  | Let_annot_none
-  | Let_annot_schema of Mlty.ty_schema
+  and is_type = judgement
+  and is_term = judgement
+  and argument = judgement
+
+  (** ML pattern *)
+  type aml = aml' located
+  and aml' =
+    | Anonymous
+    | Var
+    | As of aml * aml
+    | Judgement of judgement
+    | MLConstructor of ml_constructor * aml list
+    | Tuple of aml list
+end
 
 (** Computations *)
 type comp = comp' located
 and comp' =
-  | Bound of bound
+  | Bound of Path.index
   | Function of comp
   | Handler of handler
-  | MLConstructor of Path.t * comp list
+  | MLConstructor of ml_constructor * comp list
   | Tuple of comp list
-  | Operation of Path.t * comp list
+  | Operation of operation * comp list
   | With of comp * comp
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
@@ -40,10 +64,10 @@ and comp' =
   | Assume of (Name.t option * comp) * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | IsTypeConstructor of Path.t * comp list
-  | IsTermConstructor of Path.t * comp list
-  | EqTypeConstructor of Path.t * comp list
-  | EqTermConstructor of Path.t * comp list
+  | IsTypeConstructor of tt_constructor * comp list
+  | IsTermConstructor of tt_constructor * comp list
+  | EqTypeConstructor of tt_constructor * comp list
+  | EqTermConstructor of tt_constructor * comp list
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp
   | Substitute of comp * comp
@@ -56,6 +80,9 @@ and comp' =
   | Context of comp
   | Natural of comp
 
+(** A let-clause is given by a list of variables that get bound with their
+   types, a pattern that binds these variables (so the variables list needs to
+   match the pattern!), and the body of the definition. *)
 and let_clause =
   | Let_clause of (Name.t * Mlty.ty_schema) list * Pattern.aml * comp
 
@@ -73,7 +100,11 @@ and match_case = Pattern.aml * comp option * comp
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = Pattern.aml list * Pattern.judgement option * comp
 
-type ml_tydef = Dsyntax.ml_tydef
+(** Type definitions are needed during runtime so that we can print them
+    at the toplevel. *)
+type ml_tydef =
+  | ML_Sum of (Name.t * Mlty.ty list) list
+  | ML_Alias of Mlty.ty
 
 type local_context = (Name.t * comp) list
 

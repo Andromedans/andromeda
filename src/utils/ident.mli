@@ -1,9 +1,7 @@
-(** An identifier uniquely determines an entity such as a let-bound name, an AML
-   type, or a TT rule. Two entities may have the same name (e.g., two instances
-   of type [t] each in its own module), and there may be two ways of referring
-   to a single identifier (e.g., as [x] inside a module [M] and as [M.x] outside
-   of it).
-*)
+(** An identifier uniquely determines an entity such as an AML type, or a TT
+   rule. Two entities may have the same name (e.g., two instances of type [t]
+   each in its own module), and there may be two ways of referring to a single
+   identifier (e.g., as [x] inside a module [M] and as [M.x] outside of it). *)
 
 (** The type of identifiers. *)
 type t
@@ -37,6 +35,9 @@ val mem : t -> 'a map -> bool
 
 (** Map a function on the values of the map *)
 val map : ('a -> 'b) -> 'a map -> 'b map
+
+(** Map a function on the values of the map *)
+val mapi : (t -> 'a -> 'b) -> 'a map -> 'b map
 
 (** Print an identifier *)
 val print : ?parentheses:bool -> t -> Format.formatter -> unit

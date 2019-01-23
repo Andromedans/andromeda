@@ -227,10 +227,51 @@ let index_opt x ys =
 
 let level x ys = index x (List.rev ys)
 
-(* let rec assoc_ident x = function
- *   | [] -> None
- *   | (y,v)::_ when (equal x y) -> Some v
- *   | _::l -> assoc_ident x l *)
+
+(** Association lists indexed by de Bruijn indices *)
+module AssocIndex =
+struct
+  type key = t
+
+  type 'a t = (key * 'a) list
+
+  let empty = []
+
+  let add x y (lst : 'a t) = (x,y) :: lst
+
+  let find x (lst : 'a t) =
+    let rec search i = function
+      | [] -> None
+      | (x',y) :: lst ->
+         if equal x x' then Some (y, i) else search (i+1) lst
+    in
+    search 0 lst
+end
+
+(** Association lists indexed by de Bruijn levels *)
+module AssocLevel =
+struct
+  type key = t
+
+  type 'a t = (key * 'a) list
+
+  let empty = []
+
+  let add x y (lst : 'a t) = lst @ [(x,y)]
+
+  let find x (lst : 'a t) =
+    let rec search i = function
+      | [] -> None
+      | (x',y) :: lst ->
+         if equal x x' then Some (y, i) else search (i+1) lst
+    in
+    search 0 lst
+
+  let to_list lst = lst
+
+  let of_assoc_index lst = List.rev lst
+end
+
 
 let print_debruijn xs k ppf =
   let x = List.nth xs k in

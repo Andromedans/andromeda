@@ -41,9 +41,9 @@ let apply (s : t) t =
            and t2 = app t2 in
            Mlty.Handler (t1, t2)
 
-        | Mlty.App (x, k, ts) ->
+        | Mlty.Apply (pth, ts) ->
            let ts = List.map app ts in
-           Mlty.App (x, k, ts)
+           Mlty.Apply (pth, ts)
 
         | Mlty.Ref t ->
            let t = app t in

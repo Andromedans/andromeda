@@ -1,7 +1,7 @@
 type t =
   { context : Context.t;
     substitution : Substitution.t;
-    local_vars : (Name.ident * Mlty.ty) list (* the variables bound since the last call to [locally] *)
+    local_values : (Name.t * Mlty.ty) list (* the variables bound since the last call to [locally] *)
  }
 
 type 'a tyenvM = t -> 'a * t
@@ -9,7 +9,7 @@ type 'a tyenvM = t -> 'a * t
 let empty =
   { context = Context.empty;
     substitution = Substitution.empty;
-    local_vars = []
+    local_values = []
   }
 
 let return x env = x, env
@@ -51,37 +51,41 @@ let locally m env =
   let x, env = m env in
   x, {env with context}
 
-let record_vars m env =
-  let local_vars = env.local_vars in
-  let x, env = m {env with local_vars = []} in
+let record_ml_values m env =
+  let local_values = env.local_values in
+  let x, env = m {env with local_values = []} in
   (* XXX should we apply the substition to the types of local vars that we're returning? *)
-  (List.rev env.local_vars, x), {env with local_vars}
+  (List.rev env.local_values, x), {env with local_values}
 
-let record_var x t env =
+let record_ml_value x t env =
   let t = Substitution.apply env.substitution t in
-  (), {env with local_vars = (x,t) :: env.local_vars}
+  (), {env with local_values = (x,t) :: env.local_values}
 
-let add_var x t env =
+let add_ml_value x t env =
   let t = Substitution.apply env.substitution t in
-  let context = Context.add_let x ([], t) env.context in
+  let context = Context.add_ml_value x ([], t) env.context in
   (), {env with context}
 
-let locally_add_var x t m =
-  locally (add_var x t >>= fun () -> m)
+let locally_add_ml_value x t m =
+  locally (add_ml_value x t >>= fun () -> m)
 
-let add_let x s env =
-  let context = Context.add_let x s env.context in
+let add_ml_value x s env =
+  let context = Context.add_ml_value x s env.context in
   (), {env with context}
 
-let lookup_var k env =
-  let t = Context.lookup_var k env.context in
+let lookup_bound k env =
+  let t = Context.lookup_bound k env.context in
   return t env
 
-let lookup_op op env =
-  return (Context.lookup_op op env.context) env
+let lookup_ml_value v env =
+  let t = Context.lookup_ml_value v env.context in
+  return t env
 
-let lookup_aml_constructor c env =
-  return (Context.lookup_aml_constructor c env.context) env
+let lookup_ml_operation op env =
+  return (Context.lookup_ml_operation op env.context) env
+
+let lookup_ml_constructor c env =
+  return (Context.lookup_ml_constructor c env.context) env
 
 let lookup_tt_constructor c env =
   return (Context.lookup_tt_constructor c env.context) env
@@ -98,10 +102,10 @@ let rec whnf ctx s = function
            | None -> t
      end
 
-  | Mlty.App (_, x, ts) as t ->
-     begin match Context.unfold ctx x ts with
-           | Some t -> whnf ctx s t
-           | None -> t
+  | Mlty.Apply (head, ts) as t ->
+     begin match Context.unfold ctx head ts with
+     | Some t -> whnf ctx s t
+     | None -> t
      end
 
   | (Mlty.Judgement _ | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
@@ -170,18 +174,24 @@ let rec unifiable ctx s t t' =
      unifiable ctx s t1 t1' >?= fun s ->
                                 unifiable ctx s t2 t2'
 
-  | Mlty.App (_, x, ts), Mlty.App (_, y, ts') when x = y ->
-     let rec fold s ts ts' = match ts, ts' with
-       | [], [] -> Some s
-       | t :: ts, t' :: ts' ->
-          unifiable ctx s t t' >?= fun s ->
-                                   fold s ts ts'
-       | [], _ :: _ | _ :: _, [] -> assert false
-     in
-     fold s ts ts'
+  | Mlty.Apply (x_pth, ts), Mlty.Apply (y_pth, ts') ->
+     let x_id = Context.lookup_ml_type_id x_pth ctx in
+     let y_id = Context.lookup_ml_type_id y_pth ctx in
+     begin match Ident.equal x_id y_id with
+     | false -> None
+     | true ->
+        let rec fold s ts ts' = match ts, ts' with
+          | [], [] -> Some s
+          | t :: ts, t' :: ts' ->
+             unifiable ctx s t t' >?= fun s ->
+                                      fold s ts ts'
+          | [], _ :: _ | _ :: _, [] -> assert false
+        in
+        fold s ts ts'
+     end
 
   | (Mlty.Judgement _ | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Prod _ |
-     Mlty.Param _ | Mlty.Arrow _ | Mlty.Handler _ | Mlty.App _), _ ->
+     Mlty.Param _ | Mlty.Arrow _ | Mlty.Handler _ | Mlty.Apply _), _ ->
      None
 
 let add_tt_constructor c t env =
@@ -214,7 +224,7 @@ let as_handler ~loc t env =
      end
 
   | (Mlty.Judgement _ | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ |  Mlty.Param _ |
-     Mlty.Prod _ | Mlty.Arrow _ | Mlty.App _) ->
+     Mlty.Prod _ | Mlty.Arrow _ | Mlty.Apply _) ->
      Mlty.error ~loc (Mlty.HandlerExpected t)
 
 let as_ref ~loc t env =
@@ -231,7 +241,7 @@ let as_ref ~loc t env =
      end
 
   | (Mlty.Judgement _ | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
-     Mlty.Arrow _ | Mlty.App _ | Mlty.Dynamic _) ->
+     Mlty.Arrow _ | Mlty.Apply _ | Mlty.Dynamic _) ->
      Mlty.error ~loc (Mlty.RefExpected t)
 
 let as_dynamic ~loc t env =
@@ -248,16 +258,12 @@ let as_dynamic ~loc t env =
      end
 
   | (Mlty.Judgement _ | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
-     Mlty.Arrow _ | Mlty.App _ | Mlty.Ref _) ->
+     Mlty.Arrow _ | Mlty.Apply _ | Mlty.Ref _) ->
      Mlty.error ~loc (Mlty.DynamicExpected t)
 
 let op_cases op ~output m env =
   let argts, context = Context.op_cases op ~output env.context in
   m argts {env with context}
-
-let predefined_type x ts env =
-  let t = Context.predefined_type x ts env.context in
-  return t env
 
 let generalizes_to ~loc ~known_context t (ps, u) env =
   let (), env = add_equation ~loc t u env in
@@ -292,12 +298,12 @@ let generalizes_to ~loc ~known_context t (ps, u) env =
 
 (* Toplevel functionality *)
 
-let add_tydef t d env =
-  let context = Context.add_tydef t d env.context in
+let add_ml_type t d env =
+  let context = Context.add_ml_type t d env.context in
   (), { env with context }
 
-let add_operation op opty env =
-  let context = Context.add_operation op opty env.context in
+let add_ml_operation op opty env =
+  let context = Context.add_ml_operation op opty env.context in
   (), { env with context }
 
 let print_context {context;_} = Context.print_context context

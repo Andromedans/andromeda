@@ -2,25 +2,33 @@
 
 (** {6 Values} *)
 
+(** The Ocaml equivalent of the ML coercible type *)
+type coercible =
+  | NotCoercible
+  | Convertible of Nucleus.eq_type_abstraction
+  | Coercible of Nucleus.is_term_abstraction
+
 (** An ML reference cell. *)
 type ml_ref
 
 (** An ML dynamic variable. *)
 type ml_dyn
 
+type ml_constructor = Path.level
+
 (** values are "finished" or "computed". They are inert pieces of data. *)
-type value = private
-  | IsTerm of Nucleus.is_term_abstraction    (** A term judgment *)
-  | IsType of Nucleus.is_type_abstraction    (** A type judgment *)
-  | EqTerm of Nucleus.eq_term_abstraction    (** A term equality *)
-  | EqType of Nucleus.eq_type_abstraction    (** A type equality *)
-  | Closure of (value,value) closure         (** An ML function *)
-  | Handler of handler                       (** Handler value *)
-  | Tag of Ident.t * value list              (** Application of a data constructor *)
-  | Tuple of value list                      (** Tuple of values *)
-  | Ref of ml_ref                            (** Ref cell *)
-  | Dyn of ml_dyn                            (** Dynamic variable *)
-  | String of string                         (** String constant (opaque, not a list) *)
+type value =
+  | IsTerm of Nucleus.is_term_abstraction      (** A term judgment *)
+  | IsType of Nucleus.is_type_abstraction      (** A type judgment *)
+  | EqTerm of Nucleus.eq_term_abstraction      (** A term equality *)
+  | EqType of Nucleus.eq_type_abstraction      (** A type equality *)
+  | Closure of (value,value) closure           (** An ML function *)
+  | Handler of handler                         (** Handler value *)
+  | Tag of ml_constructor * value list         (** Application of a data constructor *)
+  | Tuple of value list                        (** Tuple of values *)
+  | Ref of ml_ref                              (** Ref cell *)
+  | Dyn of ml_dyn                              (** Dynamic variable *)
+  | String of string                           (** String constant (opaque, not a list) *)
 
 and operation_args = { args : value list; checking : Nucleus.is_type_abstraction option }
 
@@ -33,6 +41,9 @@ and ('a,'b) closure
 
 (** A descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
 val name_of : value -> string
+
+(** Are ML constructors equal? *)
+val equal_tag : ml_constructor -> ml_constructor -> bool
 
 (** {b Value construction} *)
 
@@ -52,7 +63,7 @@ val mk_eq_type : Nucleus.eq_type_abstraction -> value
 val mk_handler : handler -> value
 
 (** Build a [Tag] value *)
-val mk_tag : Ident.t -> value list -> value
+val mk_tag : ml_constructor -> value list -> value
 
 (** Build a [Tuple] value *)
 val mk_tuple : value list -> value
@@ -250,7 +261,7 @@ val add_bound_rec :
 val add_free: Name.t -> Nucleus.is_type -> (Nucleus.is_atom -> 'a comp) -> 'a comp
 
 (** Lookup a free variable by its de Bruijn index *)
-val lookup_bound : loc:Location.t -> int -> value comp
+val lookup_bound : loc:Location.t -> Path.index -> value comp
 
 (** Lookup the current value of a dynamic variable. *)
 val lookup_dyn : ml_dyn -> value comp
@@ -336,7 +347,7 @@ val top_get_env : env toplevel
 val get_signature : env -> Nucleus.signature
 
 (** For matching *)
-val get_bound : loc:Location.t -> int -> env -> value
+val get_bound : loc:Location.t -> Path.index -> env -> value
 
 (** Add a bound variable (for matching). *)
 val push_bound : value -> env -> env

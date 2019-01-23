@@ -37,6 +37,8 @@ let mem = IdentMap.mem
 
 let map = IdentMap.map
 
+let mapi = IdentMap.mapi
+
 let print ?parentheses {name;_} ppf = Name.print ?parentheses name ppf
 
 module Json =

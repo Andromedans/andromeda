@@ -3,6 +3,14 @@
 type ml_ref = Store.Ref.key
 type ml_dyn = Store.Dyn.key
 
+type coercible =
+  | NotCoercible
+  | Convertible of Nucleus.eq_type_abstraction
+  | Coercible of Nucleus.is_term_abstraction
+
+(** In the future we should be able to drop the name part *)
+type ml_constructor = Path.level
+
 (** This module defines 2 monads:
     - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
       Primitives are like [add_bound].
@@ -49,7 +57,7 @@ and value =
   | EqType of Nucleus.eq_type_abstraction
   | Closure of (value, value) closure
   | Handler of handler
-  | Tag of Ident.t * value list
+  | Tag of ml_constructor * value list
   | Tuple of value list
   | Ref of ml_ref
   | Dyn of ml_dyn
@@ -122,6 +130,7 @@ exception Error of error Location.located
 
 let error ~loc err = raise (Error (Location.locate err loc))
 
+let equal_tag (Path.Level (_, i)) (Path.Level (_, j)) = (i = j)
 
 (** Make values *)
 
@@ -347,7 +356,7 @@ let add_rule_is_term = add_rule Nucleus.Signature.add_rule_is_term
 let add_rule_eq_type = add_rule Nucleus.Signature.add_rule_eq_type
 let add_rule_eq_term = add_rule Nucleus.Signature.add_rule_eq_term
 
-let get_bound ~loc k env = List.nth env.lexical.bound k
+let get_bound ~loc (Path.Index (_, k)) env = List.nth env.lexical.bound k
 
 let lookup_bound ~loc k env =
   Return (get_bound ~loc k env), env.state
@@ -421,6 +430,104 @@ let continue ~loc v ({lexical={continuation;_};_} as env) =
     | Some cont -> apply_cont cont v env
     | None -> assert false
 
+(* ***** Predefined operations and conversion from AML to OCaml ***** *)
+
+(** Conversions between OCaml list and ML list *)
+
+let list_nil = mk_tag Predefined.tag_nil []
+let list_cons v lst = mk_tag Predefined.tag_cons [v; lst]
+
+let rec mk_list = function
+  | []      -> list_nil
+  | x :: xs -> list_cons x (mk_list xs)
+
+
+(* A hack, until we have proper type-driven printing routines. At that point we should consider
+   equipping type definitions with custom printers, so that not only lists but other datatypes
+   can have their own printers. (And we're not going to implement Haskell classes.) *)
+let rec as_list_opt = function
+  | Tag (t, []) when equal_tag t Predefined.tag_nil -> Some []
+  | Tag (t, [x;xs]) when equal_tag t Predefined.tag_cons ->
+     begin
+       match as_list_opt xs with
+       | None -> None
+       | Some xs -> Some (x :: xs)
+     end
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
+     None
+
+let as_list ~loc v =
+  match as_list_opt v with
+  | Some lst -> lst
+  | None -> error ~loc (ListExpected v)
+
+(** Conversion between Ocaml option and ML option *)
+
+let from_option = function
+  | Some v -> mk_tag Predefined.tag_some [v]
+  | None -> mk_tag Predefined.tag_none []
+
+let as_option ~loc = function
+  | Tag (t,[]) when (equal_tag t Predefined.tag_none)  -> None
+  | Tag (t,[x]) when (equal_tag t Predefined.tag_some) -> Some x
+  | (IsType _ | IsTerm _ | EqType _ | EqTerm _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ |
+     Ref _ | Dyn _ | String _) as v ->
+     (error ~loc (OptionExpected v))
+
+
+
+(** Conversion between OCaml coercible and ML coercible *)
+
+let as_coercible ~loc = function
+  | Tag (t, []) when equal_tag t Predefined.tag_notcoercible ->
+    NotCoercible
+  | Tag (t, [v]) when equal_tag t Predefined.tag_convertible ->
+    let eq = as_eq_type_abstraction ~loc v in
+    Convertible eq
+  | Tag (t, [v]) when equal_tag t Predefined.tag_coercible_constructor ->
+    let e = as_is_term_abstraction ~loc v in
+    Coercible e
+  | (IsType _ | IsTerm _ | EqType _ | EqTerm _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ |
+     Ref _ | Dyn _ | String _) as v ->
+     (error ~loc (CoercibleExpected v))
+
+
+(** Computations that invoke operations *)
+
+(* Map ML-value-to-(term)-judgment across an option. Fail if given Some value
+   that is not a judgment. *)
+
+let as_eq_term_option ~loc v =
+  match as_option ~loc v with
+    | Some v -> Some (as_eq_term ~loc v)
+    | None -> None
+
+let as_eq_type_option ~loc v =
+  match as_option ~loc v with
+    | Some v -> Some (as_eq_type ~loc v)
+    | None -> None
+
+let operation_equal_term ~loc e1 e2 =
+  let v1 = mk_is_term (Nucleus.abstract_not_abstract e1)
+  and v2 = mk_is_term (Nucleus.abstract_not_abstract e2) in
+  operation Predefined.op_equal_term [v1;v2] >>= fun v ->
+  return (as_eq_term_option ~loc v)
+
+let operation_equal_type ~loc t1 t2 =
+  let v1 = mk_is_type (Nucleus.abstract_not_abstract t1)
+  and v2 = mk_is_type (Nucleus.abstract_not_abstract t2) in
+  operation Predefined.op_equal_type [v1;v2] >>= fun v ->
+  return (as_eq_type_option ~loc v)
+
+let operation_coerce ~loc e t =
+  let v1 = mk_is_term e
+  and v2 = mk_is_type t in
+  operation Predefined.op_coerce [v1;v2] >>= fun v ->
+  return (as_coercible ~loc v)
+
 let add_abstracting j m =
   failwith "add_abstracting needs fixed"
   (**
@@ -454,18 +561,9 @@ let top_lookup_names env =
 let top_lookup_signature env =
   get_signature env, env
 
-let rec as_list_opt = function
-  | Tag (t, []) when Name.equal (Ident.name t) Name.Predefined.nil -> Some []
-  | Tag (t, [x;xs]) when Name.equal (Ident.name t) Name.Predefined.cons ->
-     begin
-       match as_list_opt xs with
-       | None -> None
-       | Some xs -> Some (x :: xs)
-     end
-  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
-     None
-
+(** In the future this routine will be type-driven. One consequence is that
+    constructor tags will be printed by looking up their names in type
+    definitions. *)
 let rec print_value ?max_level ~names v ppf =
   match v with
 
@@ -486,7 +584,7 @@ let rec print_value ?max_level ~names v ppf =
        match as_list_opt v with
        | Some lst -> Format.fprintf ppf "@[<hov 1>[%t]@]"
                        (Print.sequence (print_value ~max_level:Level.highest ~names) ";" lst)
-       | None ->  print_tag ?max_level ~names (Ident.name t) lst ppf
+       | None ->  print_tag ?max_level ~names t lst ppf
      end
 
   | Tuple lst -> Format.fprintf ppf "@[<hov 1>(%t)@]"
@@ -503,7 +601,7 @@ let rec print_value ?max_level ~names v ppf =
 and print_tag ?max_level ~names t lst ppf =
   match t, lst with
 
-  | {Name.fixity=Name.Prefix;_}, [v] ->
+  | Path.Level ({Name.fixity=Name.Prefix; name} as x,_), [v] ->
      (* prefix tag applied to one argument *)
      (* Although it is reasonable to parse prefix operators as
         binding very tightly, it can be confusing to see
@@ -513,24 +611,25 @@ and print_tag ?max_level ~names t lst ppf =
         Level.app and Level.app_right instead of
         Level.prefix and Level.prefix_arg *)
      Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
-                 (Name.print ~parentheses:false t)
+                 (Name.print ~parentheses:false x)
                  (print_value ~max_level:Level.prefix_arg ~names v)
 
-  | {Name.fixity=Name.Infix fixity;_}, [v1; v2] ->
+  | Path.Level ({Name.fixity=Name.Infix fixity;_} as x, _), [v1; v2] ->
      (* infix tag applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
                  (print_value ~max_level:lvl_left ~names v1)
-                 (Name.print ~parentheses:false t)
+                 (Name.print ~parentheses:false x)
                  (print_value ~max_level:lvl_right ~names v2)
 
   | _ ->
      (* print as application *)
      begin
+       let (Path.Level (x, _)) = t in
        match lst with
-       | [] -> Name.print t ppf
+       | [] -> Name.print x ppf
        | (_::_) -> Print.print ?max_level ~at_level:Level.ml_tag ppf "@[<hov 2>%t@ %t@]"
-                     (Name.print t)
+                     (Name.print x)
                      (Print.sequence (print_value ~max_level:Level.ml_tag_arg ~names) "" lst)
      end
 
@@ -771,8 +870,8 @@ let rec equal_value v1 v2 =
        (* XXX: should we even compare equality judgements for equality? That will lead to comparison of contexts. *)
        eq1 == eq2
 
-    | Tag (t1,vs1), Tag (t2,vs2) ->
-      Ident.equal t1 t2 &&
+    | Tag (t1, vs1), Tag (t2, vs2) ->
+      equal_tag t1 t2 &&
       let rec fold vs1 vs2 =
         match vs1, vs2 with
           | [], [] -> true
@@ -844,7 +943,7 @@ struct
 
     | Handler _ -> Json.tag "<handler>" []
 
-    | Tag (c, lst) -> Json.tag "Tag" [Ident.Json.ident c; Json.List (List.map value lst)]
+    | Tag (Path.Level (c, _), lst) -> Json.tag "Tag" [Name.Json.name c; Json.List (List.map value lst)]
 
     | Tuple lst -> Json.tag "Tuple" [Json.List (List.map value lst)]
 

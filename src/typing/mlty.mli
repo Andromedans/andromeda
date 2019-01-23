@@ -37,7 +37,7 @@ type ty =
   | Prod of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
-  | App of Ident.t * Dsyntax.level * ty list
+  | Apply of Path.t * ty list
   | Ref of ty
   | Dynamic of ty
 
@@ -93,6 +93,9 @@ type error =
   | UnexpectedJudgementAbstraction of judgement
 
 exception Error of error Location.located
+
+(** Place the type into a module (prefix type names with the given module name) *)
+val shift : Path.level -> ty -> ty
 
 (** Equality comparison of metavariables *)
 val eq_meta : meta -> meta -> bool

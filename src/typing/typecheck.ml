@@ -78,9 +78,9 @@ let rec ml_ty params {Location.thing=t; loc} =
     let ts = List.map (ml_ty params) ts in
     Mlty.Prod ts
 
-  | Dsyntax.ML_TyApply (x, k, ts) ->
+  | Dsyntax.ML_Apply (pth, ts) ->
     let ts = List.map (ml_ty params) ts in
-    Mlty.App (x, k, ts)
+    Mlty.Apply (pth, ts)
 
   | Dsyntax.ML_Handler (t1, t2) ->
     let t1 = ml_ty params t1
@@ -102,8 +102,8 @@ let rec ml_ty params {Location.thing=t; loc} =
   | Dsyntax.ML_String ->
      Mlty.String
 
-  | Dsyntax.ML_Bound p ->
-     Mlty.Param (List.nth params p)
+  | Dsyntax.ML_Bound (Path.Index (_, i)) ->
+     Mlty.Param (List.nth params i)
 
   | Dsyntax.ML_Anonymous ->
      Mlty.fresh_type ()
@@ -119,17 +119,17 @@ let rec check_tt_pattern ~bind_var ({Location.thing=p';loc} as p) t =
   match p' with
 
   | Dsyntax.Patt_TT_Anonymous ->
-     return_located ~loc Pattern.TTAnonymous
+     return_located ~loc Rsyntax.Pattern.TTAnonymous
 
   | Dsyntax.Patt_TT_Var x ->
      (* This [add_var] is enclosed by [Tyenv.locally] in [match_case] or [let_clause] *)
      bind_var x (Mlty.Judgement t) >>= fun () ->
-     return_located ~loc (Pattern.TTVar x)
+     return_located ~loc (Rsyntax.Pattern.TTVar)
 
   | Dsyntax.Patt_TT_As (p1, p2) ->
      check_tt_pattern ~bind_var p1 t >>= fun p1 ->
      check_tt_pattern ~bind_var p2 t >>= fun p2 ->
-     return_located ~loc (Pattern.TTAs (p1, p2))
+     return_located ~loc (Rsyntax.Pattern.TTAs (p1, p2))
 
   | Dsyntax.Patt_TT_Abstraction (xopt, p1, p2) ->
      begin match t with
@@ -144,7 +144,7 @@ let rec check_tt_pattern ~bind_var ({Location.thing=p';loc} as p) t =
         | Some x -> bind_var x Mlty.is_term
         end >>= fun () ->
         check_tt_pattern ~bind_var p2 t >>= fun p2 ->
-        return_located ~loc (Pattern.TTAbstract (xopt, p1, p2))
+        return_located ~loc (Rsyntax.Pattern.TTAbstract (xopt, p1, p2))
      end
 
   (* inferring *)
@@ -167,12 +167,12 @@ and tt_pattern ~bind_var {Location.thing=p';loc} =
      (* We insist that the first pattern be inferrable *)
      tt_pattern ~bind_var p1 >>= fun (p1, t) ->
      check_tt_pattern ~bind_var p2 t >>= fun p2 ->
-     return (locate ~loc (Pattern.TTAs (p1, p2)), t)
+     return (locate ~loc (Rsyntax.Pattern.TTAs (p1, p2)), t)
 
   | Dsyntax.Patt_TT_Constructor (c, ps) ->
-     Tyenv.lookup_tt_constructor c >>= fun (args, t) ->
+     Tyenv.lookup_tt_constructor c >>= fun (c, (args, t)) ->
      check_tt_args ~bind_var args ps >>= fun ps ->
-     return (locate ~loc (Pattern.TTConstructor (c, ps)), Mlty.NotAbstract t)
+     return (locate ~loc (Rsyntax.Pattern.TTConstructor (c, ps)), Mlty.NotAbstract t)
 
   | Dsyntax.Patt_TT_GenAtom p ->
      check_tt_pattern ~bind_var p (Mlty.NotAbstract Mlty.IsTerm) >>= fun p ->
@@ -185,23 +185,23 @@ and tt_pattern ~bind_var {Location.thing=p';loc} =
   | Dsyntax.Patt_TT_IsTerm (p1, p2) ->
      check_tt_pattern ~bind_var p1 (Mlty.NotAbstract Mlty.IsTerm) >>= fun p1 ->
      check_tt_pattern ~bind_var p2 (Mlty.NotAbstract Mlty.IsType) >>= fun p2 ->
-     return (locate ~loc (Pattern.TTIsTerm (p1, p2)), Mlty.NotAbstract Mlty.IsTerm)
+     return (locate ~loc (Rsyntax.Pattern.TTIsTerm (p1, p2)), Mlty.NotAbstract Mlty.IsTerm)
 
   | Dsyntax.Patt_TT_EqType (p1, p2) ->
      check_tt_pattern ~bind_var p1 (Mlty.NotAbstract Mlty.IsType) >>= fun p1 ->
      check_tt_pattern ~bind_var p2 (Mlty.NotAbstract Mlty.IsType) >>= fun p2 ->
-     return (locate ~loc (Pattern.TTEqType (p1, p2)), Mlty.NotAbstract Mlty.EqType)
+     return (locate ~loc (Rsyntax.Pattern.TTEqType (p1, p2)), Mlty.NotAbstract Mlty.EqType)
 
   | Dsyntax.Patt_TT_EqTerm (p1, p2, p3) ->
      check_tt_pattern ~bind_var p1 (Mlty.NotAbstract Mlty.IsTerm) >>= fun p1 ->
      check_tt_pattern ~bind_var p2 (Mlty.NotAbstract Mlty.IsTerm) >>= fun p2 ->
      check_tt_pattern ~bind_var p3 (Mlty.NotAbstract Mlty.IsType) >>= fun p3 ->
-     return (locate ~loc (Pattern.TTEqTerm (p1, p2, p3)), Mlty.NotAbstract Mlty.EqTerm)
+     return (locate ~loc (Rsyntax.Pattern.TTEqTerm (p1, p2, p3)), Mlty.NotAbstract Mlty.EqTerm)
 
   | Dsyntax.Patt_TT_Abstraction (x, p1, p2) ->
      check_tt_pattern ~bind_var p1 (Mlty.NotAbstract Mlty.IsType) >>= fun p1 ->
      tt_pattern ~bind_var p2 >>= fun (p2, t) ->
-     return (locate ~loc (Pattern.TTAbstract (x, p1, p2)), Mlty.Abstract t)
+     return (locate ~loc (Rsyntax.Pattern.TTAbstract (x, p1, p2)), Mlty.Abstract t)
 
   (* non-inferrable *)
   | Dsyntax.Patt_TT_Anonymous
@@ -231,29 +231,29 @@ and check_tt_args ~bind_var args ps =
 let rec pattern ~bind_var {Location.thing=p;loc} =
   match p with
   | Dsyntax.Patt_Anonymous ->
-     return (locate ~loc Pattern.Anonymous, Mlty.fresh_type ())
+     return (locate ~loc Rsyntax.Pattern.Anonymous, Mlty.fresh_type ())
 
   | Dsyntax.Patt_Var x ->
      let t = Mlty.fresh_type () in
      bind_var x t >>= fun () ->
-     return (locate ~loc (Pattern.Var x), t)
+     return (locate ~loc Rsyntax.Pattern.Var, t)
 
   | Dsyntax.Patt_As (p1, p2) ->
      pattern ~bind_var p1 >>= fun (p1, t1) ->
      check_pattern ~bind_var p2 t1 >>= fun p2 ->
-     return (locate ~loc (Pattern.As (p1, p2)), t1)
+     return (locate ~loc (Rsyntax.Pattern.As (p1, p2)), t1)
 
   | Dsyntax.Patt_Judgement p ->
      tt_pattern ~bind_var p >>= fun (p, t) ->
-     return (locate ~loc (Pattern.Judgement p), Mlty.Judgement t)
+     return (locate ~loc (Rsyntax.Pattern.Judgement p), Mlty.Judgement t)
 
-  | Dsyntax.Patt_Constr (c, ps) ->
-    Tyenv.lookup_aml_constructor c >>= fun (ts, out) ->
+  | Dsyntax.Patt_Constructor (c, ps) ->
+    Tyenv.lookup_ml_constructor c >>= fun (ts, out) ->
     let rec fold qs ps ts =
       match ps, ts with
       | [], [] ->
          let qs = List.rev qs in
-         return (locate ~loc (Pattern.MLConstructor (c, qs)), out)
+         return (locate ~loc (Rsyntax.Pattern.MLConstructor (c, qs)), out)
       | p::ps, t::ts ->
         check_pattern ~bind_var p t >>= fun q ->
         fold (q::qs) ps ts
@@ -267,7 +267,7 @@ let rec pattern ~bind_var {Location.thing=p;loc} =
       | [] ->
          let qs = List.rev qs
          and ts = List.rev ts in
-         return (locate ~loc (Pattern.Tuple qs), Mlty.Prod ts)
+         return (locate ~loc (Rsyntax.Pattern.Tuple qs), Mlty.Prod ts)
       | p :: ps ->
          pattern ~bind_var p >>= fun (q, t) ->
          fold (q :: qs) (t :: ts) ps
@@ -277,29 +277,29 @@ let rec pattern ~bind_var {Location.thing=p;loc} =
 and check_pattern ~bind_var ({Location.thing=p'; loc} as p) t =
   match p' with
   | Dsyntax.Patt_Anonymous ->
-     return_located ~loc Pattern.Anonymous
+     return_located ~loc Rsyntax.Pattern.Anonymous
 
   | Dsyntax.Patt_Var x ->
      bind_var x t >>= fun () ->
-     return_located ~loc (Pattern.Var x)
+     return_located ~loc (Rsyntax.Pattern.Var x)
 
   | Dsyntax.Patt_As (p1, p2) ->
      check_pattern ~bind_var p1 t >>= fun p1 ->
      check_pattern ~bind_var p2 t >>= fun p2 ->
-     return_located ~loc (Pattern.As (p1, p2))
+     return_located ~loc (Rsyntax.Pattern.As (p1, p2))
 
   | Dsyntax.Patt_Judgement p ->
      begin match t with
 
      | Mlty.Judgement t ->
         check_tt_pattern ~bind_var p t >>= fun p ->
-        return_located ~loc (Pattern.Judgement p)
+        return_located ~loc (Rsyntax.Pattern.Judgement p)
 
      | Mlty.String | Mlty.Meta _ | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _
      | Mlty.Handler _ | Mlty.App _ | Mlty.Ref _ | Mlty.Dynamic _ ->
         tt_pattern ~bind_var p >>= fun (p, pt) ->
         Tyenv.add_equation ~loc (Mlty.Judgement pt) t >>= fun () ->
-        return_located ~loc (Pattern.Judgement p)
+        return_located ~loc (Rsyntax.Pattern.Judgement p)
      end
 
   | Dsyntax.Patt_Tuple ps ->
@@ -309,7 +309,7 @@ and check_pattern ~bind_var ({Location.thing=p'; loc} as p) t =
           match ps, ts with
           | [], [] ->
              let ps_out = List.rev ps_out in
-             return_located ~loc (Pattern.Tuple ps_out)
+             return_located ~loc (Rsyntax.Pattern.Tuple ps_out)
           | p :: ps, t :: ts ->
              check_pattern ~bind_var p t >>= fun p ->
              fold (p :: ps_out) ps ts

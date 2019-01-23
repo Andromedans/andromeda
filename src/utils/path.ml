@@ -1,18 +1,16 @@
+type index = Index of Name.t * int
+
+type level = Level of Name.t * int
+
 type t =
-  | Ident of Ident.t
-  | Dot of Ident.t * Name.t
+  | Direct of level
+  | Module of level * level
 
-let mk_direct i = Ident i
+type ml_constructor = t * level
 
-let mk_module mdl n = Dot (mdl, n)
-
-let equal p q =
-  match p, q with
-  | Ident x, Ident y -> Ident.equal x y
-  | Dot (p1, n1), Dot (p2, n2) -> Ident.equal p1 p2 && Name.equal n1 n2
-  | Ident _, Dot _ | Dot _, Ident _ -> false
+let print_level (Level (x, _)) ppf = Name.print x ppf
 
 let print p ppf =
   match p with
-  | Ident x -> Ident.print x ppf
-  | Dot (mdl, n) -> Format.fprintf ppf "%t.%t" (Ident.print mdl) (Name.print n)
+  | Direct x -> print_level x ppf
+  | Module (mdl, x) -> Format.fprintf ppf "%t.%t" (print_level mdl) (print_level x)
