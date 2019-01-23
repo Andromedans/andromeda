@@ -912,10 +912,13 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      Runtime.top_now x v
 
   | Rsyntax.MLModules lst ->
-     Runtime.top_fold (fun () (mdl_name, cmds) ->
+     Runtime.top_fold
+       (fun () (mdl_name, cmds) ->
          (if not quiet then Format.printf "@[<hov 2>Including %t@]@." (Name.print mdl_name));
-         Runtime.top_fold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
-         return ())
+         add_ml_module mdl_name cmds)
        () lst
 
   | Rsyntax.Verbosity i -> Config.verbosity := i; return ()
+
+and add_ml_module mdl_name cmds =
+  failwith "add_ml_module"
