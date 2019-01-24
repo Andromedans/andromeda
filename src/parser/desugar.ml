@@ -426,8 +426,8 @@ let mlty ctx params ty =
                 let args = List.map mlty args in
                 Dsyntax.ML_Apply (pth, args)
               end
-              | None :: lst -> search k lst
-              | Some y :: lst ->
+              | None :: params -> search k params
+              | Some y :: params ->
                  if Name.equal x y then
                    (* It's a type parameter *)
                    begin match args with
@@ -1167,6 +1167,7 @@ let mlty_info params = function
   | Input.ML_Alias _ -> (List.length params), None
 
   | Input.ML_Sum lst ->
+
      let cs =
        List.fold_left
          (fun cs (c, args) -> Name.AssocLevel.add c (List.length args) cs)
@@ -1182,7 +1183,8 @@ let mlty_defs ~loc ctx defs =
     List.map (fun (t, (params, def)) -> (t, (params, mlty_def ~loc ctx params def))) defs
   and ctx =
     List.fold_left
-      (fun ctx (t, (params, def)) -> Ctx.add_ml_type ~loc t (mlty_info params def) ctx)
+      (fun ctx (t, (params, def)) ->
+        Ctx.add_ml_type ~loc t (mlty_info params def) ctx)
       ctx defs
   in
   ctx, defs
