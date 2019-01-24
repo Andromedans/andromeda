@@ -54,7 +54,7 @@ type ml_arg = Name.t * arg_annotation
 type tt_pattern = tt_pattern' located
 and tt_pattern' =
   | Patt_TT_Anonymous
-  | Patt_TT_Var of Name.t (* pattern variable *)
+  | Patt_TT_Name of Name.t (* pattern variable *)
   | Patt_TT_As of tt_pattern * tt_pattern
   | Patt_TT_Constructor of path * tt_pattern list
   | Patt_TT_GenAtom of tt_pattern
@@ -67,7 +67,7 @@ and tt_pattern' =
 type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
-  | Patt_Var of Name.t
+  | Patt_Name of Name.t
   | Patt_As of pattern * pattern
   | Patt_Judgement of tt_pattern
   | Patt_Constructor of path * pattern list
@@ -78,7 +78,7 @@ and pattern' =
 type comp = comp' located
 and comp' =
   | Open of Name.t * comp
-  | Var of path
+  | Name of path
   | Function of ml_arg list * comp
   | Handler of handle_case list
   | Handle of comp * handle_case list

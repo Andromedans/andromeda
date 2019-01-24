@@ -192,7 +192,7 @@ plain_binop_term:
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
   | e1=binop_term oploc=infix e2=binop_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Var (Name.PName op)) loc in
+      let op = Location.locate (Name (Name.PName op)) loc in
       Spine (op, [e1; e2])
     }
 
@@ -209,7 +209,7 @@ plain_prefix_term:
   | BANG e=prefix_term                         { Lookup e }
   | oploc=prefix e2=prefix_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Var (Name.PName op)) loc in
+      let op = Location.locate (Name (Name.PName op)) loc in
       Spine (op, [e2])
     }
   | NATURAL t=prefix_term                      { Natural t }
@@ -217,7 +217,7 @@ plain_prefix_term:
 
 (* simple_term: mark_location(plain_simple_term) { $1 } *)
 plain_simple_term:
-  | x=long(any_name)                                    { Var x }
+  | x=long(any_name)                                    { Name x }
   | s=QUOTED_STRING                                     { String s }
   | LBRACK lst=list_contents RBRACK                     { List lst }
   | LBRACK RBRACK                                       { List [] }
@@ -388,7 +388,7 @@ plain_prefix_pattern:
 (* simple_pattern: mark_location(plain_simple_pattern) { $1 } *)
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
-  | x=ml_name                      { Patt_Var x }
+  | x=ml_name                      { Patt_Name x }
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
       | [{Location.thing=p;loc=_}] -> p
@@ -437,7 +437,7 @@ plain_prefix_tt_pattern:
 (* simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 } *)
 plain_simple_tt_pattern:
   | UNDERSCORE                        { Patt_TT_Anonymous }
-  | x=tt_name                         { Patt_TT_Var x }
+  | x=tt_name                         { Patt_TT_Name x }
   | LPAREN p=plain_abstracted_tt_pattern RPAREN  { p }
 
 let_pattern: mark_location(plain_let_pattern) { $1 }
