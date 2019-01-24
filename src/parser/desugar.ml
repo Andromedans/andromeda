@@ -13,6 +13,21 @@
 (** Arity of an operator *)
 type arity = int
 
+(* For each type construct we store its arity, and possibly the constructors with their arities *)
+type ml_type_info = arity * arity Name.AssocLevel.t option
+
+(* A module has three name spaces, one for ML modules, one for ML types and the other for
+   everything else. However, we keep operations, TT constructors and values in separate
+   lists because we need to compute their indices. All entities are accessed by de Bruijn
+   levels, and shadowing is forbidden. *)
+type ml_module = {
+      ml_modules : ml_module Name.AssocLevel.t ;
+      ml_types : ml_type_info Name.AssocLevel.t ;
+      ml_operations : arity Name.AssocLevel.t ;
+      tt_constructors : arity Name.AssocLevel.t ;
+      ml_values : unit Name.AssocLevel.t
+    }
+
 (** Information about names *)
 type info =
   | Bound of Path.index
@@ -20,12 +35,14 @@ type info =
   | TTConstructor of Path.t * arity
   | MLConstructor of Path.ml_constructor * arity
   | Operation of Path.t * arity
+  | MLModule of Path.t * ml_module
 
 let print_info info ppf = match info with
   | Bound _ | Value _ -> Format.fprintf ppf "a value"
   | TTConstructor _ -> Format.fprintf ppf "a constructor"
   | MLConstructor _ -> Format.fprintf ppf "an ML constructor"
   | Operation _ -> Format.fprintf ppf "an operation"
+  | MLModule _ -> Format.fprintf ppf "an ML module"
 
 type error =
   | UnknownPath of Name.path
@@ -120,24 +137,9 @@ let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 
 module Ctx = struct
 
-  (* For each type construct we store its arity, and possibly the constructors with their arities *)
-  type ml_type_info = arity * arity Name.AssocLevel.t option
-
-  (* A module has two name spaces, one for ML types and the other for everything
-     else. However, we keep operations, TT constructors and values in separate
-     lists because we need to compute their indices. All entities are accessed
-     by de Bruijn levels, and shadowing is forbidden. *)
-  type ml_module = {
-      ml_types : ml_type_info Name.AssocLevel.t ;
-      ml_operations : arity Name.AssocLevel.t ;
-      tt_constructors : arity Name.AssocLevel.t ;
-      ml_values : unit Name.AssocLevel.t
-    }
-
   type t = {
-      (* Known ML modules *)
-      ml_modules : ml_module Name.AssocLevel.t;
       (* Current module, here values are accessed by de Bruijn indices *)
+      current_ml_modules : ml_module Name.AssocLevel.t ;
       current_ml_types : ml_type_info Name.AssocLevel.t ;
       current_ml_operations : arity Name.AssocLevel.t ;
       current_tt_constructors : arity Name.AssocLevel.t ;
@@ -149,7 +151,7 @@ module Ctx = struct
     }
 
   let empty = {
-      ml_modules = Name.AssocLevel.empty ;
+      current_ml_modules = Name.AssocLevel.empty ;
       current_ml_types = Name.AssocLevel.empty ;
       current_ml_operations = Name.AssocLevel.empty ;
       current_tt_constructors = Name.AssocLevel.empty ;
@@ -161,8 +163,6 @@ module Ctx = struct
   (* Lookup functions named [find_XYZ] return optional results,
      while those named [get_XYZ] require a location and either return
      a result or trigger an error. *)
-
-  let find_module mdl_name ctx = Name.AssocLevel.find mdl_name ctx.ml_modules
 
   (* Find an ML constructor in a list of ML type definitions *)
   let find_ml_constructor x lst =
@@ -177,6 +177,67 @@ module Ctx = struct
     in
     search 0 (Name.AssocLevel.to_list lst)
 
+  (* Find information about the given name in the given module, where [pth] is the path
+     leading to the module. *)
+  let find_in_module x pth mdl =
+    match Name.AssocLevel.find x mdl.ml_values with
+    | Some ((), l) -> Some (Value (Path.Module (pth, Path.Level (x, l))))
+    | None ->
+       begin match Name.AssocLevel.find x mdl.tt_constructors with
+       | Some (arity, l) -> Some (TTConstructor ((Path.Module (pth, Path.Level (x, l))), arity))
+       | None ->
+          begin match Name.AssocLevel.find x mdl.ml_operations with
+          | Some (arity, l) -> Some (Operation ((Path.Module (pth, Path.Level (x, l)), arity)))
+          | None ->
+             begin match find_ml_constructor x mdl.ml_types with
+             | Some (t_lvl, c_lvl, arity) -> Some (MLConstructor ((Path.Module(pth, t_lvl), c_lvl), arity))
+             | None ->
+                begin match Name.AssocLevel.find x mdl.ml_modules with
+                | Some (mdl, l) -> Some (MLModule (Path.Module (pth, Path.Level (x, l)), mdl))
+                | None -> None
+                end
+             end
+          end
+       end
+
+  (* Find information about the given name in the current context. *)
+  let rec find_info pth ctx =
+    match pth with
+
+    | Name.PName x ->
+       begin match Name.AssocIndex.find x ctx.current_ml_values with
+       | Some ((), i) -> Some (Bound (Path.Index (x, i)))
+       | None ->
+          begin match Name.AssocLevel.find x ctx.current_tt_constructors with
+          | Some (arity, l) -> Some (TTConstructor ((Path.Direct (Path.Level (x, l))), arity))
+          | None ->
+             begin match Name.AssocLevel.find x ctx.current_ml_operations with
+             | Some (arity, l) -> Some (Operation ((Path.Direct (Path.Level (x, l)), arity)))
+             | None ->
+                begin match find_ml_constructor x ctx.current_ml_types with
+                | Some (t_lvl, c_lvl, arity) -> Some (MLConstructor ((Path.Direct t_lvl, c_lvl), arity))
+                | None ->
+                   begin match Name.AssocLevel.find x ctx.current_ml_modules with
+                   | Some (mdl, l) -> Some (MLModule (Path.Direct (Path.Level (x, l)), mdl))
+                   | None -> None
+                   end
+                end
+             end
+          end
+       end
+
+    | Name.PModule (pth, x) ->
+       begin match find_module pth ctx with
+       | Some (pth, mdl) -> find_in_module x pth mdl
+       | None -> None
+       end
+
+  and find_module pth ctx =
+    begin match find_info pth ctx with
+    | Some (MLModule (pth, mdl)) -> Some (pth, mdl)
+    | None | Some (Bound _ | Value _ | TTConstructor _ | MLConstructor _ | Operation _) -> None
+    end
+
   let find_ml_type pth ctx =
     match pth with
 
@@ -186,73 +247,22 @@ module Ctx = struct
        | None -> None
        end
 
-    | Name.PModule (mdl_name, t) ->
-       begin match find_module mdl_name ctx with
-       | Some (mdl, mdl_lvl) ->
+    | Name.PModule (pth, t) ->
+       begin match find_module pth ctx with
+       | Some (mdl_pth, mdl) ->
           begin match Name.AssocLevel.find t mdl.ml_types with
-          | Some (_, t_lvl) -> Some (Path.Module (Path.Level (mdl_name, mdl_lvl), Path.Level (t, t_lvl)))
+          | Some (_, t_lvl) -> Some (Path.Module (mdl_pth, Path.Level (t, t_lvl)))
           | None -> None
           end
        | None -> None
        end
 
-  (* Find the information about the given name in the given module. *)
-  let find_in_module x mdl_lvl mdl =
-    match Name.AssocLevel.find x mdl.ml_values with
-    | Some ((), l) -> Some (Value (Path.Module (mdl_lvl, Path.Level (x, l))))
-    | None ->
-       begin match Name.AssocLevel.find x mdl.tt_constructors with
-       | Some (arity, l) -> Some (TTConstructor ((Path.Module (mdl_lvl, Path.Level (x, l))), arity))
-       | None ->
-          begin match Name.AssocLevel.find x mdl.ml_operations with
-          | Some (arity, l) -> Some (Operation ((Path.Module (mdl_lvl, Path.Level (x, l)), arity)))
-          | None ->
-             begin match find_ml_constructor x mdl.ml_types with
-             | Some (t_lvl, c_lvl, arity) -> Some (MLConstructor ((Path.Module(mdl_lvl, t_lvl), c_lvl), arity))
-             | None -> None
-             end
-          end
-       end
-
-  (* Find the information about the current context. *)
-  let find_in_current x {current_ml_values; current_tt_constructors; current_ml_operations; current_ml_types; _} =
-    match Name.AssocIndex.find x current_ml_values with
-    | Some ((), i) -> Some (Bound (Path.Index (x, i)))
-    | None ->
-       begin match Name.AssocLevel.find x current_tt_constructors with
-       | Some (arity, l) -> Some (TTConstructor ((Path.Direct (Path.Level (x, l))), arity))
-       | None ->
-          begin match Name.AssocLevel.find x current_ml_operations with
-          | Some (arity, l) -> Some (Operation ((Path.Direct (Path.Level (x, l)), arity)))
-          | None ->
-             begin match find_ml_constructor x current_ml_types with
-             | Some (t_lvl, c_lvl, arity) -> Some (MLConstructor ((Path.Direct t_lvl, c_lvl), arity))
-             | None -> None
-             end
-          end
-       end
-
-  (* Find the information about the given path *)
-  let find_info_path pth ctx =
-    match pth with
-
-    | Name.PName x ->
-       (* lookup in the current module *)
-       find_in_current x ctx
-
-    | Name.PModule (mdl_name, x) ->
-       begin match find_module mdl_name ctx with
-         | None -> None
-         | Some (mdl, mdl_lvl) ->
-            let lvl = Path.Level (mdl_name, mdl_lvl) in
-            find_in_module x lvl mdl
-       end
-
   (* Check that the name is not bound already *)
   let check_is_fresh_name ~loc x ctx =
-    match find_in_current x ctx with
-    | None -> ()
-    | Some info -> error ~loc (NameAlreadyDeclared (x, info))
+    match find_info (Name.PName x) ctx with
+    | None | Some (MLModule _) -> ()
+    | Some ((Bound _ | Value _ | MLConstructor _ | TTConstructor _ | Operation _) as info) ->
+       error ~loc (NameAlreadyDeclared (x, info))
 
   (* Check that the type is not bound already *)
   let check_is_fresh_type ~loc x ctx =
@@ -262,37 +272,37 @@ module Ctx = struct
 
   (* Get information about the given ML constructor. *)
   let get_ml_constructor c ctx =
-    match find_in_current c ctx with
+    match find_info c ctx with
     | Some (MLConstructor (pth, arity)) -> pth, arity
-    | None |Some (Bound _ | Value _ | TTConstructor _ | Operation _) ->
+    | None |Some (Bound _ | Value _ | TTConstructor _ | Operation _ | MLModule _) ->
        assert false
 
   (* Get information about the given ML operation. *)
   let get_ml_operation op ctx =
-    match find_in_current op ctx with
+    match find_info op ctx with
     | Some (Operation (pth, arity)) -> pth, arity
-    | None | Some (Bound _ | Value _ | TTConstructor _ | MLConstructor _) ->
+    | None | Some (Bound _ | Value _ | TTConstructor _ | MLConstructor _ | MLModule _) ->
        assert false
 
   (* Get the info about a path, or fail *)
   let get_info_path ~loc pth ctx =
-    match find_info_path pth ctx with
+    match find_info pth ctx with
     | None -> error ~loc (UnknownPath pth)
     | Some info -> info
 
   (* Get the de Bruijn index of a bound value, or fail *)
   let get_ml_bound x ctx =
-    match find_in_current x ctx with
+    match find_info (Name.PName x) ctx with
     | Some (Bound info) -> info
-    | None | Some (Value _ | TTConstructor _ | MLConstructor _ | Operation _) ->
+    | None | Some (Value _ | TTConstructor _ | MLConstructor _ | Operation _ | MLModule _) ->
        assert false
 
   (* Get information about the list empty list constructor *)
   let get_path_nil ctx =
-    get_ml_constructor Name.Predefined.nil ctx
+    get_ml_constructor Name.Builtin.nil ctx
 
   let get_path_cons ctx =
-    get_ml_constructor Name.Predefined.cons ctx
+    get_ml_constructor Name.Builtin.cons ctx
 
   (* Get the arity and de Bruijn level of type named [t] and its definition *)
   let get_ml_type ~loc pth ctx =
@@ -1152,6 +1162,10 @@ let decl_operation ~loc ctx args res =
   and res = mlty ctx [] res in
   args, res
 
+let mlty_constructor ~loc ctx params (c, args) =
+  Ctx.check_is_fresh_name ~loc c ctx ;
+  (c, List.map (mlty ctx params) args)
+
 let mlty_def ~loc ctx params = function
 
   | Input.ML_Alias ty ->
@@ -1159,7 +1173,7 @@ let mlty_def ~loc ctx params = function
      Dsyntax.ML_Alias ty
 
   | Input.ML_Sum lst ->
-     let lst = List.map (fun (c, args) -> (c, List.map (mlty ctx params) args)) lst in
+     let lst = List.map (mlty_constructor ~loc ctx params) lst in
      Dsyntax.ML_Sum lst
 
 let mlty_info params = function
@@ -1357,15 +1371,15 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
      (ctx, locate (Dsyntax.Verbosity n) loc)
 
   | Input.Require mdls ->
-     ml_modules ~loc ~basedir ctx mdls
+     requires ~loc ~basedir ctx mdls
 
-and ml_modules ~loc ~basedir ctx mdls =
+and requires ~loc ~basedir ctx mdls =
   let rec fold loaded ctx = function
     | [] ->
        let loaded = List.rev loaded in
        (ctx, locate (Dsyntax.MLModules loaded) loc)
     | mdl_name :: mdls ->
-       begin match ml_module ~loc ~basedir ctx mdl_name with
+       begin match require ~loc ~basedir ctx mdl_name with
        | ctx, None -> fold loaded ctx mdls
        | ctx, Some (fn, mdl, cmds) ->
           let ctx = Ctx.add_module mdl_name mdl ctx in
@@ -1374,7 +1388,7 @@ and ml_modules ~loc ~basedir ctx mdls =
   in
   fold [] ctx mdls
 
-and ml_module ~loc ~basedir ctx mdl_name =
+and require ~loc ~basedir ctx mdl_name =
   if Ctx.loaded mdl_name ctx then
     (* We already loaded this module *)
     ctx, None
@@ -1402,18 +1416,17 @@ and ml_module ~loc ~basedir ctx mdl_name =
 
     | Some fn ->
        let ctx = Ctx.push_module mdl_name ctx in
-       let ctx, mdl, cmds = load_file ~basedir ctx fn in
+       let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
+       let ctx, mdl, cmds = ml_module ~basedir ctx cmds in
        let ctx = Ctx.pop_module ctx in
        ctx, Some (fn, mdl, cmds)
 
-
-and load_file ~basedir ctx fn =
+and ml_module ~basedir ctx cmds =
   let orig_ctx = ctx in
   let ctx = Ctx.{ empty with
                   ml_modules = orig_ctx.ml_modules;
                   loading = orig_ctx.loading }
   in
-  let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
   let ctx, cmds =
     List.fold_left
       (fun (ctx,cmds) cmd ->

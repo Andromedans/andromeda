@@ -34,9 +34,9 @@ end
 
 
 (** A path to an entity *)
-type path = private
+type path =
   | PName of t
-  | PModule of t * t
+  | PModule of path * t
 
 (** Make a nice subscript from an integer. *)
 val subscript : int -> string
@@ -59,12 +59,6 @@ val module_filename : t -> string
 
 (** Make a name from a string. *)
 val mk_name : ?fixity:fixity -> string -> t
-
-(** A path to a name without a module specification *)
-val path_direct : t -> path
-
-(** A path to a name in a module *)
-val path_module : t -> t -> path
 
 (** [refresh xs x] finds a nice variant of [x] that does not occur in [xs]. *)
 val refresh : t list -> t -> t
@@ -112,65 +106,92 @@ val level : t -> t list -> int option
 val print_debruijn : t list -> int -> Format.formatter -> unit
 
 (** Predefined names assumed by ML to exist *)
-module Predefined : sig
-  (** The name of the boolean type *)
-  val bool : t
+module Builtin : sig
+  (** The name of the ML module *)
+  val ml_name : t
+  val ml : path
+
+  (** The name path to the boolean type *)
+  val bool_name : t
+  val bool : path
 
   (** The name of the [mlfalse] constructor *)
-  val mlfalse : t
+  val mlfalse_name : t
+  val mlfalse : path
 
   (** The name of the [mltrue] constructor *)
-  val mltrue : t
+  val mltrue_name : t
+  val mltrue : path
 
   (** The name of the list type *)
-  val list : t
+  val list_name : t
+  val list : path
 
   (** The name [[]] constructor *)
-  val nil : t
+  val nil_name : t
+  val nil : path
 
   (** The name of the [::] constructor *)
-  val cons : t
+  val cons_name : t
+  val cons : path
 
   (** The name of the order type *)
-  val mlorder : t
+  val mlorder_name : t
+  val mlorder : path
 
   (** The names of order type tags *)
-  val mlless : t
-  val mlequal : t
-  val mlgreater : t
+  val mlless_name : t
+  val mlless : path
+
+  val mlequal_name : t
+  val mlequal : path
+
+  val mlgreater_name : t
+  val mlgreater : path
 
   (** The name of the option type *)
-  val option : t
+  val option_name : t
+  val option : path
 
   (** The name of the [Some] constructor *)
-  val some : t
+  val some_name : t
+  val some : path
 
   (** The name of the [None] constructor *)
-  val none : t
+  val none_name : t
+  val none : path
 
   (** The name of the [equal_term] operation *)
-  val equal_term : t
+  val equal_term_name : t
+  val equal_term : path
 
   (** The name of the [equal_type] operation *)
-  val equal_type : t
+  val equal_type_name : t
+  val equal_type : path
 
   (** The name of the [coercible] type *)
-  val coercible_ty : t
+  val coercible_ty_name : t
+  val coercible_ty : path
 
   (** The name of the [Coercible] constructor *)
-  val coercible_constructor : t
+  val coercible_constructor_name : t
+  val coercible_constructor : path
 
   (** The name of the [Convertible] constructor *)
-  val convertible : t
+  val convertible_name : t
+  val convertible : path
 
   (** The name of the [NotCoercible] constructor *)
-  val notcoercible : t
+  val notcoercible_name : t
+  val notcoercible : path
 
   (** The name of the [coerce] operation *)
-  val coerce : t
+  val coerce_name : t
+  val coerce : path
 
   (** The name of the [hypotheses] dynamic variable *)
-  val hypotheses : t
+  val hypotheses_name : t
+  val hypotheses : path
 end
 
 module Json :

@@ -27,6 +27,7 @@ let reserved = [
   ("mlstring", MLSTRING) ;
   ("mltype", MLTYPE) ;
   ("mlunit", MLUNIT) ;
+  ("module", MODULE) ;
   ("natural", NATURAL) ;
   ("now", NOW) ;
   ("occurs", OCCURS) ;
@@ -37,6 +38,7 @@ let reserved = [
   ("rule", RULE) ;
   ("type", TYPE) ;
   ("require", REQUIRE) ;
+  ("struct", STRUCT) ;
   ("val", VAL) ;
   ("verbosity", VERBOSITY) ;
   ("when", WHEN) ;

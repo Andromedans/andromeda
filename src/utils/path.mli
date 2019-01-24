@@ -9,7 +9,7 @@ type level = Level of Name.t * int
 (** An access path is a reference to a named entity in a module. *)
 type t =
   | Direct of level
-  | Module of level * level
+  | Module of t * level
 
 (** Access path to an ML constructor *)
 type ml_constructor = t * level

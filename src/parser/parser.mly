@@ -17,6 +17,9 @@
 %token COLON COMMA PERIOD COLONGT
 %token ARROW DARROW
 
+(* Modules *)
+%token MODULE STRUCT
+
 (* Things specific to toplevel *)
 %token SEMISEMI
 %token RULE
@@ -82,19 +85,19 @@
 (* Toplevel syntax *)
 
 file:
-  | ds=file_any EOF                 { ds }
+  | ds=ml_module EOF                        { ds }
 
-file_any:
-  |                                      { [] }
-  | c=top_term                           { [c] }
-  | c=top_term SEMISEMI cs=file_any      { c :: cs }
-  | c=top_command SEMISEMI cs=file_any   { c :: cs }
-  | c=top_command cs=file_top            { c :: cs }
+ml_module:
+  |                                         { [] }
+  | c=top_term                              { [c] }
+  | c=top_term SEMISEMI cs=ml_module        { c :: cs }
+  | c=top_command SEMISEMI cs=ml_module     { c :: cs }
+  | c=top_command cs=ml_module_top          { c :: cs }
 
-file_top:
-  |                                      { [] }
-  | c=top_command SEMISEMI cs=file_any   { c :: cs }
-  | c=top_command cs=file_top            { c :: cs }
+ml_module_top:
+  |                                           { [] }
+  | c=top_command SEMISEMI cs=ml_module       { c :: cs }
+  | c=top_command cs=ml_module_top            { c :: cs }
 
 commandline:
   | top_command SEMISEMI? EOF { $1 }
@@ -109,15 +112,17 @@ plain_top_term:
 top_command: mark_location(plain_top_command) { $1 }
 plain_top_command:
   | REQUIRE mdls=module_name+                         { Require mdls }
+  | MODULE mdl=module_name EQ STRUCT cmds=ml_module END
+                                                      { TopModule (mdl, cmds) }
   | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
                                                       { TopLetRec lst }
-  | DYNAMIC x=ml_name u=dyn_annotation EQ c=term     { TopDynamic (x, u, c) }
+  | DYNAMIC x=ml_name u=dyn_annotation EQ c=term      { TopDynamic (x, u, c) }
   | NOW x=app_term EQ c=term                          { TopNow (x,c) }
   (* | HANDLE lst=top_handler_cases END                  { TopHandle lst } *)
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
-  | OPERATION op=op_name COLON opsig=op_mlsig        { DeclOperation (op, opsig) }
+  | OPERATION op=op_name COLON opsig=op_mlsig         { DeclOperation (op, opsig) }
   | VERBOSITY n=NUMERAL                               { Verbosity n }
   | EXTERNAL n=ml_name COLON sch=ml_schema EQ s=QUOTED_STRING
                                                       { DeclExternal (n, sch, s) }
@@ -187,7 +192,7 @@ plain_binop_term:
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
   | e1=binop_term oploc=infix e2=binop_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Var (Name.path_direct op)) loc in
+      let op = Location.locate (Var (Name.PName op)) loc in
       Spine (op, [e1; e2])
     }
 
@@ -204,7 +209,7 @@ plain_prefix_term:
   | BANG e=prefix_term                         { Lookup e }
   | oploc=prefix e2=prefix_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Var (Name.path_direct op)) loc in
+      let op = Location.locate (Var (Name.PName op)) loc in
       Spine (op, [e2])
     }
   | NATURAL t=prefix_term                      { Natural t }
@@ -255,10 +260,14 @@ constr_name:
   | LPAREN op=infix RPAREN   { fst op }
   | LPAREN op=prefix RPAREN  { fst op }
 
+module_path:
+  | mdl=module_name                         { Name.PName mdl }
+  | pth=module_path PERIOD mdl=module_name  { Name.PModule (pth, mdl) }
+
 (* Possibly a name qualified with a module *)
 %inline long(N):
-  | x=N                        { Name.path_direct x }
-  | mdl=module_name PERIOD x=N { Name.path_module mdl x }
+  | x=N                              { Name.PName x }
+  | pth=module_path PERIOD x=N       { Name.PModule (pth, x) }
 
 (* Infix operators *)
 %inline infix:
@@ -360,7 +369,7 @@ plain_binop_pattern:
   | e=plain_app_pattern                                { e }
   | e1=binop_pattern oploc=infix e2=binop_pattern
     { let (op, _) = oploc in
-      Patt_Constructor (Name.path_direct op, [e1; e2])
+      Patt_Constructor (Name.PName op, [e1; e2])
     }
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
@@ -373,7 +382,7 @@ plain_prefix_pattern:
   | e=plain_simple_pattern            { e }
   | oploc=prefix e=prefix_pattern
     { let (op, _) = oploc in
-      Patt_Constructor (Name.path_direct op, [e])
+      Patt_Constructor (Name.PName op, [e])
     }
 
 (* simple_pattern: mark_location(plain_simple_pattern) { $1 } *)
@@ -408,7 +417,7 @@ plain_binop_tt_pattern:
   | p=plain_app_tt_pattern                        { p }
   | e1=binop_tt_pattern oploc=infix e2=binop_tt_pattern
     { let (op, _loc) = oploc in
-      Patt_TT_Constructor (Name.path_direct op, [e1; e2])
+      Patt_TT_Constructor (Name.PName op, [e1; e2])
     }
 
 (* app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 } *)
@@ -422,7 +431,7 @@ plain_prefix_tt_pattern:
   | UATOM p=prefix_tt_pattern        { Patt_TT_GenAtom p }
   | oploc=prefix e=prefix_tt_pattern
     { let (op, _loc) = oploc in
-      Patt_TT_Constructor (Name.path_direct op, [e])
+      Patt_TT_Constructor (Name.PName op, [e])
     }
 
 (* simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 } *)

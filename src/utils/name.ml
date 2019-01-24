@@ -11,7 +11,7 @@ type t = { name : string ; fixity : fixity }
 (** A name that is possibly qualified by a module *)
 type path =
   | PName of t
-  | PModule of t * t
+  | PModule of path * t
 
 (** Make a nice subscript from an integer. *)
 let subscript k =
@@ -46,11 +46,11 @@ let print ?(parentheses=true) {name;fixity} ppf =
      else
        Format.fprintf ppf "%s" name
 
-let print_path pth ppf =
+let rec print_path pth ppf =
   match pth with
   | PName x -> print x ppf
   | PModule (mdl, x) ->
-     Format.fprintf ppf "%t.%t" (print mdl) (print x)
+     Format.fprintf ppf "%t.%t" (print_path mdl) (print x)
 
 let anonymous =
   let k = ref (-1) in
@@ -62,63 +62,86 @@ let module_filename {name;_} = name ^ ".m31"
 
 let mk_name ?(fixity=Word) name = {name; fixity}
 
-let path_direct x = PName x
+module Builtin = struct
 
-let path_module mdl x = PModule (mdl, x)
+  (** The name of the module that contains the builtin entities. *)
+  let ml_name = mk_name "ML"
+  let ml = PName ml_name
 
-module Predefined = struct
+  let in_ml x = PModule (ml, x)
 
   (** Booleans *)
 
-  let bool = mk_name "mlbool"
+  let bool_name = mk_name "mlbool"
+  let bool = in_ml bool_name
 
-  let mlfalse = mk_name "mlfalse"
+  let mlfalse_name = mk_name "mlfalse"
+  let mlfalse = in_ml mlfalse_name
 
-  let mltrue = mk_name "mltrue"
+  let mltrue_name = mk_name "mltrue"
+  let mltrue = in_ml mltrue_name
 
   (** Lists *)
 
-  let list = mk_name "list"
+  let list_name = mk_name "list"
+  let list = in_ml list_name
 
-  let nil = mk_name "[]"
+  let nil_name = mk_name "[]"
+  let nil = in_ml nil_name
 
-  let cons = mk_name ~fixity:(Infix Level.InfixCons) "::"
+  let cons_name = mk_name ~fixity:(Infix Level.InfixCons) "::"
+  let cons = in_ml cons_name
 
   (** Comparison *)
 
-  let mlorder = mk_name "mlorder"
+  let mlorder_name = mk_name "mlorder"
+  let mlorder = in_ml mlorder_name
 
-  let mlless = mk_name "mlless"
+  let mlless_name = mk_name "mlless"
+  let mlless = in_ml mlless_name
 
-  let mlequal = mk_name "mlequal"
+  let mlequal_name = mk_name "mlequal"
+  let mlequal = in_ml mlequal_name
 
-  let mlgreater = mk_name "mlgreater"
+  let mlgreater_name = mk_name "mlgreater"
+  let mlgreater = in_ml mlgreater_name
 
   (** Option type *)
 
-  let option = mk_name "option"
+  let option_name = mk_name "option"
+  let option = in_ml option_name
 
-  let some = mk_name "Some"
+  let some_name = mk_name "Some"
+  let some = in_ml some_name
 
-  let none = mk_name "None"
+  let none_name = mk_name "None"
+  let none = in_ml none_name
 
   (** Builtin commands *)
 
-  let equal_term = mk_name "equal_term"
+  let equal_term_name = mk_name "equal_term"
+  let equal_term = in_ml equal_term_name
 
-  let equal_type = mk_name "equal_type"
+  let equal_type_name = mk_name "equal_type"
+  let equal_type = in_ml equal_type_name
 
-  let coercible_ty = mk_name "coercible"
+  let coercible_ty_name = mk_name "coercible"
+  let coercible_ty = in_ml coercible_ty_name
 
-  let coercible_constructor = mk_name "Coercible"
+  let coercible_constructor_name = mk_name "Coercible"
+  let coercible_constructor = in_ml coercible_constructor_name
 
-  let convertible = mk_name "Convertible"
+  let convertible_name = mk_name "Convertible"
+  let convertible = in_ml convertible_name
 
-  let notcoercible = mk_name "NotCoercible"
+  let notcoercible_name = mk_name "NotCoercible"
+  let notcoercible = in_ml notcoercible_name
 
-  let coerce = mk_name "coerce"
+  let coerce_name = mk_name "coerce"
+  let coerce = in_ml coerce_name
 
-  let hypotheses = mk_name "hypotheses"
+  let hypotheses_name = mk_name "hypotheses"
+  let hypotheses = in_ml hypotheses_name
 end
 
 (** Split a string into base and an optional numerical suffix, e.g., ["x42"],
