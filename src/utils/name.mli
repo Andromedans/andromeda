@@ -10,29 +10,6 @@ type fixity =
 (** Name *)
 type t = private { name : string ; fixity : fixity }
 
-(** Association lists indexed by names, using de Bruijn indices *)
-module AssocIndex :
-sig
-  type key = t
-  type 'a t
-  val empty : 'a t
-  val add : key -> 'a -> 'a t -> 'a t
-  val find : key -> 'a t -> ('a * int) option
-end
-
-(** Association lists indexed by names, using de Bruijn indices *)
-module AssocLevel :
-sig
-  type key = t
-  type 'a t
-  val empty : 'a t
-  val add : key -> 'a -> 'a t -> 'a t
-  val find : key -> 'a t -> ('a * int) option
-  val to_list : 'a t -> (key * 'a) list
-  val of_assoc_index : 'a AssocIndex.t -> 'a t
-end
-
-
 (** A path to an entity *)
 type path =
   | PName of t
