@@ -73,6 +73,12 @@ let add_ml_value x s env =
   let context = Context.add_ml_value x s env.context in
   (), {env with context}
 
+let as_module m env =
+  let context = Context.push_ml_module env.context in
+  let x, env = m { env with context } in
+  let context = Context.pop_ml_module env.context in
+  x, { env with context }
+
 let lookup_bound k env =
   let t = Context.lookup_bound k env.context in
   return t env
@@ -305,5 +311,3 @@ let add_ml_type t d env =
 let add_ml_operation op opty env =
   let context = Context.add_ml_operation op opty env.context in
   (), { env with context }
-
-let print_context {context;_} = Context.print_context context

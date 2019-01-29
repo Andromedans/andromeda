@@ -1050,19 +1050,24 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
   | Dsyntax.MLModules mdls ->
     let rec fold_modules mdls = function
       | [] -> return (List.rev mdls)
-      | (f, cs) :: rem ->
-         let rec fold cs_out = function
-           | [] -> return (List.rev cs_out)
-           | c :: cs ->
-              toplevel' c >>= fun c ->
-              fold (c :: cs_out) cs
-         in
-         fold [] cs >>= fun cs ->
-         fold_modules ((f, cs) :: mdls) rem
+      | (mdl_name, cs) :: rem ->
+         Tyenv.as_module
+           (toplevels cs >>= fun cs ->
+            fold_modules ((mdl_name, cs) :: mdls) rem)
     in
     fold_modules [] mdls >>= fun mdls ->
     return_located ~loc (Rsyntax.MLModules mdls)
 
+and toplevels cs =
+  let rec fold cs_out = function
+    | [] -> return (List.rev cs_out)
+    | c :: cs ->
+       toplevel' c >>= fun c ->
+       fold (c :: cs_out) cs
+  in
+  fold [] cs
+
+(** The publicly available version of [toplvel'] *)
 let toplevel env c = Tyenv.run env (toplevel' c)
 
 let initial_context, initial_commands =
@@ -1082,9 +1087,9 @@ struct
 
   (* the [Tyenv] monad is annoying as hell, let's get rid of ste stupid monads as much as we can,
      they are not idiomatic in OCaml *)
-  let _, equal_term = Tyenv.run initial_context (Tyenv.lookup_ml_operation (fst Desugar.Builtin.equal_term))
+  let _, equal_term = Tyenv.run initial_context (Tyenv.lookup_ml_operation Desugar.Builtin.equal_term)
 
-  let _, equal_type = Tyenv.run initial_context (Tyenv.lookup_ml_operation (fst Desugar.Builtin.equal_type))
+  let _, equal_type = Tyenv.run initial_context (Tyenv.lookup_ml_operation Desugar.Builtin.equal_type)
 
-  let _, coerce = Tyenv.run initial_context (Tyenv.lookup_ml_operation (fst Desugar.Builtin.coerce))
+  let _, coerce = Tyenv.run initial_context (Tyenv.lookup_ml_operation Desugar.Builtin.coerce)
 end

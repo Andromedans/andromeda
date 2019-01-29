@@ -115,5 +115,5 @@ val add_ml_type : Name.t -> Mlty.ty_def -> unit tyenvM
 (** Declare a new operation. *)
 val add_ml_operation : Name.t -> Mlty.ty list * Mlty.ty -> unit tyenvM
 
-(** Print the typing context (useful for debugging) *)
-val print_context : t -> unit
+(** Monadically wrap a computation with [Context.push_ml_module] and [Context.pop_ml_module]. *)
+val as_module : 'a tyenvM -> 'a tyenvM
