@@ -8,8 +8,7 @@ type t =
 
 type ml_constructor = t * level
 
-let print_level (Level (x, lvl)) ppf =
-  Format.fprintf ppf "%t[%d]" (Name.print x) lvl
+let print_level (Level (x, _)) ppf = Name.print x ppf
 
 let rec print p ppf =
   match p with

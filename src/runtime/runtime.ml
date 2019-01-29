@@ -22,6 +22,108 @@ type ml_constructor = Path.level
     Finally in a small number of restricted circumstances the environment is accessed outside the monads.
 *)
 
+module SymbolTable :
+sig
+  type 'v t
+
+  val initial : 'v t
+  val add_ml_value : 'v -> 'v t -> 'v t
+  val get_ml_value : Path.t -> 'v t -> 'v
+
+  val push_ml_module : 'v t -> 'v t
+  val pop_ml_module : 'v t -> 'v t
+end =
+struct
+  module TableMap = Map.Make(
+                     struct
+                       type t = int
+                       let compare = Pervasives.compare
+                     end)
+
+  type 'v table = {
+      table_map : 'v TableMap.t;
+      table_next : int;
+    }
+
+  let add info {table_map; table_next} =
+    { table_map = TableMap.add table_next info table_map ;
+      table_next = table_next + 1 }
+
+  let get k {table_map; table_next} = TableMap.find k table_map
+
+  let get_last {table_map; table_next} = TableMap.find (table_next - 1) table_map
+
+  let set_last info ({table_map; table_next} as tbl) =
+    { tbl with table_map = TableMap.add (table_next - 1) info tbl.table_map }
+
+  type 'v ml_module = {
+      ml_modules : ('v ml_module) table;
+      ml_values : 'v table;
+  }
+
+  let empty_ml_module =
+    let empty = { table_map = TableMap.empty; table_next = 0 } in
+    { ml_modules = empty;
+      ml_values = empty
+    }
+
+  type 'a t = {
+      top_module : 'a ml_module ;
+      current_depth : int;
+    }
+
+  let initial =
+    { top_module = empty_ml_module;
+      current_depth = 0
+    }
+
+  let at_current adder tbl =
+    let rec update mdl = function
+
+      | 0 -> adder mdl
+
+      | depth ->
+         let mdl' = get_last mdl.ml_modules in
+         let mdl' = update mdl' (depth-1) in
+         { mdl with ml_modules = set_last mdl' mdl.ml_modules }
+
+    in
+    { tbl with top_module = update tbl.top_module tbl.current_depth }
+
+  let add_ml_value info =
+    at_current (fun mdl -> { mdl with ml_values = add info mdl.ml_values })
+
+  let rec get_ml_module pth mdl =
+    match pth with
+
+    | Path.Direct (Path.Level (_, lvl)) -> get lvl mdl.ml_modules
+
+    | Path.Module (mdl_path, Path.Level (_, lvl)) ->
+       let mdl = get_ml_module mdl_path mdl in
+       get lvl mdl.ml_modules
+
+  let get_path getter pth tbl =
+    match pth with
+
+    | Path.Direct lvl -> getter lvl tbl.top_module
+
+    | Path.Module (mdl_path, lvl) ->
+       let mdl = get_ml_module mdl_path tbl.top_module in
+       getter lvl mdl
+
+  let get_ml_value pth tbl =
+    get_path (fun (Path.Level (_, k)) mdl -> get k mdl.ml_values) pth tbl
+
+  let push_ml_module tbl =
+    let tbl = at_current (fun mdl -> { mdl with ml_modules = add empty_ml_module mdl.ml_modules }) tbl in
+    { tbl with current_depth = tbl.current_depth + 1 }
+
+  let pop_ml_module tbl =
+    { tbl with current_depth = tbl.current_depth - 1 }
+end
+
+
+
 (** Run-time environment. *)
 type env = {
   dynamic : dynamic;
@@ -38,13 +140,9 @@ and dynamic = {
 }
 
 and lexical = {
-  ml_values : value Path.map;
+  table : value SymbolTable.t ;
 
-  (* Prepend this before binding an ml_value *)
-  current_path : Path.t option;
-  current_level : int;
-
-  (* names of de Bruijn indices *)
+  (* names of inference rules (to avoid shadowing them) *)
   current_names : Name.t list;
 
   (* values to which de Bruijn indices are bound *)
@@ -220,6 +318,12 @@ let rec top_fold f acc = function
   | x::rem -> top_bind (f acc x) (fun acc ->
     top_fold f acc rem)
 
+let as_ml_module m ({lexical;_} as env) =
+  let table = SymbolTable.push_ml_module lexical.table in
+  let r, env = m { env with lexical = { lexical with table } } in
+  r, { env with lexical = { lexical with table = SymbolTable.pop_ml_module env.lexical.table } }
+
+
 let name_of v =
   match v with
     | IsTerm _ -> "a term"
@@ -365,16 +469,16 @@ let add_rule_is_term = add_rule Nucleus.Signature.add_rule_is_term
 let add_rule_eq_type = add_rule Nucleus.Signature.add_rule_eq_type
 let add_rule_eq_term = add_rule Nucleus.Signature.add_rule_eq_term
 
-let get_bound ~loc (Path.Index (_, k)) env = List.nth env.lexical.current_values k
+let get_bound (Path.Index (_, k)) env = List.nth env.lexical.current_values k
 
-let lookup_bound ~loc k env =
-  let v = get_bound ~loc k env in
+let lookup_bound k env =
+  let v = get_bound k env in
   Return v, env.state
 
-let get_value ~loc pth env = Path.find pth env.lexical.ml_values
+let get_ml_value pth env = SymbolTable.get_ml_value pth env.lexical.table
 
-let lookup_ml_value ~loc k env =
-  Return (get_value ~loc k env), env.state
+let lookup_ml_value k env =
+  Return (get_ml_value k env), env.state
 
 let get_dyn dyn env = Store.Dyn.lookup dyn env.dynamic.vars
 
@@ -414,16 +518,9 @@ let add_bound_rec lst m env =
 
 let push_bound = add_bound0
 
-let add_ml_value x v ({lexical;_} as env) =
-  let pth =
-    match lexical.current_path with
-    | None -> Path.Direct (Path.Level (x, lexical.current_level))
-    | Some p -> Path.Module (p, Path.Level (x, lexical.current_level))
-  in
+let add_ml_value v ({lexical;_} as env) =
   (),
-  { env with lexical = {
-      lexical with ml_values = Path.add pth v lexical.ml_values ;
-                   current_level = lexical.current_level + 1 } }
+  { env with lexical = { lexical with table = SymbolTable.add_ml_value v lexical.table } }
 
 let now0 x v env =
   { env with dynamic = {env.dynamic with vars = Store.Dyn.update x v env.dynamic.vars } }
@@ -436,20 +533,20 @@ let top_now x v env =
   let env = now0 x v env in
   (), env
 
-let add_dynamic0 ~loc x v env =
+let add_dynamic0 x v env =
   let y,vars = Store.Dyn.fresh v env.dynamic.vars in
   { env with dynamic = {env.dynamic with vars };
              lexical = {env.lexical with
                         current_values = Dyn y :: env.lexical.current_values } }
 
-let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
+let add_dynamic x v env = (), add_dynamic0 x v env
 
 let add_ml_value_rec lst env =
   failwith "add_ml_value_rec is not implemented"
   (* let env = add_value_rec0 lst env in *)
   (* (), env *)
 
-let continue ~loc v ({lexical={ml_yield;_};_} as env) =
+let continue v ({lexical={ml_yield;_};_} as env) =
   match ml_yield with
     | Some cont -> apply_cont cont v env
     | None -> assert false
@@ -734,9 +831,7 @@ let print_error ~names err ppf =
 
 let empty = {
   lexical = {
-    ml_values = Path.empty ;
-    current_path = None ;
-    current_level = 0 ;
+    table = SymbolTable.initial ;
     current_names = [] ;
     current_values = [] ;
     ml_yield = None ;

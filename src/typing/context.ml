@@ -47,7 +47,6 @@ struct
       table_next = table_next + 1 }
 
   let get k {table_map; table_next} =
-Format.printf "get %d in table of size %d, next is %d@." k (TableMap.cardinal table_map) table_next ;
     TableMap.find k table_map
 
   let get_last {table_map; table_next} = TableMap.find (table_next - 1) table_map
@@ -121,7 +120,6 @@ Format.printf "get %d in table of size %d, next is %d@." k (TableMap.cardinal ta
        getter lvl mdl
 
   and get_ml_module pth =
-Format.printf "get_ml_module %t@." (Path.print pth) ;
     get_path (fun (Path.Level (_, k)) mdl -> get k mdl.ml_modules) pth
 
   let get_ml_type =

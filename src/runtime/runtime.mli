@@ -235,7 +235,7 @@ val handle_comp : handler -> value comp -> value comp
 val now : ml_dyn -> value -> 'a comp -> 'a comp
 
 (** Lookup the current continuation. Only usable while handling an operation. *)
-val continue : loc:Location.t -> value -> value comp
+val continue : value -> value comp
 
 (** Get the list of names of bound variables *)
 val lookup_names : Name.t list comp
@@ -257,10 +257,10 @@ val add_bound_rec :
 val add_free: Name.t -> Nucleus.is_type -> (Nucleus.is_atom -> 'a comp) -> 'a comp
 
 (** Lookup a free variable by its de Bruijn index *)
-val lookup_bound : loc:Location.t -> Path.index -> value comp
+val lookup_bound : Path.index -> value comp
 
 (** Lookup a value *)
-val lookup_ml_value : loc:Location.t -> Path.t -> value comp
+val lookup_ml_value : Path.t -> value comp
 
 (** Lookup the current value of a dynamic variable. *)
 val lookup_dyn : ml_dyn -> value comp
@@ -281,16 +281,18 @@ val top_return_closure : ('a -> 'b comp) -> ('a,'b) closure toplevel
 
 val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 
+val as_ml_module : 'a toplevel -> 'a toplevel
+
 (** {b Monadic interface} *)
 
 (** Add a bound variable with the given name to the environment. *)
-val add_ml_value : Name.t -> value -> unit toplevel
+val add_ml_value : value -> unit toplevel
 
 (** Add a list of mutually recursive definitions to the toplevel environment. *)
 val add_ml_value_rec : (value -> value comp) list -> unit toplevel
 
 (** Add a dynamic variable. *)
-val add_dynamic : loc:Location.t -> Name.t -> value -> unit toplevel
+val add_dynamic : Name.t -> value -> unit toplevel
 
 (** Modify the value bound by a dynamic variable *)
 val top_now : ml_dyn -> value -> unit toplevel
@@ -349,7 +351,7 @@ val get_signature : env -> Nucleus.signature
 val hypotheses : ml_dyn comp
 
 (** For matching *)
-val get_bound : loc:Location.t -> Path.index -> env -> value
+val get_bound : Path.index -> env -> value
 
 (** Add a bound variable (for matching). *)
 val push_bound : value -> env -> env

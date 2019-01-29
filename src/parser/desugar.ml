@@ -365,7 +365,6 @@ module Ctx = struct
     match find_ml_type pth ctx with
     | None -> error ~loc (UnknownType pth)
     | Some info ->
-Format.printf "get_ml_type %t = %t of arity %d@." (Name.print_path pth) (Path.print (fst info)) (snd info) ;
        info
 
   (* Make yield available. (It can never be made unavailable, it seems) *)
@@ -430,7 +429,6 @@ Format.printf "get_ml_type %t = %t of arity %d@." (Name.print_path pth) (Path.pr
         (fun mk_path current ->
           let lvl = Assoc.size current.ml_types in
           let pth = mk_path t lvl in
- Format.printf "add_ml_type %t with path %t" (Name.print t) (Path.print pth);
           { current with ml_types = Assoc.add t (pth, arity) current.ml_types })
     in
     match cs_opt with

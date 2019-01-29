@@ -50,10 +50,10 @@ let as_dyn ~loc v =
 let rec infer {Location.thing=c'; loc} =
   match c' with
     | Rsyntax.Bound i ->
-       Runtime.lookup_bound ~loc i
+       Runtime.lookup_bound i
 
     | Rsyntax.Value pth ->
-       Runtime.lookup_ml_value ~loc pth
+       Runtime.lookup_ml_value pth
 
     | Rsyntax.Function c ->
        let f v =
@@ -307,7 +307,7 @@ let rec infer {Location.thing=c'; loc} =
 
   | Rsyntax.Yield c ->
     infer c >>= fun v ->
-    Runtime.continue ~loc v
+    Runtime.continue v
 
   | Rsyntax.Apply (c1, c2) ->
     infer c1 >>= begin function
@@ -603,7 +603,7 @@ and match_op_cases ~loc op cases vs checking =
   let rec fold = function
     | [] ->
       Runtime.operation op ?checking vs >>= fun v ->
-      Runtime.continue ~loc v
+      Runtime.continue v
     | (ps, ptopt, c) :: cases ->
       Matching.match_op_pattern ~loc ps ptopt vs checking >>=
         begin function
@@ -775,39 +775,37 @@ let (>>=) = Runtime.top_bind
 let return = Runtime.top_return
 
 let toplet_bind ~loc ~quiet ~print_annot clauses =
-  let rec fold xuss = function
+  let rec fold uss = function
     | [] ->
        (* parallel let: only bind at the end *)
        List.fold_left
-         (List.fold_left (fun cmp (x,u) -> Runtime.add_ml_value x u >>= fun () -> cmp))
-         (return xuss)
-         xuss
+         (List.fold_left (fun cmp u -> Runtime.add_ml_value u >>= fun () -> cmp))
+         (return uss)
+         uss
 
     | Rsyntax.Let_clause (xss, pt, c) :: clauses ->
        comp_value c >>= fun v ->
        Matching.top_match_pattern pt v >>= begin function
         | None -> Runtime.error ~loc (Runtime.MatchFail v)
-        | Some us ->
-           let xus = List.map2 (fun (x, _sch) v -> (x, v)) xss us in
-           fold (xus :: xuss) clauses
+        | Some us -> fold (us :: uss) clauses
        end
   in
-  fold [] clauses >>= fun xuss ->
+  fold [] clauses >>= fun uss ->
   Runtime.top_lookup_names >>= fun names ->
     if not quiet
     then
       begin
-        let xvss = List.rev (List.map List.rev xuss) in
+        let vss = List.rev (List.map List.rev uss) in
         List.iter2
           (fun (Rsyntax.Let_clause (xts, _, _)) xvs ->
             List.iter2
-              (fun (x, sch) (_, v) ->
+              (fun (x, sch) v ->
                 Format.printf "@[<hov 2>val %t :>@ %t@ =@ %t@]@."
                               (Name.print x)
                               (print_annot sch)
                               (Runtime.print_value ~names v))
               xts xvs)
-          clauses xvss
+          clauses vss
        end ;
     return ()
 
@@ -877,7 +875,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
        match External.lookup s with
        | None -> Runtime.error ~loc (Runtime.UnknownExternal s)
        | Some v ->
-          Runtime.add_ml_value x v >>= (fun () ->
+          Runtime.add_ml_value v >>= (fun () ->
            if not quiet then
              Format.printf "@[<hov 2>external %t :@ %t = \"%s\"@]@."
                (Name.print x)
@@ -905,7 +903,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
   | Rsyntax.TopDynamic (x, annot, c) ->
      comp_value c >>= fun v ->
-     Runtime.add_dynamic ~loc x v
+     Runtime.add_dynamic x v
 
   | Rsyntax.TopNow (x,c) ->
      let xloc = x.Location.loc in
@@ -917,8 +915,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   | Rsyntax.MLModules lst ->
      Runtime.top_fold
        (fun () (mdl_name, cmds) ->
-         Runtime.as_module
-           mdl_name
+         Runtime.as_ml_module
            ((if not quiet then Format.printf "@[<hov 2>Processing module %t@]@." (Name.print mdl_name));
             toplevels ~quiet ~print_annot cmds))
        () lst
