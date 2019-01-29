@@ -13,7 +13,7 @@ val print_error : state -> error -> Format.formatter -> unit
 (** Run a command from the interactive input. *)
 val exec_interactive : state -> state
 
-(** Run commands from the given file. *)
-val use_file : fn:string -> quiet:bool -> state -> state
+(** Load a module with the given file name. *)
+val load_ml_module : fn:string -> quiet:bool -> state -> state
 
 val initial_environment : state

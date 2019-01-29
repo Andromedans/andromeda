@@ -2,15 +2,15 @@
 
 (** Conversions between OCaml list and ML list *)
 
-let (_, tag_nil), _ = Desugar.Builtin.nil
-let (_, tag_cons), _ = Desugar.Builtin.cons
+let (_, tag_nil) = Desugar.Builtin.nil
+let (_, tag_cons) = Desugar.Builtin.cons
 
-let (_, tag_none), _ = Desugar.Builtin.none
-let (_, tag_some), _ = Desugar.Builtin.some
+let (_, tag_none) = Desugar.Builtin.none
+let (_, tag_some) = Desugar.Builtin.some
 
-let (_, tag_notcoercible), _ = Desugar.Builtin.notcoercible
-let (_, tag_convertible), _ = Desugar.Builtin.convertible
-let (_, tag_coercible_constructor), _ = Desugar.Builtin.coercible_constructor
+let (_, tag_notcoercible) = Desugar.Builtin.notcoercible
+let (_, tag_convertible) = Desugar.Builtin.convertible
+let (_, tag_coercible_constructor) = Desugar.Builtin.coercible_constructor
 let equal_term, _ = Typecheck.Builtin.equal_term
 let equal_type, _ = Typecheck.Builtin.equal_type
 let coerce, _ = Typecheck.Builtin.coerce

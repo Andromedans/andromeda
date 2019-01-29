@@ -68,11 +68,11 @@ let exec_interactive =
       exec_cmd ~quiet:false cmd state
     end
 
-let use_file ~fn ~quiet =
+let load_ml_module ~fn ~quiet =
   wrap_error
     begin
       fun {desugar;typing;runtime} ->
-      let desugar, cmds = Desugar.file desugar fn in
+      let desugar, cmds = Desugar.load_ml_module desugar fn in
       let typing, cmds =
         List.fold_left
           (fun (typing, cmds) cmd ->

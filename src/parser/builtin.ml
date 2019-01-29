@@ -3,8 +3,9 @@
 
 let name_alpha = Name.mk_name (Name.greek 0)
 
-let predefined_ml_types =
-  let unloc x = Location.locate x Location.unknown in
+let unloc x = Location.locate x Location.unknown
+
+let builtin_ml_types =
   let ty_alpha = unloc (Input.ML_TyApply (Name.PName name_alpha, [])) in
   let un_ml_is_term = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_IsTerm)) in
   let un_ml_eq_type = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_EqType)) in
@@ -39,11 +40,9 @@ let predefined_ml_types =
       (Name.Builtin.mlgreater_name, [])
       ])]
   in
-
   [unloc decl_bool; unloc decl_option; unloc decl_list; unloc decl_coercible; unloc decl_order]
 
-let predefined_ops =
-  let unloc x = Location.locate x Location.unknown in
+let builtin_ops =
   let un_ml_is_type = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_IsType)) in
   let un_ml_is_term = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_IsTerm)) in
   let un_ml_eq_type = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_EqType)) in
@@ -68,12 +67,16 @@ let predefined_ops =
    unloc decl_equal_type;
    unloc decl_coerce]
 
-let predefined_bound =
-  let unloc x = Location.locate x Location.unknown in
+let builtin_ml_values =
   let un_ml_is_term = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_IsTerm)) in
   let hyps_annot = unloc (Input.ML_TyApply (Name.PName Name.Builtin.list_name, [un_ml_is_term])) in
+  let empty_list = unloc (Input.Spine (unloc (Input.Name (Name.PName Name.Builtin.nil_name)), [])) in
   let decl_hyps = Input.TopDynamic
-                    (Name.Builtin.hypotheses_name, Input.Arg_annot_ty hyps_annot, unloc (Input.List [])) in
+                    (Name.Builtin.hypotheses_name, Input.Arg_annot_ty hyps_annot, empty_list) in
   [unloc decl_hyps]
 
-let initial = List.concat [predefined_ml_types; predefined_ops; predefined_bound]
+let initial =
+  [ unloc (Input.TopModule
+      (Name.Builtin.ml_name,
+       List.concat [builtin_ml_types; builtin_ops; builtin_ml_values]))
+  ]

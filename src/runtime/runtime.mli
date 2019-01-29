@@ -246,9 +246,9 @@ val lookup_signature : Nucleus.signature comp
 (** Bound and free variable stuff *)
 
 (** Add a bound variable to the environment. *)
-val add_value : value -> 'a comp -> 'a comp
+val add_bound : value -> 'a comp -> 'a comp
 
-val add_value_rec :
+val add_bound_rec :
   (value -> value comp) list -> 'a comp -> 'a comp
 
 (** [add_free ~loc x t f] generates a fresh atom [a] from identifier [x],
@@ -260,7 +260,7 @@ val add_free: Name.t -> Nucleus.is_type -> (Nucleus.is_atom -> 'a comp) -> 'a co
 val lookup_bound : loc:Location.t -> Path.index -> value comp
 
 (** Lookup a value *)
-val lookup_value : loc:Location.t -> Path.t -> value comp
+val lookup_ml_value : loc:Location.t -> Path.t -> value comp
 
 (** Lookup the current value of a dynamic variable. *)
 val lookup_dyn : ml_dyn -> value comp
@@ -284,10 +284,10 @@ val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 (** {b Monadic interface} *)
 
 (** Add a bound variable with the given name to the environment. *)
-val add_topbound : value -> unit toplevel
+val add_ml_value : Name.t -> value -> unit toplevel
 
 (** Add a list of mutually recursive definitions to the toplevel environment. *)
-val add_topbound_rec : (value -> value comp) list -> unit toplevel
+val add_ml_value_rec : (value -> value comp) list -> unit toplevel
 
 (** Add a dynamic variable. *)
 val add_dynamic : loc:Location.t -> Name.t -> value -> unit toplevel

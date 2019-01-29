@@ -37,13 +37,12 @@ and dynamic = {
   vars : value Store.Dyn.t
 }
 
-and ml_module = {
-    ml_names : Name.t list;
-    ml_values : value list;
-}
-
 and lexical = {
-  ml_modules : (Name.t * ml_module) list;
+  ml_values : value Path.map;
+
+  (* Prepend this before binding an ml_value *)
+  current_path : Path.t option;
+  current_level : int;
 
   (* names of de Bruijn indices *)
   current_names : Name.t list;
@@ -372,16 +371,9 @@ let lookup_bound ~loc k env =
   let v = get_bound ~loc k env in
   Return v, env.state
 
-let get_value ~loc pth env =
-  match pth with
+let get_value ~loc pth env = Path.find pth env.lexical.ml_values
 
-  | Path.Direct _ -> assert false
-
-  | Path.Module (Path.Level (_, mdl_lvl), Path.Level (_, lvl)) ->
-     let _, mdl = List.nth env.lexical.ml_modules mdl_lvl in
-     List.nth mdl.ml_values lvl
-
-let lookup_value ~loc k env =
+let lookup_ml_value ~loc k env =
   Return (get_value ~loc k env), env.state
 
 let get_dyn dyn env = Store.Dyn.lookup dyn env.dynamic.vars
@@ -389,41 +381,49 @@ let get_dyn dyn env = Store.Dyn.lookup dyn env.dynamic.vars
 let lookup_dyn dyn env =
   Return (get_dyn dyn env), env.state
 
-let add_value0 v env =
+let add_bound0 v env =
   { env with lexical = { env.lexical with
                          current_values = v :: env.lexical.current_values } }
 
 let add_free x jt m env =
   let jy = Nucleus.fresh_atom x jt in
   let y_val = mk_is_term (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom jy)) in
-  let env = add_value0 y_val env in
+  let env = add_bound0 y_val env in
   m jy env
 
 
-let add_value v m env =
-  let env = add_value0 v env in
+let add_bound v m env =
+  let env = add_bound0 v env in
   m env
 
-let add_value_rec0 lst env =
+let add_bound_rec0 lst env =
   let r = ref env in
   let env =
     List.fold_left
       (fun env g ->
         let v = Closure (mk_closure_ref g r) in
-        add_value0 v env)
+        add_bound0 v env)
       env lst
   in
   r := env ;
   env
 
-let add_value_rec lst m env =
-  let env = add_value_rec0 lst env in
+let add_bound_rec lst m env =
+  let env = add_bound_rec0 lst env in
   m env
 
-let push_bound = add_value0
+let push_bound = add_bound0
 
-let add_topbound v env =
-  (), add_value0 v env
+let add_ml_value x v ({lexical;_} as env) =
+  let pth =
+    match lexical.current_path with
+    | None -> Path.Direct (Path.Level (x, lexical.current_level))
+    | Some p -> Path.Module (p, Path.Level (x, lexical.current_level))
+  in
+  (),
+  { env with lexical = {
+      lexical with ml_values = Path.add pth v lexical.ml_values ;
+                   current_level = lexical.current_level + 1 } }
 
 let now0 x v env =
   { env with dynamic = {env.dynamic with vars = Store.Dyn.update x v env.dynamic.vars } }
@@ -444,9 +444,10 @@ let add_dynamic0 ~loc x v env =
 
 let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
 
-let add_topbound_rec lst env =
-  let env = add_value_rec0 lst env in
-  (), env
+let add_ml_value_rec lst env =
+  failwith "add_ml_value_rec is not implemented"
+  (* let env = add_value_rec0 lst env in *)
+  (* (), env *)
 
 let continue ~loc v ({lexical={ml_yield;_};_} as env) =
   match ml_yield with
@@ -471,8 +472,8 @@ let top_lookup_signature env =
    equipping type definitions with custom printers, so that not only lists but other datatypes
    can have their own printers. (And we're not going to implement Haskell classes.) *)
 let rec as_list_opt =
-  let (_, tag_nil), _ = Desugar.Builtin.nil
-  and (_, tag_cons), _ = Desugar.Builtin.cons in
+  let (_, tag_nil) = Desugar.Builtin.nil
+  and (_, tag_cons) = Desugar.Builtin.cons in
   function
   | Tag (t, []) when equal_tag t tag_nil -> Some []
   | Tag (t, [x;xs]) when equal_tag t tag_cons ->
@@ -733,7 +734,9 @@ let print_error ~names err ppf =
 
 let empty = {
   lexical = {
-    ml_modules = [] ;
+    ml_values = Path.empty ;
+    current_path = None ;
+    current_level = 0 ;
     current_names = [] ;
     current_values = [] ;
     ml_yield = None ;

@@ -46,7 +46,9 @@ struct
     { table_map = TableMap.add table_next info table_map ;
       table_next = table_next + 1 }
 
-  let get k {table_map; _} = TableMap.find k table_map
+  let get k {table_map; table_next} =
+Format.printf "get %d in table of size %d, next is %d@." k (TableMap.cardinal table_map) table_next ;
+    TableMap.find k table_map
 
   let get_last {table_map; table_next} = TableMap.find (table_next - 1) table_map
 
@@ -119,6 +121,7 @@ struct
        getter lvl mdl
 
   and get_ml_module pth =
+Format.printf "get_ml_module %t@." (Path.print pth) ;
     get_path (fun (Path.Level (_, k)) mdl -> get k mdl.ml_modules) pth
 
   let get_ml_type =
@@ -182,7 +185,7 @@ let lookup_ml_type pth ctx =
 
 let lookup_ml_type_id pth ctx = fst (lookup_ml_type pth ctx)
 
-let lookup_ml_constructor (t_pth, Path.Level (_, c_lvl)) ctx =
+let lookup_ml_constructor (t_pth, Path.Level (c_name, c_lvl)) ctx =
   match lookup_ml_type t_pth ctx with
   | _, Mlty.Alias _ -> assert false
   | _, Mlty.Sum (ps, cs) ->

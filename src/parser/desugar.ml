@@ -219,7 +219,7 @@ module Ctx = struct
     match ctx.current_modules with
     | [] -> assert false
     | ((pth_opt, _) :: _) as mdls ->
-       let mdl_lvl = List.length mdls in
+       let mdl_lvl = List.length mdls - 1 in
        let pth =
          match pth_opt with
            | None -> Path.Direct (Path.Level (mdl_name, mdl_lvl))
@@ -364,7 +364,9 @@ module Ctx = struct
   let get_ml_type ~loc pth ctx =
     match find_ml_type pth ctx with
     | None -> error ~loc (UnknownType pth)
-    | Some info -> info
+    | Some info ->
+Format.printf "get_ml_type %t = %t of arity %d@." (Name.print_path pth) (Path.print (fst info)) (snd info) ;
+       info
 
   (* Make yield available. (It can never be made unavailable, it seems) *)
   let set_yield ctx = { ctx with ml_yield = true }
@@ -380,7 +382,7 @@ module Ctx = struct
       (fun mk_path current ->
         let lvl = Assoc.size current.ml_modules in
         let pth = mk_path m lvl in
-        { current with ml_modules = Assoc.add m (pth, mdl) current.ml_modules } )
+       { current with ml_modules = Assoc.add m (pth, mdl) current.ml_modules } )
 
   (* Add an ML values to the current module. *)
   let add_ml_value ~loc x ctx =
@@ -428,6 +430,7 @@ module Ctx = struct
         (fun mk_path current ->
           let lvl = Assoc.size current.ml_types in
           let pth = mk_path t lvl in
+ Format.printf "add_ml_type %t with path %t" (Name.print t) (Path.print pth);
           { current with ml_types = Assoc.add t (pth, arity) current.ml_types })
     in
     match cs_opt with
@@ -1247,7 +1250,6 @@ let decl_operation ~loc ctx args res =
   args, res
 
 let mlty_constructor ~loc ctx params (c, args) =
-  Ctx.check_is_fresh_name ~loc c ctx ;
   (c, List.map (mlty ctx params) args)
 
 let mlty_def ~loc ctx params = function
@@ -1265,13 +1267,7 @@ let mlty_info params = function
   | Input.ML_Alias _ -> (List.length params), None
 
   | Input.ML_Sum lst ->
-
-     let cs =
-       List.fold_left
-         (fun cs (c, args) -> (c, List.length args) :: cs)
-         []
-         lst
-     in
+     let cs = List.map (fun (c, args) -> (c, List.length args)) lst in
      (List.length params),
      Some cs
 
@@ -1443,7 +1439,7 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
 
   | Input.TopDynamic (x, annot, c) ->
      let c = comp ctx c in
-     let ctx = Ctx.add_bound x ctx in
+     let ctx = Ctx.add_ml_value ~loc x ctx in
      let annot = arg_annotation ctx annot in
      (ctx, locate (Dsyntax.TopDynamic (x, annot, c)) loc)
 
@@ -1527,7 +1523,7 @@ and ml_module ~loc ~loading ~basedir ctx m cmds =
 
 let toplevel ~basedir ctx cmd = toplevel' ~loading:[] ~basedir ctx cmd
 
-let load_module ctx fn =
+let load_ml_module ctx fn =
   let basename = Filename.basename fn in
   let dirname = Filename.dirname fn in
   let mdl_name = Name.mk_name (Filename.remove_extension basename) in
@@ -1539,7 +1535,12 @@ let load_module ctx fn =
     ctx mdl_name cmds
 
 let initial_context, initial_commands =
-  toplevels ~loading:[] ~basedir:Filename.current_dir_name Ctx.empty Builtin.initial
+  try
+    toplevels ~loading:[] ~basedir:Filename.current_dir_name Ctx.empty Builtin.initial
+  with
+  | Error {Location.thing=err;_} ->
+    Print.error "Error in built-in code:@ %t.@." (print_error err) ;
+    Pervasives.exit 1
 
 module Builtin =
 struct

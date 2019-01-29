@@ -14,5 +14,18 @@ type t =
 (** Access path to an ML constructor *)
 type ml_constructor = t * level
 
+(** Linearly ordering of paths, compatible with [Map.OrderedType] *)
+val compare_path : t -> t -> int
+
+(** Linearly ordering of levels, compatible with [Map.OrderedType] *)
+val compare_level : level -> level -> int
+
+(** A mapping from paths *)
+type 'a map
+
+val empty : 'a map
+val add : t -> 'a -> 'a map -> 'a map
+val find : t -> 'a map -> 'a
+
 (** print a path *)
 val print : t -> Format.formatter -> unit

@@ -13,8 +13,8 @@ let as_atom ~loc v =
     | Nucleus.(Stump_TermConstructor _ | Stump_TermMeta _ | Stump_TermConvert _) ->
        Runtime.(error ~loc (ExpectedAtom j))
 
-let ((_, mlfalse), _) = Desugar.Builtin.mlfalse
-let ((_, mltrue), _) = Desugar.Builtin.mltrue
+let (_, mlfalse) = Desugar.Builtin.mlfalse
+let (_, mltrue) = Desugar.Builtin.mltrue
 
 let as_bool ~loc v =
   match v with
@@ -53,11 +53,11 @@ let rec infer {Location.thing=c'; loc} =
        Runtime.lookup_bound ~loc i
 
     | Rsyntax.Value pth ->
-       Runtime.lookup_value ~loc pth
+       Runtime.lookup_ml_value ~loc pth
 
     | Rsyntax.Function c ->
        let f v =
-         Runtime.add_value v
+         Runtime.add_bound v
            (infer c)
        in
        Runtime.return_closure f
@@ -490,7 +490,7 @@ and check_abstract ~loc t_check x uopt c =
      begin match uopt with
 
      | None ->
-        Runtime.add_value
+        Runtime.add_bound
           (Runtime.mk_is_term (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a)))
           begin
             check c t_check' >>= fun e ->
@@ -512,7 +512,7 @@ and check_abstract ~loc t_check x uopt c =
                       (Nucleus.form_is_term_atom a)
                       eq)
                in
-               Runtime.add_value (Runtime.mk_is_term a')
+               Runtime.add_bound (Runtime.mk_is_term a')
                begin
                  check c t_check >>= fun e ->
                  return (Nucleus.abstract_is_term a e)
@@ -545,7 +545,7 @@ and let_bind
         then uss will be [[2;1]; [c; b; a]].
         Here v has de Bruijn index 0 and x has de Bruijn index 4. *)
        List.fold_left
-         (List.fold_left (fun cmp u -> Runtime.add_value u cmp))
+         (List.fold_left (fun cmp u -> Runtime.add_bound u cmp))
          cmp uss
     | Rsyntax.Let_clause (xs, pt, c) :: clauses ->
        infer c >>= fun v ->
@@ -562,10 +562,10 @@ and letrec_bind
   = fun fxcs ->
   let gs =
     List.map
-      (fun (Rsyntax.Letrec_clause (_, _, _, c)) -> (fun v -> Runtime.add_value v (infer c)))
+      (fun (Rsyntax.Letrec_clause (_, _, _, c)) -> (fun v -> Runtime.add_bound v (infer c)))
       fxcs
   in
-  Runtime.add_value_rec gs
+  Runtime.add_bound_rec gs
 
 (* [match_cases loc cases eval v] tries for each case in [cases] to match [v] and if
    successful continues on the computation using [eval] with the pattern variables bound.
@@ -575,7 +575,7 @@ and match_cases
          -> Runtime.value -> 'a Runtime.comp
   = fun ~loc cases eval v ->
   let bind_pattern_vars vs cmp =
-    List.fold_left (fun cmp v -> Runtime.add_value v cmp) cmp vs
+    List.fold_left (fun cmp v -> Runtime.add_bound v cmp) cmp vs
   in
   let rec fold = function
     | [] -> Runtime.(error ~loc (MatchFail v))
@@ -607,7 +607,7 @@ and match_op_cases ~loc op cases vs checking =
     | (ps, ptopt, c) :: cases ->
       Matching.match_op_pattern ~loc ps ptopt vs checking >>=
         begin function
-        | Some vs -> List.fold_left (fun cmp v -> Runtime.add_value v cmp) (infer c) vs
+        | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (infer c) vs
         | None -> fold cases
       end
   in
@@ -764,7 +764,7 @@ let premises prems cmp =
        let cmp = fold (x_boundary :: prems_out) prems in
        match vopt with
        | None -> cmp
-       | Some v -> Runtime.add_value v cmp
+       | Some v -> Runtime.add_bound v cmp
   in
   fold [] prems
 
@@ -775,46 +775,49 @@ let (>>=) = Runtime.top_bind
 let return = Runtime.top_return
 
 let toplet_bind ~loc ~quiet ~print_annot clauses =
-  let rec fold uss = function
+  let rec fold xuss = function
     | [] ->
        (* parallel let: only bind at the end *)
        List.fold_left
-         (List.fold_left (fun cmp u -> Runtime.add_topbound u >>= fun () -> cmp))
-         (return uss)
-         uss
+         (List.fold_left (fun cmp (x,u) -> Runtime.add_ml_value x u >>= fun () -> cmp))
+         (return xuss)
+         xuss
 
-    | Rsyntax.Let_clause (_, pt, c) :: clauses ->
+    | Rsyntax.Let_clause (xss, pt, c) :: clauses ->
        comp_value c >>= fun v ->
        Matching.top_match_pattern pt v >>= begin function
         | None -> Runtime.error ~loc (Runtime.MatchFail v)
-        | Some us -> fold (us :: uss) clauses
+        | Some us ->
+           let xus = List.map2 (fun (x, _sch) v -> (x, v)) xss us in
+           fold (xus :: xuss) clauses
        end
   in
-  fold [] clauses >>= fun uss ->
+  fold [] clauses >>= fun xuss ->
   Runtime.top_lookup_names >>= fun names ->
     if not quiet
     then
       begin
-        let vss = List.rev (List.map List.rev uss) in
+        let xvss = List.rev (List.map List.rev xuss) in
         List.iter2
-          (fun (Rsyntax.Let_clause (xts, _, _)) vs ->
+          (fun (Rsyntax.Let_clause (xts, _, _)) xvs ->
             List.iter2
-              (fun (x, sch) v -> Format.printf "@[<hov 2>val %t :>@ %t@ =@ %t@]@."
-                                   (Name.print x)
-                                   (print_annot sch)
-                                   (Runtime.print_value ~names v))
-              xts vs)
-          clauses vss
+              (fun (x, sch) (_, v) ->
+                Format.printf "@[<hov 2>val %t :>@ %t@ =@ %t@]@."
+                              (Name.print x)
+                              (print_annot sch)
+                              (Runtime.print_value ~names v))
+              xts xvs)
+          clauses xvss
        end ;
     return ()
 
 let topletrec_bind ~loc ~quiet ~print_annot fxcs =
   let gs =
     List.map
-      (fun (Rsyntax.Letrec_clause (_, _, _, c)) v -> Runtime.add_value v (infer c))
+      (fun (Rsyntax.Letrec_clause (_, _, _, c)) v -> Runtime.add_bound v (infer c))
       fxcs
   in
-  Runtime.add_topbound_rec gs >>= fun () ->
+  Runtime.add_ml_value_rec gs >>= fun () ->
   if not quiet then
     (List.iter
       (fun (Rsyntax.Letrec_clause (f, _, annot, _)) ->
@@ -874,7 +877,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
        match External.lookup s with
        | None -> Runtime.error ~loc (Runtime.UnknownExternal s)
        | Some v ->
-          Runtime.add_topbound v >>= (fun () ->
+          Runtime.add_ml_value x v >>= (fun () ->
            if not quiet then
              Format.printf "@[<hov 2>external %t :@ %t = \"%s\"@]@."
                (Name.print x)
@@ -914,11 +917,15 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   | Rsyntax.MLModules lst ->
      Runtime.top_fold
        (fun () (mdl_name, cmds) ->
-         (if not quiet then Format.printf "@[<hov 2>Including %t@]@." (Name.print mdl_name));
-         add_ml_module mdl_name cmds)
+         Runtime.as_module
+           mdl_name
+           ((if not quiet then Format.printf "@[<hov 2>Processing module %t@]@." (Name.print mdl_name));
+            toplevels ~quiet ~print_annot cmds))
        () lst
 
   | Rsyntax.Verbosity i -> Config.verbosity := i; return ()
 
-and add_ml_module mdl_name cmds =
-  failwith "add_ml_module"
+and toplevels ~quiet ~print_annot =
+  Runtime.top_fold
+    (fun () -> toplevel ~quiet ~print_annot)
+    ()

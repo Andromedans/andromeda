@@ -23,7 +23,7 @@ end
 val toplevel : basedir:string -> Ctx.t -> Input.toplevel -> Ctx.t * Dsyntax.toplevel
 
 (** [load_module ctx fn] loads the file with the given filename as a module.  *)
-val load_module : Ctx.t -> string -> Ctx.t * Dsyntax.toplevel list
+val load_ml_module : Ctx.t -> string -> Ctx.t * Dsyntax.toplevel list
 
 (** The initial desugaring context, with built-in types and operations *)
 val initial_context : Ctx.t
