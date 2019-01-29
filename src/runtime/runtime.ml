@@ -601,13 +601,14 @@ let rec print_value ?max_level ~names v ppf =
 
   | Handler h -> Format.fprintf ppf "<handler>"
 
-  | Tag (t, lst) as v ->
-     begin
-       match as_list_opt v with
-       | Some lst -> Format.fprintf ppf "@[<hov 1>[%t]@]"
-                       (Print.sequence (print_value ~max_level:Level.highest ~names) ";" lst)
-       | None ->  print_tag ?max_level ~names t lst ppf
-     end
+  | Tag (t, lst) ->
+     print_tag ?max_level ~names t lst ppf
+     (* begin *)
+     (*   match as_list_opt v with *)
+     (*   | Some lst -> Format.fprintf ppf "@[<hov 1>[%t]@]" *)
+     (*                   (Print.sequence (print_value ~max_level:Level.highest ~names) ";" lst) *)
+     (*   | None ->  print_tag ?max_level ~names t lst ppf *)
+     (* end *)
 
   | Tuple lst -> Format.fprintf ppf "@[<hov 1>(%t)@]"
                   (Print.sequence (print_value ~max_level:Level.highest ~names) "," lst)

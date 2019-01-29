@@ -218,13 +218,14 @@ module Ctx = struct
   let push_module mdl_name ctx =
     match ctx.current_modules with
     | [] -> assert false
-    | ((pth_opt, _) :: _) as mdls ->
-       let mdl_lvl = List.length mdls - 1 in
+    | ((pth_opt, mdl) :: _) as mdls ->
+       let mdl_lvl = Assoc.size mdl.ml_modules in
        let pth =
          match pth_opt with
            | None -> Path.Direct (Path.Level (mdl_name, mdl_lvl))
            | Some pth -> Path.Module (pth, Path.Level (mdl_name, mdl_lvl))
        in
+Format.printf "push_module %t with path %t@." (Name.print mdl_name) (Path.print pth) ;
        { ctx with current_modules = (Some pth, empty_module) :: mdls }
 
   let pop_module ctx =
@@ -381,7 +382,7 @@ module Ctx = struct
       (fun mk_path current ->
         let lvl = Assoc.size current.ml_modules in
         let pth = mk_path m lvl in
-       { current with ml_modules = Assoc.add m (pth, mdl) current.ml_modules } )
+        { current with ml_modules = Assoc.add m (pth, mdl) current.ml_modules } )
 
   (* Add an ML values to the current module. *)
   let add_ml_value ~loc x ctx =
