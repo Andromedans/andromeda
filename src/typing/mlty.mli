@@ -94,9 +94,6 @@ type error =
 
 exception Error of error Location.located
 
-(** Place the type into a module (prefix type names with the given module name) *)
-val shift : Path.level -> ty -> ty
-
 (** Equality comparison of metavariables *)
 val eq_meta : meta -> meta -> bool
 

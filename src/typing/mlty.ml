@@ -71,40 +71,6 @@ let unit_ty = Prod []
 
 let fresh_type () = Meta (fresh_meta ())
 
-let rec shift mdl = function
-
-  | (Judgement _ | String | Meta _ | Param _) as t -> t
-
-  | Prod ts ->
-     let ts = List.map (shift mdl) ts in
-     Prod ts
-
-  | Arrow (t1, t2) ->
-     let t1 = shift mdl t1
-     and t2 = shift mdl t2
-     in Arrow (t1, t2)
-
-  | Handler (t1, t2) ->
-     let t1 = shift mdl t1
-     and t2 = shift mdl t2
-     in Handler (t1, t2)
-
-  | Apply (pth, ts) ->
-     let pth =
-       match pth with
-       | Path.Direct l -> Path.Module (mdl, l)
-       | Path.Module _ -> pth
-     and ts = List.map (shift mdl) ts in
-     Apply (pth, ts)
-
-  | Ref t ->
-      let t = shift mdl t in
-      Ref t
-
-  | Dynamic t ->
-      let t = shift mdl t in
-      Dynamic t
-
 
 (** Type parameters are generalised in the following values. *)
 type 'a forall = param list * 'a

@@ -2,40 +2,55 @@
 
 (* Type-checking assigns identifiers to types and operations, as these can be
    statically determined. It cannot do so for TT constructors and ML values,
-   because they are computed at runtime. *)
+   because they are computed at runtime.
+
+   For the moment we do not assign identifiers to modules because we never
+   compare modules.
+*)
 
 type ml_module = {
+  ml_modules : ml_module list;
   ml_types : (Ident.t * Mlty.ty_def) list;
   ml_operations : (Ident.t * (Mlty.ty list * Mlty.ty)) list;
-  tt_constructors : (Ident.t * Mlty.tt_constructor) list ;
+  tt_constructors : (Ident.t * Mlty.tt_constructor) list;
   ml_values : (Name.t * Mlty.ty_schema) list;
 }
 
+let empty_module = {
+    ml_modules = [];
+    ml_types = [];
+    ml_operations = [];
+    tt_constructors = [];
+    ml_values = [];
+}
+
 type t = {
-    ml_modules : (Ident.t * ml_module) list;
-    current_ml_types : (Ident.t * Mlty.ty_def) list ;
-    current_ml_operations : (Ident.t * (Mlty.ty list * Mlty.ty)) list ;
-    current_tt_constructors : (Ident.t * Mlty.tt_constructor) list ;
-    current_ml_values : (Name.t * Mlty.ty_schema) list; (** accessed by index *)
-    ml_yield : (Mlty.ty * Mlty.ty) option
+    current_modules : ml_module list;
+    ml_yield : (Mlty.ty * Mlty.ty) option;
+    ml_bound : Mlty.ty_schema list
   }
 
 let empty = {
-    ml_modules = [];
-    current_ml_types = [];
-    current_ml_operations = [];
-    current_tt_constructors = [];
-    current_ml_values = [];
-    ml_yield = None
+    current_modules = [empty_module];
+    ml_yield = None;
+    ml_bound = [];
   }
 
-let lookup_bound (Path.Index (_, k)) {current_ml_values;_} =
-  let _, (ps, t) = List.nth current_ml_values k in
+let lookup_bound (Path.Index (_, k)) {ml_bound;_} =
+  let (ps, t) = List.nth ml_bound k in
   let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
   Mlty.instantiate pus t
 
-let lookup_ml_module (Path.Level (_, l)) {ml_modules;_} =
-  List.nth ml_modules l
+let rec lookup_ml_module pth (ctx : t) =
+  let rec search mdls = function
+    | Path.Direct (Path.Level (_, k)) ->
+       List.nth mdls k
+    | Path.Module (mdl_pth, Level (_, k)) ->
+       let mdl = lookup_ml_module mdl_pth mdls in
+       List.nth mdl.ml_modules k
+  in
+  search ctx.current_modules pth
+
 
 let lookup_ml_value pth ctx =
   match pth with
@@ -45,8 +60,8 @@ let lookup_ml_value pth ctx =
         looked up by level. They are looked up by index. *)
      assert false
 
-  | Path.Module (mdl_lvl, Path.Level (_, l)) ->
-     let _, mdl = lookup_ml_module mdl_lvl ctx in
+  | Path.Module (mdl_pth, Path.Level (_, l)) ->
+     let _, mdl = lookup_ml_module mdl_pth ctx in
      let _, (ps, t) = List.nth mdl.ml_values l in
      let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
      let t = Mlty.instantiate pus t in

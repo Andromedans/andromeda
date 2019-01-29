@@ -53,20 +53,20 @@ type arity = int
    values in separate lists because we need to compute their indices. All entities are
    accessed by de Bruijn levels. *)
 type ml_module = {
-      ml_modules : (Path.t * ml_module) Assoc.t ;
-      ml_types : (Path.t * arity) Assoc.t ;
-      ml_constructors : ((Path.t * Path.level) * arity) Assoc.t ;
-      ml_operations : (Path.t * arity) Assoc.t ;
-      tt_constructors : (Path.t * arity) Assoc.t ;
+      ml_modules : (Path.t * ml_module) Assoc.t;
+      ml_types : (Path.t * arity) Assoc.t;
+      ml_constructors : ((Path.t * Path.level) * arity) Assoc.t;
+      ml_operations : (Path.t * arity) Assoc.t;
+      tt_constructors : (Path.t * arity) Assoc.t;
       ml_values : Path.t Assoc.t
     }
 
 let empty_module = {
-    ml_modules = Assoc.empty ;
-    ml_types = Assoc.empty ;
-    ml_constructors = Assoc.empty ;
-    ml_operations = Assoc.empty ;
-    tt_constructors = Assoc.empty ;
+    ml_modules = Assoc.empty;
+    ml_types = Assoc.empty;
+    ml_constructors = Assoc.empty;
+    ml_operations = Assoc.empty;
+    tt_constructors = Assoc.empty;
     ml_values = Assoc.empty
 }
 
@@ -187,14 +187,14 @@ module Ctx = struct
       (* Partially evaluated nested modules *)
       current_modules : (Path.t option * ml_module) list ;
       ml_bound : unit Assoc.t ; (* the locally bound values, referred to by indices *)
-      yield : bool ; (* Is a continuation available? *)
+      ml_yield : bool ; (* Is a continuation available? *)
 
     }
 
   let empty = {
       current_modules = [(None, empty_module)] ;
       ml_bound = Assoc.empty;
-      yield = false;
+      ml_yield = false;
     }
 
   let current_module {current_modules;_} =
@@ -367,11 +367,11 @@ module Ctx = struct
     | Some info -> info
 
   (* Make yield available. (It can never be made unavailable, it seems) *)
-  let set_yield ctx = { ctx with yield = true }
+  let set_yield ctx = { ctx with ml_yield = true }
 
   (* Is yield allowed? *)
   let check_yield ~loc ctx =
-    if not ctx.yield then error ~loc UnboundYield
+    if not ctx.ml_yield then error ~loc UnboundYield
 
   (* Add a module to the current module. *)
   let add_ml_module ~loc m mdl ctx =
