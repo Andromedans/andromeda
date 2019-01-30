@@ -225,7 +225,6 @@ module Ctx = struct
            | None -> Path.Direct (Path.Level (mdl_name, mdl_lvl))
            | Some pth -> Path.Module (pth, Path.Level (mdl_name, mdl_lvl))
        in
-Format.printf "push_module %t with path %t@." (Name.print mdl_name) (Path.print pth) ;
        { ctx with current_modules = (Some pth, empty_module) :: mdls }
 
   let pop_module ctx =
