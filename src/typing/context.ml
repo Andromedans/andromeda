@@ -210,6 +210,9 @@ let add_ml_operation op opty ctx =
   let op = Ident.create op in
   { ctx with table = SymbolTable.add_ml_operation (op,opty) ctx.table }
 
+let add_bound name schema ctx =
+  { ctx with ml_bound = schema :: ctx.ml_bound }
+
 let add_ml_value _name schema ctx =
   { ctx with table = SymbolTable.add_ml_value schema ctx.table }
 

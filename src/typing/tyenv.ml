@@ -1,15 +1,13 @@
 type t =
   { context : Context.t;
     substitution : Substitution.t;
-    local_values : (Name.t * Mlty.ty) list (* the variables bound since the last call to [locally] *)
- }
+  }
 
 type 'a tyenvM = t -> 'a * t
 
 let empty =
   { context = Context.empty;
-    substitution = Substitution.empty;
-    local_values = []
+    substitution = Substitution.empty
   }
 
 let return x env = x, env
@@ -46,32 +44,25 @@ let ungeneralize t env =
   let t = Substitution.apply env.substitution t in
   return ([], t) env
 
-let locally m env =
-  let context = env.context in
-  let x, env = m env in
-  x, {env with context}
-
-let record_ml_values m env =
-  let local_values = env.local_values in
-  let x, env = m {env with local_values = []} in
-  (* XXX should we apply the substition to the types of local vars that we're returning? *)
-  (List.rev env.local_values, x), {env with local_values}
-
-let record_ml_value x t env =
+let add_bound_mono x t m env =
   let t = Substitution.apply env.substitution t in
-  (), {env with local_values = (x,t) :: env.local_values}
+  let context = Context.add_bound x ([], t) env.context in
+  let r, {substitution;context=_} = m { env with context } in
+  r, { env with substitution }
 
-let add_ml_value_monomorphic x t env =
+let add_bound_poly x s m env =
+  let context = Context.add_ml_value x s env.context in
+  let r, {substitution;context=_} = m { env with context } in
+  r, { env with substitution }
+
+let add_ml_value_mono x t m env =
   let t = Substitution.apply env.substitution t in
   let context = Context.add_ml_value x ([], t) env.context in
-  (), {env with context}
+  m {env with context}
 
-let locally_add_ml_value x t m =
-  locally (add_ml_value_monomorphic x t >>= fun () -> m)
-
-let add_ml_value x s env =
+let add_ml_value_poly x s m env =
   let context = Context.add_ml_value x s env.context in
-  (), {env with context}
+  m {env with context}
 
 let as_module m env =
   let context = Context.push_ml_module env.context in

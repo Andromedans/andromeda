@@ -40,7 +40,10 @@ val add_ml_type : Name.t -> Mlty.ty_def -> t -> t
 (** Declare a new operation. *)
 val add_ml_operation : Name.t -> Mlty.ty list * Mlty.ty -> t -> t
 
-(** Add a variable of polymorphic type given by the schema. *)
+(** Add a locally bound value with the given schema. *)
+val add_bound : Name.t -> Mlty.ty_schema -> t -> t
+
+(** Add an ML value with the given schema. *)
 val add_ml_value : Name.t -> Mlty.ty_schema -> t -> t
 
 (** Creates the context for evaluating the operation handling of [op] *)
