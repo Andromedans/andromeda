@@ -18,11 +18,6 @@ val (>>=) : 'a tyenvM -> ('a -> 'b tyenvM) -> 'b tyenvM
 
 val run : t -> 'a tyenvM -> t * 'a
 
-(** Return the typing context at the current stage. Only exposed for use with
-   [generalize] and [generalizes_to]. The context will likely become invalid at
-   a later point and should be used only with the greatest care. *)
-val get_context : Context.t tyenvM
-
 (** Lookup a bound variable by its De Bruijn index and instantiate its type parameters
    with fresh metavariables. *)
 val lookup_bound : Path.index -> Mlty.ty tyenvM
@@ -67,16 +62,13 @@ val op_cases :
   Path.t -> output:Mlty.ty ->
     (Ident.t -> Mlty.ty list -> 'a tyenvM) -> 'a tyenvM
 
-(** Generalize the given type as much as possible in the current environment,
-    but using only [known_context] as typing context, possibly solving
-    unification problems. *)
-val generalize : known_context:Context.t -> Mlty.ty -> Mlty.ty_schema tyenvM
+(** Generalize the given type as much as possible in the current environment, possibly
+   solving unification problems. *)
+val generalize : Mlty.ty -> Mlty.ty_schema tyenvM
 
-(** Check that the given type can be generalized to the given schema in the
-    current environment but using only [known_context] as typing context,
-    possibly solving unification problems. *)
-val generalizes_to
-  : loc:Location.t -> known_context:Context.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
+(** Check that the given type can be generalized to the given schema in the current
+   environment, possibly solving unification problems. *)
+val generalizes_to : loc:Location.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
 
 (** Return the given type as a schema without generalizing anything. *)
 val ungeneralize : Mlty.ty -> Mlty.ty_schema tyenvM
@@ -88,12 +80,21 @@ val ungeneralize : Mlty.ty -> Mlty.ty_schema tyenvM
     in the resulting context. *)
 val add_bound_poly : Name.t -> Mlty.ty_schema -> 'a tyenvM -> 'a tyenvM
 
+(** Like [add_bound_poly] with multiple bindings: we first bind the head of the list. *)
+val add_bounds_poly : (Name.t * Mlty.ty_schema) list -> 'a tyenvM -> 'a tyenvM
+
 (** Locally [let]-bind a variable with a monomorphic type and run a computation in the
    resulting context. *)
 val add_bound_mono : Name.t -> Mlty.ty -> 'a tyenvM -> 'a tyenvM
 
+(** Like [add_bound_mono] with multiple bindings: we first bind the head of the list. *)
+val add_bounds_mono : (Name.t * Mlty.ty) list -> 'a tyenvM -> 'a tyenvM
+
 (** Bind an ML value with a polymorphic type. *)
 val add_ml_value_poly : Name.t -> Mlty.ty_schema -> 'a tyenvM -> 'a tyenvM
+
+(** Like [add_ml_value_poly] with multiple bindings: we first bind the head of the list. *)
+val add_ml_values_poly : (Name.t * Mlty.ty_schema) list -> 'a tyenvM -> 'a tyenvM
 
 (** Bind an ML value with a monomorphic type. *)
 val add_ml_value_mono : Name.t -> Mlty.ty -> 'a tyenvM -> 'a tyenvM

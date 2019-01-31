@@ -18,19 +18,17 @@ let (>>=) m f env =
 
 let run env m = let x, env = m env in env, x
 
-let get_context env = env.context, env
-
-let gather_known ~known_context env =
+let gather_known env =
   Mlty.MetaSet.union
-    (Context.gather_known env.substitution known_context)
+    (Context.gather_known env.substitution env.context)
     (Substitution.domain env.substitution)
 
 let remove_known ~known s =
   (* XXX: why isn't this just Mlty.MetaSet.diff s known ? *)
   Mlty.MetaSet.fold Mlty.MetaSet.remove known s
 
-let generalize ~known_context t env =
-  let known = gather_known ~known_context env in
+let generalize t env =
+  let known = gather_known env in
   let t = Substitution.apply env.substitution t in
   let gen = Mlty.occuring t in
   let gen = remove_known ~known gen in
@@ -50,10 +48,23 @@ let add_bound_mono x t m env =
   let r, {substitution;context=_} = m { env with context } in
   r, { env with substitution }
 
+let rec add_bounds_mono xts m env =
+  match xts with
+  | [] -> m env
+  | (x,t) :: xts ->
+     add_bound_mono x t (add_bounds_mono xts m) env
+
 let add_bound_poly x s m env =
-  let context = Context.add_ml_value x s env.context in
+  (* XXX should we apply the subtitition, like in [add_bound_mono]? *)
+  let context = Context.add_bound x s env.context in
   let r, {substitution;context=_} = m { env with context } in
   r, { env with substitution }
+
+let rec add_bounds_poly xss m env =
+  match xss with
+  | [] -> m env
+  | (x,s) :: xss ->
+     add_bound_poly x s (add_bounds_poly xss m) env
 
 let add_ml_value_mono x t m env =
   let t = Substitution.apply env.substitution t in
@@ -61,8 +72,15 @@ let add_ml_value_mono x t m env =
   m {env with context}
 
 let add_ml_value_poly x s m env =
+  (* XXX should we apply the subtitition, like in [add_ml_value_mono]? *)
   let context = Context.add_ml_value x s env.context in
   m {env with context}
+
+let rec add_ml_values_poly xss m env =
+  match xss with
+  | [] -> m env
+  | (x,s) :: xss ->
+     add_ml_value_poly x s (add_ml_values_poly xss m) env
 
 let as_module m env =
   let context = Context.push_ml_module env.context in
@@ -262,7 +280,7 @@ let op_cases op ~output m env =
   let oid, argts, context = Context.op_cases op ~output env.context in
   m oid argts {env with context}
 
-let generalizes_to ~loc ~known_context t (ps, u) env =
+let generalizes_to ~loc t (ps, u) env =
   let (), env = add_equation ~loc t u env in
   (* NB: [s1] is the one that has [ps] appearing in the image *)
   let s1, s2 = Substitution.partition
@@ -272,7 +290,7 @@ let generalizes_to ~loc ~known_context t (ps, u) env =
   let s1dom = Substitution.domain s1 in
   let known =
       (* XXX is it [substitution] or one of [s1], [s2]? *)
-      Context.gather_known s2 known_context
+      Context.gather_known s2 env.context
   in
   let ms = Mlty.MetaSet.inter s1dom known in
   if Mlty.MetaSet.is_empty ms
