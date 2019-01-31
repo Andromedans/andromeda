@@ -518,9 +518,12 @@ let add_bound_rec lst m env =
 
 let push_bound = add_bound0
 
+let add_ml_value0 v env =
+  { env with lexical = { env.lexical with table = SymbolTable.add_ml_value v env.lexical.table } }
+
 let add_ml_value v ({lexical;_} as env) =
-  (),
-  { env with lexical = { lexical with table = SymbolTable.add_ml_value v lexical.table } }
+  let env = add_ml_value0 v env in
+  (), env
 
 let now0 x v env =
   { env with dynamic = {env.dynamic with vars = Store.Dyn.update x v env.dynamic.vars } }
@@ -541,10 +544,21 @@ let add_dynamic0 x v env =
 
 let add_dynamic x v env = (), add_dynamic0 x v env
 
+let add_ml_value_rec0 lst env =
+  let r = ref env in
+  let env =
+    List.fold_left
+      (fun env g ->
+        let v = Closure (mk_closure_ref g r) in
+        add_ml_value0 v env)
+      env lst
+  in
+  r := env ;
+  env
+
 let add_ml_value_rec lst env =
-  failwith "add_ml_value_rec is not implemented"
-  (* let env = add_value_rec0 lst env in *)
-  (* (), env *)
+  let env = add_ml_value_rec0 lst env in
+  (), env
 
 let continue v ({lexical={ml_yield;_};_} as env) =
   match ml_yield with

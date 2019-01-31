@@ -163,9 +163,14 @@ let empty = {
   }
 
 let lookup_bound (Path.Index (_, k)) {ml_bound;_} =
-  let (ps, t) = List.nth ml_bound k in
-  let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
-  Mlty.instantiate pus t
+  try
+    let (ps, t) = List.nth ml_bound k in
+    let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
+    Mlty.instantiate pus t
+  with
+    Failure _ as exc ->
+     Format.printf "lookup_bound failed with %d@." k ;
+     raise exc
 
 let lookup_ml_value pth ctx =
   let (ps, t) = SymbolTable.get_ml_value pth ctx.table in

@@ -114,7 +114,7 @@ let print_error err ppf = match err with
 
   | NameAlreadyDeclared (x, info) ->
      Format.fprintf ppf
-       "%t is already declared as a %t"
+       "%t is already declared as %t"
        (Name.print x)
        (print_info info)
 
@@ -149,7 +149,7 @@ let print_error err ppf = match err with
        (print_info info)
 
   | NonlinearPattern x ->
-     Format.fprintf ppf "non-linear pattern variable %t is not allowed."
+     Format.fprintf ppf "pattern variable %t appears more than once"
        (Name.print x)
 
   | ArityMismatch (pth, used, expected) ->
@@ -974,7 +974,7 @@ let rec comp ctx {Location.thing=c';loc} =
      failwith "modules not implemented"
 
 and let_clauses ~loc ~toplevel ctx lst =
-  let add = if toplevel then Ctx.add_bound else Ctx.add_ml_value ~loc in
+  let add = if toplevel then Ctx.add_ml_value ~loc else Ctx.add_bound in
   let rec fold ctx' lst' = function
     | [] ->
        let lst' = List.rev lst' in
@@ -1033,7 +1033,7 @@ and let_clauses ~loc ~toplevel ctx lst =
   fold ctx [] lst
 
 and letrec_clauses ~loc ~toplevel ctx lst =
-  let add = if toplevel then Ctx.add_bound else (Ctx.add_ml_value ~loc) in
+  let add = if toplevel then Ctx.add_ml_value ~loc else Ctx.add_bound in
   let ctx =
     List.fold_left (fun ctx (f, _, _, _, _) -> add f ctx) ctx lst
   in
@@ -1129,14 +1129,17 @@ and spine ctx ({Location.thing=c';loc} as c) cs =
           locate (Dsyntax.Value pth) loc, cs
 
        | TTConstructor (pth, arity) ->
+          check_arity ~loc x (List.length cs) arity ;
           let cs', cs = split_at x arity cs in
           tt_constructor ~loc ctx pth cs', cs
 
        | MLConstructor (pth, arity) ->
+          check_arity ~loc x (List.length cs) arity ;
           let cs', cs = split_at x arity cs in
           ml_constructor ~loc ctx pth cs', cs
 
        | Operation (pth, arity) ->
+          (* We allow more arguments than the arity of the operation. *)
           let cs', cs = split_at x arity cs in
           operation ~loc ctx pth cs', cs
 

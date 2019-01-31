@@ -791,13 +791,14 @@ and let_clauses
   fold_rhs [] clauses_in >>= fun pacts ->
   fold_lhs [] pacts >>= fun clauses ->
   let rec fold clauses_out = function
-    | [] -> return (List.rev clauses_out)
+    | [] ->
+       let clauses_out = List.rev clauses_out in
+       m >>= fun r -> return (clauses_out, r)
     | (xss, p, c) :: clauses_in ->
        (if toplevel then Tyenv.add_ml_values_poly else Tyenv.add_bounds_poly) xss
           (fold ((Rsyntax.Let_clause (xss, p, c)) :: clauses_out) clauses_in)
   in
-  fold [] clauses >>= fun clauses ->
-  m >>= fun r -> return (clauses, r)
+  fold [] clauses
 
 and letrec_clauses
   :  'a . toplevel:bool -> Dsyntax.letrec_clause list ->
