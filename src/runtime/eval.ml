@@ -829,28 +829,24 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   match c with
 
   | Rsyntax.RuleIsType (x, prems) ->
-     let x = Ident.create x in
      let r = premises prems (Runtime.return ()) in
      Runtime.top_handle ~loc r >>= fun (premises, ()) ->
      let rule = Nucleus.form_rule_is_type premises in
      Runtime.add_rule_is_type x rule
 
   | Rsyntax.RuleIsTerm (x, prems, c) ->
-     let x = Ident.create x in
      let r = premises prems (check_is_type c) in
      Runtime.top_handle ~loc r >>= fun (premises, head) ->
      let rule = Nucleus.form_rule_is_term premises head in
      Runtime.add_rule_is_term x rule
 
   | Rsyntax.RuleEqType (x, prems, boundary) ->
-     let x = Ident.create x in
      let r = premises prems (check_eq_type_boundary boundary) in
      Runtime.top_handle ~loc r >>= fun (premises, head) ->
      let rule = Nucleus.form_rule_eq_type premises head in
      Runtime.add_rule_eq_type x rule
 
   | Rsyntax.RuleEqTerm (x, prems, boundary) ->
-     let x = Ident.create x in
      let r = premises prems (check_eq_term_boundary boundary) in
      Runtime.top_handle ~loc r >>= fun (premises, head) ->
      let rule = Nucleus.form_rule_eq_term premises head in

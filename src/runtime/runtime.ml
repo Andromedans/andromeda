@@ -449,9 +449,6 @@ let top_get_env env = env, env
 
 let get_signature env = env.dynamic.signature
 
-let hypotheses env =
-  failwith "get_hypotheses"
-
 let lookup_signature env =
   Return env.dynamic.signature, env.state
 
@@ -479,6 +476,11 @@ let get_ml_value pth env = SymbolTable.get_ml_value pth env.lexical.table
 
 let lookup_ml_value k env =
   Return (get_ml_value k env), env.state
+
+let hypotheses env =
+  let v = get_ml_value Desugar.Builtin.hypotheses env in
+  let hyps = as_dyn ~loc:Location.unknown v in
+  Return hyps, env.state
 
 let get_dyn dyn env = Store.Dyn.lookup dyn env.dynamic.vars
 

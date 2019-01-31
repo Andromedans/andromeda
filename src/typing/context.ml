@@ -204,7 +204,6 @@ let lookup_continuation {ml_yield;_} =
     | None -> assert false
 
 let add_tt_constructor c t ctx =
-  let c = Ident.create c in
   { ctx with table = SymbolTable.add_tt_constructor (c,t) ctx.table }
 
 let add_ml_type t d ctx =

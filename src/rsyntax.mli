@@ -119,10 +119,10 @@ and premise' =
 (** Toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
-  | RuleIsType of Name.t * premise list
-  | RuleIsTerm of Name.t * premise list * comp
-  | RuleEqType of Name.t * premise list * (comp * comp)
-  | RuleEqTerm of Name.t * premise list * (comp * comp * comp)
+  | RuleIsType of tt_constructor * premise list
+  | RuleIsTerm of tt_constructor * premise list * comp
+  | RuleEqType of tt_constructor * premise list * (comp * comp)
+  | RuleEqTerm of tt_constructor * premise list * (comp * comp * comp)
   | DefMLType of Name.t list (* we only need the names *)
   | DefMLTypeRec of Name.t list
   | DeclOperation of Name.t * (Mlty.ty list * Mlty.ty)

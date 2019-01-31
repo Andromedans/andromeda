@@ -970,8 +970,6 @@ let rec comp ctx {Location.thing=c';loc} =
      let c = comp ctx c in
      locate (Dsyntax.Natural c) loc
 
-  | Input.Open (mdl, c) ->
-     failwith "modules not implemented"
 
 and let_clauses ~loc ~toplevel ctx lst =
   let add = if toplevel then Ctx.add_ml_value ~loc else Ctx.add_bound in

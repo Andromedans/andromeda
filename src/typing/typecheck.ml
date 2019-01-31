@@ -942,13 +942,15 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
 
   | Dsyntax.RuleIsType (rname, prems) ->
      premises prems (return ()) >>= fun (ps, js, ()) ->
-     Tyenv.add_tt_constructor rname (js, Mlty.IsType) >>= fun () ->
-     return_located ~loc (Rsyntax.RuleIsType (rname, ps))
+     let r = Ident.create rname in
+     Tyenv.add_tt_constructor r (js, Mlty.IsType) >>= fun () ->
+     return_located ~loc (Rsyntax.RuleIsType (r, ps))
 
   | Dsyntax.RuleIsTerm (rname, prems, c) ->
      premises prems (check_comp c Mlty.is_type) >>= fun (ps, js, c) ->
-     Tyenv.add_tt_constructor rname (js, Mlty.IsTerm) >>= fun () ->
-     return_located ~loc (Rsyntax.RuleIsTerm (rname, ps, c))
+     let r = Ident.create rname in
+     Tyenv.add_tt_constructor r (js, Mlty.IsTerm) >>= fun () ->
+     return_located ~loc (Rsyntax.RuleIsTerm (r, ps, c))
 
   | Dsyntax.RuleEqType (rname, prems, (c1, c2)) ->
      premises prems
@@ -956,8 +958,9 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
         check_comp c2 Mlty.is_type >>= fun c2 ->
         return (c1, c2))
      >>= fun (ps, js, c12) ->
-     Tyenv.add_tt_constructor rname (js, Mlty.EqType) >>= fun () ->
-     return_located ~loc (Rsyntax.RuleEqType (rname, ps, c12))
+     let r = Ident.create rname in
+     Tyenv.add_tt_constructor r (js, Mlty.EqType) >>= fun () ->
+     return_located ~loc (Rsyntax.RuleEqType (r, ps, c12))
 
   | Dsyntax.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
      premises prems
@@ -966,8 +969,9 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
         check_comp c3 Mlty.is_type >>= fun c3 ->
         return (c1, c2, c3))
      >>= fun (ps, js, c123) ->
-     Tyenv.add_tt_constructor rname (js, Mlty.EqTerm) >>= fun () ->
-     return_located ~loc (Rsyntax.RuleEqTerm (rname, ps, c123))
+     let r = Ident.create rname in
+     Tyenv.add_tt_constructor r (js, Mlty.EqTerm) >>= fun () ->
+     return_located ~loc (Rsyntax.RuleEqTerm (r, ps, c123))
 
   (* Desugar is the only place where recursion/nonrecursion matters,
      so [DefMLType] and [DefMLTypeRec] behave the same way in typechecking. *)

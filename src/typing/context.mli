@@ -32,7 +32,7 @@ val lookup_tt_constructor : Path.t -> t -> Ident.t * Mlty.tt_constructor
 val lookup_continuation : t -> Mlty.ty * Mlty.ty
 
 (** Declare a new TT constructor. *)
-val add_tt_constructor : Name.t -> Mlty.tt_constructor -> t -> t
+val add_tt_constructor : Ident.t -> Mlty.tt_constructor -> t -> t
 
 (** Define a new type. The type definition may refer to not-yet-defined types, relying on the caller to add them afterwards. *)
 val add_ml_type : Name.t -> Mlty.ty_def -> t -> t

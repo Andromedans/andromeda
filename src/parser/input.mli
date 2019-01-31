@@ -77,7 +77,6 @@ and pattern' =
 (** Sugared terms *)
 type comp = comp' located
 and comp' =
-  | Open of Name.t * comp
   | Name of path
   | Function of ml_arg list * comp
   | Handler of handle_case list
