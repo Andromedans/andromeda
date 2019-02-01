@@ -72,38 +72,38 @@ module Builtin = struct
 
   (** Booleans *)
 
-  let bool_name = mk_name "mlbool"
+  let bool_name = mk_name "bool"
   let bool = in_ml bool_name
 
-  let mlfalse_name = mk_name "mlfalse"
+  let mlfalse_name = mk_name "false"
   let mlfalse = in_ml mlfalse_name
 
-  let mltrue_name = mk_name "mltrue"
+  let mltrue_name = mk_name "true"
   let mltrue = in_ml mltrue_name
 
   (** Lists *)
 
   let list_name = mk_name "list"
-  let list = in_ml list_name
+  let list = PName list_name
 
   let nil_name = mk_name "[]"
-  let nil = in_ml nil_name
+  let nil = PName nil_name
 
   let cons_name = mk_name ~fixity:(Infix Level.InfixCons) "::"
-  let cons = in_ml cons_name
+  let cons = PName cons_name
 
   (** Comparison *)
 
-  let mlorder_name = mk_name "mlorder"
+  let mlorder_name = mk_name "order"
   let mlorder = in_ml mlorder_name
 
-  let mlless_name = mk_name "mlless"
+  let mlless_name = mk_name "less"
   let mlless = in_ml mlless_name
 
-  let mlequal_name = mk_name "mlequal"
+  let mlequal_name = mk_name "equal"
   let mlequal = in_ml mlequal_name
 
-  let mlgreater_name = mk_name "mlgreater"
+  let mlgreater_name = mk_name "greater"
   let mlgreater = in_ml mlgreater_name
 
   (** Option type *)

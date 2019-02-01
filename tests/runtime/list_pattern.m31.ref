@@ -9,4 +9,4 @@ val y :> mlstring = "y"
 val z :> mlstring = "z"
 val lst :> list mlstring = []
 val x :> mlstring = "x"
-val lst :> list mlstring = ["y"; "z"]
+val lst :> list mlstring = "y" :: "z" :: []

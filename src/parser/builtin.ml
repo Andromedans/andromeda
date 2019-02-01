@@ -20,12 +20,6 @@ let builtin_ml_types =
     (Name.Builtin.some_name, [ty_alpha])
     ])]
 
-  and decl_list = Input.DefMLTypeRec [Name.Builtin.list_name, ([Some name_alpha],
-    Input.ML_Sum [
-    (Name.Builtin.nil_name, []);
-    (Name.Builtin.cons_name, [ty_alpha; unloc (Input.ML_TyApply (Name.PName Name.Builtin.list_name, [ty_alpha]))])
-    ])]
-
   and decl_coercible = Input.DefMLType [Name.Builtin.coercible_ty_name, ([],
     Input.ML_Sum [
     (Name.Builtin.notcoercible_name, []) ;
@@ -40,7 +34,7 @@ let builtin_ml_types =
       (Name.Builtin.mlgreater_name, [])
       ])]
   in
-  [unloc decl_bool; unloc decl_option; unloc decl_list; unloc decl_coercible; unloc decl_order]
+  [unloc decl_bool; unloc decl_option; unloc decl_coercible; unloc decl_order]
 
 let builtin_ops =
   let un_ml_is_type = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_IsType)) in
@@ -76,7 +70,15 @@ let builtin_ml_values =
   [unloc decl_hyps]
 
 let initial =
-  [ unloc (Input.TopModule
+  let ty_alpha = unloc (Input.ML_TyApply (Name.PName name_alpha, [])) in
+  let decl_list = Input.DefMLTypeRec [Name.Builtin.list_name, ([Some name_alpha],
+    Input.ML_Sum [
+    (Name.Builtin.nil_name, []);
+    (Name.Builtin.cons_name, [ty_alpha; unloc (Input.ML_TyApply (Name.PName Name.Builtin.list_name, [ty_alpha]))])
+    ])]
+  in
+  [ unloc decl_list ;
+    unloc (Input.TopModule
       (Name.Builtin.ml_name,
        List.concat [builtin_ml_types; builtin_ops; builtin_ml_values]))
   ]
