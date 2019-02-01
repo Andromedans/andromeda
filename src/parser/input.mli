@@ -67,7 +67,7 @@ and tt_pattern' =
 type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
-  | Patt_Name of Name.t
+  | Patt_Name of Name.path
   | Patt_As of pattern * pattern
   | Patt_Judgement of tt_pattern
   | Patt_Constructor of path * pattern list

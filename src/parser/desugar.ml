@@ -91,8 +91,7 @@ type error =
   | MLTypeAlreadyDeclared of Name.t
   | MLModuleAlreadyDeclared of Name.t
   | OperationExpected : Name.path * info -> error
-  | InvalidTermPatternName : Name.path * info -> error
-  | InvalidPatternName : Name.t * info -> error
+  | InvalidPatternName : Name.path * info -> error
   | InvalidAppliedPatternName : Name.path * info -> error
   | NonlinearPattern : Name.t -> error
   | ArityMismatch of Name.path * int * arity
@@ -133,14 +132,9 @@ let print_error err ppf = match err with
        (Name.print_path pth)
        (print_info info)
 
-  | InvalidTermPatternName (pth, info) ->
-     Format.fprintf ppf "%t cannot be used in a term pattern as it is %t"
-       (Name.print_path pth)
-       (print_info info)
-
-  | InvalidPatternName (x, info) ->
+  | InvalidPatternName (pth, info) ->
      Format.fprintf ppf "%t cannot be used in a pattern as it is %t"
-       (Name.print x)
+       (Name.print_path pth)
        (print_info info)
 
   | InvalidAppliedPatternName (pth, info) ->
@@ -574,7 +568,7 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
         check_arity ~loc c (List.length ps) arity ;
         pattern_tt_constructor ~loc ctx pth ps
      | (MLConstructor _ | Operation _ | Value _ | Bound _) as info ->
-        error ~loc (InvalidTermPatternName (c, info))
+        error ~loc (InvalidPatternName (c, info))
      end
 
   | Input.Patt_TT_GenAtom p ->
@@ -642,23 +636,39 @@ let rec pattern ctx {Location.thing=p; loc} =
   | Input.Patt_Anonymous ->
      ctx, locate Dsyntax.Patt_Anonymous loc
 
-  | Input.Patt_Name x ->
-     begin match Ctx.find_name (Name.PName x) ctx with
+  | Input.Patt_Name pth ->
+     begin match pth with
 
-     | Some (Bound _ | Value _) (* we allow shadowing of named values *)
-     | None ->
-        let ctx = Ctx.add_bound x ctx in
-        ctx, locate (Dsyntax.Patt_Var x) loc
+     | Name.PName x ->
+        begin match Ctx.find_name pth ctx with
 
-     | Some (MLConstructor (pth, arity)) ->
-        check_arity ~loc (Name.PName x) 0 arity ;
-        ctx, locate (Dsyntax.Patt_Constructor (pth, [])) loc
+        | Some (Bound _ | Value _) (* we allow shadowing of named values *)
+        | None ->
+           let ctx = Ctx.add_bound x ctx in
+           ctx, locate (Dsyntax.Patt_Var x) loc
 
-     | Some ((TTConstructor _ | Operation _) as info) ->
-        error ~loc (InvalidPatternName (x, info))
+        | Some (MLConstructor (pth, arity)) ->
+           check_arity ~loc (Name.PName x) 0 arity ;
+           ctx, locate (Dsyntax.Patt_Constructor (pth, [])) loc
 
+        | Some ((TTConstructor _ | Operation _) as info) ->
+           error ~loc (InvalidPatternName (pth, info))
+        end
+
+     | Name.PModule _ ->
+        begin match Ctx.get_name ~loc pth ctx with
+
+        | MLConstructor (c_pth, arity) ->
+           check_arity ~loc pth 0 arity ;
+           ctx, locate (Dsyntax.Patt_Constructor (c_pth, [])) loc
+
+        | (Value _ | TTConstructor _ | Operation _) as info ->
+           error ~loc (InvalidPatternName (pth, info))
+
+        | Bound _ -> assert false
+
+        end
      end
-
   | Input.Patt_As (p1, p2) ->
      let ctx, p1 = pattern ctx p1 in
      let ctx, p2 = pattern ctx p2 in
@@ -772,9 +782,10 @@ and check_linear_abstraction ~loc ~forbidden = function
 let rec check_linear ?(forbidden=Name.set_empty) {Location.thing=p';loc} =
   match p' with
 
-  | Input.Patt_Anonymous -> forbidden
+  | Input.Patt_Anonymous | Input.Patt_Name (Name.PModule _) ->
+     forbidden
 
-  | Input.Patt_Name x ->
+  | Input.Patt_Name (Name.PName x) ->
      check_linear_pattern_variable ~loc ~forbidden x
 
   | Input.Patt_As (p1, p2) ->
