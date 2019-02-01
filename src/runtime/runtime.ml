@@ -260,8 +260,8 @@ let apply_cont (Continuation f) v {state;_} = f v state
 
 (** References *)
 let mk_ref v env =
-  let x,state = Store.Ref.fresh v env.state in
-  Return (Ref x),state
+  let x, state = Store.Ref.fresh v env.state in
+  Return (Ref x), state
 
 let lookup_ref x env =
   let v = Store.Ref.lookup x env.state in
@@ -275,9 +275,10 @@ let update_ref x v env =
     into function [f : value -> 'a]. *)
 let rec bind (r:'a comp) (f:'a -> 'b comp) : 'b comp = fun env ->
   match r env with
-  | Return v, state -> f v {env with state}
+  | Return v, state ->
+     f v { env with state }
   | Operation (op, vs, jt, d, k), state ->
-     let env = {env with state} in
+     let env = { env with state } in
      let k = mk_cont (fun x -> bind (apply_cont k x) f) env in
      Operation (op, vs, jt, d, k), env.state
 
@@ -528,7 +529,7 @@ let add_ml_value v ({lexical;_} as env) =
   (), env
 
 let now0 x v env =
-  { env with dynamic = {env.dynamic with vars = Store.Dyn.update x v env.dynamic.vars } }
+  { env with dynamic = { env.dynamic with vars = Store.Dyn.update x v env.dynamic.vars } }
 
 let now x v m env =
   let env = now0 x v env in
@@ -539,10 +540,9 @@ let top_now x v env =
   (), env
 
 let add_dynamic0 x v env =
-  let y,vars = Store.Dyn.fresh v env.dynamic.vars in
-  { env with dynamic = {env.dynamic with vars };
-             lexical = {env.lexical with
-                        current_values = Dyn y :: env.lexical.current_values } }
+  let y, vars = Store.Dyn.fresh v env.dynamic.vars in
+  let env = add_ml_value0 (Dyn y) env in
+  { env with dynamic = {env.dynamic with vars } }
 
 let add_dynamic x v env = (), add_dynamic0 x v env
 
@@ -889,7 +889,7 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
 let top_handle ~loc c env =
   let r = c env in
   match r with
-    | Return v, state -> v, env
+    | Return v, state -> v, { env with state }
     | Operation (op, vs, _, _, _), _ ->
        error ~loc (UnhandledOperation (op, vs))
 

@@ -20,6 +20,7 @@ module type S =
 
     (** [update x v s] when [x] is already bound in [s] returns [s'] in which it is bound to [v] *)
     val update : key -> 'a -> 'a t -> 'a t
+
   end
 
 module Ref : S
