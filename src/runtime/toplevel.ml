@@ -35,8 +35,8 @@ let print_error state err ppf =
      let names = Runtime.get_names state.runtime in
      Format.fprintf ppf "@[<hov 2>Nucleus error:@ %t@]" (Nucleus.print_error ~names err)
 
-let wrap_error f state =
-  try f state
+let wrap_error f x =
+  try f x
   with
     | Ulexbuf.Error err -> raise (Error (ParserError err))
     | Desugar.Error err -> raise (Error (DesugarError err))
@@ -49,47 +49,27 @@ let print_annot () =
   let penv = Mlty.fresh_penv () in
   fun t ppf -> Mlty.print_ty_schema ~penv t ppf
 
-let exec_cmd ~quiet c =
-  wrap_error
-    begin
-      fun {desugar;typing;runtime} ->
-      let desugar, c = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
-      let typing, c = Typecheck.toplevel typing c in
-      let comp = Eval.toplevel ~quiet ~print_annot c in
-      let (), runtime = Runtime.exec comp runtime in
-      {desugar;typing;runtime}
-    end
-
 let exec_interactive =
   wrap_error
     begin
-      fun state ->
-      let cmd = Lexer.read_toplevel Parser.commandline () in
-      exec_cmd ~quiet:false cmd state
+      fun {desugar;typing;runtime} ->
+      let c = Lexer.read_toplevel Parser.commandline () in
+      let desugar, c = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
+      let typing, c = Typecheck.toplevel typing c in
+      let comp = Eval.toplevel ~quiet:false ~print_annot c in
+      let (), runtime = Runtime.exec comp runtime in
+      { desugar; typing; runtime}
     end
 
-let load_ml_module ~fn ~quiet =
+let use_file ~fn ~quiet =
   wrap_error
     begin
       fun {desugar;typing;runtime} ->
-      let desugar, cmds = Desugar.load_ml_module desugar fn in
-      let typing, cmds =
-        List.fold_left
-          (fun (typing, cmds) cmd ->
-            let typing, cmd = Typecheck.toplevel typing cmd in
-            (typing, cmd :: cmds))
-          (typing, [])
-          cmds
-      in
-      let cmds = List.rev cmds in
-      let comp =
-        List.fold_left
-          (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet ~print_annot cmd))
-          (Runtime.top_return ())
-          cmds
-      in
+      let desugar, cmds = Desugar.use_file desugar fn in
+      let typing, cmds = Typecheck.toplevels typing cmds in
+      let comp = Eval.toplevels ~quiet ~print_annot cmds in
       let (), runtime = Runtime.exec comp runtime in
-      {desugar;typing;runtime}
+      { desugar; typing; runtime }
     end
 
 (** Set up the initial environment, with built-in definitions *)

@@ -1050,13 +1050,13 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
       | [] -> return (List.rev mdls)
       | (mdl_name, cs) :: rem ->
          Tyenv.as_module
-           (toplevels cs >>= fun cs ->
+           (toplevels' cs >>= fun cs ->
             fold_modules ((mdl_name, cs) :: mdls) rem)
     in
     fold_modules [] mdls >>= fun mdls ->
     return_located ~loc (Rsyntax.MLModules mdls)
 
-and toplevels cs =
+and toplevels' cs =
   let rec fold cs_out = function
     | [] -> return (List.rev cs_out)
     | c :: cs ->
@@ -1067,6 +1067,10 @@ and toplevels cs =
 
 (** The publicly available version of [toplvel'] *)
 let toplevel env c = Tyenv.run env (toplevel' c)
+
+(** The publicly available version of [toplvels'] *)
+let toplevels env cs = Tyenv.run env (toplevels' cs)
+
 
 let initial_context, initial_commands =
   let ctx, cmds =

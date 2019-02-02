@@ -11,6 +11,12 @@ let (_, tag_some) = Desugar.Builtin.some
 let (_, tag_notcoercible) = Desugar.Builtin.notcoercible
 let (_, tag_convertible) = Desugar.Builtin.convertible
 let (_, tag_coercible_constructor) = Desugar.Builtin.coercible_constructor
+
+let (_, tag_mlless) = Desugar.Builtin.mlless
+let (_, tag_mlequal) = Desugar.Builtin.mlequal
+let (_, tag_mlgreater) = Desugar.Builtin.mlgreater
+
+
 let equal_term, _ = Typecheck.Builtin.equal_term
 let equal_type, _ = Typecheck.Builtin.equal_type
 let coerce, _ = Typecheck.Builtin.coerce
@@ -62,6 +68,10 @@ let as_coercible ~loc = function
      Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) as v ->
      Runtime.(error ~loc (CoercibleExpected v))
 
+(** Conversion from OCaml [Runtime.order] to  [ML.order]. *)
+let mlless = Runtime.mk_tag tag_mlless []
+let mlequal = Runtime.mk_tag tag_mlequal []
+let mlgreater = Runtime.mk_tag tag_mlgreater []
 
 (** Computations that invoke operations *)
 

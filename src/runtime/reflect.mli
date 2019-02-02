@@ -8,6 +8,11 @@ val mk_list : Runtime.value list -> Runtime.value
 (** Convert an OCaml option to an ML option *)
 val mk_option : Runtime.value option -> Runtime.value
 
+(** The valus of [Ml.order] *)
+val mlless : Runtime.value
+val mlequal : Runtime.value
+val mlgreater : Runtime.value
+
 (** A computation that, when run, invokes the [eq_term] operation on the given
     terms (wrapped as ML values), and then returns the resulting term equation if any.
  *)

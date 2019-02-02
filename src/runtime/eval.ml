@@ -639,7 +639,6 @@ and check_bool c =
 
 (** Move to toplevel monad *)
 
-(* comp_value: 'a Rsyntax.comp -> Runtime.value Runtime.toplevel *)
 let comp_value c =
   let r = infer c in
   Runtime.top_handle ~loc:c.Location.loc r

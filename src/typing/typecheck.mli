@@ -1,6 +1,9 @@
 (** [toplevel env c] checks that toplevel command [c] is well typed and updates the environment accordingly. *)
 val toplevel : Tyenv.t -> Dsyntax.toplevel -> Tyenv.t * Rsyntax.toplevel
 
+(** Typecheck commands that were loaded from a file *)
+val toplevels : Tyenv.t -> Dsyntax.toplevel list -> Tyenv.t * Rsyntax.toplevel list
+
 (** The initial typing context with built-in definitions *)
 val initial_context : Tyenv.t
 

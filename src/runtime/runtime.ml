@@ -8,6 +8,11 @@ type coercible =
   | Convertible of Nucleus.eq_type_abstraction
   | Coercible of Nucleus.is_term_abstraction
 
+type oder =
+  | Less
+  | Equal
+  | Greater
+
 (** In the future we should be able to drop the name part *)
 type ml_constructor = Path.level
 
@@ -316,8 +321,7 @@ let return_unit = return (Tuple [])
 
 let rec top_fold f acc = function
   | [] -> top_return acc
-  | x::rem -> top_bind (f acc x) (fun acc ->
-    top_fold f acc rem)
+  | x::rem -> top_bind (f acc x) (fun acc -> top_fold f acc rem)
 
 let as_ml_module m ({lexical;_} as env) =
   let table = SymbolTable.push_ml_module lexical.table in

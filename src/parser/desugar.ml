@@ -1432,7 +1432,7 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
 
   | Input.DeclExternal (x, sch, s) ->
      let sch = ml_schema ctx sch in
-     let ctx = Ctx.add_bound x ctx in
+     let ctx = Ctx.add_ml_value ~loc x ctx in
      (ctx, locate (Dsyntax.DeclExternal (x, sch, s)) loc)
 
   | Input.TopLet lst ->
@@ -1533,7 +1533,7 @@ and ml_module ~loc ~loading ~basedir ctx m cmds =
 
 let toplevel ~basedir ctx cmd = toplevel' ~loading:[] ~basedir ctx cmd
 
-let load_ml_module ctx fn =
+let use_file ctx fn =
   let basename = Filename.basename fn in
   let dirname = Filename.dirname fn in
   let mdl_name = Name.mk_name (Filename.remove_extension basename) in
@@ -1569,6 +1569,10 @@ struct
   let notcoercible = fst (Ctx.get_ml_constructor Name.Builtin.notcoercible initial_context)
   let convertible = fst (Ctx.get_ml_constructor Name.Builtin.convertible initial_context)
   let coercible_constructor = fst (Ctx.get_ml_constructor Name.Builtin.coercible_constructor initial_context)
+
+  let mlless = fst (Ctx.get_ml_constructor Name.Builtin.mlless initial_context)
+  let mlequal = fst (Ctx.get_ml_constructor Name.Builtin.mlequal initial_context)
+  let mlgreater = fst (Ctx.get_ml_constructor Name.Builtin.mlgreater initial_context)
 
   let equal_term = fst (Ctx.get_ml_operation Name.Builtin.equal_term initial_context)
   let equal_type = fst (Ctx.get_ml_operation Name.Builtin.equal_type initial_context)
