@@ -105,8 +105,8 @@ struct
   let add_tt_constructor info =
     at_current (fun mdl -> { mdl with tt_constructors = add info mdl.tt_constructors })
 
-  let add_ml_value info =
-    at_current (fun mdl -> { mdl with ml_values = add info mdl.ml_values })
+  let add_ml_value info tbl =
+    at_current (fun mdl -> { mdl with ml_values = add info mdl.ml_values }) tbl
 
   let rec get_path
     : 'a . (Path.level -> ml_module -> 'a) -> Path.t -> t -> 'a

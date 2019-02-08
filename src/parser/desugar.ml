@@ -1461,26 +1461,12 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
   | Input.Verbosity n ->
      (ctx, locate (Dsyntax.Verbosity n) loc)
 
-  | Input.Require mdls ->
-     requires ~loc ~loading ~basedir ctx mdls
+  | Input.Require mdl_name ->
+     require ~loc ~loading ~basedir ctx mdl_name
 
   | Input.TopModule (x, cmds) ->
-     let ctx, cmds = ml_module ~loc ~loading ~basedir ctx x cmds in
-     (ctx, locate (Dsyntax.MLModules [(x, cmds)]) loc)
-
-and requires ~loc ~loading ~basedir ctx mdls =
-  let rec fold loaded (ctx : Ctx.t) = function
-    | [] ->
-       let loaded = List.rev loaded in
-       (ctx, locate (Dsyntax.MLModules loaded) loc)
-    | mdl_name :: mdls ->
-       begin match require ~loc ~loading ~basedir ctx mdl_name with
-       | ctx, None -> fold loaded ctx mdls
-       | ctx, Some (fn, cmds) ->
-          fold ((mdl_name, cmds) :: loaded) ctx mdls
-       end
-  in
-  fold [] ctx mdls
+     let ctx, cmd = ml_module ~loc ~loading ~basedir ctx x cmds in
+     (ctx, cmd)
 
 and require ~loc ~loading ~basedir ctx mdl_name =
   (* TODO keep a list of already required modules and avoid reloading
@@ -1510,8 +1496,8 @@ and require ~loc ~loading ~basedir ctx mdl_name =
     | Some fn ->
        let loading = mdl_name :: loading in
        let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
-       let ctx, cmds = ml_module ~loc ~loading ~basedir ctx mdl_name cmds in
-       ctx, Some (fn, cmds)
+       let ctx, cmd = ml_module ~loc ~loading ~basedir ctx mdl_name cmds in
+       ctx, cmd
 
 and toplevels ~loading ~basedir ctx cmds =
   let ctx, cmds =
@@ -1529,11 +1515,16 @@ and ml_module ~loc ~loading ~basedir ctx m cmds =
   let ctx, cmds = toplevels ~loading ~basedir ctx cmds in
   let ctx, mdl = Ctx.pop_module ctx in
   let ctx = Ctx.add_ml_module ~loc m mdl ctx in
-  ctx, cmds
+  ctx, locate (Dsyntax.MLModule (m, cmds)) loc
 
 let toplevel ~basedir ctx cmd = toplevel' ~loading:[] ~basedir ctx cmd
 
 let use_file ctx fn =
+  let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
+  let basedir = Filename.dirname fn in
+  toplevels ~loading:[] ~basedir ctx cmds
+
+let load_ml_module ctx fn =
   let basename = Filename.basename fn in
   let dirname = Filename.dirname fn in
   let mdl_name = Name.mk_name (Filename.remove_extension basename) in

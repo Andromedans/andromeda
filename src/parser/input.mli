@@ -158,5 +158,5 @@ and toplevel' =
   | TopDynamic of Name.t * arg_annotation * comp
   | TopNow of comp * comp
   | Verbosity of int
-  | Require of Name.t list
+  | Require of Name.t
   | TopModule of Name.t * toplevel list

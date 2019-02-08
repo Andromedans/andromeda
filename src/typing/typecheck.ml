@@ -1045,16 +1045,9 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
   | Dsyntax.Verbosity v ->
     return_located ~loc (Rsyntax.Verbosity v)
 
-  | Dsyntax.MLModules mdls ->
-    let rec fold_modules mdls = function
-      | [] -> return (List.rev mdls)
-      | (mdl_name, cs) :: rem ->
-         Tyenv.as_module
-           (toplevels' cs >>= fun cs ->
-            fold_modules ((mdl_name, cs) :: mdls) rem)
-    in
-    fold_modules [] mdls >>= fun mdls ->
-    return_located ~loc (Rsyntax.MLModules mdls)
+  | Dsyntax.MLModule (mdl_name, cs) ->
+     Tyenv.as_module (toplevels' cs) >>= fun cs ->
+     return_located ~loc (Rsyntax.MLModule (mdl_name, cs))
 
 and toplevels' cs =
   let rec fold cs_out = function
@@ -1070,7 +1063,6 @@ let toplevel env c = Tyenv.run env (toplevel' c)
 
 (** The publicly available version of [toplvels'] *)
 let toplevels env cs = Tyenv.run env (toplevels' cs)
-
 
 let initial_context, initial_commands =
   let ctx, cmds =

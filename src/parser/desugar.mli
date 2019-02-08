@@ -22,8 +22,11 @@ end
     [ctx] information about bound names and [basedir] the directory used for relative inclusion paths. *)
 val toplevel : basedir:string -> Ctx.t -> Input.toplevel -> Ctx.t * Dsyntax.toplevel
 
-(** [use_file ctx fn] loads the file with the given filename.  *)
+(** [use_file ctx fn] desugars commands in the given filename *)
 val use_file : Ctx.t -> string -> Ctx.t * Dsyntax.toplevel list
+
+(** [load_ml_module ctx fn] desugars the given file as a module *)
+val load_ml_module : Ctx.t -> string -> Ctx.t * Dsyntax.toplevel
 
 (** The initial desugaring context, with built-in types and operations *)
 val initial_context : Ctx.t

@@ -133,4 +133,4 @@ and toplevel' =
   | TopDynamic of Name.t * Mlty.ty_schema * comp
   | TopNow of comp * comp
   | Verbosity of int
-  | MLModules of (Name.t * toplevel list) list
+  | MLModule of Name.t * toplevel list

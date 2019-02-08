@@ -95,8 +95,8 @@ struct
     in
     { tbl with top_module = update tbl.top_module tbl.current_depth }
 
-  let add_ml_value info =
-    at_current (fun mdl -> { mdl with ml_values = add info mdl.ml_values })
+  let add_ml_value info tbl =
+    at_current (fun mdl -> { mdl with ml_values = add info mdl.ml_values }) tbl
 
   let rec get_ml_module pth mdl =
     match pth with

@@ -61,13 +61,26 @@ let exec_interactive =
       { desugar; typing; runtime}
     end
 
-let use_file ~fn ~quiet =
+let use_file ~quiet fn =
   wrap_error
     begin
       fun {desugar;typing;runtime} ->
       let desugar, cmds = Desugar.use_file desugar fn in
       let typing, cmds = Typecheck.toplevels typing cmds in
       let comp = Eval.toplevels ~quiet ~print_annot cmds in
+      let (), runtime = Runtime.exec comp runtime in
+      { desugar; typing; runtime }
+    end
+
+let load_ml_module ~fn ~quiet =
+  wrap_error
+    begin
+      fun {desugar;typing;runtime} ->
+      (* When desugar loads a file as a module, it returns a single
+         toplevel cmd [module X = struct <content of file> end] *)
+      let desugar, cmd = Desugar.load_ml_module desugar fn in
+      let typing, cmd = Typecheck.toplevel typing cmd in
+      let comp = Eval.toplevel ~quiet ~print_annot cmd in
       let (), runtime = Runtime.exec comp runtime in
       { desugar; typing; runtime }
     end

@@ -907,13 +907,9 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      comp_value c >>= fun v ->
      Runtime.top_now x v
 
-  | Rsyntax.MLModules lst ->
-     Runtime.top_fold
-       (fun () (mdl_name, cmds) ->
-         Runtime.as_ml_module
-           ((if not quiet then Format.printf "@[<hov 2>Processing module %t@]@." (Name.print mdl_name));
-            toplevels ~quiet ~print_annot cmds))
-       () lst
+  | Rsyntax.MLModule (mdl_name, cmds) ->
+     if not quiet then Format.printf "@[<hov 2>Processing module %t@]@." (Name.print mdl_name) ;
+     Runtime.as_ml_module (toplevels ~quiet ~print_annot cmds)
 
   | Rsyntax.Verbosity i -> Config.verbosity := i; return ()
 

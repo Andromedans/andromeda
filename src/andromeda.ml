@@ -135,7 +135,7 @@ let main =
     | (fn, quiet) :: files ->
        begin
          try
-           let state = Toplevel.use_file ~fn ~quiet state in
+           let state = Toplevel.use_file ~quiet fn state in
            process_files state files
          with
          | Toplevel.Error err ->
