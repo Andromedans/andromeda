@@ -1,0 +1,21 @@
+(* Can we do several types with the same name, but in different modules? *)
+
+mltype cow = Cow of mlstring | Bull
+
+module A =
+struct
+  mltype cow = Cow of mlstring | Bull
+  let x = Cow "A.x"
+end
+
+module B =
+struct
+  mltype cow = Cow of mlstring | Bull
+  let x = Cow "A.y"
+end
+
+let x = Cow "x"
+
+let u = (x, A.x, B.x)
+
+let v = (Bull, A.Bull, B.Bull)

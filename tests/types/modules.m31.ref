@@ -1,0 +1,10 @@
+ML type cow declared.
+Processing module A
+ML type cow declared.
+val x :> A.cow = Cow "A.x"
+Processing module B
+ML type cow declared.
+val x :> B.cow = Cow "A.y"
+val x :> cow = Cow "x"
+val u :> cow * A.cow * B.cow = (Cow "x", Cow "A.x", Cow "A.y")
+val v :> cow * A.cow * B.cow = (Bull, Bull, Bull)
