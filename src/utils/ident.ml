@@ -1,19 +1,19 @@
 (** An identifier uniquely determines an entity such as
     a let-bound name, an ML type, or a TT rule. *)
 
-type t = { name : Name.t ; stamp : int }
+type t = { path : Path.t ; stamp : int }
 
 let create =
   let stamp = ref 0 in
-  fun x ->
+  fun path ->
     incr stamp ;
     let k = !stamp in
     (* We don't want an inconsistency just because someone actually used up 64
        bits worth of identifiers. *)
     assert (k > 0) ;
-    { name = x;  stamp = k }
+    { path;  stamp = k }
 
-let name {name; _} = name
+let path {path; _} = path
 
 let equal {stamp=i;_} {stamp=j;_} = (i = j)
 
@@ -41,9 +41,9 @@ let mapi = IdentMap.mapi
 
 let bindings = IdentMap.bindings
 
-let print ?parentheses {name;_} ppf = Name.print ?parentheses name ppf
+let print ~parentheses {path;_} ppf = Path.print ~parentheses path ppf
 
 module Json =
 struct
-  let ident {name=n; stamp=k; _} = Json.tuple [Name.Json.name n; Json.Int k]
+  let ident {path; stamp=k; _} = Json.tuple [Path.Json.path path; Json.Int k]
 end

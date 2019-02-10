@@ -74,7 +74,7 @@ type ty_schema = ty forall
 (** The type of type definitions. *)
 type ty_def =
   | Alias of ty forall
-  | Sum of (Name.t * ty list) list forall
+  | Sum of (Ident.t * ty list) list forall
 
 (** The errors reported by type inference. *)
 type error =

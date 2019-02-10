@@ -8,12 +8,12 @@ type t =
 
 type ml_constructor = t * level
 
-let print_level (Level (x, _)) ppf = Name.print x ppf
+let print_level ?parentheses (Level (x, _)) ppf = Name.print ?parentheses x ppf
 
-let rec print p ppf =
+let rec print ~parentheses p ppf =
   match p with
-  | Direct x -> print_level x ppf
-  | Module (pth, x) -> Format.fprintf ppf "%t.%t" (print pth) (print_level x)
+  | Direct x -> print_level ~parentheses x ppf
+  | Module (pth, x) -> Format.fprintf ppf "%t.%t" (print ~parentheses:true pth) (print_level ~parentheses:true x)
 
 let compare_level (Level (_, i)) (Level (_, j)) =
   if i < j then -1
@@ -29,6 +29,7 @@ let compare_path pth1 pth2 =
      let c = compare_level x1 x2 in
      if c = 0 then compare pth1 pth2 else c
 
+let equal pth1 pth2 = (0 = compare_path pth1 pth2)
 
 module PathMap = Map.Make(
                      struct
@@ -43,3 +44,16 @@ let empty = PathMap.empty
 let add = PathMap.add
 
 let find = PathMap.find
+
+module Json =
+struct
+  let level (Level (name, _)) = Name.Json.name name
+
+  let path pth =
+    let rec collect acc = function
+      | Direct lvl -> lvl :: acc
+      | Module (mdl, lvl) -> collect (lvl :: acc) mdl
+    in
+    let lst = collect [] pth in
+    Json.tuple (List.map level lst)
+end

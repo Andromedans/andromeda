@@ -206,8 +206,8 @@ module Ctx = struct
     match ctx.current_modules with
     | [] -> assert false
     | (optpath, mdl) :: mdls ->
-       let mdl = update (mk_path optpath) mdl in
-       { ctx with current_modules = (optpath, mdl) :: mdls }
+       let pth, mdl = update (mk_path optpath) mdl in
+       pth, { ctx with current_modules = (optpath, mdl) :: mdls }
 
   let push_module mdl_name ctx =
     match ctx.current_modules with
@@ -371,20 +371,26 @@ module Ctx = struct
   (* Add a module to the current module. *)
   let add_ml_module ~loc m mdl ctx =
     check_is_fresh_module ~loc m ctx ;
-    update_current ctx
-      (fun mk_path current ->
-        let lvl = Assoc.size current.ml_modules in
-        let pth = mk_path m lvl in
-        { current with ml_modules = Assoc.add m (pth, mdl) current.ml_modules } )
+    let (), ctx =
+      update_current ctx
+        (fun mk_path current ->
+          let lvl = Assoc.size current.ml_modules in
+          let pth = mk_path m lvl in
+          (), { current with ml_modules = Assoc.add m (pth, mdl) current.ml_modules } )
+    in
+    ctx
 
   (* Add an ML values to the current module. *)
   let add_ml_value ~loc x ctx =
     check_is_fresh_name ~loc x ctx ;
-    update_current ctx
-      (fun mk_path current ->
-        let lvl = Assoc.size current.ml_values in
-        let pth = mk_path x lvl in
-        { current with ml_values = Assoc.add x pth current.ml_values } )
+    let (), ctx =
+      update_current ctx
+        (fun mk_path current ->
+          let lvl = Assoc.size current.ml_values in
+          let pth = mk_path x lvl in
+          (), { current with ml_values = Assoc.add x pth current.ml_values } )
+    in
+    ctx
 
   (* Add a local bound value. *)
   let add_bound x ctx =
@@ -397,7 +403,7 @@ module Ctx = struct
       (fun mk_path current ->
         let lvl = Assoc.size current.tt_constructors in
         let pth = mk_path c lvl in
-        { current with tt_constructors = Assoc.add c (pth, arity) current.tt_constructors } )
+        pth, { current with tt_constructors = Assoc.add c (pth, arity) current.tt_constructors } )
 
   (* Add an operation of given arity *)
   let add_operation ~loc op arity ctx =
@@ -406,27 +412,30 @@ module Ctx = struct
       (fun mk_path current ->
         let lvl = Assoc.size current.ml_operations in
         let pth = mk_path op lvl in
-        { current with ml_operations = Assoc.add op (pth, arity) current.ml_operations } )
+        pth, { current with ml_operations = Assoc.add op (pth, arity) current.ml_operations } )
 
   (* Add a ML constructor of given arity *)
   let add_ml_constructor ~loc c info ctx =
     check_is_fresh_name ~loc c ctx ;
-    update_current ctx
-      (fun mk_path current ->
-        { current with ml_constructors = Assoc.add c info current.ml_constructors } )
+    let (), ctx =
+      update_current ctx
+        (fun mk_path current ->
+          (), { current with ml_constructors = Assoc.add c info current.ml_constructors } )
+    in
+    ctx
 
   (* Add to the context the fact that [t] is a type constructor with given constructors and arities. *)
   let add_ml_type ~loc t (arity, cs_opt) ctx  =
     check_is_fresh_type ~loc t ctx ;
-    let ctx =
+    let t_pth, ctx =
       update_current ctx
         (fun mk_path current ->
           let lvl = Assoc.size current.ml_types in
           let pth = mk_path t lvl in
-          { current with ml_types = Assoc.add t (pth, arity) current.ml_types })
+          pth, { current with ml_types = Assoc.add t (pth, arity) current.ml_types })
     in
     match cs_opt with
-    | None -> ctx
+    | None -> t_pth, ctx
     | Some cs ->
        begin match find_type_in_module t (current_module ctx) with
        | None -> assert false
@@ -434,11 +443,12 @@ module Ctx = struct
           let _, ctx =
             List.fold_left
               (fun (lvl, ctx) (c, arity) ->
-                (lvl+1, add_ml_constructor ~loc c ((t_pth, Path.Level (c, lvl)), arity) ctx))
+                let ctx = add_ml_constructor ~loc c ((t_pth, Path.Level (c, lvl)), arity) ctx in
+                (lvl+1, ctx))
               (0, ctx)
               cs
           in
-          ctx
+          t_pth, ctx
        end
 
 end (* module Ctx *)
@@ -1282,25 +1292,25 @@ let mlty_info params = function
      Some cs
 
 let mlty_defs ~loc ctx defs =
-  (* we process the definitions and the context in parallel *)
-  let defs =
-    List.map (fun (t, (params, def)) -> (t, (params, mlty_def ~loc ctx params def))) defs
-  and ctx =
-    List.fold_left
-      (fun ctx (t, (params, def)) ->
-        Ctx.add_ml_type ~loc t (mlty_info params def) ctx)
-      ctx defs
+  let rec fold defs_out ctx = function
+    | [] -> ctx, List.rev defs_out
+    | (t, (params, def)) :: defs_in ->
+       let def_out = mlty_def ~loc ctx params def in
+       let t_pth, ctx = Ctx.add_ml_type ~loc t (mlty_info params def) ctx in
+       fold ((t_pth, (params, def_out)) :: defs_out) ctx defs_in
   in
-  ctx, defs
+  fold [] ctx defs
 
 let mlty_rec_defs ~loc ctx defs =
   (* first change the context  *)
-  let ctx =
+  let defs_out, ctx =
     List.fold_left
-      (fun ctx (t, (params, def)) ->
-        Ctx.add_ml_type ~loc t (mlty_info params def) ctx)
-      ctx defs
+      (fun (defs_out, ctx) (t, (params, def)) ->
+        let t_pth, ctx = Ctx.add_ml_type ~loc t (mlty_info params def) ctx in
+        ((t_pth, (params, def)) :: defs_out, ctx))
+      ([], ctx) defs
   in
+  let defs_out = List.rev defs_out in
   (* check for parallel shadowing *)
   let check_shadow = function
     | [] -> ()
@@ -1309,9 +1319,9 @@ let mlty_rec_defs ~loc ctx defs =
          error ~loc (ParallelShadowing t)
   in
   check_shadow defs ;
-  let defs =
-    List.map (fun (t, (params, def)) -> (t, (params, mlty_def ~loc ctx params def))) defs in
-  ctx, defs
+  let defs_out =
+    List.map (fun (t, (params, def)) -> (t, (params, mlty_def ~loc ctx params def))) defs_out in
+  ctx, defs_out
 
 let local_context ctx xcs m =
   let rec fold ctx xcs_out = function
@@ -1382,8 +1392,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
 
   | Input.RuleIsType (rname, prems) ->
      let (), prems = premises ctx prems (fun _ -> ()) in
-     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate (Dsyntax.RuleIsType (rname, prems)) loc)
+     let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
+     (ctx, locate (Dsyntax.RuleIsType (pth, prems)) loc)
 
   | Input.RuleIsTerm (rname, prems, c) ->
      let c, prems =
@@ -1391,8 +1401,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
          ctx prems
          (fun ctx -> comp ctx c)
      in
-     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate (Dsyntax.RuleIsTerm (rname, prems, c)) loc)
+     let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
+     (ctx, locate (Dsyntax.RuleIsTerm (pth, prems, c)) loc)
 
   | Input.RuleEqType (rname, prems, (c1, c2)) ->
      let c12, prems =
@@ -1402,8 +1412,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
            comp ctx c1,
            comp ctx c2)
      in
-     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate (Dsyntax.RuleEqType (rname, prems, c12)) loc)
+     let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
+     (ctx, locate (Dsyntax.RuleEqType (pth, prems, c12)) loc)
 
   | Input.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
      let c123, prems =
@@ -1414,13 +1424,13 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
           comp ctx c2,
           comp ctx c3)
      in
-     let ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate (Dsyntax.RuleEqTerm (rname, prems, c123)) loc)
+     let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
+     (ctx, locate (Dsyntax.RuleEqTerm (pth, prems, c123)) loc)
 
   | Input.DeclOperation (op, (args, res)) ->
      let args, res = decl_operation ~loc ctx args res in
-     let ctx = Ctx.add_operation ~loc op (List.length args) ctx in
-     (ctx, locate (Dsyntax.DeclOperation (op, (args, res))) loc)
+     let pth, ctx = Ctx.add_operation ~loc op (List.length args) ctx in
+     (ctx, locate (Dsyntax.DeclOperation (pth, (args, res))) loc)
 
   | Input.DefMLType defs ->
      let ctx, defs = mlty_defs ~loc ctx defs in

@@ -1,6 +1,6 @@
 (** Runtime syntax, suitable for evaluation. *)
 
-type ml_constructor = Path.level
+type ml_constructor = Ident.t
 
 (** An operation is referred to by a unique identifier *)
 type operation = Ident.t
@@ -81,14 +81,16 @@ and comp' =
   | Context of comp
   | Natural of comp
 
-(** A let-clause is given by a list of variables that get bound with their
-   types, a pattern that binds these variables (so the variables list needs to
-   match the pattern!), and the body of the definition. *)
+(** A let-clause is given by a list of names with their types, a pattern that
+   binds these variables (so the variables list needs to match the pattern!),
+   and the body of the definition.
+
+   The names and types are used only for printing during runtime. *)
 and let_clause =
-  | Let_clause of (Name.t * Mlty.ty_schema) list * Pattern.aml * comp
+  | Let_clause of Pattern.aml * comp
 
 and letrec_clause =
-  | Letrec_clause of Name.t * Name.t * Mlty.ty_schema * comp
+  | Letrec_clause of comp
 
 and handler = {
   handler_val: match_case list;
@@ -123,12 +125,12 @@ and toplevel' =
   | RuleIsTerm of tt_constructor * premise list * comp
   | RuleEqType of tt_constructor * premise list * (comp * comp)
   | RuleEqTerm of tt_constructor * premise list * (comp * comp * comp)
-  | DefMLType of Name.t list (* we only need the names *)
-  | DefMLTypeRec of Name.t list
-  | DeclOperation of Name.t * (Mlty.ty list * Mlty.ty)
+  | DefMLType of Path.t list (* we only need the names *)
+  | DefMLTypeRec of Path.t list
+  | DeclOperation of Path.t * (Mlty.ty list * Mlty.ty)
   | DeclExternal of Name.t * Mlty.ty_schema * string
-  | TopLet of let_clause list
-  | TopLetRec of letrec_clause list
+  | TopLet of (Name.t * Mlty.ty_schema) list list * let_clause list
+  | TopLetRec of (Name.t * Mlty.ty_schema) list * letrec_clause list
   | TopComputation of comp * Mlty.ty_schema
   | TopDynamic of Name.t * Mlty.ty_schema * comp
   | TopNow of comp * comp

@@ -7,10 +7,10 @@
 type t
 
 (** Create a fresh identifier with the given associated name. *)
-val create : Name.t -> t
+val create : Path.t -> t
 
 (** Give the name associated with an identifier *)
-val name : t -> Name.t
+val path : t -> Path.t
 
 (** Compare two identifiers for equality *)
 val equal : t -> t -> bool
@@ -43,7 +43,7 @@ val mapi : (t -> 'a -> 'b) -> 'a map -> 'b map
 val bindings : 'a map -> (t * 'a) list
 
 (** Print an identifier *)
-val print : ?parentheses:bool -> t -> Format.formatter -> unit
+val print : parentheses:bool -> t -> Format.formatter -> unit
 
 module Json :
 sig

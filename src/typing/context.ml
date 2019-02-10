@@ -192,11 +192,11 @@ let lookup_ml_constructor (t_pth, Path.Level (c_name, c_lvl)) ctx =
   match lookup_ml_type t_pth ctx with
   | _, Mlty.Alias _ -> assert false
   | _, Mlty.Sum (ps, cs) ->
-     let (c', ts) = List.nth cs c_lvl in
+     let (c_id, ts) = List.nth cs c_lvl in
      let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
      let ts = List.map (Mlty.instantiate pus) ts
      and out = Mlty.Apply (t_pth, List.map snd pus) in
-     (ts, out)
+     (c_id, ts, out)
 
 let lookup_continuation {ml_yield;_} =
   match ml_yield with
@@ -204,7 +204,7 @@ let lookup_continuation {ml_yield;_} =
     | None -> assert false
 
 let add_tt_constructor c t ctx =
-  { ctx with table = SymbolTable.add_tt_constructor (c,t) ctx.table }
+  { ctx with table = SymbolTable.add_tt_constructor (c, t) ctx.table }
 
 let add_ml_type t d ctx =
   let t = Ident.create t in

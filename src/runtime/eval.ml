@@ -13,8 +13,8 @@ let as_atom ~loc v =
     | Nucleus.(Stump_TermConstructor _ | Stump_TermMeta _ | Stump_TermConvert _) ->
        Runtime.(error ~loc (ExpectedAtom j))
 
-let (_, mlfalse) = Desugar.Builtin.mlfalse
-let (_, mltrue) = Desugar.Builtin.mltrue
+let mlfalse, _, _ = Typecheck.Builtin.mlfalse
+let mltrue, _, _ = Typecheck.Builtin.mltrue
 
 let as_bool ~loc v =
   match v with
@@ -547,7 +547,7 @@ and let_bind
        List.fold_left
          (List.fold_left (fun cmp u -> Runtime.add_bound u cmp))
          cmp uss
-    | Rsyntax.Let_clause (xs, pt, c) :: clauses ->
+    | Rsyntax.Let_clause (pt, c) :: clauses ->
        infer c >>= fun v ->
        Matching.match_pattern pt v >>= begin function
         | Some us -> fold (us :: uss) clauses
@@ -562,7 +562,7 @@ and letrec_bind
   = fun fxcs ->
   let gs =
     List.map
-      (fun (Rsyntax.Letrec_clause (_, _, _, c)) -> (fun v -> Runtime.add_bound v (infer c)))
+      (fun (Rsyntax.Letrec_clause c) -> (fun v -> Runtime.add_bound v (infer c)))
       fxcs
   in
   Runtime.add_bound_rec gs
@@ -773,7 +773,7 @@ let premises prems cmp =
 let (>>=) = Runtime.top_bind
 let return = Runtime.top_return
 
-let toplet_bind ~loc ~quiet ~print_annot clauses =
+let toplet_bind ~loc ~quiet ~print_annot info clauses =
   let rec fold uss = function
     | [] ->
        (* parallel let: only bind at the end *)
@@ -782,7 +782,7 @@ let toplet_bind ~loc ~quiet ~print_annot clauses =
          (return uss)
          uss
 
-    | Rsyntax.Let_clause (xss, pt, c) :: clauses ->
+    | Rsyntax.Let_clause (pt, c) :: clauses ->
        comp_value c >>= fun v ->
        Matching.top_match_pattern pt v >>= begin function
         | None -> Runtime.error ~loc (Runtime.MatchFail v)
@@ -796,7 +796,7 @@ let toplet_bind ~loc ~quiet ~print_annot clauses =
       begin
         let vss = List.rev (List.map List.rev uss) in
         List.iter2
-          (fun (Rsyntax.Let_clause (xts, _, _)) xvs ->
+          (fun xts xvs ->
             List.iter2
               (fun (x, sch) v ->
                 Format.printf "@[<hov 2>val %t :>@ %t@ =@ %t@]@."
@@ -804,24 +804,24 @@ let toplet_bind ~loc ~quiet ~print_annot clauses =
                               (print_annot sch)
                               (Runtime.print_value ~names v))
               xts xvs)
-          clauses vss
+          info vss
        end ;
     return ()
 
-let topletrec_bind ~loc ~quiet ~print_annot fxcs =
+let topletrec_bind ~loc ~quiet ~print_annot info fxcs =
   let gs =
     List.map
-      (fun (Rsyntax.Letrec_clause (_, _, _, c)) v -> Runtime.add_bound v (infer c))
+      (fun (Rsyntax.Letrec_clause c) v -> Runtime.add_bound v (infer c))
       fxcs
   in
   Runtime.add_ml_value_rec gs >>= fun () ->
   if not quiet then
     (List.iter
-      (fun (Rsyntax.Letrec_clause (f, _, annot, _)) ->
+      (fun (f, annot) ->
         Format.printf "@[<hov 2>val %t :>@ %t@]@."
                       (Name.print f)
                       (print_annot annot))
-      fxcs) ;
+      info) ;
   return ()
 
 let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
@@ -856,13 +856,13 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      (if not quiet then
         Format.printf "@[<hov 2>ML type%s %t declared.@]@."
           (match lst with [_] -> "" | _ -> "s")
-          (Print.sequence (fun t -> Name.print t) "," lst)) ;
+          (Print.sequence (Path.print ~parentheses:true) "," lst)) ;
      return ()
 
-  | Rsyntax.DeclOperation (x, k) ->
+  | Rsyntax.DeclOperation (op, k) ->
      (if not quiet then
         Format.printf "@[<hov 2>Operation %t is declared.@]@."
-          (Name.print x)) ;
+          (Path.print ~parentheses:true op)) ;
      return ()
 
   | Rsyntax.DeclExternal (x, sch, s) ->
@@ -879,13 +879,13 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
            return ())
      end
 
-  | Rsyntax.TopLet clauses ->
+  | Rsyntax.TopLet (info, clauses) ->
      let print_annot = print_annot () in
-     toplet_bind ~loc ~quiet ~print_annot clauses
+     toplet_bind ~loc ~quiet ~print_annot info clauses
 
-  | Rsyntax.TopLetRec fxcs ->
+  | Rsyntax.TopLetRec (info, fxcs) ->
      let print_annot = print_annot () in
-     topletrec_bind ~loc ~quiet ~print_annot fxcs
+     topletrec_bind ~loc ~quiet ~print_annot info fxcs
 
   | Rsyntax.TopComputation (c, sch) ->
      comp_value c >>= fun v ->

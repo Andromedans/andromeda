@@ -31,7 +31,7 @@ val lookup_ml_operation : Path.t -> (Ident.t * (Mlty.ty list * Mlty.ty)) tyenvM
 
 (** Lookup an ML constructor and return the expected types of its arguments and the type
    it returns. *)
-val lookup_ml_constructor : Path.ml_constructor -> (Mlty.ty list * Mlty.ty) tyenvM
+val lookup_ml_constructor : Path.ml_constructor -> (Ident.t * Mlty.ty list * Mlty.ty) tyenvM
 
 (** Lookup a TT constructor and return its expected form. *)
 val lookup_tt_constructor : Path.t -> (Ident.t * Mlty.tt_constructor) tyenvM
@@ -100,10 +100,10 @@ val add_ml_values_poly : (Name.t * Mlty.ty_schema) list -> 'a tyenvM -> 'a tyenv
 val add_ml_value_mono : Name.t -> Mlty.ty -> 'a tyenvM -> 'a tyenvM
 
 (** Define a new type. The type definition may refer to not-yet-defined types, relying on the caller to add them afterwards. *)
-val add_ml_type : Name.t -> Mlty.ty_def -> unit tyenvM
+val add_ml_type : Path.t -> Mlty.ty_def -> unit tyenvM
 
 (** Declare a new operation. *)
-val add_ml_operation : Name.t -> Mlty.ty list * Mlty.ty -> unit tyenvM
+val add_ml_operation : Path.t -> Mlty.ty list * Mlty.ty -> unit tyenvM
 
 (** Monadically wrap a computation with [Context.push_ml_module] and [Context.pop_ml_module]. *)
 val as_module : 'a tyenvM -> 'a tyenvM

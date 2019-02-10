@@ -70,7 +70,7 @@ and constructor ?max_level ~names c args ppf =
      Ident.print ~parentheses:true c ppf
   | _::_ ->
      Print.print ~at_level:Level.constructor ?max_level ppf "%t@ %t"
-       (Ident.print c)
+       (Ident.print ~parentheses:true c)
        (Print.sequence (argument ~names) "" args) ;
 
 and abstraction

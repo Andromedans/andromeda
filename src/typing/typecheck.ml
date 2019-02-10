@@ -252,13 +252,13 @@ let rec pattern {Location.thing=p;loc} =
      let xts = List.map (fun (x,j) -> (x, Mlty.Judgement j)) xts in
      return (locate ~loc (Rsyntax.Pattern.Judgement p), Mlty.Judgement t, xts)
 
-  | Dsyntax.Patt_Constructor ((_, lvl) as c, ps) ->
-    Tyenv.lookup_ml_constructor c >>= fun (ts, out) ->
+  | Dsyntax.Patt_Constructor (tag, ps) ->
+    Tyenv.lookup_ml_constructor tag >>= fun (tag_id, ts, out) ->
     let rec fold qs xts ps ts =
       match ps, ts with
       | [], [] ->
          let qs = List.rev qs in
-         return (locate ~loc (Rsyntax.Pattern.MLConstructor (lvl, qs)), out, xts)
+         return (locate ~loc (Rsyntax.Pattern.MLConstructor (tag_id, qs)), out, xts)
       | p::ps, t::ts ->
         check_pattern p t >>= fun (q, p_xts) ->
         fold (q::qs) (xts @ p_xts) ps ts
@@ -386,13 +386,13 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     in
     fold [] cs ts
 
-  | Dsyntax.MLConstructor ((_, lvl) as c, cs) ->
-    Tyenv.lookup_ml_constructor c >>= fun (ts, out) ->
+  | Dsyntax.MLConstructor (tag, cs) ->
+    Tyenv.lookup_ml_constructor tag >>= fun (tag_id, ts, out) ->
     let tcs = List.combine ts cs in
     let rec fold cs = function
       | [] ->
         let cs = List.rev cs in
-        return (locate ~loc (Rsyntax.MLConstructor (lvl, cs)), out)
+        return (locate ~loc (Rsyntax.MLConstructor (tag_id, cs)), out)
       | (t, c) :: tcs ->
         check_comp c t >>= fun c ->
         fold (c :: cs) tcs
@@ -432,12 +432,12 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
 
   | Dsyntax.Let (clauses, c) ->
      let_clauses ~toplevel:false
-       clauses (comp c) >>= fun (clauses, (c, t)) ->
+       clauses (comp c) >>= fun (_, clauses, (c, t)) ->
          return (locate ~loc (Rsyntax.Let (clauses, c)), t)
 
   | Dsyntax.LetRec (clauses, c) ->
      letrec_clauses ~toplevel:false
-       clauses (comp c) >>= fun (clauses, (c, t)) ->
+       clauses (comp c) >>= fun (_, clauses, (c, t)) ->
          return (locate ~loc (Rsyntax.LetRec (clauses, c)), t)
 
   | Dsyntax.MLAscribe (c, sch) ->
@@ -736,7 +736,8 @@ and match_op_cases op cases t_out =
 
 
 and let_clauses
-  : 'a . toplevel:bool -> Dsyntax.let_clause list -> 'a Tyenv.tyenvM -> (Rsyntax.let_clause list * 'a) Tyenv.tyenvM
+  : 'a . toplevel:bool -> Dsyntax.let_clause list -> 'a Tyenv.tyenvM ->
+         ((Name.t * Mlty.ty_schema) list list * Rsyntax.let_clause list * 'a) Tyenv.tyenvM
   = fun ~toplevel clauses_in m ->
   let rec fold_rhs cts = function
     | [] -> return (List.rev cts)
@@ -790,19 +791,20 @@ and let_clauses
   in
   fold_rhs [] clauses_in >>= fun pacts ->
   fold_lhs [] pacts >>= fun clauses ->
-  let rec fold clauses_out = function
+  let rec fold info_out clauses_out = function
     | [] ->
        let clauses_out = List.rev clauses_out in
-       m >>= fun r -> return (clauses_out, r)
+       let info_out = List.rev info_out in
+       m >>= fun r -> return (info_out, clauses_out, r)
     | (xss, p, c) :: clauses_in ->
        (if toplevel then Tyenv.add_ml_values_poly else Tyenv.add_bounds_poly) xss
-          (fold ((Rsyntax.Let_clause (xss, p, c)) :: clauses_out) clauses_in)
+         (fold (xss :: info_out) ((Rsyntax.Let_clause (p, c)) :: clauses_out) clauses_in)
   in
-  fold [] clauses
+  fold [] [] clauses
 
 and letrec_clauses
   :  'a . toplevel:bool -> Dsyntax.letrec_clause list ->
-            'a Tyenv.tyenvM -> (Rsyntax.letrec_clause list * 'a) Tyenv.tyenvM
+          'a Tyenv.tyenvM -> ((Name.t * Mlty.ty_schema) list * Rsyntax.letrec_clause list * 'a) Tyenv.tyenvM
   = fun ~toplevel fycs m ->
 
   let rec bind_functions acc = function
@@ -838,26 +840,26 @@ and letrec_clauses
        check_bodies ((f, schopt, y, a, c, b) :: acc) rem
   in
 
-  let rec generalize_funs acc = function
-    | [] -> return (List.rev acc)
+  let rec generalize_funs info clauses = function
+    | [] -> return (List.rev info, List.rev clauses)
 
     | (f, Some sch, y, a, c, b) :: rem ->
        let t = Mlty.Arrow (a, b) in
        Tyenv.generalizes_to ~loc:c.Location.loc t sch >>= fun () ->
-       generalize_funs (Rsyntax.Letrec_clause (f, y, sch, c) :: acc) rem
+       generalize_funs ((f, sch) :: info) (Rsyntax.Letrec_clause c :: clauses) rem
 
     | (f, None, y, a, c, b) :: rem ->
        let t = Mlty.Arrow (a, b) in
        Tyenv.generalize t >>= fun sch ->
-       generalize_funs (Rsyntax.Letrec_clause (f, y, sch, c) :: acc) rem
+       generalize_funs ((f, sch) :: info) (Rsyntax.Letrec_clause c :: clauses) rem
 
   in
 
   bind_functions [] fycs >>=
   check_bodies []  >>=
-  generalize_funs [] >>= fun clauses ->
+  generalize_funs [] [] >>= fun (info, clauses) ->
   m >>= fun x ->
-  return (clauses, x)
+  return (info, clauses, x)
 
 
 let add_ml_type (t, (params, def)) =
@@ -869,7 +871,19 @@ let add_ml_type (t, (params, def)) =
        Tyenv.add_ml_type t (Mlty.Alias (params, t'))
 
     | Dsyntax.ML_Sum constructors ->
-       let constructors = List.map (fun (c, ts) -> c, List.map (ml_ty params) ts) constructors in
+       let mk_path name k =
+         match t with
+         | Path.Direct _ -> Path.Direct (Path.Level (name, k))
+         | Path.Module (mdl, _) -> Path.Module (mdl, Path.Level (name, k))
+       in
+       let rec fold k acc = function
+         | [] -> List.rev acc
+         | (name, ts) :: lst ->
+            let tag_id = Ident.create (mk_path name k) in
+            let acc = (tag_id, List.map (ml_ty params) ts) :: acc in
+            fold (k+1) acc lst
+       in
+       let constructors = fold 0 [] constructors in
        Tyenv.add_ml_type t (Mlty.Sum (params, constructors))
 
 let local_context lctx m =
@@ -1002,12 +1016,12 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
         (return_located ~loc (Rsyntax.DeclExternal (x, sch, s)))
 
   | Dsyntax.TopLet clauses ->
-     let_clauses ~toplevel:true clauses (return ()) >>= fun (clauses, ()) ->
-     return_located ~loc (Rsyntax.TopLet clauses)
+     let_clauses ~toplevel:true clauses (return ()) >>= fun (info, clauses, ()) ->
+     return_located ~loc (Rsyntax.TopLet (info, clauses))
 
   | Dsyntax.TopLetRec clauses ->
-     letrec_clauses ~toplevel:true clauses (return ()) >>= fun (clauses, ()) ->
-     return_located ~loc (Rsyntax.TopLetRec clauses)
+     letrec_clauses ~toplevel:true clauses (return ()) >>= fun (info, clauses, ()) ->
+     return_located ~loc (Rsyntax.TopLetRec (info, clauses))
 
   | Dsyntax.TopComputation c ->
      comp c >>= fun (c, t) ->
@@ -1078,12 +1092,30 @@ let initial_context, initial_commands =
 
 module Builtin =
 struct
+  let run m = Tyenv.run initial_context m
+
+  let _, nil = run (Tyenv.lookup_ml_constructor Desugar.Builtin.nil)
+  let _, cons = run (Tyenv.lookup_ml_constructor Desugar.Builtin.cons)
+
+  let _, none = run (Tyenv.lookup_ml_constructor Desugar.Builtin.none)
+  let _, some = run (Tyenv.lookup_ml_constructor Desugar.Builtin.some)
+
+  let _, notcoercible = run (Tyenv.lookup_ml_constructor Desugar.Builtin.notcoercible)
+  let _, convertible = run (Tyenv.lookup_ml_constructor Desugar.Builtin.convertible)
+  let _, coercible_constructor = run (Tyenv.lookup_ml_constructor Desugar.Builtin.coercible_constructor)
+
+  let _, mlless = run (Tyenv.lookup_ml_constructor Desugar.Builtin.mlless)
+  let _, mlequal = run (Tyenv.lookup_ml_constructor Desugar.Builtin.mlequal)
+  let _, mlgreater = run (Tyenv.lookup_ml_constructor Desugar.Builtin.mlgreater)
+
+  let _, mlfalse = run (Tyenv.lookup_ml_constructor Desugar.Builtin.mlfalse)
+  let _, mltrue = run (Tyenv.lookup_ml_constructor Desugar.Builtin.mltrue)
 
   (* the [Tyenv] monad is annoying as hell, let's get rid of ste stupid monads as much as we can,
      they are not idiomatic in OCaml *)
-  let _, equal_term = Tyenv.run initial_context (Tyenv.lookup_ml_operation Desugar.Builtin.equal_term)
+  let _, equal_term = run (Tyenv.lookup_ml_operation Desugar.Builtin.equal_term)
 
-  let _, equal_type = Tyenv.run initial_context (Tyenv.lookup_ml_operation Desugar.Builtin.equal_type)
+  let _, equal_type = run (Tyenv.lookup_ml_operation Desugar.Builtin.equal_type)
 
-  let _, coerce = Tyenv.run initial_context (Tyenv.lookup_ml_operation Desugar.Builtin.coerce)
+  let _, coerce = run (Tyenv.lookup_ml_operation Desugar.Builtin.coerce)
 end

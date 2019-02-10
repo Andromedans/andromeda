@@ -20,7 +20,7 @@ type ml_ref
 (** An ML dynamic variable. *)
 type ml_dyn
 
-type ml_constructor = Path.level
+type ml_constructor = Ident.t
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
 type value =
@@ -126,7 +126,7 @@ val as_string : loc:Location.t -> value -> string
 val equal_value: value -> value -> bool
 
 (** Check whether the given value represents an ML list *)
-val as_list_opt : value -> value list option
+(* val as_list_opt : value -> value list option *)
 
 (** Pretty-print a value. *)
 val print_value :

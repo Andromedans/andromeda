@@ -79,7 +79,7 @@ type ty_schema = ty forall
 
 type ty_def =
   | Alias of ty forall
-  | Sum of (Name.t * ty list) list forall
+  | Sum of (Ident.t * ty list) list forall
 
 type error =
   | InvalidApplication of ty * ty * ty
@@ -186,11 +186,11 @@ let rec print_ty ~penv ?max_level t ppf =
                  (print_ty ~penv ~max_level:(Level.ml_handler_right) t2)
 
   | Apply (pth, []) ->
-     Format.fprintf ppf "%t" (Path.print pth)
+     Format.fprintf ppf "%t" (Path.print ~parentheses:true pth)
 
   | Apply (pth, ts) ->
      Print.print ?max_level ~at_level:Level.ml_app ppf "%t@ %t"
-                 (Path.print pth)
+                 (Path.print ~parentheses:true pth)
                  (Print.sequence (print_ty ~penv ~max_level:Level.ml_app_arg) "" ts)
 
   | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "ref@ %t"

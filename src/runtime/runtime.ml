@@ -13,8 +13,8 @@ type oder =
   | Equal
   | Greater
 
-(** In the future we should be able to drop the name part *)
-type ml_constructor = Path.level
+(** In the future we should be able to drop the path and just use an ID, or even an integer. *)
+type ml_constructor = Ident.t
 
 (** This module defines 2 monads:
     - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
@@ -239,7 +239,7 @@ exception Error of error Location.located
 
 let error ~loc err = raise (Error (Location.locate err loc))
 
-let equal_tag (Path.Level (_, i)) (Path.Level (_, j)) = (i = j)
+let equal_tag = Ident.equal
 
 (** Make values *)
 
@@ -459,7 +459,11 @@ let lookup_signature env =
 
 let add_rule add_rule_to_signature rname rule env =
   let signature = add_rule_to_signature rname rule env.dynamic.signature
-  and current_names = Ident.name rname :: env.lexical.current_names in
+  and current_names =
+    (match Ident.path rname with
+     | Path.Direct (Path.Level (name, _)) -> name
+     | Path.Module (_, Path.Level (name, _)) -> name
+    ) :: env.lexical.current_names in
   let env = { env
               with dynamic = { env.dynamic with signature }
                  ; lexical = { env.lexical with current_names }
@@ -588,20 +592,20 @@ let top_lookup_signature env =
 (* A hack, until we have proper type-driven printing routines. At that point we should consider
    equipping type definitions with custom printers, so that not only lists but other datatypes
    can have their own printers. (And we're not going to implement Haskell classes.) *)
-let rec as_list_opt =
-  let (_, tag_nil) = Desugar.Builtin.nil
-  and (_, tag_cons) = Desugar.Builtin.cons in
-  function
-  | Tag (t, []) when equal_tag t tag_nil -> Some []
-  | Tag (t, [x;xs]) when equal_tag t tag_cons ->
-     begin
-       match as_list_opt xs with
-       | None -> None
-       | Some xs -> Some (x :: xs)
-     end
-  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
-     None
+(* let rec as_list_opt =
+ *   let (_, tag_nil) = Desugar.Builtin.nil
+ *   and (_, tag_cons) = Desugar.Builtin.cons in
+ *   function
+ *   | Tag (t, []) when equal_tag t tag_nil -> Some []
+ *   | Tag (t, [x;xs]) when equal_tag t tag_cons ->
+ *      begin
+ *        match as_list_opt xs with
+ *        | None -> None
+ *        | Some xs -> Some (x :: xs)
+ *      end
+ *   | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+ *      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
+ *      None *)
 
 (** In the future this routine will be type-driven. One consequence is that
     constructor tags will be printed by looking up their names in type
@@ -642,9 +646,9 @@ let rec print_value ?max_level ~names v ppf =
   | String s -> Format.fprintf ppf "\"%s\"" s
 
 and print_tag ?max_level ~names t lst ppf =
-  match t, lst with
+  match Ident.path t, lst with
 
-  | Path.Level ({Name.fixity=Name.Prefix; name} as x,_), [v] ->
+  | Path.Direct (Path.Level ({Name.fixity=Name.Prefix; name} as x,_)), [v] ->
      (* prefix tag applied to one argument *)
      (* Although it is reasonable to parse prefix operators as
         binding very tightly, it can be confusing to see
@@ -657,7 +661,7 @@ and print_tag ?max_level ~names t lst ppf =
                  (Name.print ~parentheses:false x)
                  (print_value ~max_level:Level.prefix_arg ~names v)
 
-  | Path.Level ({Name.fixity=Name.Infix fixity;_} as x, _), [v1; v2] ->
+  | Path.Direct (Path.Level ({Name.fixity=Name.Infix fixity;_} as x, _)), [v1; v2] ->
      (* infix tag applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
@@ -668,38 +672,37 @@ and print_tag ?max_level ~names t lst ppf =
   | _ ->
      (* print as application *)
      begin
-       let (Path.Level (x, _)) = t in
        match lst with
-       | [] -> Name.print x ppf
+       | [] -> Ident.print ~parentheses:true t ppf
        | (_::_) -> Print.print ?max_level ~at_level:Level.ml_tag ppf "@[<hov 2>%t@ %t@]"
-                     (Name.print x)
+                     (Ident.print ~parentheses:true t)
                      (Print.sequence (print_value ~max_level:Level.ml_tag_arg ~names) "" lst)
      end
 
 let print_operation ~names op vs ppf =
   match op, vs with
 
-  | {Name.fixity=Name.Prefix;_}, [v] ->
+  | Path.Direct (Path.Level ({Name.fixity=Name.Prefix;_} as name, _)), [v] ->
      (* prefix op applied to one argument *)
      Print.print ppf ~at_level:Level.prefix "%t@ %t"
-       (Name.print ~parentheses:false op)
+       (Name.print ~parentheses:false name)
        (print_value ~max_level:Level.prefix_arg ~names v)
 
-  | {Name.fixity=Name.Infix fixity;_}, [v1; v2] ->
+  | Path.Direct (Path.Level ({Name.fixity=Name.Infix fixity;_} as name, _)), [v1; v2] ->
      (* infix op applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ~at_level:lvl_op "%t@ %t@ %t"
        (print_value ~max_level:lvl_left ~names v1)
-       (Name.print ~parentheses:false op)
+       (Name.print ~parentheses:false name)
        (print_value ~max_level:lvl_right ~names v2)
 
-  | _ ->
+  | (Path.Direct _ | Path.Module _), _ ->
      (* print as application *)
      begin
        match vs with
-       | [] -> Name.print op ppf
+       | [] -> Path.print ~parentheses:true op ppf
        | (_::_) -> Print.print ~at_level:Level.ml_operation ppf "[@<hov 2>%t@ %t@]"
-                     (Name.print op)
+                     (Path.print ~parentheses:true op)
                      (Print.sequence (print_value ~max_level:Level.ml_operation_arg ~names) "" vs)
      end
 
@@ -840,7 +843,7 @@ let print_error ~names err ppf =
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "unhandled operation %t"
-                    (print_operation ~names (Ident.name op) vs)
+                    (print_operation ~names (Ident.path op) vs)
 
   | InvalidPatternMatch v ->
      Format.fprintf ppf "this pattern cannot match@ %t"
@@ -987,7 +990,7 @@ struct
 
     | Handler _ -> Json.tag "<handler>" []
 
-    | Tag (Path.Level (c, _), lst) -> Json.tag "Tag" [Name.Json.name c; Json.List (List.map value lst)]
+    | Tag (t, lst) -> Json.tag "Tag" [Ident.Json.ident t; Json.List (List.map value lst)]
 
     | Tuple lst -> Json.tag "Tuple" [Json.List (List.map value lst)]
 

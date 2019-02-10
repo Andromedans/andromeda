@@ -17,6 +17,9 @@ type ml_constructor = t * level
 (** Linearly ordering of paths, compatible with [Map.OrderedType] *)
 val compare_path : t -> t -> int
 
+(** Compare paths *)
+val equal : t -> t -> bool
+
 (** Linearly ordering of levels, compatible with [Map.OrderedType] *)
 val compare_level : level -> level -> int
 
@@ -28,4 +31,10 @@ val add : t -> 'a -> 'a map -> 'a map
 val find : t -> 'a map -> 'a
 
 (** print a path *)
-val print : t -> Format.formatter -> unit
+val print : parentheses:bool -> t -> Format.formatter -> unit
+
+module Json :
+sig
+  val level : level -> Json.t
+  val path : t -> Json.t
+end

@@ -124,13 +124,13 @@ and premise' =
 (** Desugared toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
-  | RuleIsType of Name.t * premise list
-  | RuleIsTerm of Name.t * premise list * comp
-  | RuleEqType of Name.t * premise list * (comp * comp)
-  | RuleEqTerm of Name.t * premise list * (comp * comp * comp)
-  | DefMLType of (Name.t * (Name.t option list * ml_tydef)) list
-  | DefMLTypeRec of (Name.t * (Name.t option list * ml_tydef)) list
-  | DeclOperation of Name.t * (ml_ty list * ml_ty)
+  | RuleIsType of Path.t * premise list
+  | RuleIsTerm of Path.t * premise list * comp
+  | RuleEqType of Path.t * premise list * (comp * comp)
+  | RuleEqTerm of Path.t * premise list * (comp * comp * comp)
+  | DefMLType of (Path.t * (Name.t option list * ml_tydef)) list
+  | DefMLTypeRec of (Path.t * (Name.t option list * ml_tydef)) list
+  | DeclOperation of Path.t * (ml_ty list * ml_ty)
   | DeclExternal of Name.t * ml_schema * string
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
