@@ -940,16 +940,22 @@ let premise {Location.thing=prem;loc} =
      return (x, p, t)
 
 let premises prems m =
-  let rec fold xts ps js = function
-    | [] -> return (List.rev xts, List.rev ps, List.rev js)
+  let rec fold ps js = function
+    | [] ->
+       m >>= (fun x ->
+        let ps = List.rev ps
+        and js = List.rev js in
+        return (ps, js, x))
     | prem :: prems ->
        premise prem >>= fun (xopt, p, j) ->
-       let xts = match xopt with None -> xts | Some x -> (x, Mlty.Judgement j) :: xts in
-       fold xts (p::ps) (j::js) prems
+       begin match xopt with
+       | None -> fold (p :: ps) (j :: js) prems
+       | Some x ->
+          Tyenv.add_bound_mono x (Mlty.Judgement j)
+            (fold (p::ps) (j::js) prems)
+       end
   in
-  fold [] [] [] prems >>= fun (xts, ps, js) ->
-  Tyenv.add_bounds_mono xts
-    (m >>= fun x -> return (ps, js, x))
+  fold [] [] prems
 
 let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
   match c with

@@ -691,7 +691,7 @@ let premise {Location.thing=prem;_} =
        let x = (match xopt with Some x -> x | None -> Name.anonymous ()) in
        let mv = Nucleus.fresh_is_type_meta x abstr in
        let v = Runtime.mk_is_type (Nucleus.is_type_meta_eta_expanded sgn mv) in
-       return ((Nucleus.meta_name mv, Nucleus.BoundaryIsType abstr), Some v)
+       return ((Nucleus.meta_nonce mv, Nucleus.BoundaryIsType abstr), Some v)
 
     | Rsyntax.PremiseIsTerm (xopt, lctx, c) ->
        local_context
@@ -703,7 +703,7 @@ let premise {Location.thing=prem;_} =
        let x = (match xopt with Some x -> x | None -> Name.anonymous ()) in
        let mv = Nucleus.fresh_is_term_meta x abstr in
        let v = Runtime.mk_is_term (Nucleus.is_term_meta_eta_expanded sgn mv) in
-       return ((Nucleus.meta_name mv, Nucleus.BoundaryIsTerm abstr), Some v)
+       return ((Nucleus.meta_nonce mv, Nucleus.BoundaryIsTerm abstr), Some v)
 
 
     | Rsyntax.PremiseEqType (x, lctx, boundary) ->
@@ -713,18 +713,18 @@ let premise {Location.thing=prem;_} =
          (check_eq_type_boundary boundary)
        >>= fun abstr ->
        Runtime.lookup_signature >>= fun sgn ->
-       let (mv_name, v) =
+       let (mv, v) =
          begin match x with
          | None ->
             let x = Name.anonymous () in
             let mv = Nucleus.fresh_eq_type_meta x abstr in
-            (Nucleus.meta_name mv, None)
+            (mv, None)
          | Some x ->
             let mv = Nucleus.fresh_eq_type_meta x abstr in
             let v = Runtime.mk_eq_type (Nucleus.eq_type_meta_eta_expanded sgn mv) in
-            (Nucleus.meta_name mv, Some v)
+            (mv, Some v)
          end in
-       return ((mv_name, Nucleus.BoundaryEqType abstr), v)
+       return ((Nucleus.meta_nonce mv, Nucleus.BoundaryEqType abstr), v)
 
     | Rsyntax.PremiseEqTerm (x, lctx, boundary) ->
        local_context
@@ -733,18 +733,18 @@ let premise {Location.thing=prem;_} =
          (check_eq_term_boundary boundary)
        >>= fun abstr ->
        Runtime.lookup_signature >>= fun sgn ->
-       let (mv_name, v) =
+       let (mv, v) =
          begin match x with
          | None ->
             let x = Name.anonymous () in
             let mv = Nucleus.fresh_eq_term_meta x abstr in
-            (Nucleus.meta_name mv, None)
+            (mv, None)
          | Some x ->
             let mv = Nucleus.fresh_eq_term_meta x abstr in
             let v = Runtime.mk_eq_term (Nucleus.eq_term_meta_eta_expanded sgn mv) in
-            (Nucleus.meta_name mv, Some v)
+            (mv, Some v)
          end in
-       return ((mv_name, Nucleus.BoundaryEqTerm abstr), v)
+       return ((Nucleus.meta_nonce mv, Nucleus.BoundaryEqTerm abstr), v)
 
 (** Evaluate the premises (should we call them arguments?) of a rule,
     bind them to meta-variables, then evaluate the conclusion [cmp].
@@ -828,28 +828,36 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   match c with
 
   | Rsyntax.RuleIsType (x, prems) ->
-     let r = premises prems (Runtime.return ()) in
-     Runtime.top_handle ~loc r >>= fun (premises, ()) ->
-     let rule = Nucleus.form_rule_is_type premises in
-     Runtime.add_rule_is_type x rule
+     Runtime.top_handle ~loc (premises prems (Runtime.return ())) >>=
+       fun (premises, ()) ->
+       let rule = Nucleus.form_rule_is_type premises in
+       (if not quiet then
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+       Runtime.add_rule_is_type x rule
 
   | Rsyntax.RuleIsTerm (x, prems, c) ->
-     let r = premises prems (check_is_type c) in
-     Runtime.top_handle ~loc r >>= fun (premises, head) ->
-     let rule = Nucleus.form_rule_is_term premises head in
-     Runtime.add_rule_is_term x rule
+     Runtime.top_handle ~loc (premises prems (check_is_type c)) >>=
+       fun (premises, head) ->
+       let rule = Nucleus.form_rule_is_term premises head in
+       (if not quiet then
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+       Runtime.add_rule_is_term x rule
 
   | Rsyntax.RuleEqType (x, prems, boundary) ->
-     let r = premises prems (check_eq_type_boundary boundary) in
-     Runtime.top_handle ~loc r >>= fun (premises, head) ->
-     let rule = Nucleus.form_rule_eq_type premises head in
-     Runtime.add_rule_eq_type x rule
+     Runtime.top_handle ~loc (premises prems (check_eq_type_boundary boundary)) >>=
+       fun (premises, head) ->
+       let rule = Nucleus.form_rule_eq_type premises head in
+       (if not quiet then
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+       Runtime.add_rule_eq_type x rule
 
   | Rsyntax.RuleEqTerm (x, prems, boundary) ->
-     let r = premises prems (check_eq_term_boundary boundary) in
-     Runtime.top_handle ~loc r >>= fun (premises, head) ->
-     let rule = Nucleus.form_rule_eq_term premises head in
-     Runtime.add_rule_eq_term x rule
+     Runtime.top_handle ~loc (premises prems (check_eq_term_boundary boundary)) >>=
+       fun (premises, head) ->
+       let rule = Nucleus.form_rule_eq_term premises head in
+       (if not quiet then
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+       Runtime.add_rule_eq_term x rule
 
   | Rsyntax.DefMLType lst
   | Rsyntax.DefMLTypeRec lst ->

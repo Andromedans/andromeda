@@ -95,16 +95,16 @@ module Signature : sig
 end
 
 val form_rule_is_type :
-  (Name.t * boundary) list -> Rule.rule_is_type
+  (Nonce.t * boundary) list -> Rule.rule_is_type
 
 val form_rule_is_term :
-  (Name.t * boundary) list -> is_type -> Rule.rule_is_term
+  (Nonce.t * boundary) list -> is_type -> Rule.rule_is_term
 
 val form_rule_eq_type :
-  (Name.t * boundary) list -> is_type * is_type -> Rule.rule_eq_type
+  (Nonce.t * boundary) list -> is_type * is_type -> Rule.rule_eq_type
 
 val form_rule_eq_term :
-  (Name.t * boundary) list -> is_term * is_term * is_type -> Rule.rule_eq_term
+  (Nonce.t * boundary) list -> is_term * is_term * is_type -> Rule.rule_eq_term
 
 (** Given a type formation rule and a list of arguments, match the rule
    against the given arguments, make sure they fit the rule, and return the
@@ -187,7 +187,7 @@ val invert_eq_term : eq_term -> stump_eq_term
 
 val atom_name : is_atom -> Name.t
 
-val meta_name : 'a meta -> Name.t
+val meta_nonce : 'a meta -> Nonce.t
 
 val invert_is_term_abstraction :
   ?name:Name.t -> is_term_abstraction -> is_term stump_abstraction

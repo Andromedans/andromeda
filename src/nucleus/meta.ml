@@ -2,7 +2,7 @@ open Nucleus_types
 
 (** Meta-variables *)
 
-let name {meta_nonce=x;_} = Nonce.name x
+let nonce {meta_nonce=x;_} = x
 
 let rec check_term_arguments sgn abstr args =
   (* NB: We don't actually need to instantiate the body of the abstraction,

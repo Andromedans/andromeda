@@ -226,8 +226,7 @@ let mk_rule_premises form_u prems u =
        let prems_out = List.rev prems_out in
        prems_out, u
 
-    | (x, prem) :: prems ->
-       let mv = Nonce.create x in
+    | (mv, prem) :: prems ->
        let prem = mk_rule_premise metas prem in
        fold (mv :: metas) (prem :: prems_out) prems
   in

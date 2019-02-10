@@ -2,7 +2,7 @@ include Nucleus_types
 
 module Signature = Signature
 
-let meta_name = Meta.name
+let meta_nonce = Meta.nonce
 let eq_term_meta_eta_expanded = Meta.eq_term_meta_eta_expanded
 let eq_type_meta_eta_expanded = Meta.eq_type_meta_eta_expanded
 let is_term_meta_eta_expanded = Meta.is_term_meta_eta_expanded
