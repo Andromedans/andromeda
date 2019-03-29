@@ -20,6 +20,15 @@ and is_term e1 e2 =
   e1 == e2 ||
   begin match e1, e2 with
 
+  | TermConvert (e1, _, _), TermConvert (e2, _, _) ->
+     is_term e1 e2
+
+  | TermConvert (e1, _, _), e2 ->
+     is_term e1 e2
+
+  | e1, TermConvert (e2, _, _) ->
+     is_term e1 e2
+
   | TermBound i, TermBound j -> i = j
 
   | TermAtom {atom_nonce=x;_}, TermAtom {atom_nonce=y;_} -> Nonce.equal x y
@@ -30,10 +39,7 @@ and is_term e1 e2 =
   | TermConstructor (c, args), TermConstructor (c', args') ->
      Ident.equal c c' && arguments args args'
 
-  | TermConvert (e1, _, _), TermConvert (e2, _, _) ->
-     is_term e1 e2
-
-  | (TermAtom _ | TermBound _ | TermConstructor _  | TermMeta _  | TermConvert _), _ ->
+  | (TermAtom _ | TermBound _ | TermConstructor _  | TermMeta _), _ ->
      false
   end
 
