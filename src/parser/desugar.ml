@@ -18,27 +18,44 @@ module Assoc :
     val add : Name.t -> 'a -> 'a t -> 'a t
     val last : 'a t -> int
     val find : Name.t -> 'a t -> 'a option
-    val redirect : (Name.t -> unit) -> 'a t -> 'a t -> 'a t
+    val include' : (Name.t -> unit) -> 'a t -> 'a t -> 'a t
+    val open' : (Name.t -> unit) -> 'a t -> 'a t -> 'a t
+    val export : 'a t -> 'a t
   end =
 struct
+  type export = Exported | NotExported
+
   type 'a t =
-    { last : int ; assoc : 'a Name.map }
+    { last : int ; assoc : ('a * export) Name.map }
 
   let empty = { last = 0 ; assoc = Name.map_empty }
 
   let add x y {last; assoc} =
-    { last = last + 1 ; assoc = Name.map_add x y assoc }
+    { last = last + 1 ; assoc = Name.map_add x (y, Exported) assoc }
 
-  let redirect check_fresh {last; assoc} {assoc=assoc';_} =
+  let redirect expo check_fresh {last; assoc} {assoc=assoc';_} =
     { last ;
-      assoc = Name.map_fold (fun k v assoc -> check_fresh k ; Name.map_add k v assoc) assoc' assoc
+      assoc = Name.map_fold (fun k (v,_) assoc -> check_fresh k ; Name.map_add k (v, expo) assoc) assoc' assoc
+    }
+
+  let include' check_fresh asc asc' = redirect Exported check_fresh asc asc'
+  let open' check_fresh asc asc' = redirect NotExported check_fresh asc asc'
+
+  let export {last; assoc} =
+    { last ;
+      assoc = Name.map_fold
+                (fun k ve assoc ->
+                  match snd ve with
+                  | Exported -> Name.map_add k ve assoc
+                  | NotExported -> assoc)
+                assoc Name.map_empty
     }
 
   let last {last; _} = last
 
   let find x {assoc; _} =
     try
-      Some (Name.map_find x assoc)
+      Some (fst (Name.map_find x assoc))
     with
       Not_found -> None
 end
@@ -211,6 +228,17 @@ module Ctx = struct
        let pth, mdl = update (mk_path optpath) mdl in
        pth, { ctx with current_modules = (optpath, mdl) :: mdls }
 
+  (* Convert a context to a module. *)
+  let export_ml_module {ml_modules; ml_types; ml_constructors; ml_operations; tt_constructors; ml_values} =
+    {
+      ml_modules = Assoc.export ml_modules;
+      ml_types = Assoc.export ml_types;
+      ml_constructors = Assoc.export ml_constructors;
+      ml_operations = Assoc.export ml_operations;
+      tt_constructors = Assoc.export tt_constructors;
+      ml_values = Assoc.export ml_values;
+    }
+
   let push_module mdl_name ctx =
     match ctx.current_modules with
     | [] -> assert false
@@ -227,6 +255,7 @@ module Ctx = struct
     match ctx.current_modules with
     | [] | [_] -> assert false
     | (_, mdl) :: mdls ->
+       let mdl = export_ml_module mdl in
        { ctx with current_modules = mdls }, mdl
 
 
@@ -399,12 +428,26 @@ module Ctx = struct
     let (), ctx =
       update_current ctx
         (fun _ {ml_modules; ml_types; ml_constructors; ml_operations; tt_constructors; ml_values} ->
-        (), { ml_modules = Assoc.redirect (fun m -> check_is_fresh_module ~loc m ctx) ml_modules mdl.ml_modules;
-              ml_types = Assoc.redirect (fun t -> check_is_fresh_type ~loc t ctx) ml_types mdl.ml_types;
-              ml_constructors = Assoc.redirect (fun x -> check_is_fresh_name ~loc x ctx) ml_constructors mdl.ml_constructors;
-              ml_operations = Assoc.redirect (fun x -> check_is_fresh_name ~loc x ctx) ml_operations mdl.ml_operations;
-              tt_constructors = Assoc.redirect (fun x -> check_is_fresh_name ~loc x ctx) tt_constructors mdl.tt_constructors;
-              ml_values = Assoc.redirect (fun x -> check_is_fresh_name ~loc x ctx) ml_values mdl.ml_values;
+        (), { ml_modules = Assoc.include' (fun m -> check_is_fresh_module ~loc m ctx) ml_modules mdl.ml_modules;
+              ml_types = Assoc.include' (fun t -> check_is_fresh_type ~loc t ctx) ml_types mdl.ml_types;
+              ml_constructors = Assoc.include' (fun x -> check_is_fresh_name ~loc x ctx) ml_constructors mdl.ml_constructors;
+              ml_operations = Assoc.include' (fun x -> check_is_fresh_name ~loc x ctx) ml_operations mdl.ml_operations;
+              tt_constructors = Assoc.include' (fun x -> check_is_fresh_name ~loc x ctx) tt_constructors mdl.tt_constructors;
+              ml_values = Assoc.include' (fun x -> check_is_fresh_name ~loc x ctx) ml_values mdl.ml_values;
+        })
+    in
+    ctx
+
+  let open_ml_module ~loc mdl ctx =
+    let (), ctx =
+      update_current ctx
+        (fun _ {ml_modules; ml_types; ml_constructors; ml_operations; tt_constructors; ml_values} ->
+        (), { ml_modules = Assoc.open' (fun m -> check_is_fresh_module ~loc m ctx) ml_modules mdl.ml_modules;
+              ml_types = Assoc.open' (fun t -> check_is_fresh_type ~loc t ctx) ml_types mdl.ml_types;
+              ml_constructors = Assoc.open' (fun x -> check_is_fresh_name ~loc x ctx) ml_constructors mdl.ml_constructors;
+              ml_operations = Assoc.open' (fun x -> check_is_fresh_name ~loc x ctx) ml_operations mdl.ml_operations;
+              tt_constructors = Assoc.open' (fun x -> check_is_fresh_name ~loc x ctx) tt_constructors mdl.tt_constructors;
+              ml_values = Assoc.open' (fun x -> check_is_fresh_name ~loc x ctx) ml_values mdl.ml_values;
         })
     in
     ctx
@@ -1508,6 +1551,11 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
   | Input.Include mdl_path ->
      let _, mdl = Ctx.get_ml_module ~loc mdl_path ctx in
      let ctx = Ctx.include_ml_module ~loc mdl ctx in
+     (ctx, [])
+
+  | Input.Open mdl_path ->
+     let _, mdl = Ctx.get_ml_module ~loc mdl_path ctx in
+     let ctx = Ctx.open_ml_module ~loc mdl ctx in
      (ctx, [])
 
   | Input.TopModule (x, cmds) ->

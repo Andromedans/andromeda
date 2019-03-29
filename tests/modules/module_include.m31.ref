@@ -1,0 +1,8 @@
+Processing module A
+val x :> ref mlstring = ref<0>
+Processing module B
+- : mlstring = "A.x"
+- : mlstring = "A.x"
+- : mlunit = ()
+- : mlstring = "B.x"
+- : mlstring = "B.x"

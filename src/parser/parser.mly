@@ -64,7 +64,7 @@
 (* Toplevel directives *)
 %token VERBOSITY
 %token <string> QUOTED_STRING
-%token REQUIRE INCLUDE
+%token REQUIRE INCLUDE OPEN
 
 %token EOF
 
@@ -114,6 +114,7 @@ plain_top_command:
   | REQUIRE mdls=separated_nonempty_list(COMMA, module_name)
                                                       { Require mdls }
   | INCLUDE mdl=long(module_name)                     { Include mdl }
+  | OPEN mdl=long(module_name)                        { Open mdl }
   | MODULE mdl=module_name EQ STRUCT cmds=ml_module END
                                                       { TopModule (mdl, cmds) }
   | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }

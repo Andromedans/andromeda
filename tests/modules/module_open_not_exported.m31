@@ -1,0 +1,11 @@
+module A =
+struct
+  let x = "A.x"
+end
+
+module B =
+struct
+  open A
+end ;;
+
+B.x

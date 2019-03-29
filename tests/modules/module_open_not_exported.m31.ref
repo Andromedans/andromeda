@@ -1,0 +1,2 @@
+File "./modules/module_open_not_exported.m31", line 11, characters 1-3:
+Type error: unknown name B.x
