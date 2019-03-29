@@ -16,14 +16,14 @@ end
 (** Sets of metavariables. *)
 module MetaSet : Set.S with type elt = meta
 
-(** AML typing keeps track of judgement forms *)
+(** ML typing keeps track of judgement forms *)
 type judgement =
   | IsType
   | IsTerm
   | EqType
   | EqTerm
 
-(** AML typing keeps track of TT abstractions (without dependencies) *)
+(** ML typing keeps track of TT abstractions (without dependencies) *)
 type abstracted_judgement =
   | NotAbstract of judgement
   | Abstract of abstracted_judgement
@@ -37,11 +37,11 @@ type ty =
   | Prod of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
-  | App of Name.ident * Dsyntax.level * ty list
+  | Apply of Path.t * ty list
   | Ref of ty
   | Dynamic of ty
 
-(** The AML type of a TT constructor. *)
+(** The ML type of a TT constructor. *)
 type tt_constructor = abstracted_judgement list * judgement
 
 (** Non-abstracted type judgement *)
@@ -71,13 +71,10 @@ type 'a forall = param list * 'a
 (** The type of type schemas, i.e. polymorphic types. *)
 type ty_schema = ty forall
 
-(** An AML constructor name and the expected types of its arguments. *)
-type aml_constructor = Name.aml_constructor * ty list
-
 (** The type of type definitions. *)
 type ty_def =
   | Alias of ty forall
-  | Sum of aml_constructor list forall
+  | Sum of (Ident.t * ty list) list forall
 
 (** The errors reported by type inference. *)
 type error =

@@ -10,7 +10,7 @@ let fully_apply_abstraction_no_typechecks inst_u abstr args =
   let rec fold es abstr args =
     match abstr, args with
     | NotAbstract u, [] -> inst_u es u
-    | Abstract (_, _, abstr), e :: args -> fold (e :: es) abstr args
+    | Abstract (_, abstr), e :: args -> fold (e :: es) abstr args
     | Abstract _, [] -> Error.raise TooFewArguments
     | NotAbstract _, _::_ -> Error.raise TooManyArguments
   in
@@ -94,6 +94,7 @@ and abstraction
        in Mk.not_abstract u
 
     | Rule.Abstract (x, t, abstr) ->
-       let t = is_type ~lvl metas t
+       let t = is_type ~lvl metas t in
+       let atm = {atom_nonce = Nonce.create x; atom_type = t}
        and abstr = abstraction inst_u ~lvl:(lvl+1) metas abstr
-       in Mk.abstract x t abstr
+       in Mk.abstract atm abstr

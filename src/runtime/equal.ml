@@ -21,10 +21,6 @@ module Opt = struct
     m.k (fun x -> Runtime.return (Some x)) (Runtime.return None)
 end
 
-(*
-let (>>=) = Runtime.bind
-*)
-
 let (>?=) = Opt.(>?=)
 
 let (>!=) m f = (Opt.lift m) >?= f
@@ -36,7 +32,7 @@ let equal ~loc sgn e1 e2 =
   match Nucleus.form_alpha_equal_term sgn e1 e2 with
     | Some eq -> Opt.return eq
     | None ->
-      Predefined.operation_equal_term ~loc e1 e2 >!=
+      Reflect.operation_equal_term ~loc e1 e2 >!=
         begin function
           | None -> Opt.fail
           | Some eq ->
@@ -53,7 +49,7 @@ let equal_type ~loc t1 t2 =
   match Nucleus.form_alpha_equal_type t1 t2 with
     | Some eq -> Opt.return eq
     | None ->
-      Predefined.operation_equal_type ~loc t1 t2 >!=
+      Reflect.operation_equal_type ~loc t1 t2 >!=
         begin function
           | None -> Opt.fail
           | Some eq ->
@@ -71,12 +67,12 @@ let coerce ~loc sgn e t =
   | true -> Opt.return e
 
   | false ->
-     Predefined.operation_coerce ~loc e t >!=
+     Reflect.operation_coerce ~loc e t >!=
        begin function
 
-       | Predefined.NotCoercible -> Opt.fail
+       | Runtime.NotCoercible -> Opt.fail
 
-       | Predefined.Convertible eq ->
+       | Runtime.Convertible eq ->
           (* Have:
              e  = {x:A₁} … {x:Aₙ} ⊢ s : A
              t' = {x:A₁} … {x:Aₙ} ⊢ A type
@@ -139,7 +135,7 @@ let coerce ~loc sgn e t =
           in
           Opt.return (convert_is_term_abstraction [] e)
 
-       | Predefined.Coercible e' ->
+       | Runtime.Coercible e' ->
           begin
             let u = Nucleus.type_of_term_abstraction sgn e' in
             match Nucleus.alpha_equal_abstraction Nucleus.alpha_equal_type t u with

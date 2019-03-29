@@ -9,10 +9,10 @@ let rec is_type t1 t2 =
   match t1, t2 with
 
   | TypeMeta (mv, args), TypeMeta (mv', args') ->
-     Name.eq_meta mv.meta_name mv'.meta_name && term_arguments args args'
+     Nonce.equal mv.meta_nonce mv'.meta_nonce && term_arguments args args'
 
   | TypeConstructor (c, args), TypeConstructor (c', args') ->
-     Name.eq_ident c c' && arguments args args'
+     Ident.equal c c' && arguments args args'
 
   | (TypeConstructor _ | TypeMeta _), _ -> false
 
@@ -22,13 +22,13 @@ and is_term e1 e2 =
 
   | TermBound i, TermBound j -> i = j
 
-  | TermAtom {atom_name=x;_}, TermAtom {atom_name=y;_} -> Name.eq_atom x y
+  | TermAtom {atom_nonce=x;_}, TermAtom {atom_nonce=y;_} -> Nonce.equal x y
 
   | TermMeta (mv, args), TermMeta (mv', args') ->
-     Name.eq_meta mv.meta_name mv'.meta_name && term_arguments args args'
+     Nonce.equal mv.meta_nonce mv'.meta_nonce && term_arguments args args'
 
   | TermConstructor (c, args), TermConstructor (c', args') ->
-     Name.eq_ident c c' && arguments args args'
+     Ident.equal c c' && arguments args args'
 
   | TermConvert (e1, _, _), TermConvert (e2, _, _) ->
      is_term e1 e2
@@ -44,7 +44,7 @@ and abstraction
     (* XXX try e = e' ? *)
     match e, e' with
 
-    | Abstract (_, u, abstr), Abstract(_, u', abstr') ->
+    | Abstract ({atom_type=u;_}, abstr), Abstract({atom_type=u';_}, abstr') ->
        is_type u u' &&
        abstraction equal_v abstr abstr'
 

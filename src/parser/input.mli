@@ -10,6 +10,8 @@ type 'a located = 'a Location.located
 (** Bound variables are de Bruijn indices *)
 type bound = int
 
+type path = Name.path
+
 type ml_judgement =
   | ML_IsType
   | ML_IsTerm
@@ -24,7 +26,7 @@ type ml_ty = ml_ty' located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
   | ML_Prod of ml_ty list
-  | ML_TyApply of Name.ty * ml_ty list
+  | ML_TyApply of path * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
@@ -33,7 +35,7 @@ and ml_ty' =
   | ML_Anonymous
 
 type ml_schema = ml_schema' located
-and ml_schema' = ML_Forall of Name.ty option list * ml_ty
+and ml_schema' = ML_Forall of Name.t option list * ml_ty
 
 (** Annotation of an ML-function argument *)
 type arg_annotation =
@@ -46,36 +48,36 @@ type let_annotation =
   | Let_annot_schema of ml_schema
 
 (* An argument of a function or a let-clause *)
-type ml_arg = Name.ident * arg_annotation
+type ml_arg = Name.t * arg_annotation
 
 (** Sugared term patterns *)
 type tt_pattern = tt_pattern' located
 and tt_pattern' =
   | Patt_TT_Anonymous
-  | Patt_TT_Var of Name.ident (* pattern variable *)
+  | Patt_TT_Name of Name.t (* pattern variable *)
   | Patt_TT_As of tt_pattern * tt_pattern
-  | Patt_TT_Constructor of Name.ident * tt_pattern list
+  | Patt_TT_Constructor of path * tt_pattern list
   | Patt_TT_GenAtom of tt_pattern
   | Patt_TT_IsType of tt_pattern
   | Patt_TT_IsTerm of tt_pattern * tt_pattern
   | Patt_TT_EqType of tt_pattern * tt_pattern
   | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern
-  | Patt_TT_Abstraction of (Name.ident option * tt_pattern option) list * tt_pattern
+  | Patt_TT_Abstraction of (Name.t option * tt_pattern option) list * tt_pattern
 
 type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
-  | Patt_Var of Name.ident
+  | Patt_Name of Name.path
   | Patt_As of pattern * pattern
   | Patt_Judgement of tt_pattern
-  | Patt_Constr of Name.ident * pattern list
+  | Patt_Constructor of path * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
 
 (** Sugared terms *)
 type comp = comp' located
 and comp' =
-  | Var of Name.ident
+  | Name of path
   | Function of ml_arg list * comp
   | Handler of handle_case list
   | Handle of comp * handle_case list
@@ -92,9 +94,9 @@ and comp' =
   | Update of comp * comp
   | Ref of comp
   | Sequence of comp * comp
-  | Assume of (Name.ident option * comp) * comp
+  | Assume of (Name.t option * comp) * comp
   | Ascribe of comp * comp
-  | Abstract of (Name.ident * comp option) list * comp
+  | Abstract of (Name.t * comp option) list * comp
   (* Multi-argument substitutions are *not* treated as parallel substitutions
      but desugared to consecutive substitutions. *)
   | Substitute of comp * comp list
@@ -106,59 +108,55 @@ and comp' =
   | Natural of comp
 
 and let_clause =
-  | Let_clause_ML of (Name.ident * ml_arg list) option * let_annotation * comp
-  | Let_clause_tt of Name.ident option * comp * comp
+  | Let_clause_ML of (Name.t * ml_arg list) option * let_annotation * comp
+  | Let_clause_tt of Name.t option * comp * comp
   | Let_clause_patt of pattern * let_annotation * comp
 
 (* XXX we should be able to destruct the first argument of a recursive function with an
    (irrefutable) pattern. Thus, [ml_arg] should be defined using patterns in place of variable names. *)
-and letrec_clause = Name.ident * ml_arg * ml_arg list * let_annotation * comp
+and letrec_clause = Name.t * ml_arg * ml_arg list * let_annotation * comp
 
 (** Handle cases *)
 and handle_case =
   | CaseVal of match_case (* val p -> c *)
-  | CaseOp of Name.ident * match_op_case (* op p1 ... pn -> c *)
+  | CaseOp of path * match_op_case (* op p1 ... pn -> c *)
   | CaseFinally of match_case (* finally p -> c *)
 
 and match_case = pattern * comp option * comp
 
 and match_op_case = pattern list * tt_pattern option * comp
 
-type top_op_case = Name.ident option list * Name.ident option * comp
-
-type constructor_decl = Name.aml_constructor * ml_ty list
-
 type ml_tydef =
-  | ML_Sum of constructor_decl list
+  | ML_Sum of (Name.t * ml_ty list) list
   | ML_Alias of ml_ty
 
 (** The local context of a premise to a rule. *)
-type local_context = (Name.ident * comp) list
+type local_context = (Name.t * comp) list
 
 (** A premise to a rule *)
 type premise = premise' located
 and premise' =
-  | PremiseIsType of Name.ident option * local_context
-  | PremiseIsTerm of Name.ident option * local_context * comp
-  | PremiseEqType of Name.ident option * local_context * (comp * comp)
-  | PremiseEqTerm of Name.ident option * local_context * (comp * comp * comp)
+  | PremiseIsType of Name.t option * local_context
+  | PremiseIsTerm of Name.t option * local_context * comp
+  | PremiseEqType of Name.t option * local_context * (comp * comp)
+  | PremiseEqTerm of Name.t option * local_context * (comp * comp * comp)
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
-  | RuleIsType of Name.ident * premise list
-  | RuleIsTerm of Name.ident * premise list * comp
-  | RuleEqType of Name.ident * premise list * (comp * comp)
-  | RuleEqTerm of Name.ident * premise list * (comp * comp * comp)
-  | DefMLType of (Name.ty * (Name.ty option list * ml_tydef)) list
-  | DefMLTypeRec of (Name.ty * (Name.ty option list * ml_tydef)) list
-  | DeclOperation of Name.ident * (ml_ty list * ml_ty)
-  | DeclExternal of Name.ident * ml_schema * string
-  | TopHandle of (Name.ident * top_op_case) list
+  | RuleIsType of Name.t * premise list
+  | RuleIsTerm of Name.t * premise list * comp
+  | RuleEqType of Name.t * premise list * (comp * comp)
+  | RuleEqTerm of Name.t * premise list * (comp * comp * comp)
+  | DefMLType of (Name.t * (Name.t option list * ml_tydef)) list
+  | DefMLTypeRec of (Name.t * (Name.t option list * ml_tydef)) list
+  | DeclOperation of Name.t * (ml_ty list * ml_ty)
+  | DeclExternal of Name.t * ml_schema * string
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
   | TopComputation of comp
-  | TopDynamic of Name.ident * arg_annotation * comp
+  | TopDynamic of Name.t * arg_annotation * comp
   | TopNow of comp * comp
   | Verbosity of int
-  | Require of string list
+  | Require of Name.t
+  | TopModule of Name.t * toplevel list

@@ -3,7 +3,7 @@ open Nucleus_types
 let apply_abstraction inst_u sgn abstr e0 =
   match abstr with
   | NotAbstract _ -> Error.raise AbstractionExpected
-  | Abstract (x, t, abstr) ->
+  | Abstract ({atom_type=t;_}, abstr) ->
      begin match Alpha_equal.is_type t (Sanity.type_of_term sgn e0) with
      | false -> Error.raise InvalidSubstitution
      | true ->  Instantiate_bound.abstraction inst_u e0 abstr

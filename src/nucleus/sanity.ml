@@ -32,18 +32,18 @@ let type_of_term sgn = function
 
 let type_at_abstraction = function
   | NotAbstract _ -> None
-  | Abstract (_, t, _) -> Some t
+  | Abstract ({atom_type=t;_}, _) -> Some t
 
 let rec type_of_term_abstraction sgn = function
   | NotAbstract e ->
      let t = type_of_term sgn e in
      Mk.not_abstract t
 
-  | Abstract (x, t, abstr) ->
-     let a, abstr = Unabstract.abstraction Instantiate_bound.is_term x t abstr in
+  | Abstract ({atom_nonce=x; atom_type=t}, abstr) ->
+     let a, abstr = Unabstract.abstraction Instantiate_bound.is_term (Nonce.name x) t abstr in
      let t_abstr = type_of_term_abstraction sgn abstr in
-     let t_abstr = Abstract.abstraction Abstract.is_type a.atom_name t_abstr in
-     Mk.abstract x t t_abstr
+     let t_abstr = Abstract.abstraction Abstract.is_type a.atom_nonce t_abstr in
+     Mk.abstract {atom_nonce=x; atom_type=t} t_abstr
 
 (** [natural_type sgn e] gives the judgment that the natural type [t] of [e] is derivable.
     We maintain the invariant that no further assumptions are needed (apart from those
@@ -74,9 +74,9 @@ let natural_type_eq sgn e =
 
 let rec boundary_abstraction boundary_u = function
   | NotAbstract u -> Mk.not_abstract (boundary_u u)
-  | Abstract (x, t, abstr) ->
+  | Abstract (atm, abstr) ->
      let b = boundary_abstraction boundary_u abstr in
-     Mk.abstract x t b
+     Mk.abstract atm b
 
 let boundary_is_type_abstraction abstr =
   boundary_abstraction (fun _ -> ()) abstr

@@ -1,12 +1,12 @@
 open Nucleus_types
 
 let fresh_atom x t =
-  let x = Name.fresh x in
-  { atom_name = x; atom_type = t }
+  let x = Nonce.create x in
+  { atom_nonce = x; atom_type = t }
 
 let atom a = TermAtom a
 
-let fresh_meta x abstr = { meta_name = Name.fresh_meta x ; meta_type = abstr }
+let fresh_meta x abstr = { meta_nonce = Nonce.create x ; meta_type = abstr }
 let fresh_type_meta = fresh_meta
 let fresh_term_meta = fresh_meta
 let fresh_eq_type_meta = fresh_meta
@@ -40,4 +40,4 @@ let eq_term asmp e1 e2 t = EqTerm (asmp, e1, e2, t)
 
 let not_abstract e = NotAbstract e
 
-let abstract x t abstr = Abstract (x, t, abstr)
+let abstract a abstr = Abstract (a, abstr)

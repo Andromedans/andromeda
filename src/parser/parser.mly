@@ -3,19 +3,22 @@
 %}
 
 (* Infix operations *)
-%token <Name.ident * Location.t> PREFIXOP EQ INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
+%token <Name.t * Location.t> PREFIXOP EQ INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
 
 (* Names and numerals *)
 %token UNDERSCORE
-%token <Name.ident> NAME
+%token <Name.t> NAME
 %token <int> NUMERAL
 
 (* Parentheses & punctuations *)
 %token LPAREN RPAREN
 %token LBRACK RBRACK
 %token LBRACE RBRACE
-%token COLON COMMA COLONGT
+%token COLON COMMA PERIOD COLONGT
 %token ARROW DARROW
+
+(* Modules *)
+%token MODULE STRUCT
 
 (* Things specific to toplevel *)
 %token SEMISEMI
@@ -49,7 +52,7 @@
 %token MLFORALL
 %token OF
 
-(* REFERENCES *)
+(* References *)
 %token BANG COLONEQ REF
 
 (* Functions *)
@@ -82,19 +85,19 @@
 (* Toplevel syntax *)
 
 file:
-  | ds=file_any EOF                 { ds }
+  | ds=ml_module EOF                        { ds }
 
-file_any:
-  |                                      { [] }
-  | c=top_term                           { [c] }
-  | c=top_term SEMISEMI cs=file_any      { c :: cs }
-  | c=top_command SEMISEMI cs=file_any   { c :: cs }
-  | c=top_command cs=file_top            { c :: cs }
+ml_module:
+  |                                         { [] }
+  | c=top_term                              { [c] }
+  | c=top_term SEMISEMI cs=ml_module        { c :: cs }
+  | c=top_command SEMISEMI cs=ml_module     { c :: cs }
+  | c=top_command cs=ml_module_top          { c :: cs }
 
-file_top:
-  |                                      { [] }
-  | c=top_command SEMISEMI cs=file_any   { c :: cs }
-  | c=top_command cs=file_top            { c :: cs }
+ml_module_top:
+  |                                           { [] }
+  | c=top_command SEMISEMI cs=ml_module       { c :: cs }
+  | c=top_command cs=ml_module_top            { c :: cs }
 
 commandline:
   | top_command SEMISEMI? EOF { $1 }
@@ -108,29 +111,31 @@ plain_top_term:
 (* Toplevel commands that need not be preceeded by double semicolon. *)
 top_command: mark_location(plain_top_command) { $1 }
 plain_top_command:
-  | REQUIRE fs=QUOTED_STRING+                         { Require fs }
+  | REQUIRE mdl=module_name                           { Require mdl }
+  | MODULE mdl=module_name EQ STRUCT cmds=ml_module END
+                                                      { TopModule (mdl, cmds) }
   | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
                                                       { TopLetRec lst }
-  | DYNAMIC x=var_name u=dyn_annotation EQ c=term     { TopDynamic (x, u, c) }
+  | DYNAMIC x=ml_name u=dyn_annotation EQ c=term      { TopDynamic (x, u, c) }
   | NOW x=app_term EQ c=term                          { TopNow (x,c) }
   (* | HANDLE lst=top_handler_cases END                  { TopHandle lst } *)
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
-  | OPERATION op=var_name COLON opsig=op_mlsig        { DeclOperation (op, opsig) }
+  | OPERATION op=op_name COLON opsig=op_mlsig         { DeclOperation (op, opsig) }
   | VERBOSITY n=NUMERAL                               { Verbosity n }
-  | EXTERNAL n=var_name COLON sch=ml_schema EQ s=QUOTED_STRING
+  | EXTERNAL n=ml_name COLON sch=ml_schema EQ s=QUOTED_STRING
                                                       { DeclExternal (n, sch, s) }
   | RULE r=plain_rule                                 { r }
 
 plain_rule:
-  | c=var_name ps=premises TYPE
+  | c=tt_name ps=premises TYPE
     { RuleIsType (c, ps) }
-  | c=var_name ps=premises COLON ty=term
+  | c=tt_name ps=premises COLON ty=term
     { RuleIsTerm (c, ps, ty) }
-  | c=var_name ps=premises COLON l=app_term EQEQ r=ty_term
+  | c=tt_name ps=premises COLON l=app_term EQEQ r=ty_term
     { RuleEqType (c, ps, (l, r)) }
-  | c=var_name ps=premises COLON l=app_term EQEQ r=app_term COLON ty=term
+  | c=tt_name ps=premises COLON l=app_term EQEQ r=app_term COLON ty=term
     { RuleEqTerm (c, ps, (l, r, ty)) }
 
 premises:
@@ -139,21 +144,21 @@ premises:
 
 premise: mark_location(plain_premise) { $1 }
 plain_premise:
-  | lctx=local_context VDASH mv=opt_name TYPE             { PremiseIsType (mv, lctx) }
-  | lctx=local_context VDASH mv=opt_name COLON ty=term    { PremiseIsTerm (mv, lctx, ty) }
+  | lctx=local_context VDASH mv=opt_name(tt_name) TYPE             { PremiseIsType (mv, lctx) }
+  | lctx=local_context VDASH mv=opt_name(tt_name) COLON ty=term    { PremiseIsTerm (mv, lctx, ty) }
   | lctx=local_context VDASH l=app_term EQEQ r=ty_term mv=equality_premise_name
     { PremiseEqType (mv, lctx, (l, r)) }
   | lctx=local_context VDASH l=app_term EQEQ r=app_term COLON ty=term mv=equality_premise_name
     { PremiseEqTerm (mv, lctx, (l, r, ty)) }
 
 equality_premise_name:
-  |               { None }
-  | AS x=opt_name { x }
+  |                        { None }
+  | AS x=opt_name(tt_name) { x }
 
 local_context:
-  |                                                 { []  }
-  | x=anon_name COLON a=term                         { [(x, a)] }
-  | x=anon_name COLON a=term COMMA ctx=local_context { (x, a) :: ctx }
+  |                                                           { []  }
+  | x=anon_name(tt_name) COLON a=term                         { [(x, a)] }
+  | x=anon_name(tt_name) COLON a=term COMMA ctx=local_context { (x, a) :: ctx }
 
 (* Main syntax tree *)
 
@@ -165,7 +170,7 @@ plain_term:
                                                                  { LetRec (lst, c) }
   | NOW x=app_term EQ c1=term IN c2=term                         { Now (x,c1,c2) }
   | CURRENT c=term                                               { Current c }
-  | ASSUME x=opt_name COLON t=ty_term IN c=term                  { Assume ((x, t), c) }
+  | ASSUME x=opt_name(ml_name) COLON t=ty_term IN c=term        { Assume ((x, t), c) }
   | MATCH e=term WITH lst=match_cases END                        { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_cases END                     { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                                    { With (h, c) }
@@ -187,7 +192,7 @@ plain_binop_term:
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
   | e1=binop_term oploc=infix e2=binop_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Var op) loc in
+      let op = Location.locate (Name (Name.PName op)) loc in
       Spine (op, [e1; e2])
     }
 
@@ -204,15 +209,15 @@ plain_prefix_term:
   | BANG e=prefix_term                         { Lookup e }
   | oploc=prefix e2=prefix_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Var op) loc in
+      let op = Location.locate (Name (Name.PName op)) loc in
       Spine (op, [e2])
     }
   | NATURAL t=prefix_term                      { Natural t }
   | YIELD e=prefix_term                        { Yield e }
 
-/* simple_term: mark_location(plain_simple_term) { $1 } */
+(* simple_term: mark_location(plain_simple_term) { $1 } *)
 plain_simple_term:
-  | x=var_name                                          { Var x }
+  | x=long(any_name)                                    { Name x }
   | s=QUOTED_STRING                                     { String s }
   | LBRACK lst=list_contents RBRACK                     { List lst }
   | LBRACK RBRACK                                       { List [] }
@@ -225,11 +230,46 @@ list_contents:
   | t=binop_term SEMI?                                 { [t] }
   | t=binop_term SEMI lst=list_contents                { t::lst }
 
-var_name:
+(* ML variable name *)
+ml_name:
   | NAME                     { $1 }
   | LPAREN op=infix RPAREN   { fst op }
   | LPAREN op=prefix RPAREN  { fst op }
 
+(* ML operation name *)
+op_name:
+  | NAME                     { $1 }
+
+(* ML module name *)
+module_name:
+  | NAME                     { $1 }
+
+(* Type theory variable name *)
+tt_name:
+  | NAME                     { $1 }
+  | LPAREN op=infix RPAREN   { fst op }
+  | LPAREN op=prefix RPAREN  { fst op }
+
+(* ML or type theory name *)
+any_name:
+  | tt_name                  { $1 }
+
+(* ML constructor *)
+constr_name:
+  | NAME                     { $1 }
+  | LPAREN op=infix RPAREN   { fst op }
+  | LPAREN op=prefix RPAREN  { fst op }
+
+module_path:
+  | mdl=module_name                         { Name.PName mdl }
+  | pth=module_path PERIOD mdl=module_name  { Name.PModule (pth, mdl) }
+
+(* Possibly a name qualified with a module *)
+%inline long(N):
+  | x=N                              { Name.PName x }
+  | pth=module_path PERIOD x=N       { Name.PModule (pth, x) }
+
+(* Infix operators *)
 %inline infix:
   | op=INFIXCONS   { op }
   | op=EQ          { op }
@@ -240,35 +280,39 @@ var_name:
   | op=STAR        { op }
   | op=INFIXOP4    { op }
 
+(* Prefix operators *)
 %inline prefix:
   | op=PREFIXOP { op }
 
-opt_name:
-  | x=var_name      { Some x }
+(* A name or optionally _ *)
+opt_name(X):
+  | x=X             { Some x }
   | UNDERSCORE      { None }
 
-anon_name:
-  | x=opt_name      { match x with Some x -> x | None -> Name.anonymous () }
+(* A name or _, where _ is represented as an anonymous name *)
+anon_name(X):
+  | x=opt_name(X)   { match x with Some x -> x | None -> Name.anonymous () }
 
 recursive_clause:
-  | f=var_name y=ml_arg ys=ml_arg* u=let_annotation EQ c=term
+  | f=ml_name y=ml_arg ys=ml_arg* u=let_annotation EQ c=term
        { (f, y, ys, u, c) }
 
 let_clause:
-  | x=var_name ys=ml_arg* u=let_annotation EQ c=term
+  | x=ml_name ys=ml_arg* u=let_annotation EQ c=term
        { Let_clause_ML (Some (x, ys), u, c) }
   | UNDERSCORE u=let_annotation EQ c=term
        { Let_clause_ML (None, u, c) }
-  | x=var_name COLON t=app_term EQ c=term
+  | x=ml_name COLON t=app_term EQ c=term
        { Let_clause_tt (Some x, t, c) }
   | UNDERSCORE COLON t=app_term EQ c=term
        { Let_clause_tt (None, t, c) }
   | pt=let_pattern u=let_annotation EQ c=term
        { Let_clause_patt (pt, u, c) }
 
+(* A possibly annotated argument of an ML function *)
 ml_arg:
-  | x=var_name                          { (x, Arg_annot_none) }
-  | LPAREN x=NAME COLONGT t=mlty RPAREN { (x, Arg_annot_ty t) }
+  | x=ml_name                              { (x, Arg_annot_none) }
+  | LPAREN x=ml_name COLONGT t=mlty RPAREN { (x, Arg_annot_ty t) }
 
 let_annotation:
   |                       { Let_annot_none }
@@ -279,8 +323,8 @@ dyn_annotation:
   | COLONGT t=mlty { Arg_annot_ty t }
 
 maybe_typed_binder:
-  | LBRACE xs=anon_name+ RBRACE                     { List.map (fun x -> (x, None)) xs }
-  | LBRACE xs=anon_name+ COLON t=ty_term RBRACE     { List.map (fun x -> (x, Some t)) xs }
+  | LBRACE xs=anon_name(tt_name)+ RBRACE                     { List.map (fun x -> (x, None)) xs }
+  | LBRACE xs=anon_name(tt_name)+ COLON t=ty_term RBRACE     { List.map (fun x -> (x, Some t)) xs }
 
 abstraction:
   | lst=nonempty_list(maybe_typed_binder)          { List.concat lst }
@@ -293,45 +337,13 @@ handler_cases:
   | lst=separated_list(BAR, handler_case)               { lst }
 
 handler_case:
-  | VAL c=match_case DARROW t=term                                      { CaseVal c }
-  | op=var_name ps=prefix_pattern* pt=handler_checking DARROW t=term    { CaseOp (op, (ps, pt, t)) }
-  | oploc=prefix p=prefix_pattern pt=handler_checking DARROW t=term
-      { let (op, _) = oploc in
-        CaseOp (op, ([p], pt, t))
-      }
-  | p1=binop_pattern oploc=infix p2=binop_pattern pt=handler_checking DARROW t=term
-    { let (op, _) = oploc in
-      CaseOp (op, ([p1; p2], pt, t))
-    }
-  | FINALLY c=match_case                                                { CaseFinally c }
+  | VAL c=match_case DARROW t=term                                        { CaseVal c }
+  | op=long(op_name) ps=prefix_pattern* pt=handler_checking DARROW t=term { CaseOp (op, (ps, pt, t)) }
+  | FINALLY c=match_case                                                  { CaseFinally c }
 
 handler_checking:
   |                     { None }
   | COLON pt=tt_pattern { Some pt }
-
-(* top_handler_cases:
- *   | BAR lst=separated_nonempty_list(BAR, top_handler_case)  { lst }
- *   | lst=separated_list(BAR, top_handler_case)               { lst }
- *
- * (\* XXX allow patterns here *\)
- * top_handler_case:
- *   | op=var_name xs=top_patt_maybe_var* y=top_handler_checking DARROW t=term
- *     { (op, (xs, y, t)) }
- *   | oploc=prefix x=top_patt_maybe_var y=top_handler_checking DARROW t=term
- *     { let (op, _) = oploc in
- *       (op, ([x], y, t))
- *     }
- *   | x1=top_patt_maybe_var oploc=infix x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
- *     { let (op, _) = oploc in
- *       (op, ([x1;x2], y, t)) }
- *
- * top_patt_maybe_var:
- *   | x=var_name                   { Some x }
- *   | UNDERSCORE                   { None }
- *
- * top_handler_checking:
- *   |                            { None }
- *   | COLON x=top_patt_maybe_var { x } *)
 
 match_cases:
   | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }
@@ -357,26 +369,26 @@ plain_binop_pattern:
   | e=plain_app_pattern                                { e }
   | e1=binop_pattern oploc=infix e2=binop_pattern
     { let (op, _) = oploc in
-      Patt_Constr (op, [e1; e2])
+      Patt_Constructor (Name.PName op, [e1; e2])
     }
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
 plain_app_pattern:
-  | e=plain_prefix_pattern                    { e }
-  | t=var_name ps=prefix_pattern+             { Patt_Constr (t, ps) }
+  | e=plain_prefix_pattern                          { e }
+  | t=long(constr_name) ps=prefix_pattern+          { Patt_Constructor (t, ps) }
 
 prefix_pattern: mark_location(plain_prefix_pattern) { $1 }
 plain_prefix_pattern:
   | e=plain_simple_pattern            { e }
   | oploc=prefix e=prefix_pattern
     { let (op, _) = oploc in
-      Patt_Constr (op, [e])
+      Patt_Constructor (Name.PName op, [e])
     }
 
 (* simple_pattern: mark_location(plain_simple_pattern) { $1 } *)
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
-  | x=var_name                     { Patt_Var x }
+  | x=long(ml_name)                { Patt_Name x }
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
       | [{Location.thing=p;loc=_}] -> p
@@ -405,13 +417,13 @@ plain_binop_tt_pattern:
   | p=plain_app_tt_pattern                        { p }
   | e1=binop_tt_pattern oploc=infix e2=binop_tt_pattern
     { let (op, _loc) = oploc in
-      Patt_TT_Constructor (op, [e1; e2])
+      Patt_TT_Constructor (Name.PName op, [e1; e2])
     }
 
 (* app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 } *)
 plain_app_tt_pattern:
-  | p=plain_prefix_tt_pattern                       { p }
-  | c=var_name ps=nonempty_list(prefix_tt_pattern)  { Patt_TT_Constructor (c, ps) }
+  | p=plain_prefix_tt_pattern                             { p }
+  | c=long(tt_name) ps=nonempty_list(prefix_tt_pattern)   { Patt_TT_Constructor (c, ps) }
 
 prefix_tt_pattern: op=mark_location(plain_prefix_tt_pattern) { op }
 plain_prefix_tt_pattern:
@@ -419,18 +431,14 @@ plain_prefix_tt_pattern:
   | UATOM p=prefix_tt_pattern        { Patt_TT_GenAtom p }
   | oploc=prefix e=prefix_tt_pattern
     { let (op, _loc) = oploc in
-      Patt_TT_Constructor (op, [e])
+      Patt_TT_Constructor (Name.PName op, [e])
     }
 
 (* simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 } *)
 plain_simple_tt_pattern:
   | UNDERSCORE                        { Patt_TT_Anonymous }
-  | x=var_name                        { Patt_TT_Var x }
+  | x=tt_name                         { Patt_TT_Name x }
   | LPAREN p=plain_abstracted_tt_pattern RPAREN  { p }
-
-tt_name:
-  | UNDERSCORE       { None }
-  | x=var_name       { Some x }
 
 let_pattern: mark_location(plain_let_pattern) { $1 }
 plain_let_pattern:
@@ -444,14 +452,12 @@ plain_let_pattern:
 
 
 tt_maybe_typed_binder:
-  | LBRACE xs=tt_name+ RBRACE                            { List.map (fun x -> (x, None)) xs }
-  | LBRACE xs=tt_name+ COLON t=tt_pattern RBRACE         { List.map (fun x -> (x, Some t)) xs }
+  | LBRACE xs=opt_name(tt_name)+ RBRACE                            { List.map (fun x -> (x, None)) xs }
+  | LBRACE xs=opt_name(tt_name)+ COLON t=tt_pattern RBRACE         { List.map (fun x -> (x, Some t)) xs }
 
 tt_abstraction:
   | lst=nonempty_list(tt_maybe_typed_binder)
     { List.concat lst }
-
-(***)
 
 (* ML types *)
 
@@ -464,8 +470,8 @@ op_mlsig:
 
 ml_schema: mark_location(plain_ml_schema)  { $1 }
 plain_ml_schema:
-  | MLFORALL params=opt_name+ COMMA t=mlty { ML_Forall (params, t) }
-  | t=mlty                                 { ML_Forall ([], t) }
+  | MLFORALL params=opt_name(ml_name)+ COMMA t=mlty { ML_Forall (params, t) }
+  | t=mlty                                           { ML_Forall ([], t) }
 
 mlty: mark_location(plain_mlty) { $1 }
 plain_mlty:
@@ -484,15 +490,15 @@ plain_prod_mlty:
 
 app_mlty: mark_location(plain_app_mlty) { $1 }
 plain_app_mlty:
-  | plain_simple_mlty                          { $1 }
-  | REF t=simple_mlty                          { ML_Ref t }
-  | DYNAMIC t=simple_mlty                      { ML_Dynamic t }
-  | c=var_name args=nonempty_list(simple_mlty) { ML_TyApply (c, args) }
+  | plain_simple_mlty                                { $1 }
+  | REF t=simple_mlty                                { ML_Ref t }
+  | DYNAMIC t=simple_mlty                            { ML_Dynamic t }
+  | c=long(ml_name) args=nonempty_list(simple_mlty) { ML_TyApply (c, args) }
 
 simple_mlty: mark_location(plain_simple_mlty) { $1 }
 plain_simple_mlty:
   | LPAREN t=plain_mlty RPAREN          { t }
-  | c=var_name                          { ML_TyApply (c, []) }
+  | c=long(ml_name)                    { ML_TyApply (c, []) }
   | abstr=mlty_abstracted_judgement     { ML_Judgement abstr }
   | MLUNIT                              { ML_Prod [] }
   | MLSTRING                            { ML_String }
@@ -512,7 +518,7 @@ mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def) { lst }
 
 mlty_def:
-  | a=var_name xs=list(opt_name) EQ body=mlty_def_body { (a, (xs, body)) }
+  | a=ml_name xs=list(opt_name(ml_name)) EQ body=mlty_def_body { (a, (xs, body)) }
 
 mlty_def_body:
   | t=mlty                                                           { ML_Alias t }
@@ -520,8 +526,8 @@ mlty_def_body:
   | BAR lst=separated_list(BAR, mlty_constructor)                    { ML_Sum lst }
 
 mlty_constructor:
-  | c=var_name OF lst=separated_nonempty_list(WITH, mlty)            { (c, lst) }
-  | c=var_name                                                       { (c, []) }
+  | c=constr_name OF lst=separated_nonempty_list(WITH, mlty)         { (c, lst) }
+  | c=constr_name                                                    { (c, []) }
 
 mark_location(X):
   x=X

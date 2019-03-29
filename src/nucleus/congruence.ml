@@ -8,7 +8,7 @@ let process_congruence_args args =
     match t1, t2, eq with
     | NotAbstract t1, NotAbstract t2, NotAbstract eq ->
        if not (check t1 t2 eq) then Error.raise InvalidCongruence
-    | Abstract (_x1, u1, t1), Abstract (_x2, u2, t2), Abstract (_x', u', eq) ->
+    | Abstract ({atom_type=u1;_}, t1), Abstract ({atom_type=u2;_}, t2), Abstract ({atom_type=u';_}, eq) ->
        if Alpha_equal.is_type u1 u' || Alpha_equal.is_type u2 u' then
          check_endpoints check t1 t2 eq
        else

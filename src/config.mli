@@ -32,5 +32,8 @@ val max_boxes : int ref
 (** The maximum number of characters that will be printed on one line *)
 val columns : int ref
 
+(** The list of folders in which to look for required modules *)
+val require_dirs : string list ref
+
 (** Should JSON format print locations? *)
 val json_location : bool ref

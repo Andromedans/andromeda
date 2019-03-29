@@ -59,39 +59,39 @@ val binder : t (* The type inside a binder *)
 (** A judgement [ctx |- e : t] *)
 val jdg : t
 
-(** AML product type *)
+(** ML product type *)
 val ml_prod : t
 
-(** AML product type, arguments *)
+(** ML product type, arguments *)
 val ml_prod_arg : t
 
-(** AML type arrow *)
+(** ML type arrow *)
 val ml_arr : t
 
-(** AML type arrow, left argument *)
+(** ML type arrow, left argument *)
 val ml_arr_left : t
 
-(** AML type arrow, right argument*)
+(** ML type arrow, right argument*)
 val ml_arr_right : t
 
-(** AML handler *)
+(** ML handler *)
 val ml_handler : t
 
-(** AML handler, left argument *)
+(** ML handler, left argument *)
 val ml_handler_left : t
 
-(** AML handler, righ argument*)
+(** ML handler, righ argument*)
 val ml_handler_right : t
 
-(** AML tag *)
+(** ML tag *)
 val ml_tag : t
 val ml_tag_arg : t
 
-(** AML type application *)
+(** ML type application *)
 val ml_app : t
 val ml_app_arg : t
 
-(** AML operation *)
+(** ML operation *)
 val ml_operation : t
 val ml_operation_arg : t
 

@@ -5,6 +5,8 @@ DIFF=`which diff`
 FIND=`which find`
 PRINTF=`which printf`
 
+FLAGS="--no-prelude"
+
 VALDIFF=$(which colordiff || which diff)
 
 cd "$BASEDIR"
@@ -60,7 +62,7 @@ for FILE in $FILES
 do
     while :
     do
-        "$ANDROMEDA" "$FILE" >"$FILE.out" 2>&1
+        "$ANDROMEDA" $FLAGS "$FILE" >"$FILE.out" 2>&1
         if [ -f $FILE.ref ]
         then
             RESULT=`"$DIFF" "$FILE.ref" "$FILE.out"`

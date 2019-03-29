@@ -13,12 +13,15 @@ let as_atom ~loc v =
     | Nucleus.(Stump_TermConstructor _ | Stump_TermMeta _ | Stump_TermConvert _) ->
        Runtime.(error ~loc (ExpectedAtom j))
 
+let mlfalse, _, _ = Typecheck.Builtin.mlfalse
+let mltrue, _, _ = Typecheck.Builtin.mltrue
+
 let as_bool ~loc v =
   match v with
   | Runtime.Tag (l, []) ->
-     if Name.eq_ident l Name.Predefined.mlfalse then
+     if Runtime.equal_tag l mlfalse then
        return false
-     else if Name.eq_ident l Name.Predefined.mltrue then
+     else if Runtime.equal_tag l mltrue then
        return true
      else
      Runtime.(error ~loc (BoolExpected v))
@@ -47,16 +50,19 @@ let as_dyn ~loc v =
 let rec infer {Location.thing=c'; loc} =
   match c' with
     | Rsyntax.Bound i ->
-       Runtime.lookup_bound ~loc i
+       Runtime.lookup_bound i
 
-    | Rsyntax.Function (_, c) ->
+    | Rsyntax.Value pth ->
+       Runtime.lookup_ml_value pth
+
+    | Rsyntax.Function c ->
        let f v =
          Runtime.add_bound v
            (infer c)
        in
        Runtime.return_closure f
 
-    | Rsyntax.AMLConstructor (t, cs) ->
+    | Rsyntax.MLConstructor (t, cs) ->
        let rec fold vs = function
          | [] ->
             let vs = List.rev vs in
@@ -115,7 +121,7 @@ let rec infer {Location.thing=c'; loc} =
             in
             Some f
           end
-        and handler_ops = Name.IdentMap.mapi (fun op cases ->
+        and handler_ops = Ident.mapi (fun op cases ->
             let f {Runtime.args=vs;checking} =
               match_op_cases ~loc op cases vs checking
             in
@@ -207,7 +213,7 @@ let rec infer {Location.thing=c'; loc} =
      check_is_type u >>= fun u ->
      Runtime.add_free x u
        (fun a ->
-         Predefined.add_abstracting
+         Reflect.add_abstracting
            (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a))
            begin infer c >>=
              function
@@ -301,7 +307,7 @@ let rec infer {Location.thing=c'; loc} =
 
   | Rsyntax.Yield c ->
     infer c >>= fun v ->
-    Runtime.continue ~loc v
+    Runtime.continue v
 
   | Rsyntax.Apply (c1, c2) ->
     infer c1 >>= begin function
@@ -339,7 +345,7 @@ let rec infer {Location.thing=c'; loc} =
     let xts = Nucleus.context_is_term_abstraction j in
     let js = List.map (fun j -> Runtime.mk_is_term
                           (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom j))) xts in
-    return (Predefined.mk_list js)
+    return (Reflect.mk_list js)
 
   | Rsyntax.Natural c ->
     check_is_term c >>= fun j ->
@@ -368,9 +374,9 @@ and occurs
   | true ->
      let t = Nucleus.type_of_atom a in
      let t = Runtime.mk_is_type (Nucleus.abstract_not_abstract t) in
-     return (Predefined.from_option (Some t))
+     return (Reflect.mk_option (Some t))
   | false ->
-     return (Predefined.from_option None)
+     return (Reflect.mk_option None)
   end
 
 and check_default ~loc v t_check =
@@ -398,10 +404,11 @@ and check ({Location.thing=c';loc} as c) t_check =
 
   (* for these we switch to infer mode *)
   | Rsyntax.Bound _
+  | Rsyntax.Value _
   | Rsyntax.Function _
   | Rsyntax.Handler _
   | Rsyntax.Ascribe _
-  | Rsyntax.AMLConstructor _
+  | Rsyntax.MLConstructor _
   | Rsyntax.IsTypeConstructor _
   | Rsyntax.IsTermConstructor _
   | Rsyntax.EqTypeConstructor _
@@ -473,7 +480,7 @@ and check ({Location.thing=c';loc} as c) t_check =
 
 (** Check that the abstraction [Abstract(x, uopt, c)] has type [t_check]. *)
 and check_abstract ~loc t_check x uopt c =
-  match Nucleus.invert_is_type_abstraction ~atom_name:x t_check with
+  match Nucleus.invert_is_type_abstraction ~name:x t_check with
 
   | Nucleus.Stump_NotAbstract t ->
      Runtime.(error ~loc (UnexpectedAbstraction t))
@@ -540,7 +547,7 @@ and let_bind
        List.fold_left
          (List.fold_left (fun cmp u -> Runtime.add_bound u cmp))
          cmp uss
-    | Rsyntax.Let_clause (xs, pt, c) :: clauses ->
+    | Rsyntax.Let_clause (pt, c) :: clauses ->
        infer c >>= fun v ->
        Matching.match_pattern pt v >>= begin function
         | Some us -> fold (us :: uss) clauses
@@ -555,7 +562,7 @@ and letrec_bind
   = fun fxcs ->
   let gs =
     List.map
-      (fun (Rsyntax.Letrec_clause (_, _, _, c)) -> (fun v -> Runtime.add_bound v (infer c)))
+      (fun (Rsyntax.Letrec_clause c) -> (fun v -> Runtime.add_bound v (infer c)))
       fxcs
   in
   Runtime.add_bound_rec gs
@@ -596,7 +603,7 @@ and match_op_cases ~loc op cases vs checking =
   let rec fold = function
     | [] ->
       Runtime.operation op ?checking vs >>= fun v ->
-      Runtime.continue ~loc v
+      Runtime.continue v
     | (ps, ptopt, c) :: cases ->
       Matching.match_op_pattern ~loc ps ptopt vs checking >>=
         begin function
@@ -632,28 +639,9 @@ and check_bool c =
 
 (** Move to toplevel monad *)
 
-(* comp_value: 'a Rsyntax.comp -> Runtime.value Runtime.toplevel *)
 let comp_value c =
   let r = infer c in
   Runtime.top_handle ~loc:c.Location.loc r
-
-let comp_handle (xs,y,c) =
-  Runtime.top_return_closure (fun (vs,checking) ->
-      let rec bind = function
-        | [] ->
-           begin match y with
-           | Some _ ->
-              let checking = match checking with
-                | Some jt -> Some (Runtime.mk_is_type jt)
-                | None -> None
-              in
-              let vy = Predefined.from_option checking in
-              Runtime.add_bound vy (infer c)
-           | None -> infer c
-           end
-        | v::vs -> Runtime.add_bound v (bind vs)
-      in
-      bind vs)
 
 (** Evaluation of rules *)
 
@@ -668,7 +656,7 @@ let local_context abstr_u lctx cmp =
        check_is_type c >>= fun t ->
        Runtime.add_free x t
          (fun a ->
-            Predefined.add_abstracting
+            Reflect.add_abstracting
               (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a))
               (fold lctx >>= fun abstr ->
                return (abstr_u a abstr)
@@ -703,7 +691,7 @@ let premise {Location.thing=prem;_} =
        let x = (match xopt with Some x -> x | None -> Name.anonymous ()) in
        let mv = Nucleus.fresh_is_type_meta x abstr in
        let v = Runtime.mk_is_type (Nucleus.is_type_meta_eta_expanded sgn mv) in
-       return ((Nucleus.meta_name mv, Nucleus.BoundaryIsType abstr), Some v)
+       return ((Nucleus.meta_nonce mv, Nucleus.BoundaryIsType abstr), Some v)
 
     | Rsyntax.PremiseIsTerm (xopt, lctx, c) ->
        local_context
@@ -715,7 +703,7 @@ let premise {Location.thing=prem;_} =
        let x = (match xopt with Some x -> x | None -> Name.anonymous ()) in
        let mv = Nucleus.fresh_is_term_meta x abstr in
        let v = Runtime.mk_is_term (Nucleus.is_term_meta_eta_expanded sgn mv) in
-       return ((Nucleus.meta_name mv, Nucleus.BoundaryIsTerm abstr), Some v)
+       return ((Nucleus.meta_nonce mv, Nucleus.BoundaryIsTerm abstr), Some v)
 
 
     | Rsyntax.PremiseEqType (x, lctx, boundary) ->
@@ -725,18 +713,18 @@ let premise {Location.thing=prem;_} =
          (check_eq_type_boundary boundary)
        >>= fun abstr ->
        Runtime.lookup_signature >>= fun sgn ->
-       let (mv_name, v) =
+       let (mv, v) =
          begin match x with
          | None ->
             let x = Name.anonymous () in
             let mv = Nucleus.fresh_eq_type_meta x abstr in
-            (Nucleus.meta_name mv, None)
+            (mv, None)
          | Some x ->
             let mv = Nucleus.fresh_eq_type_meta x abstr in
             let v = Runtime.mk_eq_type (Nucleus.eq_type_meta_eta_expanded sgn mv) in
-            (Nucleus.meta_name mv, Some v)
+            (mv, Some v)
          end in
-       return ((mv_name, Nucleus.BoundaryEqType abstr), v)
+       return ((Nucleus.meta_nonce mv, Nucleus.BoundaryEqType abstr), v)
 
     | Rsyntax.PremiseEqTerm (x, lctx, boundary) ->
        local_context
@@ -745,18 +733,18 @@ let premise {Location.thing=prem;_} =
          (check_eq_term_boundary boundary)
        >>= fun abstr ->
        Runtime.lookup_signature >>= fun sgn ->
-       let (mv_name, v) =
+       let (mv, v) =
          begin match x with
          | None ->
             let x = Name.anonymous () in
             let mv = Nucleus.fresh_eq_term_meta x abstr in
-            (Nucleus.meta_name mv, None)
+            (mv, None)
          | Some x ->
             let mv = Nucleus.fresh_eq_term_meta x abstr in
             let v = Runtime.mk_eq_term (Nucleus.eq_term_meta_eta_expanded sgn mv) in
-            (Nucleus.meta_name mv, Some v)
+            (mv, Some v)
          end in
-       return ((mv_name, Nucleus.BoundaryEqTerm abstr), v)
+       return ((Nucleus.meta_nonce mv, Nucleus.BoundaryEqTerm abstr), v)
 
 (** Evaluate the premises (should we call them arguments?) of a rule,
     bind them to meta-variables, then evaluate the conclusion [cmp].
@@ -771,8 +759,8 @@ let premises prems cmp =
        return (prems_out, v)
 
     | prem :: prems ->
-       premise prem >>= fun ((x_boundary), vopt) ->
-       let cmp = (fold (x_boundary :: prems_out) prems) in
+       premise prem >>= fun (x_boundary, vopt) ->
+       let cmp = fold (x_boundary :: prems_out) prems in
        match vopt with
        | None -> cmp
        | Some v -> Runtime.add_bound v cmp
@@ -785,16 +773,16 @@ let premises prems cmp =
 let (>>=) = Runtime.top_bind
 let return = Runtime.top_return
 
-let toplet_bind ~loc ~quiet ~print_annot clauses =
+let toplet_bind ~loc ~quiet ~print_annot info clauses =
   let rec fold uss = function
     | [] ->
        (* parallel let: only bind at the end *)
        List.fold_left
-         (List.fold_left (fun cmp u -> Runtime.add_topbound u >>= fun () -> cmp))
+         (List.fold_left (fun cmp u -> Runtime.add_ml_value u >>= fun () -> cmp))
          (return uss)
          uss
 
-    | Rsyntax.Let_clause (_, pt, c) :: clauses ->
+    | Rsyntax.Let_clause (pt, c) :: clauses ->
        comp_value c >>= fun v ->
        Matching.top_match_pattern pt v >>= begin function
         | None -> Runtime.error ~loc (Runtime.MatchFail v)
@@ -808,73 +796,81 @@ let toplet_bind ~loc ~quiet ~print_annot clauses =
       begin
         let vss = List.rev (List.map List.rev uss) in
         List.iter2
-          (fun (Rsyntax.Let_clause (xts, _, _)) vs ->
+          (fun xts xvs ->
             List.iter2
-              (fun (x, sch) v -> Format.printf "@[<hov 2>val %t :>@ %t@ =@ %t@]@."
-                                   (Name.print_ident x)
-                                   (print_annot sch)
-                                   (Runtime.print_value ~names v))
-              xts vs)
-          clauses vss
+              (fun (x, sch) v ->
+                Format.printf "@[<hov 2>val %t :>@ %t@ =@ %t@]@."
+                              (Name.print x)
+                              (print_annot sch)
+                              (Runtime.print_value ~names v))
+              xts xvs)
+          info vss
        end ;
     return ()
 
-let topletrec_bind ~loc ~quiet ~print_annot fxcs =
+let topletrec_bind ~loc ~quiet ~print_annot info fxcs =
   let gs =
     List.map
-      (fun (Rsyntax.Letrec_clause (_, _, _, c)) v -> Runtime.add_bound v (infer c))
+      (fun (Rsyntax.Letrec_clause c) v -> Runtime.add_bound v (infer c))
       fxcs
   in
-  Runtime.add_topbound_rec gs >>= fun () ->
+  Runtime.add_ml_value_rec gs >>= fun () ->
   if not quiet then
     (List.iter
-      (fun (Rsyntax.Letrec_clause (f, _, annot, _)) ->
+      (fun (f, annot) ->
         Format.printf "@[<hov 2>val %t :>@ %t@]@."
-                      (Name.print_ident f)
+                      (Name.print f)
                       (print_annot annot))
-      fxcs) ;
+      info) ;
   return ()
 
 let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   match c with
 
   | Rsyntax.RuleIsType (x, prems) ->
-     let r = premises prems (Runtime.return ()) in
-     Runtime.top_handle ~loc r >>= fun (premises, ()) ->
-     let rule = Nucleus.form_rule_is_type premises in
-     Runtime.add_rule_is_type x rule
+     Runtime.top_handle ~loc (premises prems (Runtime.return ())) >>=
+       fun (premises, ()) ->
+       let rule = Nucleus.form_rule_is_type premises in
+       (if not quiet then
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+       Runtime.add_rule_is_type x rule
 
   | Rsyntax.RuleIsTerm (x, prems, c) ->
-     let r = premises prems (check_is_type c) in
-     Runtime.top_handle ~loc r >>= fun (premises, head) ->
-     let rule = Nucleus.form_rule_is_term premises head in
-     Runtime.add_rule_is_term x rule
+     Runtime.top_handle ~loc (premises prems (check_is_type c)) >>=
+       fun (premises, head) ->
+       let rule = Nucleus.form_rule_is_term premises head in
+       (if not quiet then
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+       Runtime.add_rule_is_term x rule
 
   | Rsyntax.RuleEqType (x, prems, boundary) ->
-     let r = premises prems (check_eq_type_boundary boundary) in
-     Runtime.top_handle ~loc r >>= fun (premises, head) ->
-     let rule = Nucleus.form_rule_eq_type premises head in
-     Runtime.add_rule_eq_type x rule
+     Runtime.top_handle ~loc (premises prems (check_eq_type_boundary boundary)) >>=
+       fun (premises, head) ->
+       let rule = Nucleus.form_rule_eq_type premises head in
+       (if not quiet then
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+       Runtime.add_rule_eq_type x rule
 
   | Rsyntax.RuleEqTerm (x, prems, boundary) ->
-     let r = premises prems (check_eq_term_boundary boundary) in
-     Runtime.top_handle ~loc r >>= fun (premises, head) ->
-     let rule = Nucleus.form_rule_eq_term premises head in
-     Runtime.add_rule_eq_term x rule
+     Runtime.top_handle ~loc (premises prems (check_eq_term_boundary boundary)) >>=
+       fun (premises, head) ->
+       let rule = Nucleus.form_rule_eq_term premises head in
+       (if not quiet then
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+       Runtime.add_rule_eq_term x rule
 
   | Rsyntax.DefMLType lst
-
-    | Rsyntax.DefMLTypeRec lst ->
+  | Rsyntax.DefMLTypeRec lst ->
      (if not quiet then
         Format.printf "@[<hov 2>ML type%s %t declared.@]@."
           (match lst with [_] -> "" | _ -> "s")
-          (Print.sequence (fun (t,_) -> Name.print_ident t) "," lst)) ;
+          (Print.sequence (Path.print ~parentheses:true) "," lst)) ;
      return ()
 
-  | Rsyntax.DeclOperation (x, k) ->
+  | Rsyntax.DeclOperation (op, k) ->
      (if not quiet then
         Format.printf "@[<hov 2>Operation %t is declared.@]@."
-          (Name.print_ident x)) ;
+          (Path.print ~parentheses:true op)) ;
      return ()
 
   | Rsyntax.DeclExternal (x, sch, s) ->
@@ -882,27 +878,22 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
        match External.lookup s with
        | None -> Runtime.error ~loc (Runtime.UnknownExternal s)
        | Some v ->
-          Runtime.add_topbound v >>= (fun () ->
+          Runtime.add_ml_value v >>= (fun () ->
            if not quiet then
              Format.printf "@[<hov 2>external %t :@ %t = \"%s\"@]@."
-               (Name.print_ident x)
+               (Name.print x)
                (print_annot () sch)
                s ;
            return ())
      end
 
-  | Rsyntax.TopHandle lst ->
-     Runtime.top_fold (fun () (op, xc) ->
-         comp_handle xc >>= fun f ->
-         Runtime.add_handle op f) () lst
-
-  | Rsyntax.TopLet clauses ->
+  | Rsyntax.TopLet (info, clauses) ->
      let print_annot = print_annot () in
-     toplet_bind ~loc ~quiet ~print_annot clauses
+     toplet_bind ~loc ~quiet ~print_annot info clauses
 
-  | Rsyntax.TopLetRec fxcs ->
+  | Rsyntax.TopLetRec (info, fxcs) ->
      let print_annot = print_annot () in
-     topletrec_bind ~loc ~quiet ~print_annot fxcs
+     topletrec_bind ~loc ~quiet ~print_annot info fxcs
 
   | Rsyntax.TopComputation (c, sch) ->
      comp_value c >>= fun v ->
@@ -915,7 +906,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
   | Rsyntax.TopDynamic (x, annot, c) ->
      comp_value c >>= fun v ->
-     Runtime.add_dynamic ~loc x v
+     Runtime.add_dynamic x v
 
   | Rsyntax.TopNow (x,c) ->
      let xloc = x.Location.loc in
@@ -924,12 +915,13 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      comp_value c >>= fun v ->
      Runtime.top_now x v
 
-  | Rsyntax.Included lst ->
-     Runtime.top_fold (fun () (fn, cmds) ->
-         (if not quiet then Format.printf "@[<hov 2>Including %s@]@." fn);
-         Runtime.top_fold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
-         (if not quiet then Format.printf "@[<hov 2>Included %s@]@." fn);
-         return ())
-       () lst
+  | Rsyntax.MLModule (mdl_name, cmds) ->
+     if not quiet then Format.printf "@[<hov 2>Processing module %t@]@." (Name.print mdl_name) ;
+     Runtime.as_ml_module (toplevels ~quiet ~print_annot cmds)
 
   | Rsyntax.Verbosity i -> Config.verbosity := i; return ()
+
+and toplevels ~quiet ~print_annot =
+  Runtime.top_fold
+    (fun () -> toplevel ~quiet ~print_annot)
+    ()

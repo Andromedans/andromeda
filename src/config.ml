@@ -20,3 +20,5 @@ let max_boxes = ref 42
 let json_location = ref false
 
 let columns = ref (Format.get_margin ())
+
+let require_dirs = ref []

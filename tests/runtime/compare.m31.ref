@@ -1,9 +1,11 @@
-- : mlorder = mlless
-- : mlorder = mlless
-- : mlorder = mlgreater
-- : mlorder = mlless
-- : mlorder = mlgreater
-- : mlorder = mlgreater
+Processing module C
+external compare : mlforall α, α → α → ML.order = "compare"
+- : ML.order = ML.less
+- : ML.order = ML.less
+- : ML.order = ML.greater
+- : ML.order = ML.less
+- : ML.order = ML.greater
+- : ML.order = ML.greater
 - : mlstring = "a"
 - : mlstring = "b"
 - : mlstring = "c"

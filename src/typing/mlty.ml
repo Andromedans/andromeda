@@ -55,7 +55,7 @@ type ty =
   | Prod of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
-  | App of Name.ident * Dsyntax.level * ty list
+  | Apply of Path.t * ty list
   | Ref of ty
   | Dynamic of ty
 
@@ -71,16 +71,15 @@ let unit_ty = Prod []
 
 let fresh_type () = Meta (fresh_meta ())
 
+
 (** Type parameters are generalised in the following values. *)
 type 'a forall = param list * 'a
 
 type ty_schema = ty forall
 
-type aml_constructor = Name.constructor * ty list
-
 type ty_def =
   | Alias of ty forall
-  | Sum of aml_constructor list forall
+  | Sum of (Ident.t * ty list) list forall
 
 type error =
   | InvalidApplication of ty * ty * ty
@@ -186,12 +185,12 @@ let rec print_ty ~penv ?max_level t ppf =
                  (Print.char_darrow ())
                  (print_ty ~penv ~max_level:(Level.ml_handler_right) t2)
 
-  | App (x, _, []) ->
-     Format.fprintf ppf "%t" (Name.print_ident x)
+  | Apply (pth, []) ->
+     Format.fprintf ppf "%t" (Path.print ~parentheses:true pth)
 
-  | App (x, _, ts) ->
+  | Apply (pth, ts) ->
      Print.print ?max_level ~at_level:Level.ml_app ppf "%t@ %t"
-                 (Name.print_ident x)
+                 (Path.print ~parentheses:true pth)
                  (Print.sequence (print_ty ~penv ~max_level:Level.ml_app_arg) "" ts)
 
   | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "ref@ %t"
@@ -271,16 +270,14 @@ let print_error err ppf =
 let rec occurs m = function
   | Judgement _ | String | Param _ -> false
   | Meta m' -> eq_meta m m'
-  | Prod ts  | App (_, _, ts) ->
-    List.exists (occurs m) ts
-  | Arrow (t1, t2) | Handler (t1, t2) ->
-    occurs m t1 || occurs m t2
+  | Prod ts  | Apply (_, ts) -> List.exists (occurs m) ts
+  | Arrow (t1, t2) | Handler (t1, t2) -> occurs m t1 || occurs m t2
   | Ref t | Dynamic t -> occurs m t
 
 let rec occuring = function
   | Judgement _ | String | Param _ -> MetaSet.empty
   | Meta m -> MetaSet.singleton m
-  | Prod ts  | App (_, _, ts) ->
+  | Prod ts  | Apply (_, ts) ->
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
   | Arrow (t1, t2) | Handler (t1, t2) ->
     MetaSet.union (occuring t1) (occuring t2)
@@ -315,9 +312,9 @@ let instantiate pus t =
        and t2 = inst t2 in
        Handler (t1, t2)
 
-    | App (x, lvl, ts) ->
+    | Apply (pth, ts) ->
        let ts = List.map inst ts in
-       App (x, lvl, ts)
+       Apply (pth, ts)
 
     | Ref t ->
        let t = inst t in
@@ -334,7 +331,7 @@ let params_occur ps t =
   let rec occurs = function
   | Judgement _ | String | Meta _ -> false
   | Param p -> List.mem p ps
-  | Prod ts  | App (_, _, ts) ->
+  | Prod ts  | Apply (_, ts) ->
     List.exists occurs ts
   | Arrow (t1, t2) | Handler (t1, t2) ->
     occurs t1 || occurs t2

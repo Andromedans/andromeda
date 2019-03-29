@@ -1,34 +1,58 @@
-(** Runtime syntax *)
+(** Runtime syntax, suitable for evaluation. *)
 
-(** Bound variables are de Bruijn indices *)
-type bound = int
+type ml_constructor = Ident.t
 
-(** AML type declarations are referred to by de Bruijn levels *)
-type level = int
+(** An operation is referred to by a unique identifier *)
+type operation = Ident.t
 
+(** A TT constructor is referred to by a unique identifier *)
+type tt_constructor = Ident.t
+
+(** Runtime code keeps around locations of the source code that it was generated
+    from, so that we can print informative runtime error messages. *)
 type 'a located = 'a Location.located
 
-type ml_ty = Mlty.ty
+module Pattern :
+sig
+(** Judgement pattern. *)
+  type judgement = judgement' located
+  and judgement' =
+    | TTAnonymous
+    | TTVar
+    | TTAs of judgement * judgement
+    | TTConstructor of tt_constructor * argument list
+    | TTGenAtom of is_term
+    | TTIsType of is_type
+    | TTIsTerm of is_term * is_type
+    | TTEqType of is_type * is_type
+    | TTEqTerm of is_term * is_term * is_type
+    | TTAbstract of Name.t option * is_type * judgement
 
-type ml_schema = Mlty.ty_schema
+  and is_type = judgement
+  and is_term = judgement
+  and argument = judgement
 
-type arg_annotation =
-  | Arg_annot_none
-  | Arg_annot_ty of ml_ty
-
-type let_annotation =
-  | Let_annot_none
-  | Let_annot_schema of ml_schema
+  (** ML pattern *)
+  type aml = aml' located
+  and aml' =
+    | Anonymous
+    | Var
+    | As of aml * aml
+    | Judgement of judgement
+    | MLConstructor of ml_constructor * aml list
+    | Tuple of aml list
+end
 
 (** Computations *)
 type comp = comp' located
 and comp' =
-  | Bound of bound
-  | Function of Name.ident * comp
+  | Bound of Path.index
+  | Value of Path.t
+  | Function of comp
   | Handler of handler
-  | AMLConstructor of Name.ident * comp list
+  | MLConstructor of ml_constructor * comp list
   | Tuple of comp list
-  | Operation of Name.ident * comp list
+  | Operation of operation * comp list
   | With of comp * comp
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
@@ -38,15 +62,15 @@ and comp' =
   | Update of comp * comp
   | Ref of comp
   | Sequence of comp * comp
-  | Assume of (Name.ident option * comp) * comp
+  | Assume of (Name.t option * comp) * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | IsTypeConstructor of Name.constructor * comp list
-  | IsTermConstructor of Name.constructor * comp list
-  | EqTypeConstructor of Name.constructor * comp list
-  | EqTermConstructor of Name.constructor * comp list
+  | IsTypeConstructor of tt_constructor * comp list
+  | IsTermConstructor of tt_constructor * comp list
+  | EqTypeConstructor of tt_constructor * comp list
+  | EqTermConstructor of tt_constructor * comp list
   | Apply of comp * comp
-  | Abstract of Name.ident * comp option * comp
+  | Abstract of Name.t * comp option * comp
   | Substitute of comp * comp
   | Yield of comp
   | String of string
@@ -57,15 +81,20 @@ and comp' =
   | Context of comp
   | Natural of comp
 
+(** A let-clause is given by a list of names with their types, a pattern that
+   binds these variables (so the variables list needs to match the pattern!),
+   and the body of the definition.
+
+   The names and types are used only for printing during runtime. *)
 and let_clause =
-  | Let_clause of (Name.ident * ml_schema) list * Pattern.aml * comp
+  | Let_clause of Pattern.aml * comp
 
 and letrec_clause =
-  | Letrec_clause of Name.ident * Name.ident * ml_schema * comp
+  | Letrec_clause of comp
 
 and handler = {
   handler_val: match_case list;
-  handler_ops: match_op_case list Name.IdentMap.t;
+  handler_ops: match_op_case list Ident.map;
   handler_finally : match_case list;
 }
 
@@ -74,37 +103,36 @@ and match_case = Pattern.aml * comp option * comp
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = Pattern.aml list * Pattern.judgement option * comp
 
-type top_op_case = Name.ident list * Name.ident option * comp
+(** Type definitions are needed during runtime so that we can print them
+    at the toplevel. *)
+type ml_tydef =
+  | ML_Sum of (Name.t * Mlty.ty list) list
+  | ML_Alias of Mlty.ty
 
-type constructor_decl = Name.aml_constructor * ml_ty list
-
-type ml_tydef = Dsyntax.ml_tydef
-
-type local_context = (Name.ident * comp) list
+type local_context = (Name.t * comp) list
 
 type premise = premise' located
 and premise' =
-  | PremiseIsType of Name.ident option * local_context
-  | PremiseIsTerm of Name.ident option * local_context * comp
-  | PremiseEqType of Name.ident option * local_context * (comp * comp)
-  | PremiseEqTerm of Name.ident option * local_context * (comp * comp * comp)
+  | PremiseIsType of Name.t option * local_context
+  | PremiseIsTerm of Name.t option * local_context * comp
+  | PremiseEqType of Name.t option * local_context * (comp * comp)
+  | PremiseEqTerm of Name.t option * local_context * (comp * comp * comp)
 
 (** Toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
-  | RuleIsType of Name.ident * premise list
-  | RuleIsTerm of Name.ident * premise list * comp
-  | RuleEqType of Name.ident * premise list * (comp * comp)
-  | RuleEqTerm of Name.ident * premise list * (comp * comp * comp)
-  | DefMLType of (Name.ty * (Name.ty option list * ml_tydef)) list
-  | DefMLTypeRec of (Name.ty * (Name.ty option list * ml_tydef)) list
-  | DeclOperation of Name.operation * (ml_ty list * ml_ty)
-  | DeclExternal of Name.ident * ml_schema * string
-  | TopHandle of (Name.operation * top_op_case) list
-  | TopLet of let_clause list
-  | TopLetRec of letrec_clause list
-  | TopComputation of comp * ml_schema
-  | TopDynamic of Name.ident * ml_schema * comp
+  | RuleIsType of tt_constructor * premise list
+  | RuleIsTerm of tt_constructor * premise list * comp
+  | RuleEqType of tt_constructor * premise list * (comp * comp)
+  | RuleEqTerm of tt_constructor * premise list * (comp * comp * comp)
+  | DefMLType of Path.t list (* we only need the names *)
+  | DefMLTypeRec of Path.t list
+  | DeclOperation of Path.t * (Mlty.ty list * Mlty.ty)
+  | DeclExternal of Name.t * Mlty.ty_schema * string
+  | TopLet of (Name.t * Mlty.ty_schema) list list * let_clause list
+  | TopLetRec of (Name.t * Mlty.ty_schema) list * letrec_clause list
+  | TopComputation of comp * Mlty.ty_schema
+  | TopDynamic of Name.t * Mlty.ty_schema * comp
   | TopNow of comp * comp
   | Verbosity of int
-  | Included of (string * toplevel list) list
+  | MLModule of Name.t * toplevel list

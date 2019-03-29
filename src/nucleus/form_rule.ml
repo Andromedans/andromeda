@@ -74,11 +74,11 @@ let match_arguments sgn (premises : Rule.premise list) (arguments : argument lis
 (** Judgement formation *)
 
 (** Lookup the de Bruijn index of a meta-variable. *)
-let lookup_meta_index mv mvs =
+let lookup_meta_index x mvs =
   let rec search k = function
     | [] -> assert false
-    | mv' :: mvs ->
-       if Name.eq_meta mv mv' then
+    | y :: mvs ->
+       if Nonce.equal x y then
          k
        else
          search (k+1) mvs
@@ -94,9 +94,9 @@ let rec mk_rule_is_type metas = function
      let args = mk_rule_args metas args in
      Rule.TypeConstructor (c, args)
 
-  | TypeMeta (mv, args) ->
+  | TypeMeta ({meta_nonce=x;_}, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     let k = lookup_meta_index mv.meta_name metas in
+     let k = lookup_meta_index x metas in
      Rule.TypeMeta (k, args)
 
 and mk_rule_is_term metas = function
@@ -104,9 +104,9 @@ and mk_rule_is_term metas = function
      (* this will be gone when we eliminate atoms *)
      failwith "a free atom cannot appear in a rule"
 
-  | TermMeta (mv, args) ->
+  | TermMeta ({meta_nonce=x;_}, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     let k = lookup_meta_index mv.meta_name metas in
+     let k = lookup_meta_index x metas in
      Rule.TermMeta (k, args)
 
   | TermConstructor (c, args) ->
@@ -120,13 +120,13 @@ and mk_rule_is_term metas = function
      let {free; is_type_meta; is_term_meta; eq_type_meta; eq_term_meta; bound} = asmp
      (* NB: We do not check that the types of the metas match because we assume that
         the type of a meta never changes. *)
-     and metas_set = Name.MetaSet.of_list metas in
-     let mem_metas_set mv _bnd = Name.MetaSet.mem mv metas_set in
-     begin match Name.AtomMap.is_empty free
-                 && Name.MetaMap.for_all mem_metas_set is_type_meta
-                 && Name.MetaMap.for_all mem_metas_set is_term_meta
-                 && Name.MetaMap.for_all mem_metas_set eq_type_meta
-                 && Name.MetaMap.for_all mem_metas_set eq_term_meta
+     and metas_set = Nonce.set_of_list metas in
+     let mem_metas_set mv _bnd = Nonce.set_mem mv metas_set in
+     begin match Nonce.map_is_empty free
+                 && Nonce.map_for_all mem_metas_set is_type_meta
+                 && Nonce.map_for_all mem_metas_set is_term_meta
+                 && Nonce.map_for_all mem_metas_set eq_type_meta
+                 && Nonce.map_for_all mem_metas_set eq_term_meta
                  && Bound_set.is_empty bound
      with
      | true -> mk_rule_is_term metas e
@@ -172,17 +172,17 @@ and mk_rule_args metas args =
   List.map (mk_rule_arg metas) args
 
 and mk_rule_abstraction
-  : 'a 'b . (Name.meta list -> 'a -> 'b) -> Name.meta list -> 'a abstraction -> 'b Rule.abstraction
+  : 'a 'b 'c . (Nonce.t list -> 'a -> 'b) -> Nonce.t list -> 'a abstraction -> 'b Rule.abstraction
   = fun form_u metas -> function
 
     | NotAbstract u ->
        let u = form_u metas u in
        Rule.NotAbstract u
 
-    | Abstract (x, t, abstr) ->
+    | Abstract ({atom_nonce=x; atom_type=t}, abstr) ->
        let t = mk_rule_is_type metas t in
        let abstr = mk_rule_abstraction form_u metas abstr in
-       Rule.Abstract (x, t, abstr)
+       Rule.Abstract (Nonce.name x, t, abstr)
 
 let mk_rule_premise metas = function
 

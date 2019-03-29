@@ -69,11 +69,11 @@ and abstraction
      let v = inst_v e0 ~lvl v in
      NotAbstract v
 
-  | Abstract (x, u, abstr) ->
+  | Abstract ({atom_nonce=x; atom_type=u}, abstr) ->
      let u = is_type e0 ~lvl u
      and abstr = abstraction inst_v e0 ~lvl:(lvl+1) abstr
      in
-     Abstract (x, u, abstr)
+     Abstract ({atom_nonce=x; atom_type=u}, abstr)
 
 and arguments e0 ~lvl args =
   List.map (argument e0 ~lvl) args
@@ -170,10 +170,10 @@ and abstraction_fully
      let u = inst_u ~lvl es u in
      NotAbstract u
 
-  | Abstract (x, t, abstr) ->
+  | Abstract ({atom_nonce=x; atom_type=t}, abstr) ->
      let t = is_type_fully ~lvl es t
      and abstr = abstraction_fully inst_u ~lvl:(lvl+1) es abstr
-     in Abstract (x, t, abstr)
+     in Abstract ({atom_nonce=x; atom_type=t}, abstr)
 
 and arguments_fully ?(lvl=0) es args =
   List.map (argument_fully ~lvl es) args

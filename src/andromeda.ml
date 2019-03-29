@@ -13,6 +13,9 @@ let add_file quiet filename = (files := (filename, quiet) :: !files)
 
 (** Command-line options *)
 let options = Arg.align [
+    ("-I",
+     Arg.String (fun dir -> Config.require_dirs := !Config.require_dirs @ [dir]),
+     " Look for required files in the given directory");
 
     ("--ascii",
       Arg.Set Config.ascii,
@@ -59,10 +62,6 @@ let options = Arg.align [
     ("-n",
      Arg.Clear Config.interactive_shell,
      " Do not run the interactive toplevel");
-
-    ("-l",
-     Arg.String (fun str -> add_file true str),
-     "<file> Load <file> into the initial environment");
   ]
 
 (** Interactive toplevel *)
@@ -136,7 +135,7 @@ let main =
     | (fn, quiet) :: files ->
        begin
          try
-           let state = Toplevel.use_file ~fn ~quiet state in
+           let state = Toplevel.use_file ~quiet fn state in
            process_files state files
          with
          | Toplevel.Error err ->
@@ -144,7 +143,7 @@ let main =
             exit 1
        end
   in
-  let state = process_files Toplevel.initial !files in
+  let state = process_files Toplevel.initial_environment !files in
   if !Config.interactive_shell
   then interactive_shell state
   else ()

@@ -5,7 +5,7 @@ let return = Runtime.return
 
 exception Match_fail
 
-let add_var x (v : Runtime.value) xvs = v :: xvs
+let add_var (v : Runtime.value) vs = v :: vs
 
 (* There is a lot of repetition in the [collect_is_XYZ] functions below,
    but this seems to be the price to pay for the discrepancy between the
@@ -17,23 +17,23 @@ let add_var x (v : Runtime.value) xvs = v :: xvs
 let rec collect_is_term env xvs {Location.thing=p';loc} v =
   match p' with
   (* patterns that are generic for all judgement forms *)
-  | Pattern.TTAnonymous -> xvs
+  | Rsyntax.Pattern.TTAnonymous -> xvs
 
-  | Pattern.TTVar x ->
-     add_var x (Runtime.mk_is_term v) xvs
+  | Rsyntax.Pattern.TTVar ->
+     add_var (Runtime.mk_is_term v) xvs
 
-  | Pattern.TTAs (p1, p2) ->
+  | Rsyntax.Pattern.TTAs (p1, p2) ->
      let xvs = collect_is_term env xvs p1 v in
      collect_is_term env xvs p2 v
 
   (* patterns specific to terms *)
-  | Pattern.TTConstructor (c, ps) ->
+  | Rsyntax.Pattern.TTConstructor (c, ps) ->
      begin match Nucleus.as_not_abstract v with
      | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
      | Some e ->
         let sgn = Runtime.get_signature env in
         begin match Nucleus.invert_is_term sgn e with
-        | Nucleus.Stump_TermConstructor (c', args) when Name.eq_ident c c' ->
+        | Nucleus.Stump_TermConstructor (c', args) when Ident.equal c c' ->
            begin
              match collect_args env xvs ps args with
              | None -> Runtime.(error ~loc (InvalidPatternMatch (mk_is_term v)))
@@ -44,7 +44,7 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
         end
      end
 
-  | Pattern.TTGenAtom p ->
+  | Rsyntax.Pattern.TTGenAtom p ->
      begin match Nucleus.as_not_abstract v with
      | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
      | Some e ->
@@ -57,15 +57,15 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
         end
      end
 
-  | Pattern.TTIsTerm (p1, p2) ->
+  | Rsyntax.Pattern.TTIsTerm (p1, p2) ->
      let xvs = collect_is_term env xvs p1 v in
-     (* TODO optimize for the case when [p2] is [Pattern.TTAnonymous]
+     (* TODO optimize for the case when [p2] is [Rsyntax.Pattern.TTAnonymous]
         because it allows us to avoid calculating the type of [v]. *)
      let sgn = Runtime.get_signature env in
      let t = Nucleus.type_of_term_abstraction sgn v in
      collect_is_type env xvs p2 t
 
-  | Pattern.TTAbstract (xopt, p1, p2) ->
+  | Rsyntax.Pattern.TTAbstract (xopt, p1, p2) ->
      begin match Nucleus.invert_is_term_abstraction v with
      | Nucleus.Stump_NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
      | Nucleus.Stump_Abstract (a, v2) ->
@@ -76,33 +76,33 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
           | None -> xvs
           | Some x ->
              let e = Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a) in
-             add_var x (Runtime.mk_is_term e) xvs
+             add_var (Runtime.mk_is_term e) xvs
         in
         collect_is_term env xvs p2 v
      end
 
-  | (Pattern.TTEqType _ | Pattern.TTEqTerm _ | Pattern.TTIsType _) ->
+  | (Rsyntax.Pattern.TTEqType _ | Rsyntax.Pattern.TTEqTerm _ | Rsyntax.Pattern.TTIsType _) ->
      Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_term v)))
 
 and collect_is_type env xvs {Location.thing=p';loc} v =
   match p' with
   (* patterns that are generic for all judgement forms *)
-  | Pattern.TTAnonymous -> xvs
+  | Rsyntax.Pattern.TTAnonymous -> xvs
 
-  | Pattern.TTVar x ->
-     add_var x (Runtime.mk_is_type v) xvs
+  | Rsyntax.Pattern.TTVar ->
+     add_var (Runtime.mk_is_type v) xvs
 
-  | Pattern.TTAs (p1, p2) ->
+  | Rsyntax.Pattern.TTAs (p1, p2) ->
      let xvs = collect_is_type env xvs p1 v in
      collect_is_type env xvs p2 v
 
   (* patterns specific to types *)
-  | Pattern.TTConstructor (c, ps) ->
+  | Rsyntax.Pattern.TTConstructor (c, ps) ->
      begin match Nucleus.as_not_abstract v with
      | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_type v)))
      | Some t ->
         begin match Nucleus.invert_is_type t with
-        | Nucleus.Stump_TypeConstructor (c', args) when Name.eq_ident c c' ->
+        | Nucleus.Stump_TypeConstructor (c', args) when Ident.equal c c' ->
            begin
              match collect_args env xvs ps args with
              | None -> Runtime.(error ~loc (InvalidPatternMatch (mk_is_type v)))
@@ -112,7 +112,7 @@ and collect_is_type env xvs {Location.thing=p';loc} v =
         end
      end
 
-  | Pattern.TTAbstract (xopt, p1, p2) ->
+  | Rsyntax.Pattern.TTAbstract (xopt, p1, p2) ->
      begin match Nucleus.invert_is_type_abstraction v with
      | Nucleus.Stump_NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_type v)))
      | Nucleus.Stump_Abstract (a, v2) ->
@@ -123,29 +123,29 @@ and collect_is_type env xvs {Location.thing=p';loc} v =
           | None -> xvs
           | Some x ->
              let e = Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a) in
-             add_var x (Runtime.mk_is_term e) xvs
+             add_var (Runtime.mk_is_term e) xvs
         in
         collect_is_type env xvs p2 v
      end
 
-  | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqType _ |
-     Pattern.TTEqTerm _ | Pattern.TTIsType _) ->
+  | (Rsyntax.Pattern.TTIsTerm _ | Rsyntax.Pattern.TTGenAtom _ | Rsyntax.Pattern.TTEqType _ |
+     Rsyntax.Pattern.TTEqTerm _ | Rsyntax.Pattern.TTIsType _) ->
      Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_is_type v)))
 
 and collect_eq_type env xvs {Location.thing=p';loc} v =
   match p' with
   (* patterns that are generic for all judgement forms *)
-  | Pattern.TTAnonymous -> xvs
+  | Rsyntax.Pattern.TTAnonymous -> xvs
 
-  | Pattern.TTVar x ->
-     add_var x (Runtime.mk_eq_type v) xvs
+  | Rsyntax.Pattern.TTVar ->
+     add_var (Runtime.mk_eq_type v) xvs
 
-  | Pattern.TTAs (p1, p2) ->
+  | Rsyntax.Pattern.TTAs (p1, p2) ->
      let xvs = collect_eq_type env xvs p1 v in
      collect_eq_type env xvs p2 v
 
   (* patterns specific to type equations *)
-  | Pattern.TTAbstract (xopt, p1, p2) ->
+  | Rsyntax.Pattern.TTAbstract (xopt, p1, p2) ->
      begin match Nucleus.invert_eq_type_abstraction v with
      | Nucleus.Stump_NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_type v)))
      | Nucleus.Stump_Abstract (a, v2) ->
@@ -156,12 +156,12 @@ and collect_eq_type env xvs {Location.thing=p';loc} v =
           | None -> xvs
           | Some x ->
              let e = Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a) in
-             add_var x (Runtime.mk_is_term e) xvs
+             add_var (Runtime.mk_is_term e) xvs
         in
         collect_eq_type env xvs p2 v
      end
 
-  | Pattern.TTEqType (p1, p2) ->
+  | Rsyntax.Pattern.TTEqType (p1, p2) ->
      begin match Nucleus.as_not_abstract v with
      | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_type v)))
      | Some eq ->
@@ -170,24 +170,24 @@ and collect_eq_type env xvs {Location.thing=p';loc} v =
         collect_is_type env xvs p2 (Nucleus.abstract_not_abstract t2)
      end
 
-  | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqTerm _ | Pattern.TTIsType _ |
-     Pattern.TTConstructor _) ->
+  | (Rsyntax.Pattern.TTIsTerm _ | Rsyntax.Pattern.TTGenAtom _ | Rsyntax.Pattern.TTEqTerm _ | Rsyntax.Pattern.TTIsType _ |
+     Rsyntax.Pattern.TTConstructor _) ->
      Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_type v)))
 
 and collect_eq_term env xvs {Location.thing=p';loc} v =
   match p' with
   (* patterns that are generic for all judgement forms *)
-  | Pattern.TTAnonymous -> xvs
+  | Rsyntax.Pattern.TTAnonymous -> xvs
 
-  | Pattern.TTVar x ->
-     add_var x (Runtime.mk_eq_term v) xvs
+  | Rsyntax.Pattern.TTVar ->
+     add_var (Runtime.mk_eq_term v) xvs
 
-  | Pattern.TTAs (p1, p2) ->
+  | Rsyntax.Pattern.TTAs (p1, p2) ->
      let xvs = collect_eq_term env xvs p1 v in
      collect_eq_term env xvs p2 v
 
   (* patterns specific to term equations *)
-  | Pattern.TTAbstract (xopt, p1, p2) ->
+  | Rsyntax.Pattern.TTAbstract (xopt, p1, p2) ->
      begin match Nucleus.invert_eq_term_abstraction v with
      | Nucleus.Stump_NotAbstract _ -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_term v)))
      | Nucleus.Stump_Abstract (a, v2) ->
@@ -198,12 +198,12 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
           | None -> xvs
           | Some x ->
              let e = Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a) in
-             add_var x (Runtime.mk_is_term e) xvs
+             add_var (Runtime.mk_is_term e) xvs
         in
         collect_eq_term env xvs p2 v
      end
 
-  | Pattern.TTEqTerm (p1, p2, p3) ->
+  | Rsyntax.Pattern.TTEqTerm (p1, p2, p3) ->
      begin match Nucleus.as_not_abstract v with
      | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_term v)))
      | Some eq ->
@@ -213,8 +213,8 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
         collect_is_type env xvs p2 (Nucleus.abstract_not_abstract t)
      end
 
-  | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqType _ | Pattern.TTIsType _ |
-     Pattern.TTConstructor _) ->
+  | (Rsyntax.Pattern.TTIsTerm _ | Rsyntax.Pattern.TTGenAtom _ | Rsyntax.Pattern.TTEqType _ | Rsyntax.Pattern.TTIsType _ |
+     Rsyntax.Pattern.TTConstructor _) ->
      Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_term v)))
 
 and collect_args env xvs ps vs =
@@ -236,29 +236,29 @@ and collect_args env xvs ps vs =
 
 and collect_pattern env xvs {Location.thing=p';loc} v =
   match p', v with
-  | Pattern.Anonymous, _ -> xvs
+  | Rsyntax.Pattern.Anonymous, _ -> xvs
 
-  | Pattern.Var x, v ->
-     add_var x v xvs
+  | Rsyntax.Pattern.Var, v ->
+     add_var v xvs
 
-  | Pattern.As (p1, p2), v ->
+  | Rsyntax.Pattern.As (p1, p2), v ->
      let xvs = collect_pattern env xvs p1 v in
      collect_pattern env xvs p2 v
 
-  | Pattern.Judgement p, Runtime.IsType t ->
+  | Rsyntax.Pattern.Judgement p, Runtime.IsType t ->
      collect_is_type env xvs p t
 
-  | Pattern.Judgement p, Runtime.IsTerm e ->
+  | Rsyntax.Pattern.Judgement p, Runtime.IsTerm e ->
      collect_is_term env xvs p e
 
-  | Pattern.Judgement p, Runtime.EqType eq ->
+  | Rsyntax.Pattern.Judgement p, Runtime.EqType eq ->
      collect_eq_type env xvs p eq
 
-  | Pattern.Judgement p, Runtime.EqTerm eq ->
+  | Rsyntax.Pattern.Judgement p, Runtime.EqTerm eq ->
      collect_eq_term env xvs p eq
 
-  | Pattern.AMLConstructor (tag, ps), Runtime.Tag (tag', vs) ->
-     if not (Name.eq_ident tag tag')
+  | Rsyntax.Pattern.MLConstructor (tag, ps), Runtime.Tag (tag', vs) ->
+     if not (Runtime.equal_tag tag tag')
      then
        raise Match_fail
      else
@@ -268,7 +268,7 @@ and collect_pattern env xvs {Location.thing=p';loc} v =
          | Some vs -> vs
        end
 
-  | Pattern.Tuple ps, Runtime.Tuple vs ->
+  | Rsyntax.Pattern.Tuple ps, Runtime.Tuple vs ->
     begin
       match multicollect_pattern env xvs ps vs with
       | None -> Runtime.(error ~loc (InvalidPatternMatch v))
@@ -276,16 +276,16 @@ and collect_pattern env xvs {Location.thing=p';loc} v =
     end
 
   (* mismatches *)
-  | Pattern.Judgement _, (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
+  | Rsyntax.Pattern.Judgement _, (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
                           Runtime.Ref _ | Runtime.Dyn _ |
                           Runtime.Tuple _ | Runtime.String _)
 
-  | Pattern.AMLConstructor _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
+  | Rsyntax.Pattern.MLConstructor _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
                                Runtime.Closure _ | Runtime.Handler _ |
                                Runtime.Ref _ | Runtime.Dyn _ |
                                Runtime.Tuple _ | Runtime.String _)
 
-  | Pattern.Tuple _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
+  | Rsyntax.Pattern.Tuple _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
                       Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
                       Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) ->
      Runtime.(error ~loc (InvalidPatternMatch v))

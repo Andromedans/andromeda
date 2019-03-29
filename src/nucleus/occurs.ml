@@ -26,7 +26,7 @@ and abstraction
   = fun occurs_v k ->
   function
   | NotAbstract v -> occurs_v k v
-  | Abstract (_, u, abstr) ->
+  | Abstract ({atom_type=u;_}, abstr) ->
      is_type k u || abstraction occurs_v (k+1) abstr
 
 and arguments k = function

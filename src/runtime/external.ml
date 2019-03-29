@@ -22,23 +22,20 @@ let externals =
          Runtime.return_unit
     ));
 
-    ("compare", (* forall a, a -> a -> mlorder *)
-      Runtime.mk_closure (fun v ->
-          Runtime.return_closure (fun w ->
-              try
-                let cmp =
-                  let c = Pervasives.compare v w in
-                  if c < 0 then Name.Predefined.mlless
-                  else if c > 0 then Name.Predefined.mlgreater
-                  else Name.Predefined.mlequal
-                in
-                Runtime.return (Runtime.mk_tag cmp [])
-              with
-              | Invalid_argument _ ->
-                 Runtime.(error ~loc:Location.unknown InvalidComparison)
-            )
+    ("compare", (* forall a, a -> a -> ML.order *)
+     Runtime.mk_closure (fun v ->
+         Runtime.return_closure (fun w ->
+             try
+               let c = Pervasives.compare v w in
+               Runtime.return
+                 (if c < 0 then Reflect.mlless
+                  else if c > 0 then Reflect.mlgreater
+                  else Reflect.mlequal)
+             with
+             | Invalid_argument _ ->
+                Runtime.(error ~loc:Location.unknown InvalidComparison)
+           )
     ));
-
 
     ("time", (* forall a, mlunit -> (a -> a) *)
      Runtime.mk_closure (fun _ ->
@@ -51,35 +48,34 @@ let externals =
     ));
 
     ("config", (* mlstring -> mlunit *)
-      Runtime.mk_closure (fun v ->
-        let s = Runtime.as_string ~loc:Location.unknown v in
-        match s with
-          | "ascii" ->
+     Runtime.mk_closure (fun v ->
+         let s = Runtime.as_string ~loc:Location.unknown v in
+         match s with
+         | "ascii" ->
             Config.ascii := true;
             Runtime.return_unit
 
-          | "no-ascii" ->
+         | "no-ascii" ->
             Config.ascii := false;
             Runtime.return_unit
 
-          | "json-location" ->
-             Config.json_location := true;
-             Runtime.return_unit
+         | "json-location" ->
+            Config.json_location := true;
+            Runtime.return_unit
 
-          | "no-json-location" ->
-             Config.json_location := false;
-             Runtime.return_unit
+         | "no-json-location" ->
+            Config.json_location := false;
+            Runtime.return_unit
 
-          | _ -> Runtime.(error ~loc:Location.unknown (UnknownConfig s))
-        ));
+         | _ -> Runtime.(error ~loc:Location.unknown (UnknownConfig s))
+    ));
 
     ("exit", (* forall a, mlunit -> a *)
-      Runtime.mk_closure (fun _ -> Pervasives.exit 0));
+     Runtime.mk_closure (fun _ -> Pervasives.exit 0));
 
     ("magic", (* forall a b, a -> b *)
-      Runtime.mk_closure (fun v -> Runtime.return v));
+     Runtime.mk_closure (fun v -> Runtime.return v));
   ]
-
 
 let lookup s =
   try
