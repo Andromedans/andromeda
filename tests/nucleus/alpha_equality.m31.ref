@@ -1,0 +1,10 @@
+Rule A is postulated.
+Rule P is postulated.
+Rule a is postulated.
+Rule u is postulated.
+Rule B is postulated.
+Rule ξ is postulated.
+Rule ζ is postulated.
+val a' :> is_term = ⊢ a
+val Q :> is_type = ⊢ P a type
+val u' :> is_term = ⊢ u
