@@ -26,7 +26,7 @@ val toplevel : basedir:string -> Ctx.t -> Input.toplevel -> Ctx.t * Dsyntax.topl
 val use_file : Ctx.t -> string -> Ctx.t * Dsyntax.toplevel list
 
 (** [load_ml_module ctx fn] desugars the given file as a module *)
-val load_ml_module : Ctx.t -> string -> Ctx.t * Dsyntax.toplevel list
+val load_ml_module : Ctx.t -> string -> Ctx.t * Dsyntax.toplevel
 
 (** The initial desugaring context, with built-in types and operations *)
 val initial_context : Ctx.t

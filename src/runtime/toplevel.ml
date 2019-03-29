@@ -78,9 +78,9 @@ let load_ml_module ~fn ~quiet =
       fun {desugar;typing;runtime} ->
       (* When desugar loads a file as a module, it returns a single
          toplevel cmd [module X = struct <content of file> end] *)
-      let desugar, cmds = Desugar.load_ml_module desugar fn in
-      let typing, cmds = Typecheck.toplevels typing cmds in
-      let comp = Eval.toplevels ~quiet ~print_annot cmds in
+      let desugar, cmd = Desugar.load_ml_module desugar fn in
+      let typing, cmd = Typecheck.toplevel typing cmd in
+      let comp = Eval.toplevel ~quiet ~print_annot cmd in
       let (), runtime = Runtime.exec comp runtime in
       { desugar; typing; runtime }
     end

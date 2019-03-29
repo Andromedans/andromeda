@@ -1502,8 +1502,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
   | Input.Verbosity n ->
      (ctx, locate1 (Dsyntax.Verbosity n))
 
-  | Input.Require mdl_name ->
-     require ~loc ~loading ~basedir ctx mdl_name
+  | Input.Require mdl_names ->
+     requires ~loc ~loading ~basedir ctx mdl_names
 
   | Input.Include mdl_path ->
      let _, mdl = Ctx.get_ml_module ~loc mdl_path ctx in
@@ -1512,7 +1512,16 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
 
   | Input.TopModule (x, cmds) ->
      let ctx, cmd = ml_module ~loc ~loading ~basedir ctx x cmds in
-     (ctx, cmd)
+     (ctx, [cmd])
+
+and requires ~loc ~loading ~basedir ctx mdl_names =
+  let rec fold ctx mdls = function
+    | [] -> ctx, List.rev mdls
+    | mdl_name :: mdl_names ->
+       let ctx, mdl = require ~loc ~loading ~basedir ctx mdl_name in
+       fold ctx (mdl :: mdls) mdl_names
+  in
+  fold ctx [] mdl_names
 
 and require ~loc ~loading ~basedir ctx mdl_name =
   (* TODO keep a list of already required modules and avoid reloading
@@ -1561,7 +1570,7 @@ and ml_module ~loc ~loading ~basedir ctx m cmds =
   let ctx, cmds = toplevels ~loading ~basedir ctx cmds in
   let ctx, mdl = Ctx.pop_module ctx in
   let ctx = Ctx.add_ml_module ~loc m mdl ctx in
-  ctx, [locate (Dsyntax.MLModule (m, cmds)) loc]
+  ctx, locate (Dsyntax.MLModule (m, cmds)) loc
 
 let toplevel ~basedir ctx cmd = toplevel' ~loading:[] ~basedir ctx cmd
 
