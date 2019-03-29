@@ -1,0 +1,4 @@
+Processing module A
+val x :> mlstring = "A.x"
+Processing module B
+val y :> mlstring = "A.x"
