@@ -1081,7 +1081,7 @@ and toplevels' cs =
 (** The publicly available version of [toplvel'] *)
 let toplevel env c = Tyenv.run env (toplevel' c)
 
-(** The publicly available version of [toplvels'] *)
+(** The publicly available version of [toplevels'] *)
 let toplevels env cs = Tyenv.run env (toplevels' cs)
 
 let initial_context, initial_commands =

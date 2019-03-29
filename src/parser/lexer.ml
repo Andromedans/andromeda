@@ -21,6 +21,7 @@ let reserved = [
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
   ("in", IN) ;
+  ("include", INCLUDE) ;
   ("let", LET) ;
   ("match", MATCH) ;
   ("mlforall", MLFORALL) ;

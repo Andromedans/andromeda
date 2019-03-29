@@ -54,9 +54,9 @@ let exec_interactive =
     begin
       fun {desugar;typing;runtime} ->
       let c = Lexer.read_toplevel Parser.commandline () in
-      let desugar, c = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
-      let typing, c = Typecheck.toplevel typing c in
-      let comp = Eval.toplevel ~quiet:false ~print_annot c in
+      let desugar, cs = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
+      let typing, cs = Typecheck.toplevels typing cs in
+      let comp = Eval.toplevels ~quiet:false ~print_annot cs in
       let (), runtime = Runtime.exec comp runtime in
       { desugar; typing; runtime}
     end

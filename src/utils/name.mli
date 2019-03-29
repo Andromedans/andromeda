@@ -70,6 +70,9 @@ val map_find : t -> 'a map -> 'a
 (** Map a function on the values of a map *)
 val map_map : ('a -> 'b) -> 'a map -> 'b map
 
+(** Map a function on the values of a map *)
+val map_fold : (t -> 'a -> 'b -> 'b) -> 'a map -> 'b -> 'b
+
 (** [index x xs] finds the index of name [x] in list [xs] if it's there *)
 val index : t -> t list -> int option
 

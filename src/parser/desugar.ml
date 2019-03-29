@@ -10,39 +10,37 @@
     the arity of [C].
 *)
 
+(** Association tables with de Bruijn levels. *)
 module Assoc :
   sig
     type 'a t
     val empty : 'a t
     val add : Name.t -> 'a -> 'a t -> 'a t
-    val size : 'a t -> int
+    val last : 'a t -> int
     val find : Name.t -> 'a t -> 'a option
-    val find_index : Name.t -> 'a t -> int option
+    val redirect : (Name.t -> unit) -> 'a t -> 'a t -> 'a t
   end =
 struct
-  type 'a t = (Name.t * 'a) list
+  type 'a t =
+    { last : int ; assoc : 'a Name.map }
 
-  let empty = []
+  let empty = { last = 0 ; assoc = Name.map_empty }
 
-  let add x y (lst : 'a t) = (x,y) :: lst
+  let add x y {last; assoc} =
+    { last = last + 1 ; assoc = Name.map_add x y assoc }
 
-  let size = List.length
+  let redirect check_fresh {last; assoc} {assoc=assoc';_} =
+    { last ;
+      assoc = Name.map_fold (fun k v assoc -> check_fresh k ; Name.map_add k v assoc) assoc' assoc
+    }
 
-  let find x lst =
-    let rec search = function
-      | [] -> None
-      | (x',y) :: lst ->
-         if Name.equal x x' then Some y else search lst
-    in
-    search lst
+  let last {last; _} = last
 
-  let find_index x lst =
-    let rec search i = function
-      | [] -> None
-      | (x',y) :: lst ->
-         if Name.equal x x' then Some i else search (i+1) lst
-    in
-    search 0 lst
+  let find x {assoc; _} =
+    try
+      Some (Name.map_find x assoc)
+    with
+      Not_found -> None
 end
 
 (** Arity of an operator *)
@@ -87,6 +85,7 @@ let print_info info ppf = match info with
 type error =
   | UnknownPath of Name.path
   | UnknownType of Name.path
+  | UnknownModule of Name.path
   | NameAlreadyDeclared of Name.t * info
   | MLTypeAlreadyDeclared of Name.t
   | MLModuleAlreadyDeclared of Name.t
@@ -111,6 +110,10 @@ let print_error err ppf = match err with
      Format.fprintf ppf "unknown type %t"
        (Name.print_path pth)
 
+  | UnknownModule pth ->
+     Format.fprintf ppf "unknown ML module %t"
+       (Name.print_path pth)
+
   | NameAlreadyDeclared (x, info) ->
      Format.fprintf ppf
        "%t is already declared as %t"
@@ -119,7 +122,7 @@ let print_error err ppf = match err with
 
   | MLTypeAlreadyDeclared x ->
      Format.fprintf ppf
-       "%t is already a defind ML type"
+       "%t is already a defined ML type"
        (Name.print x)
 
   | MLModuleAlreadyDeclared x ->
@@ -180,14 +183,14 @@ module Ctx = struct
   type t = {
       (* Partially evaluated nested modules *)
       current_modules : (Path.t option * ml_module) list ;
-      ml_bound : unit Assoc.t ; (* the locally bound values, referred to by indices *)
+      ml_bound : Name.t list ; (* the locally bound values, referred to by indices *)
       ml_yield : bool ; (* Is a continuation available? *)
 
     }
 
   let empty = {
       current_modules = [(None, empty_module)] ;
-      ml_bound = Assoc.empty;
+      ml_bound = [];
       ml_yield = false;
     }
 
@@ -195,7 +198,6 @@ module Ctx = struct
     match current_modules with
     | [] -> assert false (* There should always be at least the top module *)
     | (_, mdl) :: _ -> mdl
-
 
   let update_current ctx update =
     let mk_path optpath x lvl =
@@ -213,7 +215,7 @@ module Ctx = struct
     match ctx.current_modules with
     | [] -> assert false
     | ((pth_opt, mdl) :: _) as mdls ->
-       let mdl_lvl = Assoc.size mdl.ml_modules in
+       let mdl_lvl = Assoc.last mdl.ml_modules in
        let pth =
          match pth_opt with
            | None -> Path.Direct (Path.Level (mdl_name, mdl_lvl))
@@ -326,13 +328,26 @@ module Ctx = struct
     | None | Some (Bound _ | TTConstructor _ | MLConstructor _ | Operation _) ->
        assert false
 
+  (* Get information about the given ML module. *)
+  let get_ml_module ~loc pth ctx =
+    match find_ml_module pth ctx with
+    | Some (pth, mdl) -> pth, mdl
+    | None -> error ~loc (UnknownModule pth)
+
   (* Get the info about a path, or fail *)
   let get_name ~loc pth ctx =
     match pth with
 
     | Name.PName x ->
        (* check whether it is locally bound *)
-       begin match Assoc.find_index x ctx.ml_bound with
+       let find_index x lst =
+         let rec search i = function
+           | [] -> None
+           | x' :: lst -> if Name.equal x x' then Some i else search (i+1) lst
+         in
+         search 0 lst
+       in
+       begin match find_index x ctx.ml_bound with
        | Some i -> Bound (Path.Index (x, i))
        | None ->
           begin match find_name pth ctx with
@@ -374,9 +389,23 @@ module Ctx = struct
     let (), ctx =
       update_current ctx
         (fun mk_path current ->
-          let lvl = Assoc.size current.ml_modules in
+          let lvl = Assoc.last current.ml_modules in
           let pth = mk_path m lvl in
           (), { current with ml_modules = Assoc.add m (pth, mdl) current.ml_modules } )
+    in
+    ctx
+
+  let include_ml_module ~loc mdl ctx =
+    let (), ctx =
+      update_current ctx
+        (fun _ {ml_modules; ml_types; ml_constructors; ml_operations; tt_constructors; ml_values} ->
+        (), { ml_modules = Assoc.redirect (fun m -> check_is_fresh_module ~loc m ctx) ml_modules mdl.ml_modules;
+              ml_types = Assoc.redirect (fun t -> check_is_fresh_type ~loc t ctx) ml_types mdl.ml_types;
+              ml_constructors = Assoc.redirect (fun x -> check_is_fresh_name ~loc x ctx) ml_constructors mdl.ml_constructors;
+              ml_operations = Assoc.redirect (fun x -> check_is_fresh_name ~loc x ctx) ml_operations mdl.ml_operations;
+              tt_constructors = Assoc.redirect (fun x -> check_is_fresh_name ~loc x ctx) tt_constructors mdl.tt_constructors;
+              ml_values = Assoc.redirect (fun x -> check_is_fresh_name ~loc x ctx) ml_values mdl.ml_values;
+        })
     in
     ctx
 
@@ -386,7 +415,7 @@ module Ctx = struct
     let (), ctx =
       update_current ctx
         (fun mk_path current ->
-          let lvl = Assoc.size current.ml_values in
+          let lvl = Assoc.last current.ml_values in
           let pth = mk_path x lvl in
           (), { current with ml_values = Assoc.add x pth current.ml_values } )
     in
@@ -394,14 +423,14 @@ module Ctx = struct
 
   (* Add a local bound value. *)
   let add_bound x ctx =
-    { ctx with ml_bound = Assoc.add x () ctx.ml_bound }
+    { ctx with ml_bound = x :: ctx.ml_bound }
 
   (* Add a TT constructor of given arity *)
   let add_tt_constructor ~loc c arity ctx =
     check_is_fresh_name ~loc c ctx ;
     update_current ctx
       (fun mk_path current ->
-        let lvl = Assoc.size current.tt_constructors in
+        let lvl = Assoc.last current.tt_constructors in
         let pth = mk_path c lvl in
         pth, { current with tt_constructors = Assoc.add c (pth, arity) current.tt_constructors } )
 
@@ -410,7 +439,7 @@ module Ctx = struct
     check_is_fresh_name ~loc op ctx ;
     update_current ctx
       (fun mk_path current ->
-        let lvl = Assoc.size current.ml_operations in
+        let lvl = Assoc.last current.ml_operations in
         let pth = mk_path op lvl in
         pth, { current with ml_operations = Assoc.add op (pth, arity) current.ml_operations } )
 
@@ -430,7 +459,7 @@ module Ctx = struct
     let t_pth, ctx =
       update_current ctx
         (fun mk_path current ->
-          let lvl = Assoc.size current.ml_types in
+          let lvl = Assoc.last current.ml_types in
           let pth = mk_path t lvl in
           pth, { current with ml_types = Assoc.add t (pth, arity) current.ml_types })
     in
@@ -1388,12 +1417,14 @@ let premises ctx prems m =
   fold ctx [] prems
 
 let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
+  let locate1 cmd = [locate cmd loc] in
+
   match cmd with
 
   | Input.RuleIsType (rname, prems) ->
      let (), prems = premises ctx prems (fun _ -> ()) in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate (Dsyntax.RuleIsType (pth, prems)) loc)
+     (ctx, locate1 (Dsyntax.RuleIsType (pth, prems)))
 
   | Input.RuleIsTerm (rname, prems, c) ->
      let c, prems =
@@ -1402,7 +1433,7 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
          (fun ctx -> comp ctx c)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate (Dsyntax.RuleIsTerm (pth, prems, c)) loc)
+     (ctx, locate1 (Dsyntax.RuleIsTerm (pth, prems, c)))
 
   | Input.RuleEqType (rname, prems, (c1, c2)) ->
      let c12, prems =
@@ -1413,7 +1444,7 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
            comp ctx c2)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate (Dsyntax.RuleEqType (pth, prems, c12)) loc)
+     (ctx, locate1 (Dsyntax.RuleEqType (pth, prems, c12)))
 
   | Input.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
      let c123, prems =
@@ -1425,58 +1456,72 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
           comp ctx c3)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate (Dsyntax.RuleEqTerm (pth, prems, c123)) loc)
+     (ctx, locate1 (Dsyntax.RuleEqTerm (pth, prems, c123)))
 
   | Input.DeclOperation (op, (args, res)) ->
      let args, res = decl_operation ~loc ctx args res in
      let pth, ctx = Ctx.add_operation ~loc op (List.length args) ctx in
-     (ctx, locate (Dsyntax.DeclOperation (pth, (args, res))) loc)
+     (ctx, locate1 (Dsyntax.DeclOperation (pth, (args, res))))
 
   | Input.DefMLType defs ->
      let ctx, defs = mlty_defs ~loc ctx defs in
-     (ctx, locate (Dsyntax.DefMLType defs) loc)
+     (ctx, locate1 (Dsyntax.DefMLType defs))
 
   | Input.DefMLTypeRec defs ->
      let ctx, defs = mlty_rec_defs ~loc ctx defs in
-     (ctx, locate (Dsyntax.DefMLTypeRec defs) loc)
+     (ctx, locate1 (Dsyntax.DefMLTypeRec defs))
 
   | Input.DeclExternal (x, sch, s) ->
      let sch = ml_schema ctx sch in
      let ctx = Ctx.add_ml_value ~loc x ctx in
-     (ctx, locate (Dsyntax.DeclExternal (x, sch, s)) loc)
+     (ctx, locate1 (Dsyntax.DeclExternal (x, sch, s)))
 
   | Input.TopLet lst ->
      let ctx, lst = let_clauses ~loc ~toplevel:true ctx lst in
-     (ctx, locate (Dsyntax.TopLet lst) loc)
+     (ctx, locate1 (Dsyntax.TopLet lst))
 
   | Input.TopLetRec lst ->
      let ctx, lst = letrec_clauses ~loc ~toplevel:true ctx lst in
-     (ctx, locate (Dsyntax.TopLetRec lst) loc)
+     (ctx, locate1 (Dsyntax.TopLetRec lst))
 
   | Input.TopComputation c ->
      let c = comp ctx c in
-     (ctx, locate (Dsyntax.TopComputation c) loc)
+     (ctx, locate1 (Dsyntax.TopComputation c))
 
   | Input.TopDynamic (x, annot, c) ->
      let c = comp ctx c in
      let ctx = Ctx.add_ml_value ~loc x ctx in
      let annot = arg_annotation ctx annot in
-     (ctx, locate (Dsyntax.TopDynamic (x, annot, c)) loc)
+     (ctx, locate1 (Dsyntax.TopDynamic (x, annot, c)))
 
   | Input.TopNow (x, c) ->
      let x = comp ctx x in
      let c = comp ctx c in
-     (ctx, locate (Dsyntax.TopNow (x, c)) loc)
+     (ctx, locate1 (Dsyntax.TopNow (x, c)))
 
   | Input.Verbosity n ->
-     (ctx, locate (Dsyntax.Verbosity n) loc)
+     (ctx, locate1 (Dsyntax.Verbosity n))
 
-  | Input.Require mdl_name ->
-     require ~loc ~loading ~basedir ctx mdl_name
+  | Input.Require mdl_names ->
+     requires ~loc ~loading ~basedir ctx mdl_names
+
+  | Input.Include mdl_path ->
+     let _, mdl = Ctx.get_ml_module ~loc mdl_path ctx in
+     let ctx = Ctx.include_ml_module ~loc mdl ctx in
+     (ctx, [])
 
   | Input.TopModule (x, cmds) ->
      let ctx, cmd = ml_module ~loc ~loading ~basedir ctx x cmds in
-     (ctx, cmd)
+     (ctx, [cmd])
+
+and requires ~loc ~loading ~basedir ctx mdl_names =
+  let rec fold ctx mdls = function
+    | [] -> ctx, List.rev mdls
+    | mdl_name :: mdl_names ->
+       let ctx, mdl = require ~loc ~loading ~basedir ctx mdl_name in
+       fold ctx (mdl :: mdls) mdl_names
+  in
+  fold ctx [] mdl_names
 
 and require ~loc ~loading ~basedir ctx mdl_name =
   (* TODO keep a list of already required modules and avoid reloading
@@ -1513,8 +1558,8 @@ and toplevels ~loading ~basedir ctx cmds =
   let ctx, cmds =
     List.fold_left
     (fun (ctx,cmds) cmd ->
-      let ctx, cmd = toplevel' ~loading ~basedir ctx cmd in
-      (ctx, cmd::cmds))
+      let ctx, cmds' = toplevel' ~loading ~basedir ctx cmd in
+      (ctx, cmds' @ cmds))
     (ctx, [])
     cmds
   in

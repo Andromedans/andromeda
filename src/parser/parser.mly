@@ -64,7 +64,7 @@
 (* Toplevel directives *)
 %token VERBOSITY
 %token <string> QUOTED_STRING
-%token REQUIRE
+%token REQUIRE INCLUDE
 
 %token EOF
 
@@ -111,7 +111,9 @@ plain_top_term:
 (* Toplevel commands that need not be preceeded by double semicolon. *)
 top_command: mark_location(plain_top_command) { $1 }
 plain_top_command:
-  | REQUIRE mdl=module_name                           { Require mdl }
+  | REQUIRE mdls=separated_nonempty_list(COMMA, module_name)
+                                                      { Require mdls }
+  | INCLUDE mdl=long(module_name)                     { Include mdl }
   | MODULE mdl=module_name EQ STRUCT cmds=ml_module END
                                                       { TopModule (mdl, cmds) }
   | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }
