@@ -160,4 +160,5 @@ and toplevel' =
   | Verbosity of int
   | Require of Name.t list
   | Include of path
+  | Open of path
   | TopModule of Name.t * toplevel list

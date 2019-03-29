@@ -33,6 +33,7 @@ let reserved = [
   ("now", NOW) ;
   ("occurs", OCCURS) ;
   ("of", OF) ;
+  ("open", OPEN) ;
   ("operation", OPERATION) ;
   ("rec", REC) ;
   ("ref", REF) ;
