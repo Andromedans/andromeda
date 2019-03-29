@@ -159,4 +159,5 @@ and toplevel' =
   | TopNow of comp * comp
   | Verbosity of int
   | Require of Name.t
+  | Include of path
   | TopModule of Name.t * toplevel list

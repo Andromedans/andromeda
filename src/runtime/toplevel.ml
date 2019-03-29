@@ -54,9 +54,9 @@ let exec_interactive =
     begin
       fun {desugar;typing;runtime} ->
       let c = Lexer.read_toplevel Parser.commandline () in
-      let desugar, c = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
-      let typing, c = Typecheck.toplevel typing c in
-      let comp = Eval.toplevel ~quiet:false ~print_annot c in
+      let desugar, cs = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
+      let typing, cs = Typecheck.toplevels typing cs in
+      let comp = Eval.toplevels ~quiet:false ~print_annot cs in
       let (), runtime = Runtime.exec comp runtime in
       { desugar; typing; runtime}
     end
@@ -78,9 +78,9 @@ let load_ml_module ~fn ~quiet =
       fun {desugar;typing;runtime} ->
       (* When desugar loads a file as a module, it returns a single
          toplevel cmd [module X = struct <content of file> end] *)
-      let desugar, cmd = Desugar.load_ml_module desugar fn in
-      let typing, cmd = Typecheck.toplevel typing cmd in
-      let comp = Eval.toplevel ~quiet ~print_annot cmd in
+      let desugar, cmds = Desugar.load_ml_module desugar fn in
+      let typing, cmds = Typecheck.toplevels typing cmds in
+      let comp = Eval.toplevels ~quiet ~print_annot cmds in
       let (), runtime = Runtime.exec comp runtime in
       { desugar; typing; runtime }
     end
