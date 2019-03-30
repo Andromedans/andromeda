@@ -1554,9 +1554,9 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
      (ctx, [])
 
   | Input.Open mdl_path ->
-     let _, mdl = Ctx.get_ml_module ~loc mdl_path ctx in
+     let pth, mdl = Ctx.get_ml_module ~loc mdl_path ctx in
      let ctx = Ctx.open_ml_module ~loc mdl ctx in
-     (ctx, [])
+     (ctx, locate1 (Dsyntax.Open pth))
 
   | Input.TopModule (x, cmds) ->
      let ctx, cmd = ml_module ~loc ~loading ~basedir ctx x cmds in

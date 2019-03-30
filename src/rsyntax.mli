@@ -135,4 +135,5 @@ and toplevel' =
   | TopDynamic of Name.t * Mlty.ty_schema * comp
   | TopNow of comp * comp
   | Verbosity of int
+  | Open of Path.t
   | MLModule of Name.t * toplevel list

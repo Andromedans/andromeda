@@ -127,9 +127,24 @@ struct
     { tbl with current_depth = tbl.current_depth - 1 }
 end
 
+(** Printing environment *)
+type penv = {
+  forbidden : Name.set ;
+  opens : Path.set
+}
 
+let penv_forbid x penv =
+  { penv with forbidden = Name.set_add x penv.forbidden }
 
-(** Run-time environment. *)
+let penv_open pth penv =
+  { penv with opens = Path.set_add pth penv.opens }
+
+let mk_nucleus_penv {forbidden;opens} =
+  { Nucleus.forbidden = forbidden ;
+    Nucleus.opens = opens ;
+    Nucleus.debruijn = [] }
+
+(** Runtime environment. *)
 type env = {
   dynamic : dynamic;
   lexical : lexical;
@@ -147,8 +162,8 @@ and dynamic = {
 and lexical = {
   table : value SymbolTable.t ;
 
-  (* names of inference rules (to avoid shadowing them) *)
-  current_names : Name.t list;
+  (* Current printing environment *)
+  penv : penv;
 
   (* values to which de Bruijn indices are bound *)
   current_values : value list;
@@ -459,14 +474,15 @@ let lookup_signature env =
 
 let add_rule add_rule_to_signature rname rule env =
   let signature = add_rule_to_signature rname rule env.dynamic.signature
-  and current_names =
+  and penv =
+    penv_forbid
     (match Ident.path rname with
      | Path.Direct (Path.Level (name, _)) -> name
      | Path.Module (_, Path.Level (name, _)) -> name
-    ) :: env.lexical.current_names in
+    ) env.lexical.penv in
   let env = { env
               with dynamic = { env.dynamic with signature }
-                 ; lexical = { env.lexical with current_names }
+                 ; lexical = { env.lexical with penv }
             } in
   (), env
 
@@ -578,13 +594,24 @@ let continue v ({lexical={ml_yield;_};_} as env) =
 (** Printers *)
 
 (** Generate a printing environment from runtime environment *)
-let get_names env = env.lexical.current_names
+let get_penv env = env.lexical.penv
 
-let lookup_names env =
-  Return (get_names env), env.state
+let get_nucleus_penv env =
+  mk_nucleus_penv (get_penv env)
 
-let top_lookup_names env =
-  get_names env, env
+let lookup_penv env =
+  Return (get_penv env), env.state
+
+let top_lookup_penv env =
+  get_penv env, env
+
+let top_lookup_opens env =
+  let penv = get_penv env in
+  penv.opens, env
+
+let top_open_path pth env =
+  let env = { env with lexical = { env.lexical with penv = penv_open pth env.lexical.penv } } in
+  (), env
 
 let top_lookup_signature env =
   get_signature env, env
@@ -610,23 +637,23 @@ let top_lookup_signature env =
 (** In the future this routine will be type-driven. One consequence is that
     constructor tags will be printed by looking up their names in type
     definitions. *)
-let rec print_value ?max_level ~names v ppf =
+let rec print_value ?max_level ~penv v ppf =
   match v with
 
-  | IsTerm e -> Nucleus.print_is_term_abstraction ~names ?max_level e ppf
+  | IsTerm e -> Nucleus.print_is_term_abstraction ~penv:(mk_nucleus_penv penv) ?max_level e ppf
 
-  | IsType t -> Nucleus.print_is_type_abstraction ~names ?max_level t ppf
+  | IsType t -> Nucleus.print_is_type_abstraction ~penv:(mk_nucleus_penv penv) ?max_level t ppf
 
-  | EqTerm eq -> Nucleus.print_eq_term_abstraction ~names ?max_level eq ppf
+  | EqTerm eq -> Nucleus.print_eq_term_abstraction ~penv:(mk_nucleus_penv penv) ?max_level eq ppf
 
-  | EqType eq -> Nucleus.print_eq_type_abstraction ~names ?max_level eq ppf
+  | EqType eq -> Nucleus.print_eq_type_abstraction ~penv:(mk_nucleus_penv penv) ?max_level eq ppf
 
   | Closure f -> Format.fprintf ppf "<function>"
 
   | Handler h -> Format.fprintf ppf "<handler>"
 
   | Tag (t, lst) ->
-     print_tag ?max_level ~names t lst ppf
+     print_tag ?max_level ~penv t lst ppf
      (* begin *)
      (*   match as_list_opt v with *)
      (*   | Some lst -> Format.fprintf ppf "@[<hov 1>[%t]@]" *)
@@ -635,7 +662,7 @@ let rec print_value ?max_level ~names v ppf =
      (* end *)
 
   | Tuple lst -> Format.fprintf ppf "@[<hov 1>(%t)@]"
-                  (Print.sequence (print_value ~max_level:Level.highest ~names) "," lst)
+                  (Print.sequence (print_value ~max_level:Level.highest ~penv) "," lst)
 
   | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref<%t>"
                   (Store.Ref.print_key v)
@@ -645,7 +672,7 @@ let rec print_value ?max_level ~names v ppf =
 
   | String s -> Format.fprintf ppf "\"%s\"" s
 
-and print_tag ?max_level ~names t lst ppf =
+and print_tag ?max_level ~penv t lst ppf =
   match Ident.path t, lst with
 
   | Path.Direct (Path.Level ({Name.fixity=Name.Prefix; name} as x,_)), [v] ->
@@ -659,59 +686,59 @@ and print_tag ?max_level ~names t lst ppf =
         Level.prefix and Level.prefix_arg *)
      Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
                  (Name.print ~parentheses:false x)
-                 (print_value ~max_level:Level.prefix_arg ~names v)
+                 (print_value ~max_level:Level.prefix_arg ~penv v)
 
   | Path.Direct (Path.Level ({Name.fixity=Name.Infix fixity;_} as x, _)), [v1; v2] ->
      (* infix tag applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
-                 (print_value ~max_level:lvl_left ~names v1)
+                 (print_value ~max_level:lvl_left ~penv v1)
                  (Name.print ~parentheses:false x)
-                 (print_value ~max_level:lvl_right ~names v2)
+                 (print_value ~max_level:lvl_right ~penv v2)
 
   | _ ->
      (* print as application *)
      begin
        match lst with
-       | [] -> Ident.print ~parentheses:true t ppf
+       | [] -> Ident.print ~opens:penv.opens ~parentheses:true t ppf
        | (_::_) -> Print.print ?max_level ~at_level:Level.ml_tag ppf "@[<hov 2>%t@ %t@]"
-                     (Ident.print ~parentheses:true t)
-                     (Print.sequence (print_value ~max_level:Level.ml_tag_arg ~names) "" lst)
+                     (Ident.print ~opens:penv.opens ~parentheses:true t)
+                     (Print.sequence (print_value ~max_level:Level.ml_tag_arg ~penv) "" lst)
      end
 
-let print_operation ~names op vs ppf =
+let print_operation ~penv op vs ppf =
   match op, vs with
 
   | Path.Direct (Path.Level ({Name.fixity=Name.Prefix;_} as name, _)), [v] ->
      (* prefix op applied to one argument *)
      Print.print ppf ~at_level:Level.prefix "%t@ %t"
        (Name.print ~parentheses:false name)
-       (print_value ~max_level:Level.prefix_arg ~names v)
+       (print_value ~max_level:Level.prefix_arg ~penv v)
 
   | Path.Direct (Path.Level ({Name.fixity=Name.Infix fixity;_} as name, _)), [v1; v2] ->
      (* infix op applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ~at_level:lvl_op "%t@ %t@ %t"
-       (print_value ~max_level:lvl_left ~names v1)
+       (print_value ~max_level:lvl_left ~penv v1)
        (Name.print ~parentheses:false name)
-       (print_value ~max_level:lvl_right ~names v2)
+       (print_value ~max_level:lvl_right ~penv v2)
 
   | (Path.Direct _ | Path.Module _), _ ->
      (* print as application *)
      begin
        match vs with
-       | [] -> Path.print ~parentheses:true op ppf
+       | [] -> Path.print ~opens:penv.opens ~parentheses:true op ppf
        | (_::_) -> Print.print ~at_level:Level.ml_operation ppf "[@<hov 2>%t@ %t@]"
-                     (Path.print ~parentheses:true op)
-                     (Print.sequence (print_value ~max_level:Level.ml_operation_arg ~names) "" vs)
+                     (Path.print ~opens:penv.opens ~parentheses:true op)
+                     (Print.sequence (print_value ~max_level:Level.ml_operation_arg ~penv) "" vs)
      end
 
-let print_error ~names err ppf =
+let print_error ~penv err ppf =
   match err with
 
   | ExpectedAtom j ->
      Format.fprintf ppf "expected an atom but got@ %t"
-       (Nucleus.print_is_term ~names j)
+       (Nucleus.print_is_term ~penv:(mk_nucleus_penv penv) j)
 
   | UnknownExternal s ->
      Format.fprintf ppf "unknown external@ %s" s
@@ -724,53 +751,59 @@ let print_error ~names err ppf =
 
 
   | AnnotationMismatch (t1, t2) ->
-      Format.fprintf ppf
-      "the type annotation is@ %t@ but the surroundings imply it should be@ %t"
-                    (Nucleus.print_is_type ~names t1)
-                    (Nucleus.print_is_type_abstraction ~names t2)
+     let penv = mk_nucleus_penv penv in
+     Format.fprintf ppf
+       "the type annotation is@ %t@ but the surroundings imply it should be@ %t"
+                    (Nucleus.print_is_type ~penv t1)
+                    (Nucleus.print_is_type_abstraction ~penv t2)
 
   | TypeMismatchCheckingMode (v, t) ->
-      Format.fprintf ppf "the term@ %t@ is expected by its surroundings to have type@ %t"
-                    (Nucleus.print_is_term_abstraction ~names v)
-                    (Nucleus.print_is_type_abstraction ~names t)
+     let penv = mk_nucleus_penv penv in
+     Format.fprintf ppf "the term@ %t@ is expected by its surroundings to have type@ %t"
+                    (Nucleus.print_is_term_abstraction ~penv v)
+                    (Nucleus.print_is_type_abstraction ~penv t)
 
   | UnexpectedAbstraction t ->
       Format.fprintf ppf "this term is an abstraction but the surroundings imply it shoule be@ %t"
-                    (Nucleus.print_is_type ~names t)
+                    (Nucleus.print_is_type ~penv:(mk_nucleus_penv penv) t)
 
   | TermEqualityFail (e1, e2) ->
+     let penv = mk_nucleus_penv penv in
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
-                    (Nucleus.print_is_term ~names e1)
-                    (Nucleus.print_is_term ~names e2)
+                    (Nucleus.print_is_term ~penv e1)
+                    (Nucleus.print_is_term ~penv e2)
 
   | TypeEqualityFail (t1, t2) ->
+     let penv = mk_nucleus_penv penv in
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
-                    (Nucleus.print_is_type ~names t1)
-                    (Nucleus.print_is_type ~names t2)
+                    (Nucleus.print_is_type ~penv t1)
+                    (Nucleus.print_is_type ~penv t2)
 
   | UnannotatedAbstract x ->
      Format.fprintf ppf "cannot infer the type of@ %t@ in abstraction" (Name.print x)
 
   | MatchFail v ->
      Format.fprintf ppf "no matching pattern found for value@ %t"
-                    (print_value ~names v)
+                    (print_value ~penv v)
 
   | FailureFail v ->
      Format.fprintf ppf "expected to fail but computed@ %t"
-                    (print_value ~names v)
+                    (print_value ~penv v)
 
   | InvalidComparison ->
      Format.fprintf ppf "invalid comparison"
 
   | InvalidEqualTerm (e1, e2) ->
+     let penv = mk_nucleus_penv penv in
      Format.fprintf ppf "this should be equality of terms@ %t@ and@ %t"
-                    (Nucleus.print_is_term ~names e1)
-                    (Nucleus.print_is_term ~names e2)
+                    (Nucleus.print_is_term ~penv e1)
+                    (Nucleus.print_is_term ~penv e2)
 
   | InvalidEqualType (t1, t2) ->
+     let penv = mk_nucleus_penv penv in
      Format.fprintf ppf "this should be equality of types %t@ and@ %t"
-                    (Nucleus.print_is_type ~names t1)
-                    (Nucleus.print_is_type ~names t2)
+                    (Nucleus.print_is_type ~penv t1)
+                    (Nucleus.print_is_type ~penv t2)
 
   | BoolExpected v ->
      Format.fprintf ppf "expected a boolean but got %s" (name_of v)
@@ -830,24 +863,26 @@ let print_error ~names err ppf =
     Format.fprintf ppf "expected a coercible but got %s" (name_of v)
 
   | InvalidConvertible (t1, t2, eq) ->
+     let penv = mk_nucleus_penv penv in
      Format.fprintf ppf
        "expected an equality between@ %t@ and@ %t@ but got@ %t"
-                    (Nucleus.print_is_type_abstraction ~names t1)
-                    (Nucleus.print_is_type_abstraction ~names t2)
-                    (Nucleus.print_eq_type_abstraction ~names eq)
+                    (Nucleus.print_is_type_abstraction ~penv t1)
+                    (Nucleus.print_is_type_abstraction ~penv t2)
+                    (Nucleus.print_eq_type_abstraction ~penv eq)
 
   | InvalidCoerce (t, e) ->
+     let penv = mk_nucleus_penv penv in
      Format.fprintf ppf "expected a term of type@ %t@ but got@ %t"
-                    (Nucleus.print_is_type_abstraction ~names t)
-                    (Nucleus.print_is_term_abstraction ~names e)
+                    (Nucleus.print_is_type_abstraction ~penv t)
+                    (Nucleus.print_is_term_abstraction ~penv e)
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "unhandled operation %t"
-                    (print_operation ~names (Ident.path op) vs)
+                    (print_operation ~penv (Ident.path op) vs)
 
   | InvalidPatternMatch v ->
      Format.fprintf ppf "this pattern cannot match@ %t"
-                    (print_value ~names v)
+                    (print_value ~penv v)
 
   | InvalidHandlerMatch ->
      Format.fprintf ppf "wrong number of arguments in handler case"
@@ -856,7 +891,7 @@ let print_error ~names err ppf =
 let empty = {
   lexical = {
     table = SymbolTable.initial ;
-    current_names = [] ;
+    penv = { forbidden = Name.set_empty ; opens = Path.set_empty } ;
     current_values = [] ;
     ml_yield = None ;
   } ;

@@ -43,7 +43,7 @@ val mapi : (t -> 'a -> 'b) -> 'a map -> 'b map
 val bindings : 'a map -> (t * 'a) list
 
 (** Print an identifier *)
-val print : parentheses:bool -> t -> Format.formatter -> unit
+val print : opens:Path.set -> parentheses:bool -> t -> Format.formatter -> unit
 
 module Json :
 sig

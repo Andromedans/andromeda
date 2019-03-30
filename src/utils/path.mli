@@ -11,6 +11,13 @@ type t =
   | Direct of level
   | Module of t * level
 
+(** A set of paths *)
+type set
+
+val set_empty : set
+val set_add : t -> set -> set
+val set_mem : t -> set -> bool
+
 (** Access path to an ML constructor *)
 type ml_constructor = t * level
 
@@ -31,7 +38,7 @@ val add : t -> 'a -> 'a map -> 'a map
 val find : t -> 'a map -> 'a
 
 (** print a path *)
-val print : parentheses:bool -> t -> Format.formatter -> unit
+val print : opens:set -> parentheses:bool -> t -> Format.formatter -> unit
 
 module Json :
 sig

@@ -1,3 +1,10 @@
+(** Printing environment *)
+type print_environment = {
+  forbidden : Name.set ;
+  debruijn : Name.t list ;
+  opens : Path.set
+}
+
 type signature
 
 (** Judgements can be abstracted *)
@@ -292,31 +299,31 @@ val congruence_term_constructor :
 (** Printing routines *)
 
 val print_is_term :
-  ?max_level:Level.t -> names:(Name.t list) -> is_term -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:print_environment -> is_term -> Format.formatter -> unit
 
 val print_is_type :
-  ?max_level:Level.t -> names:(Name.t list) -> is_type -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:print_environment -> is_type -> Format.formatter -> unit
 
 val print_eq_term :
-  ?max_level:Level.t -> names:(Name.t list) -> eq_term -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:print_environment -> eq_term -> Format.formatter -> unit
 
 val print_eq_type :
-  ?max_level:Level.t -> names:(Name.t list) -> eq_type -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:print_environment -> eq_type -> Format.formatter -> unit
 
 val print_is_term_abstraction :
-  ?max_level:Level.t -> names:(Name.t list) -> is_term_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:print_environment -> is_term_abstraction -> Format.formatter -> unit
 
 val print_is_type_abstraction :
-  ?max_level:Level.t -> names:(Name.t list) -> is_type_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:print_environment -> is_type_abstraction -> Format.formatter -> unit
 
 val print_eq_term_abstraction :
-  ?max_level:Level.t -> names:(Name.t list) -> eq_term_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:print_environment -> eq_term_abstraction -> Format.formatter -> unit
 
 val print_eq_type_abstraction :
-  ?max_level:Level.t -> names:(Name.t list) -> eq_type_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:print_environment -> eq_type_abstraction -> Format.formatter -> unit
 
 (** Print a nucleus error *)
-val print_error : names:(Name.t list) -> error -> Format.formatter -> unit
+val print_error : penv:print_environment -> error -> Format.formatter -> unit
 
 module Json :
 sig

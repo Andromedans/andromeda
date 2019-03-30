@@ -20,8 +20,7 @@ let equal {stamp=i;_} {stamp=j;_} = (i = j)
 let compare {stamp=i;_} {stamp=j;_} = Pervasives.compare i j
 
 module IdentMap = Map.Make(struct
-                        type t_ident = t (* OCaml is a bit silly *)
-                        type t = t_ident
+                        type nonrec t = t
                         let compare = compare
                       end)
 
@@ -41,7 +40,7 @@ let mapi = IdentMap.mapi
 
 let bindings = IdentMap.bindings
 
-let print ~parentheses {path;_} ppf = Path.print ~parentheses path ppf
+let print ~opens ~parentheses {path;_} ppf = Path.print ~opens ~parentheses path ppf
 
 module Json =
 struct

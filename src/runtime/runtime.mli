@@ -128,9 +128,15 @@ val equal_value: value -> value -> bool
 (** Check whether the given value represents an ML list *)
 (* val as_list_opt : value -> value list option *)
 
+(** printing environment *)
+type penv = {
+  forbidden : Name.set ;
+  opens : Path.set
+}
+
 (** Pretty-print a value. *)
 val print_value :
-  ?max_level:Level.t -> names:(Name.t list) -> value -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:penv -> value -> Format.formatter -> unit
 
 
 (** {6 Error Handling} *)
@@ -181,7 +187,7 @@ type error =
 exception Error of error Location.located
 
 (** Pretty-print a runtime error *)
-val print_error : names:(Name.t list) -> error -> Format.formatter -> unit
+val print_error : penv:penv -> error -> Format.formatter -> unit
 
 (** Report a runtime error (raises an Error exception) *)
 val error : loc:Location.t -> error -> 'a
@@ -243,8 +249,8 @@ val now : ml_dyn -> value -> 'a comp -> 'a comp
 (** Lookup the current continuation. Only usable while handling an operation. *)
 val continue : value -> value comp
 
-(** Get the list of names of bound variables *)
-val lookup_names : Name.t list comp
+(** Get the printing environment *)
+val lookup_penv : penv comp
 
 (** Gets the current rules of inference. *)
 val lookup_signature : Nucleus.signature comp
@@ -318,7 +324,14 @@ val add_rule_eq_term : Ident.t -> Rule.rule_eq_term -> unit toplevel
 (** Handle a computation at the toplevel. *)
 val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
 
-val top_lookup_names : Name.t list toplevel
+(** Lookup the current printing environment *)
+val top_lookup_penv : penv toplevel
+
+(** Lookup the currently open paths *)
+val top_lookup_opens : Path.set toplevel
+
+(** Open a module path *)
+val top_open_path : Path.t -> unit toplevel
 
 (** Get the signature from the toplevel monad *)
 val top_lookup_signature : Nucleus.signature toplevel
@@ -331,8 +344,11 @@ type topenv
 (** The empty toplevel environment. *)
 val empty : topenv
 
-(** Get the list of rule names (used to print constructors). *)
-val get_names : topenv -> Name.t list
+(** Get the current printing environment. *)
+val get_penv : topenv -> penv
+
+(** Get the current printing environment for the nucleus *)
+val get_nucleus_penv : topenv -> Nucleus.print_environment
 
 (** Execute a toplevel command in the given environment. *)
 val exec : 'a toplevel -> topenv -> 'a * topenv

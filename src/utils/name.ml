@@ -188,19 +188,6 @@ let extract_suffix s =
 
 let equal {name=x;_} {name=y;_} = String.equal x y
 
-let refresh xs ({name; fixity} as x) =
-  let rec used s = function
-      | [] -> false
-      | {name=t;_} :: lst -> String.equal s t || used s lst
-  in
-  if not (used name xs) then
-     x
-  else
-    let (s, k) = extract_suffix name in
-    let k = ref (match k with Some k -> k | None -> 0) in
-    while used (s ^ subscript !k) xs do incr k done;
-    { name = s ^ subscript !k ; fixity }
-
 module NameSet = Set.Make (
   struct
     type t_name = t
@@ -215,6 +202,15 @@ let set_empty = NameSet.empty
 let set_add = NameSet.add
 
 let set_mem = NameSet.mem
+
+let refresh xs ({name; fixity} as x) =
+  if not (set_mem x xs) then
+     x
+  else
+    let (s, k) = extract_suffix name in
+    let k = ref (match k with Some k -> k | None -> 0) in
+    while set_mem {name = s ^ subscript !k; fixity} xs do incr k done;
+    { name = s ^ subscript !k ; fixity }
 
 module NameMap = Map.Make (
   struct

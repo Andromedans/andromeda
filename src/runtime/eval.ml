@@ -525,10 +525,8 @@ and sequence ~loc v =
   match v with
     | Runtime.Tuple [] -> return ()
     | _ ->
-      Runtime.lookup_names >>= fun names ->
-      Print.warning "@[<hov 2>%t: the value %t should be the unit@]@."
-        (Location.print loc)
-        (Runtime.print_value ~names v) ;
+      Print.warning "@[<hov 2>%t: this value should be the unit@]@."
+        (Location.print loc) ;
       return ()
 
 and let_bind
@@ -790,7 +788,7 @@ let toplet_bind ~loc ~quiet ~print_annot info clauses =
        end
   in
   fold [] clauses >>= fun uss ->
-  Runtime.top_lookup_names >>= fun names ->
+  Runtime.top_lookup_penv >>= fun penv ->
     if not quiet
     then
       begin
@@ -802,7 +800,7 @@ let toplet_bind ~loc ~quiet ~print_annot info clauses =
                 Format.printf "@[<hov 2>val %t :>@ %t@ =@ %t@]@."
                               (Name.print x)
                               (print_annot sch)
-                              (Runtime.print_value ~names v))
+                              (Runtime.print_value ~penv v))
               xts xvs)
           info vss
        end ;
@@ -828,49 +826,55 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   match c with
 
   | Rsyntax.RuleIsType (x, prems) ->
+     Runtime.top_lookup_opens >>= fun opens ->
      Runtime.top_handle ~loc (premises prems (Runtime.return ())) >>=
        fun (premises, ()) ->
        let rule = Nucleus.form_rule_is_type premises in
        (if not quiet then
-          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~opens ~parentheses:false x));
        Runtime.add_rule_is_type x rule
 
   | Rsyntax.RuleIsTerm (x, prems, c) ->
+     Runtime.top_lookup_opens >>= fun opens ->
      Runtime.top_handle ~loc (premises prems (check_is_type c)) >>=
        fun (premises, head) ->
        let rule = Nucleus.form_rule_is_term premises head in
        (if not quiet then
-          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~opens ~parentheses:false x));
        Runtime.add_rule_is_term x rule
 
   | Rsyntax.RuleEqType (x, prems, boundary) ->
+     Runtime.top_lookup_opens >>= fun opens ->
      Runtime.top_handle ~loc (premises prems (check_eq_type_boundary boundary)) >>=
        fun (premises, head) ->
        let rule = Nucleus.form_rule_eq_type premises head in
        (if not quiet then
-          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~opens ~parentheses:false x));
        Runtime.add_rule_eq_type x rule
 
   | Rsyntax.RuleEqTerm (x, prems, boundary) ->
+     Runtime.top_lookup_opens >>= fun opens ->
      Runtime.top_handle ~loc (premises prems (check_eq_term_boundary boundary)) >>=
        fun (premises, head) ->
        let rule = Nucleus.form_rule_eq_term premises head in
        (if not quiet then
-          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~parentheses:false x));
+          Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~opens ~parentheses:false x));
        Runtime.add_rule_eq_term x rule
 
   | Rsyntax.DefMLType lst
   | Rsyntax.DefMLTypeRec lst ->
+     Runtime.top_lookup_opens >>= fun opens ->
      (if not quiet then
         Format.printf "@[<hov 2>ML type%s %t declared.@]@."
           (match lst with [_] -> "" | _ -> "s")
-          (Print.sequence (Path.print ~parentheses:true) "," lst)) ;
+          (Print.sequence (Path.print ~opens ~parentheses:true) "," lst)) ;
      return ()
 
   | Rsyntax.DeclOperation (op, k) ->
+     Runtime.top_lookup_opens >>= fun opens ->
      (if not quiet then
         Format.printf "@[<hov 2>Operation %t is declared.@]@."
-          (Path.print ~parentheses:true op)) ;
+          (Path.print ~opens ~parentheses:true op)) ;
      return ()
 
   | Rsyntax.DeclExternal (x, sch, s) ->
@@ -897,11 +901,11 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
   | Rsyntax.TopComputation (c, sch) ->
      comp_value c >>= fun v ->
-     Runtime.top_lookup_names >>= fun names ->
+     Runtime.top_lookup_penv >>= fun penv ->
      if not quiet then
        Format.printf "@[<hov 2>- :@ %t@ =@ %t@]@."
            (print_annot () sch)
-           (Runtime.print_value ~names v) ;
+           (Runtime.print_value ~penv v) ;
      return ()
 
   | Rsyntax.TopDynamic (x, annot, c) ->
@@ -914,6 +918,9 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      let x = Runtime.as_dyn ~loc:xloc x in
      comp_value c >>= fun v ->
      Runtime.top_now x v
+
+  | Rsyntax.Open pth ->
+     Runtime.top_open_path pth
 
   | Rsyntax.MLModule (mdl_name, cmds) ->
      if not quiet then Format.printf "@[<hov 2>Processing module %t@]@." (Name.print mdl_name) ;
