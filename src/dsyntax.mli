@@ -138,4 +138,5 @@ and toplevel' =
   | TopDynamic of Name.t * arg_annotation * comp
   | TopNow of comp * comp
   | Verbosity of int
+  | Open of Path.t
   | MLModule of Name.t * toplevel list

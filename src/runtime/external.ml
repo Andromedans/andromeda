@@ -6,8 +6,8 @@ let externals =
   [
     ("print", (* forall a, a -> mlunit *)
      Runtime.mk_closure (fun v ->
-         Runtime.lookup_names >>= fun names ->
-         Format.printf "%t@." (Runtime.print_value ~names v) ;
+         Runtime.lookup_penv >>= fun penv ->
+         Format.printf "%t@." (Runtime.print_value ~penv v) ;
          Runtime.return_unit
     ));
 

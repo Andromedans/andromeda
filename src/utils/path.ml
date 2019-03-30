@@ -8,12 +8,36 @@ type t =
 
 type ml_constructor = t * level
 
+module PathSet = Set.Make(
+                     struct
+                       type nonrec t = t
+                       let rec compare x y =
+                         match x, y with
+                         | Direct _, Module _ -> -1
+                         | Module _, Direct _ -> 1
+                         | Direct (Level (_, i)), Direct (Level (_, j)) -> Pervasives.compare i j
+                         | Module (p, Level(_, i)), Module (q, Level (_, j)) ->
+                            let c = Pervasives.compare i j in
+                            if c <> 0 then c
+                            else compare p q
+                     end)
+
+type set = PathSet.t
+
+let set_empty = PathSet.empty
+let set_add = PathSet.add
+let set_mem = PathSet.mem
+
 let print_level ?parentheses (Level (x, _)) ppf = Name.print ?parentheses x ppf
 
-let rec print ~parentheses p ppf =
+let rec print ~opens ~parentheses p ppf =
   match p with
   | Direct x -> print_level ~parentheses x ppf
-  | Module (pth, x) -> Format.fprintf ppf "%t.%t" (print ~parentheses:true pth) (print_level ~parentheses:true x)
+  | Module (pth, x) ->
+     if set_mem pth opens then
+       print_level ~parentheses x ppf
+     else
+       Format.fprintf ppf "%t.%t" (print ~opens ~parentheses:true pth) (print_level ~parentheses:true x)
 
 let compare_level (Level (_, i)) (Level (_, j)) =
   if i < j then -1

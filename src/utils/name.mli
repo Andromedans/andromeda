@@ -37,9 +37,6 @@ val module_filename : t -> string
 (** Make a name from a string. *)
 val mk_name : ?fixity:fixity -> string -> t
 
-(** [refresh xs x] finds a nice variant of [x] that does not occur in [xs]. *)
-val refresh : t list -> t -> t
-
 (** Compare names for equality. *)
 val equal : t -> t -> bool
 
@@ -54,6 +51,9 @@ val set_add : t -> set -> set
 
 (** Is the given name an element of the set? *)
 val set_mem : t -> set -> bool
+
+(** [refresh xs x] finds a nice variant of [x] that does not occur in [xs]. *)
+val refresh : set -> t -> t
 
 (** A map from names to values *)
 type 'a map

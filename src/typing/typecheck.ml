@@ -1065,6 +1065,9 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
   | Dsyntax.Verbosity v ->
     return_located ~loc (Rsyntax.Verbosity v)
 
+  | Dsyntax.Open pth ->
+     return_located ~loc (Rsyntax.Open pth)
+
   | Dsyntax.MLModule (mdl_name, cs) ->
      Tyenv.as_module (toplevels' cs) >>= fun cs ->
      return_located ~loc (Rsyntax.MLModule (mdl_name, cs))

@@ -186,11 +186,13 @@ let rec print_ty ~penv ?max_level t ppf =
                  (print_ty ~penv ~max_level:(Level.ml_handler_right) t2)
 
   | Apply (pth, []) ->
-     Format.fprintf ppf "%t" (Path.print ~parentheses:true pth)
+     (* TODO if we kept a printing environment, we could provide a better value for opens *)
+     Format.fprintf ppf "%t" (Path.print ~opens:Path.set_empty ~parentheses:true pth)
 
   | Apply (pth, ts) ->
+     (* TODO if we kept a printing environment, we could provide a better value for opens *)
      Print.print ?max_level ~at_level:Level.ml_app ppf "%t@ %t"
-                 (Path.print ~parentheses:true pth)
+                 (Path.print ~opens:Path.set_empty ~parentheses:true pth)
                  (Print.sequence (print_ty ~penv ~max_level:Level.ml_app_arg) "" ts)
 
   | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "ref@ %t"
