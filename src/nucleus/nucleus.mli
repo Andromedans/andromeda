@@ -5,6 +5,7 @@ type print_environment = {
   opens : Path.set
 }
 
+(** The description of a user-defined type theory *)
 type signature
 
 (** Judgements can be abstracted *)
@@ -39,11 +40,19 @@ type argument =
   | ArgumentEqType of eq_type_abstraction
   | ArgumentEqTerm of eq_term_abstraction
 
+(** Boundary of a type judgement *)
 type is_type_boundary = unit abstraction
+
+(** Boundary of a term judgement *)
 type is_term_boundary = is_type abstraction
+
+(** Boundary of a type equality judgement *)
 type eq_type_boundary = (is_type * is_type) abstraction
+
+(** Boundary of a term equality judgement *)
 type eq_term_boundary = (is_term * is_term * is_type) abstraction
 
+(** Boundary of a judgement *)
 type boundary =
     | BoundaryIsType of is_type_boundary
     | BoundaryIsTerm of is_term_boundary
@@ -113,6 +122,30 @@ val form_rule_eq_type :
 val form_rule_eq_term :
   (Nonce.t * boundary) list -> is_term * is_term * is_type -> Rule.rule_eq_term
 
+(** A partially applied rule is a rule with an initial part of the premises
+   applied already. We need to represent such partial applications in order to
+   be able to compute the boundary of the next argument from the already given
+   ones _before_ the next argument is known. We call such a partially applied
+   rule a (partial) _rule application_. *)
+type 'a rule_application
+
+(** When we apply a rule application to one more argument two things may happen.
+   Either we are done and we get a result, or more arguments are needed, in
+   which case we get the rap with one more argument applied, and the boundary of
+   the next argument. *)
+type 'a rule_application_status = private
+  | RapDone of 'a
+  | RapMore of 'a rule_application * boundary
+
+(** Form a fully non-applied rule application for a given constructor *)
+val form_rap_is_type : signature -> Ident.t -> is_type rule_application_status
+val form_rap_is_term : signature -> Ident.t -> is_term rule_application_status
+val form_rap_eq_type : signature -> Ident.t -> eq_type rule_application_status
+val form_rap_eq_term : signature -> Ident.t -> eq_term rule_application_status
+
+(** Apply a rap to one more argument *)
+val rap_apply : 'a rule_application -> argument -> 'a rule_application_status
+
 (** Given a type formation rule and a list of arguments, match the rule
    against the given arguments, make sure they fit the rule, and return the
    judgement corresponding to the conclusion of the rule. *)
@@ -156,12 +189,13 @@ val form_eq_term : signature -> Ident.t -> argument list -> eq_term
 (** Form a non-abstracted abstraction *)
 val abstract_not_abstract : 'a -> 'a abstraction
 
-(** Form an abstracted abstraction *)
+(** Form an abstracted judgement *)
 val abstract_is_type : is_atom -> is_type_abstraction -> is_type_abstraction
 val abstract_is_term : is_atom -> is_term_abstraction -> is_term_abstraction
 val abstract_eq_type : is_atom -> eq_type_abstraction -> eq_type_abstraction
 val abstract_eq_term : is_atom -> eq_term_abstraction -> eq_term_abstraction
 
+(** Form an abstracted boundary *)
 val abstract_boundary_is_type : is_atom -> is_type_boundary -> is_type_boundary
 val abstract_boundary_is_term : is_atom -> is_term_boundary -> is_term_boundary
 val abstract_boundary_eq_type : is_atom -> eq_type_boundary -> eq_type_boundary
@@ -183,6 +217,8 @@ val eq_term_meta_eta_expanded : signature -> eq_term_meta -> eq_term_abstraction
 
 (** Verify that an abstraction is in fact not abstract *)
 val as_not_abstract : 'a abstraction -> 'a option
+
+(** Inversion principles *)
 
 val invert_is_type : is_type -> stump_is_type
 
@@ -213,20 +249,21 @@ val context_is_term_abstraction : is_term_abstraction -> is_atom list
 val context_eq_type_abstraction : eq_type_abstraction -> is_atom list
 val context_eq_term_abstraction : eq_term_abstraction -> is_atom list
 
-(** An error emitted by the nucleus *)
-type error
-
-exception Error of error
-
 (** The type judgement of a term judgement. *)
 val type_of_term : signature -> is_term -> is_type
+
+(** The abstracted type judgement of an abstracted term judgement. *)
+val type_of_term_abstraction : signature -> is_term_abstraction -> is_type_abstraction
 
 (** The type over which an abstraction is abstracting, or [None] if it not an
    abstraction. *)
 val type_at_abstraction : 'a abstraction -> is_type option
 
-(** The type judgement of an abstracted term judgement. *)
-val type_of_term_abstraction : signature -> is_term_abstraction -> is_type_abstraction
+(** Checking that an abstracted judgement has the desired boundary *)
+val check_is_type_boundary : is_type_abstraction -> is_type_boundary -> bool
+val check_is_type_boundary : is_term_abstraction -> is_term_boundary -> bool
+val check_eq_type_boundary : eq_type_abstraction -> eq_type_boundary -> bool
+val check_eq_term_boundary : eq_term_abstraction -> eq_term_boundary -> bool
 
 (** Typeof for atoms *)
 val type_of_atom : is_atom -> is_type
@@ -270,8 +307,9 @@ val alpha_equal_term : is_term -> is_term -> bool
 (** Test whether types are alpha-equal. They may have different contexts. *)
 val alpha_equal_type : is_type -> is_type -> bool
 
+(** Test whether two abstractions are alpha-equal. *)
 val alpha_equal_abstraction
-  : ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
+  : ('a -> 'b -> bool) -> 'a abstraction -> 'b abstraction -> bool
 
 (** If [e1 == e2 : A] then [e2 == e1 : A] *)
 val symmetry_term : eq_term -> eq_term
@@ -321,6 +359,11 @@ val print_eq_term_abstraction :
 
 val print_eq_type_abstraction :
   ?max_level:Level.t -> penv:print_environment -> eq_type_abstraction -> Format.formatter -> unit
+
+(** An error emitted by the nucleus *)
+type error
+
+exception Error of error
 
 (** Print a nucleus error *)
 val print_error : penv:print_environment -> error -> Format.formatter -> unit

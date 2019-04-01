@@ -55,6 +55,16 @@ and boundary =
     | BoundaryEqType of eq_type_boundary
     | BoundaryEqTerm of eq_term_boundary
 
+type 'a rule_application =
+  { rap_metas : argument list
+  ; rap_next_boundary : boundary option
+  ; rep_premises : Rule.premise list
+  ; rap_constructor : argument list -> 'a
+  }
+
+type 'a rule_application_status = private
+  | RapDone of 'a
+  | RapMore of 'a rule_application * boundary
 
 type signature =
   { is_type : Rule.rule_is_type Ident.map

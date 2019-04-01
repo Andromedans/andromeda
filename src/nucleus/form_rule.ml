@@ -86,7 +86,7 @@ let lookup_meta_index x mvs =
   search 0 mvs
 
 (** The [mk_rule_XYZ] functions are auxiliary functions that should not be
-    exposed. The external interface exopses the [form_rule_XYZ] functions defined
+    exposed. The external interface exposes the [form_rule_XYZ] functions defined
     below. *)
 
 let rec mk_rule_is_type metas = function

@@ -20,6 +20,12 @@ let type_at_abstraction = Sanity.type_at_abstraction
 let type_of_atom = Sanity.type_of_atom
 let natural_type_eq = Sanity.natural_type_eq
 
+let check_is_type_boundary = Alpha_equal.check_is_type_boundary
+let check_is_term_boundary = Alpha_equal.check_is_term_boundary
+let check_eq_type_boundary = Alpha_equal.check_eq_type_boundary
+let check_eq_term_boundary = Alpha_equal.check_eq_term_boundary
+
+
 let fresh_atom = Mk.fresh_atom
 let fresh_is_type_meta = Mk.fresh_type_meta
 let fresh_is_term_meta = Mk.fresh_term_meta
@@ -34,6 +40,12 @@ let alpha_equal_abstraction = Alpha_equal.abstraction
 let form_alpha_equal_term = Form.form_alpha_equal_term
 let form_alpha_equal_type = Form.form_alpha_equal_type
 let form_alpha_equal_abstraction = Form.form_alpha_equal_abstraction
+let form_rap_is_type = Form.form_rap_is_type
+let form_rap_is_term = Form.form_rap_is_term
+let form_rap_eq_type = Form.form_rap_eq_type
+let form_rap_eq_term = Form.form_rap_eq_term
+let rap_apply = Form.rap_apply
+
 let form_eq_term = Form.form_eq_term
 let form_eq_type = Form.form_eq_type
 let form_is_term = Form.form_is_term

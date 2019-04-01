@@ -51,6 +51,12 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
   | (NotAbstract _, Abstract _)
   | (Abstract _, NotAbstract _) -> None
 
+let form_rap_is_type sgn c = failwith "not done"
+let form_rap_is_term sgn c = failwith "not done"
+let form_rap_eq_type sgn c = failwith "not done"
+let form_rap_eq_term sgn c = failwith "not done"
+
+let rap_apply rap arg = failwith "not done"
 
 let form_is_type sgn c arguments =
   let prems, () = Signature.lookup_rule_is_type c sgn in
