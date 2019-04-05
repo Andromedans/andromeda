@@ -31,8 +31,8 @@ and 'a abstraction =
 type premise =
   | PremiseIsType of unit abstraction
   | PremiseIsTerm of ty abstraction
-  | PremiseEqType of eq_type abstraction
-  | PremiseEqTerm of eq_term abstraction
+  | PremiseEqType of (ty * ty) abstraction
+  | PremiseEqTerm of (term * term * ty) abstraction
 
 type rule_is_type = premise list * unit
 type rule_is_term = premise list * ty

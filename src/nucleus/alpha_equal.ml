@@ -97,6 +97,5 @@ let check_is_type_boundary abstr bdry =
 let check_is_term_boundary sgn abstr bdry =
   abstraction (fun e t -> is_type (Sanity.type_of_term sgn e) t) abstr bdry
 
-
-let check_eq_type_boundary = Sanity.check_eq_type_boundary
-let check_eq_term_boundary = Sanity.check_eq_term_boundary
+let check_eq_type_boundary _ _ = failwith "check_eq_type_boundary"
+let check_eq_term_boundary _ _ = failwith "check_eq_term_boundary"

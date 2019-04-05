@@ -127,24 +127,27 @@ val form_rule_eq_term :
    be able to compute the boundary of the next argument from the already given
    ones _before_ the next argument is known. We call such a partially applied
    rule a (partial) _rule application_. *)
-type 'a rule_application
+type 'a rule_application_status
 
 (** When we apply a rule application to one more argument two things may happen.
    Either we are done and we get a result, or more arguments are needed, in
    which case we get the rap with one more argument applied, and the boundary of
    the next argument. *)
-type 'a rule_application_status = private
+type 'a rule_application = private
   | RapDone of 'a
-  | RapMore of 'a rule_application * boundary
+  | RapMore of 'a rule_application_status
 
 (** Form a fully non-applied rule application for a given constructor *)
-val form_rap_is_type : signature -> Ident.t -> is_type rule_application_status
-val form_rap_is_term : signature -> Ident.t -> is_term rule_application_status
-val form_rap_eq_type : signature -> Ident.t -> eq_type rule_application_status
-val form_rap_eq_term : signature -> Ident.t -> eq_term rule_application_status
+val form_rap_is_type : signature -> Ident.t -> is_type rule_application
+val form_rap_is_term : signature -> Ident.t -> is_term rule_application
+val form_rap_eq_type : signature -> Ident.t -> eq_type rule_application
+val form_rap_eq_term : signature -> Ident.t -> eq_term rule_application
 
 (** Apply a rap to one more argument *)
-val rap_apply : 'a rule_application -> argument -> 'a rule_application_status
+val rap_apply : signature -> 'a rule_application_status -> argument -> 'a rule_application
+
+(** Give the boundary of a rap status, i.e., the boundary of the next argument. *)
+val rap_boundary : 'a rule_application_status -> boundary
 
 (** Given a type formation rule and a list of arguments, match the rule
    against the given arguments, make sure they fit the rule, and return the
@@ -261,7 +264,7 @@ val type_at_abstraction : 'a abstraction -> is_type option
 
 (** Checking that an abstracted judgement has the desired boundary *)
 val check_is_type_boundary : is_type_abstraction -> is_type_boundary -> bool
-val check_is_type_boundary : is_term_abstraction -> is_term_boundary -> bool
+val check_is_term_boundary : signature -> is_term_abstraction -> is_term_boundary -> bool
 val check_eq_type_boundary : eq_type_abstraction -> eq_type_boundary -> bool
 val check_eq_term_boundary : eq_term_abstraction -> eq_term_boundary -> bool
 

@@ -352,42 +352,48 @@ let rec infer {Location.thing=c'; loc} =
     Runtime.return_eq_type (Nucleus.abstract_not_abstract eq)
 
 and check_arguments :
-  'a . 'a Nucleus.rule_application_status -> Rsyntax.comp list -> 'a Runtime.comp
+  'a . 'a Nucleus.rule_application -> Rsyntax.comp list -> 'a Runtime.comp
   = fun rap cs ->
   match rap, cs with
   | Nucleus.RapDone v, [] -> return v
-  | Nucleus.RapMore (rap, bdry), c :: cs ->
+  | Nucleus.RapMore rap, c :: cs ->
+     let bdry = Nucleus.rap_boundary rap in
+     Runtime.lookup_signature >>= fun sgn ->
      check_argument c bdry >>= fun arg ->
-     let rap = Nucleus.rap_apply rap arg in
+     let rap = Nucleus.rap_apply sgn rap arg in
      check_arguments rap cs
   | Nucleus.RapDone _, _::_ ->
-     failwith "too many arguments, should not happen"
+     assert false (* cannot happen, typechecking prevents this *)
   | Nucleus.RapMore _, [] ->
-     failwith "too few arguments, should not happen"
+     assert false (* cannot happen, typechecking prevents this *)
 
 and check_argument c bdry =
   match bdry with
 
-  | Nucleus.BoundaryIsTerm abstr ->
-     check_is_term_abstraction c abstr
+  | Nucleus.BoundaryIsType bdry ->
+    (** XXX we should improve checking mode so that we can check against any boundary *)
+     infer_is_type_abstraction c >>= fun t ->
+     if Nucleus.check_is_type_boundary t bdry then
+       return (Nucleus.ArgumentIsType t)
+     else
+       failwith "type expected, need a good error message here"
 
-  (** XXX we should improve checking mode so that we can check against any boundary *)
-  | Nucleus.BoundaryIsType abstr ->
-     check_is_type_abstraction c abstr >>= as_argument
+  | Nucleus.BoundaryIsTerm bdry ->
+     check c bdry >>= fun t -> return (Nucleus.ArgumentIsTerm t)
 
-  | Nucleus.BoundaryEqType abstr ->
-     check_eq_type_abstraction c abstr >>= as_argument
+  | Nucleus.BoundaryEqType bdry ->
+     infer_eq_type_abstraction c >>= fun eq ->
+     if Nucleus.check_eq_type_boundary eq bdry then
+       return (Nucleus.ArgumentEqType eq)
+     else
+       failwith "type equation expected, need a good error message"
 
-  | Nucleus.BoundaryEqTerm abstr ->
-     check_eq_term_abstraction c abstr >>= as_argument
-
-and check_is_term_abstraction c abstr =
-  check c abstr >>= fun t -> return (Nucleus.ArgumentIsTerm t)
-
-and check_is_type_abstraction c abstr =
-  infer_is_type_abstraction c >>= fun c_abstr ->
-  if Nucleus.alpha_equal_abstraction  c_abstr abstr then
-
+  | Nucleus.BoundaryEqTerm bdry ->
+     infer_eq_term_abstraction c >>= fun eq ->
+     if Nucleus.check_eq_term_boundary eq bdry then
+       return (Nucleus.ArgumentEqTerm eq)
+     else
+       failwith "term equation expected, need a good error message"
 
 and occurs
   : 'a . (Nucleus.is_atom -> 'a Nucleus.abstraction -> bool)
@@ -412,16 +418,6 @@ and check_default ~loc v t_check =
       | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (abstr, t_check)))
       | Some e -> return e
     end
-
-and as_argument = function
-  | Runtime.IsType t -> return (Nucleus.ArgumentIsType t)
-  | Runtime.IsTerm e -> return (Nucleus.ArgumentIsTerm e)
-  | Runtime.EqType eq -> return (Nucleus.ArgumentEqType eq)
-  | Runtime.EqTerm eq -> return (Nucleus.ArgumentEqTerm eq)
-  | (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
-     Runtime.Ref _| Runtime.Dyn _| Runtime.String _) ->
-     assert false
-
 
 (* Rsyntax.comp -> Nucleus.is_type -> Nucleus.is_term Runtime.comp *)
 and check ({Location.thing=c';loc} as c) t_check =

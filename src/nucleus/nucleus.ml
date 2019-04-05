@@ -45,6 +45,7 @@ let form_rap_is_term = Form.form_rap_is_term
 let form_rap_eq_type = Form.form_rap_eq_type
 let form_rap_eq_term = Form.form_rap_eq_term
 let rap_apply = Form.rap_apply
+let rap_boundary = Form.rap_boundary
 
 let form_eq_term = Form.form_eq_term
 let form_eq_type = Form.form_eq_type

@@ -728,7 +728,7 @@ let print_operation ~penv op vs ppf =
      begin
        match vs with
        | [] -> Path.print ~opens:penv.opens ~parentheses:true op ppf
-       | (_::_) -> Print.print ~at_level:Level.ml_operation ppf "[@<hov 2>%t@ %t@]"
+       | (_::_) -> Print.print ~at_level:Level.ml_operation ppf "@[<hov 2>%t@ %t@]"
                      (Path.print ~opens:penv.opens ~parentheses:true op)
                      (Print.sequence (print_value ~max_level:Level.ml_operation_arg ~penv) "" vs)
      end

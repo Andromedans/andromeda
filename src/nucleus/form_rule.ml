@@ -1,50 +1,56 @@
 open Nucleus_types
 
-(* Check that the argument [p] matches the premise [s]. *)
-let check_argument sgn metas s p =
-  match s, p with
+(* Instantiate a premise with meta-variables to obtain an abstracted boundary. *)
+let instantiate_premise metas prem =
+  match prem with
 
-  | Rule.PremiseIsType s_abstr, ArgumentIsType p_abstr ->
-     let s_abstr = Instantiate_meta.abstraction (fun ~lvl _ () -> ()) ~lvl:0 metas s_abstr
-     and p_abstr = Sanity.boundary_is_type_abstraction p_abstr in
-     if not (Alpha_equal.abstraction (fun () () -> true) s_abstr p_abstr) then
-       Error.raise InvalidArgument
+  | Rule.PremiseIsType abstr ->
+     let bdry = Instantiate_meta.abstraction (fun ~lvl _ () -> ()) ~lvl:0 metas abstr in
+     BoundaryIsType bdry
 
-  | Rule.PremiseIsTerm s_abstr, ArgumentIsTerm p_abstr ->
-     let s = Instantiate_meta.abstraction Instantiate_meta.is_type ~lvl:0 metas s_abstr
-     and t = Sanity.boundary_is_term_abstraction sgn p_abstr in
-     begin
-       match Alpha_equal.abstraction Alpha_equal.is_type t s with
-       | false -> Error.raise InvalidArgument
-       | true -> ()
-     end
+  | Rule.PremiseIsTerm abstr ->
+     let bdry = Instantiate_meta.abstraction Instantiate_meta.is_type ~lvl:0 metas abstr in
+     BoundaryIsTerm bdry
 
-  | Rule.PremiseEqType s_abstr, ArgumentEqType p_abstr ->
-     let s_abstr = Instantiate_meta.abstraction Instantiate_meta.eq_type ~lvl:0 metas s_abstr
-     and p_abstr = Sanity.boundary_eq_type_abstraction p_abstr in
-     if not (Alpha_equal.abstraction
-               (fun (EqType (_, l1,r1)) (EqType (_, l2,r2)) ->
-                  Alpha_equal.is_type l1 l2 && Alpha_equal.is_type r1 r2)
-               s_abstr p_abstr)
-     then
-       Error.raise InvalidArgument
+  | Rule.PremiseEqType abstr ->
+     let bdry =
+       Instantiate_meta.abstraction
+         (fun ~lvl metas (t1, t2) -> (Instantiate_meta.is_type ~lvl metas t1, Instantiate_meta.is_type ~lvl metas t2))
+         ~lvl:0 metas abstr
+     in
+     BoundaryEqType bdry
 
-  | Rule.PremiseEqTerm s_abstr, ArgumentEqTerm p_abstr ->
-     let s_abstr = Instantiate_meta.abstraction Instantiate_meta.eq_term ~lvl:0 metas s_abstr
-     and p_abstr = Sanity.boundary_eq_term_abstraction p_abstr in
-     if not (Alpha_equal.abstraction
-               (fun (EqTerm (_, e1,e2,t)) (EqTerm (_, e1',e2',t')) ->
-                  Alpha_equal.is_term e1 e1'
-                  && Alpha_equal.is_term e2 e2'
-                  && Alpha_equal.is_type t t')
-               s_abstr p_abstr)
-     then
-       Error.raise InvalidArgument
+  | Rule.PremiseEqTerm abstr ->
+     let bdry =
+       Instantiate_meta.abstraction
+         (fun ~lvl metas (a, b, t) ->
+           (Instantiate_meta.is_term ~lvl metas a,
+            Instantiate_meta.is_term ~lvl metas b,
+            Instantiate_meta.is_type ~lvl metas t))
+         ~lvl:0 metas abstr in
+     BoundaryEqTerm bdry
 
-  | Rule.PremiseIsType _, (ArgumentIsTerm _ | ArgumentEqType _ | ArgumentEqTerm _) -> Error.raise IsTypeExpected
-  | Rule.PremiseIsTerm _, (ArgumentIsType _ | ArgumentEqType _ | ArgumentEqTerm _) -> Error.raise IsTermExpected
-  | Rule.PremiseEqType _, (ArgumentIsType _ | ArgumentIsTerm _ | ArgumentEqTerm _) -> Error.raise EqTypeExpected
-  | Rule.PremiseEqTerm _, (ArgumentIsType _ | ArgumentIsTerm _ | ArgumentEqType _) -> Error.raise EqTermExpected
+(* Check that the argument [arg] matches the premise [prem], given [metas] *)
+let check_argument sgn metas arg prem =
+  match arg, instantiate_premise metas prem with
+
+  | ArgumentIsType abstr, BoundaryIsType bdry ->
+     Alpha_equal.check_is_type_boundary abstr bdry
+
+  | ArgumentIsTerm abstr, BoundaryIsTerm bdry  ->
+     Alpha_equal.check_is_term_boundary sgn abstr bdry
+
+  | ArgumentEqType abstr, BoundaryEqType bdry ->
+     Alpha_equal.check_eq_type_boundary abstr bdry
+
+  | ArgumentEqTerm abstr, BoundaryEqTerm bdry  ->
+     Alpha_equal.check_eq_term_boundary abstr bdry
+
+  | (ArgumentIsTerm _ | ArgumentEqType _ | ArgumentEqTerm _) , (BoundaryIsType _ as bdry)
+  | (ArgumentIsType _ | ArgumentEqType _ | ArgumentEqTerm _) , (BoundaryIsTerm _ as bdry)
+  | (ArgumentIsType _ | ArgumentIsTerm _ | ArgumentEqTerm _) , (BoundaryEqType _ as bdry)
+  | (ArgumentIsType _ | ArgumentIsTerm _ | ArgumentEqType _) , (BoundaryEqTerm _ as bdry) ->
+     Error.raise (ArgumentExpected bdry)
 
 let arg_of_argument = function
   | ArgumentIsType t -> Mk.arg_is_type t
@@ -53,8 +59,9 @@ let arg_of_argument = function
   | ArgumentEqTerm eq-> Mk.arg_eq_term eq
 
 let match_argument sgn metas (s : Rule.premise) (p : argument) : argument =
-  check_argument sgn metas s p ;
-  arg_of_argument p
+  failwith "form_rule match_argument shouldn't be needed"
+  (* check_argument sgn metas s p ;
+   * arg_of_argument p *)
 
 let match_arguments sgn (premises : Rule.premise list) (arguments : argument list) =
   let rec fold args_out = function
@@ -202,7 +209,7 @@ let mk_rule_premise metas = function
          (fun metas (t1, t2) ->
             let t1 = mk_rule_is_type metas t1
             and t2 = mk_rule_is_type metas t2 in
-            Rule.EqType (t1, t2))
+            (t1, t2))
          metas abstr
      in
      Rule.PremiseEqType abstr
@@ -214,7 +221,7 @@ let mk_rule_premise metas = function
             let e1 = mk_rule_is_term metas e1
             and e2 = mk_rule_is_term metas e2
             and t = mk_rule_is_type metas t in
-            Rule.EqTerm (e1, e2, t))
+            (e1, e2, t))
          metas abstr
      in
      Rule.PremiseEqTerm abstr
