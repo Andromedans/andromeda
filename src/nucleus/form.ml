@@ -120,41 +120,6 @@ let rap_apply sgn {rap_arguments; rap_boundary; rap_premises; rap_constructor} a
              ; rap_premises
              ; rap_constructor }
 
-let form_is_type sgn c arguments =
-  let prems, () = Signature.lookup_rule_is_type c sgn in
-  (* [match_arguments] reverses the order of arguments for the benefit of instantiation *)
-  let args = Indices.to_list (Form_rule.match_arguments sgn prems arguments) in
-  Mk.type_constructor c args
-
-let form_is_term sgn c arguments =
-  let (premises, _boundary) = Signature.lookup_rule_is_term c sgn in
-  (* [match_arguments] reverses the order of arguments for the benefit of instantiation *)
-  let args = Indices.to_list (Form_rule.match_arguments sgn premises arguments) in
-  Mk.term_constructor c args
-
-let form_eq_type sgn c arguments =
-  let (premises, (lhs_schema, rhs_schema)) =
-    Signature.lookup_rule_eq_type c sgn in
-  let inds = Form_rule.match_arguments sgn premises arguments in
-  (* order of arguments not important in [Collect_assumptions.arguments],
-     we could try avoiding a list reversal caused by [Indices.to_list]. *)
-  let asmp = Collect_assumptions.arguments (Indices.to_list inds)
-  and lhs = Instantiate_meta.is_type ~lvl:0 inds lhs_schema
-  and rhs = Instantiate_meta.is_type ~lvl:0 inds rhs_schema
-  in Mk.eq_type asmp lhs rhs
-
-let form_eq_term sgn c arguments =
-  let (premises, (e1_schema, e2_schema, t_schema)) =
-    Signature.lookup_rule_eq_term c sgn in
-  let inds = Form_rule.match_arguments sgn premises arguments in
-  (* order of arguments not important in [Collect_assumptions.arguments],
-     we could try avoiding a list reversal caused by [Indices.to_list]. *)
-  let asmp = Collect_assumptions.arguments (Indices.to_list inds)
-  and e1 = Instantiate_meta.is_term ~lvl:0 inds e1_schema
-  and e2 = Instantiate_meta.is_term ~lvl:0 inds e2_schema
-  and t = Instantiate_meta.is_type ~lvl:0 inds t_schema
-  in Mk.eq_term asmp e1 e2 t
-
 let form_is_term_atom = Mk.atom
 
 (** Conversion *)

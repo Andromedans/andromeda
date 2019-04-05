@@ -1,0 +1,10 @@
+Rule A is postulated.
+Rule B is postulated.
+Rule a is postulated.
+Rule b is postulated.
+Rule P is postulated.
+Rule p is postulated.
+Rule Q is postulated.
+- : is_type = ⊢ P a b type
+- : is_term = ⊢ p
+- : is_type = ⊢ Q p a b type

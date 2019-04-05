@@ -149,17 +149,6 @@ val rap_apply : signature -> 'a rule_application_status -> argument -> 'a rule_a
 (** Give the boundary of a rap status, i.e., the boundary of the next argument. *)
 val rap_boundary : 'a rule_application_status -> boundary
 
-(** Given a type formation rule and a list of arguments, match the rule
-   against the given arguments, make sure they fit the rule, and return the
-   judgement corresponding to the conclusion of the rule. *)
-val form_is_type : signature -> Ident.t -> argument list -> is_type
-
-(** Given a term rule and a list of arguments, match the rule against the given
-    arguments, make sure they fit the rule, and return the list of arguments that
-    the term constructor should be applied to, together with the natural type of
-    the resulting term. *)
-val form_is_term : signature -> Ident.t -> argument list -> is_term
-
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
 
@@ -175,19 +164,9 @@ val form_is_term_meta : signature -> is_term_meta -> is_term list -> is_term
 
 val form_is_term_convert : signature -> is_term -> eq_type -> is_term
 
-(** Given an equality type rule and a list of arguments, match the rule against
-    the given arguments, make sure they fit the rule, and return the conclusion
-    of the instance of the rule so obtained. *)
-val form_eq_type : signature -> Ident.t -> argument list -> eq_type
-
 val form_eq_type_meta : signature -> eq_type_meta -> is_term list -> eq_type
 
 val form_eq_term_meta : signature -> eq_term_meta -> is_term list -> eq_term
-
-(** Given an terms equality type rule and a list of arguments, match the rule
-    against the given arguments, make sure they fit the rule, and return the
-    conclusion of the instance of the rule so obtained. *)
-val form_eq_term : signature -> Ident.t -> argument list -> eq_term
 
 (** Form a non-abstracted abstraction *)
 val abstract_not_abstract : 'a -> 'a abstraction
