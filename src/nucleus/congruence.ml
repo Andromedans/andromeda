@@ -51,13 +51,13 @@ let process_congruence_args args =
 
 let congruence_type_constructor sgn c eqs =
   let (asmp, lhs, rhs) = process_congruence_args eqs in
-  let t1 = Form.form_is_type sgn c lhs
-  and t2 = Form.form_is_type sgn c rhs
+  let t1 = Mk.type_constructor c lhs
+  and t2 = Mk.type_constructor c rhs
   in Mk.eq_type asmp t1 t2
 
 let congruence_term_constructor sgn c eqs =
   let (asmp, lhs, rhs) = process_congruence_args eqs in
-  let e1 = Form.form_is_term sgn c lhs
-  and e2 = Form.form_is_term sgn c rhs in
+  let e1 = Mk.term_constructor c lhs
+  and e2 = Mk.term_constructor c rhs in
   let t = Sanity.type_of_term sgn e1
   in Mk.eq_term asmp e1 e2 t

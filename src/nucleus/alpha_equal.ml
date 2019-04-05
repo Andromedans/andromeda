@@ -44,10 +44,8 @@ and is_term e1 e2 =
   end
 
 and abstraction
-  : 'a . ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
+  : 'a 'b . ('a -> 'b -> bool) -> 'a abstraction -> 'b abstraction -> bool
   = fun equal_v e e' ->
-    e == e' ||
-    (* XXX try e = e' ? *)
     match e, e' with
 
     | Abstract ({atom_type=u;_}, abstr), Abstract({atom_type=u';_}, abstr') ->
@@ -92,3 +90,12 @@ and arguments args args' =
         was applied in two different ways, and somehow the nucleus was happy
         with that *)
      assert false
+
+let check_is_type_boundary abstr bdry =
+  abstraction (fun _ _ -> true) abstr bdry
+
+let check_is_term_boundary sgn abstr bdry =
+  abstraction (fun e t -> is_type (Sanity.type_of_term sgn e) t) abstr bdry
+
+let check_eq_type_boundary _ _ = failwith "check_eq_type_boundary"
+let check_eq_term_boundary _ _ = failwith "check_eq_term_boundary"

@@ -55,6 +55,17 @@ and boundary =
     | BoundaryEqType of eq_type_boundary
     | BoundaryEqTerm of eq_term_boundary
 
+type 'a rule_application_status =
+  { rap_arguments : argument list (* the arguments collected so far *)
+  ; rap_boundary : boundary (* the boundary of the next argument *)
+  ; rap_premises : Rule.premise list (* the remaining premises to be applied *)
+  ; rap_constructor : argument list -> 'a (* the function which makes the final result *)
+  }
+
+(* A partial rule application *)
+type 'a rule_application =
+  | RapDone of 'a
+  | RapMore of 'a rule_application_status
 
 type signature =
   { is_type : Rule.rule_is_type Ident.map
@@ -120,10 +131,7 @@ type error =
   | ExtraAssumptions
   | InvalidApplication
   | InvalidArgument
-  | IsTypeExpected
-  | IsTermExpected
-  | EqTypeExpected
-  | EqTermExpected
+  | ArgumentExpected of boundary
   | AbstractionExpected
   | InvalidSubstitution
   | InvalidCongruence

@@ -85,6 +85,11 @@ let boundary_is_term_abstraction sgn abstr =
   (* NB: this is _not_ like the others as it actually computes the type of a term *)
   type_of_term_abstraction sgn abstr
 
-let boundary_eq_type_abstraction abstr = abstr
+let boundary_eq_type_abstraction abstr =
+  (* We may drop the assumption set of the argument because that assumption set
+     is needed to inhabit the equality, not to form its boundary. The boundary carries
+     its own assumptions. *)
+  boundary_abstraction (fun (EqType (_, t, u)) -> (t, u)) abstr
 
-let boundary_eq_term_abstraction abstr = abstr
+let boundary_eq_term_abstraction abstr =
+  boundary_abstraction (fun (EqTerm (_, a, b, t)) -> (a, b, t)) abstr
