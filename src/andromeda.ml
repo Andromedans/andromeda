@@ -113,15 +113,19 @@ let main =
     | Config.PreludeNone -> ()
     | Config.PreludeFile f -> add_file true f
     | Config.PreludeDefault ->
-      (* look for prelude next to the executable and in the library director,
-         don't whine if it is not found. *)
-      try
-        let d = Build.lib_dir in
-        let d' = Filename.dirname Sys.argv.(0) in
-        let l = List.map (fun d -> Filename.concat d "prelude.m31") [d; d'] in
-        let f = List.find (fun f -> Sys.file_exists f) l in
-        add_file true f
-      with Not_found -> ()
+      (* look for prelude next to the executable and in the library directory,
+         warn if it is not found. *)
+       let d = Build.lib_dir in
+       let d' = Filename.dirname Sys.argv.(0) in
+       let l = List.map (fun d -> Filename.concat d "prelude.m31") [d'; d] in
+       try
+         let f = List.find (fun f -> Sys.file_exists f) l in
+         add_file true f
+       with Not_found ->
+         Print.warning
+           "%s:@\n@[<hv>%t@]"
+           "Andromeda prelude module could not be found, looked in"
+           (Print.sequence (fun fn ppf -> Format.fprintf ppf "%s" fn) "," l)
   end ;
 
   (* Set the maximum depth of pretty-printing, after which it prints ellipsis. *)
