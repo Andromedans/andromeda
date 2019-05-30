@@ -335,7 +335,7 @@ and check_pattern ({Location.thing=p'; loc} as p) t =
      Tyenv.add_equation ~loc:p.Location.loc t' t >>= fun () ->
      return (p, xts)
 
-let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty) Tyenv.tyenvM =
+let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty) Tyenv.tyenvM =
   match c with
 
   | Dsyntax.Bound k ->
@@ -356,7 +356,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
      in
      Tyenv.add_bound_mono x a
      begin
-       comp c >>= fun (c, b) ->
+       infer_comp c >>= fun (c, b) ->
        return (locate ~loc (Rsyntax.Function c), Mlty.Arrow (a, b))
      end
 
@@ -406,7 +406,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
         and cs = List.rev annot in
         return (locate ~loc (Rsyntax.Tuple cs), Mlty.Prod ts)
       | c :: cs ->
-        comp c >>= fun (c, t) ->
+        infer_comp c >>= fun (c, t) ->
         fold (c :: annot) (t :: ts) cs
     in
     fold [] [] cs
@@ -425,24 +425,24 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     fold [] tcs
 
   | Dsyntax.With (h, c) ->
-    comp h >>= fun (h, th) ->
+    infer_comp h >>= fun (h, th) ->
     Tyenv.as_handler ~loc:h.Location.loc th >>= fun (a, b) ->
     check_comp c a >>= fun c ->
     return (locate ~loc (Rsyntax.With (h, c)), b)
 
   | Dsyntax.Let (clauses, c) ->
      let_clauses ~toplevel:false
-       clauses (comp c) >>= fun (_, clauses, (c, t)) ->
+       clauses (infer_comp c) >>= fun (_, clauses, (c, t)) ->
          return (locate ~loc (Rsyntax.Let (clauses, c)), t)
 
   | Dsyntax.LetRec (clauses, c) ->
      letrec_clauses ~toplevel:false
-       clauses (comp c) >>= fun (_, clauses, (c, t)) ->
+       clauses (infer_comp c) >>= fun (_, clauses, (c, t)) ->
          return (locate ~loc (Rsyntax.LetRec (clauses, c)), t)
 
   | Dsyntax.MLAscribe (c, sch) ->
       let sch = ml_schema sch in
-      comp c >>= fun (c, t) ->
+      infer_comp c >>= fun (c, t) ->
        begin
          match generalizable c with
          | Generalizable ->
@@ -458,58 +458,58 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
        end >>= fun () -> return (c, t)
 
   | Dsyntax.Now (x, c1, c2) ->
-     comp x >>= fun (x, tx) ->
+     infer_comp x >>= fun (x, tx) ->
      Tyenv.as_dynamic ~loc:x.Location.loc tx >>= fun tx ->
      check_comp c1 tx >>= fun c1 ->
-     comp c2 >>= fun (c2, t) ->
+     infer_comp c2 >>= fun (c2, t) ->
      return (locate ~loc (Rsyntax.Now (x, c1, c2)), t)
 
   | Dsyntax.Current c ->
-     comp c >>= fun (c, t) ->
+     infer_comp c >>= fun (c, t) ->
      Tyenv.as_dynamic ~loc:c.Location.loc t >>= fun t ->
      return (locate ~loc (Rsyntax.Current c), t)
 
   | Dsyntax.Lookup c ->
-    comp c >>= fun (c, t) ->
+    infer_comp c >>= fun (c, t) ->
     Tyenv.as_ref ~loc:c.Location.loc t >>= fun t ->
     return (locate ~loc (Rsyntax.Lookup c), t)
 
   | Dsyntax.Update (c1, c2) ->
-    comp c1 >>= fun (c1, t1) ->
+    infer_comp c1 >>= fun (c1, t1) ->
     Tyenv.as_ref ~loc:c1.Location.loc t1 >>= fun t ->
     check_comp c2 t >>= fun c2 ->
     return (locate ~loc (Rsyntax.Update (c1, c2)), Mlty.unit_ty)
 
   | Dsyntax.Ref c ->
-    comp c >>= fun (c, t) ->
+    infer_comp c >>= fun (c, t) ->
     return (locate ~loc (Rsyntax.Ref c), Mlty.Ref t)
 
   | Dsyntax.Sequence (c1, c2) ->
-    comp c1 >>= fun (c1, _) ->
+    infer_comp c1 >>= fun (c1, _) ->
     (* TODO warn if not unit? *)
-    comp c2 >>= fun (c2, t) ->
+    infer_comp c2 >>= fun (c2, t) ->
     return (locate ~loc (Rsyntax.Sequence (c1, c2)), t)
 
   | Dsyntax.Assume ((None, c1), c2) ->
      check_comp c1 Mlty.is_type >>= fun c1 ->
-     comp c2 >>= fun (c2, u) ->
+     infer_comp c2 >>= fun (c2, u) ->
      return (locate ~loc (Rsyntax.Assume ((None, c1), c2)), u)
 
   | Dsyntax.Assume ((Some x, c1), c2) ->
      check_comp c1 Mlty.is_type >>= fun c1 ->
      Tyenv.add_bound_mono x Mlty.is_term
      begin
-       comp c2 >>= fun (c2, u) ->
+       infer_comp c2 >>= fun (c2, u) ->
        return (locate ~loc (Rsyntax.Assume ((Some x, c1), c2)), u)
      end
 
   | Dsyntax.Match (c, cases) ->
-    comp c >>= fun (c, tc) ->
+    infer_comp c >>= fun (c, tc) ->
     match_cases ~loc tc cases >>= fun (cases, t) ->
     return (locate ~loc (Rsyntax.Match (c, cases)), t)
 
   | Dsyntax.Ascribe (c1, c2) ->
-     comp c2 >>= fun (c2, t2) ->
+     infer_comp c2 >>= fun (c2, t2) ->
      let t1 =
        match t2 with
        | Mlty.Judgement abstr ->
@@ -546,7 +546,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
       x
       Mlty.is_term
       begin
-        comp c >>= fun (c,t) ->
+        infer_comp c >>= fun (c,t) ->
         begin match t with
         | Mlty.Judgement t ->
            let c = locate ~loc (Rsyntax.Abstract (x, copt, c))
@@ -561,7 +561,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
 
   | Dsyntax.Substitute (c1, c2) ->
      let as_judgement c =
-       comp c >>= fun (c, t) ->
+       infer_comp c >>= fun (c, t) ->
        match t with
        | Mlty.Judgement abstr -> return (c, abstr)
        | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _
@@ -580,8 +580,8 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
 
 
   | Dsyntax.Apply (c1, c2) ->
-     comp c1 >>= fun (c1, t1) ->
-     comp c2 >>= fun (c2, t2) ->
+     infer_comp c1 >>= fun (c1, t1) ->
+     infer_comp c2 >>= fun (c2, t2) ->
      let out = Mlty.fresh_type () in
      Tyenv.add_equation ~loc t1 (Mlty.Arrow (t2, out)) >>= fun () ->
      return (locate ~loc (Rsyntax.Apply (c1, c2)), out)
@@ -596,7 +596,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
   | Dsyntax.Occurs (c1, c2) ->
      let t = Mlty.is_term in
      check_comp c1 t >>= fun c1 ->
-     comp c2 >>= fun (c2, t2) ->
+     infer_comp c2 >>= fun (c2, t2) ->
      begin match t2 with
 
      | Mlty.Judgement abstr ->
@@ -637,7 +637,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
      return (locate ~loc (Rsyntax.Natural c), Mlty.eq_type)
 
 and check_comp c t =
-  comp c >>= fun (c, t') ->
+  infer_comp c >>= fun (c, t') ->
   Tyenv.add_equation ~loc:c.Location.loc t' t >>= fun () ->
   return c
 
@@ -665,7 +665,7 @@ and match_case p t g c =
   check_pattern p t >>= fun (p, xts) ->
   Tyenv.add_bounds_mono xts
     (when_guard g >>= fun g ->
-     comp c >>= fun (c, tc) ->
+     infer_comp c >>= fun (c, tc) ->
      return (p, c, g, tc))
 
 and when_guard =
@@ -742,7 +742,7 @@ and let_clauses
   let rec fold_rhs cts = function
     | [] -> return (List.rev cts)
     | Dsyntax.Let_clause (p, annot, c) :: clauses_in ->
-       comp c >>= fun (c, t) ->
+       infer_comp c >>= fun (c, t) ->
        fold_rhs ((p, annot, c, t) :: cts) clauses_in
   in
 
@@ -1030,7 +1030,7 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
      return_located ~loc (Rsyntax.TopLetRec (info, clauses))
 
   | Dsyntax.TopComputation c ->
-     comp c >>= fun (c, t) ->
+     infer_comp c >>= fun (c, t) ->
      begin
        match generalizable c with
        | Generalizable ->
@@ -1042,7 +1042,7 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
      end
 
   | Dsyntax.TopDynamic (x, annot, c) ->
-     comp c >>= fun (c, t) ->
+     infer_comp c >>= fun (c, t) ->
      begin match annot with
      | Dsyntax.Arg_annot_none ->
         Tyenv.ungeneralize (Mlty.Dynamic t) >>= fun sch ->
@@ -1057,7 +1057,7 @@ let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
        (return_located ~loc (Rsyntax.TopDynamic (x, sch, c)))
 
   | Dsyntax.TopNow (x, c) ->
-       comp x >>= fun (x, tx) ->
+       infer_comp x >>= fun (x, tx) ->
        Tyenv.as_dynamic ~loc:x.Location.loc tx >>= fun tx ->
        check_comp c tx >>= fun c ->
        return_located ~loc (Rsyntax.TopNow (x, c))
