@@ -45,6 +45,15 @@ let options = Arg.align [
      Arg.String (fun str -> Config.prelude_file := Config.PreludeFile str),
      "<file> Specify the prelude file to load initially");
 
+    ("--no-stdlib",
+     Arg.Unit (fun () -> Config.stdlib_directory := Config.StdlibNone),
+     " Do not add the standard library directory the load path");
+
+    ("--stdlib",
+     Arg.String (fun str -> Config.stdlib_directory := Config.StdlibDirectory str),
+     "<directory> Specify the standard library directory to initially add to \
+the load path");
+
     ("--json-location",
      Arg.Set Config.json_location,
      " Print locations in JSON output");
@@ -112,20 +121,42 @@ let main =
     match !Config.prelude_file with
     | Config.PreludeNone -> ()
     | Config.PreludeFile f -> add_file true f
-    | Config.PreludeDefault ->
+    | Config.PreludeDefault prelude ->
       (* look for prelude next to the executable and in the library directory,
          warn if it is not found. *)
-       let d = Build.lib_dir in
-       let d' = Filename.dirname Sys.argv.(0) in
-       let l = List.map (fun d -> Filename.concat d "prelude.m31") [d'; d] in
+       let executable_dir = Filename.dirname Sys.argv.(0) in
+       let candidates = List.map (fun d -> Filename.concat d prelude)
+           [executable_dir; Build.lib_dir] in
        try
-         let f = List.find (fun f -> Sys.file_exists f) l in
+         let f = List.find (fun f -> Sys.file_exists f) candidates in
          add_file true f
        with Not_found ->
          Print.warning
            "%s:@\n@[<hv>%t@]"
            "Andromeda prelude module could not be found, looked in"
-           (Print.sequence (fun fn ppf -> Format.fprintf ppf "%s" fn) "," l)
+           (Print.sequence (fun fn ppf -> Format.fprintf ppf "%s" fn) "," candidates)
+  end ;
+
+  begin
+    let cons_to_require d = Config.(require_dirs := d :: !require_dirs) in
+    match !Config.stdlib_directory with
+    | Config.StdlibNone -> ()
+    | Config.StdlibDirectory d -> cons_to_require d
+    | Config.StdlibDefault stdlib ->
+      (* look for stdlib next to the executable and in the library directory,
+         warn if it is not found. *)
+       let executable_dir = Filename.dirname Sys.argv.(0) in
+       let dirs =
+         List.map (fun d -> Filename.concat d "stdlib")
+           [executable_dir ; Build.lib_dir] in
+       try
+         let d = List.find (fun d -> Sys.(file_exists d && is_directory d)) dirs in
+         cons_to_require d
+       with Not_found ->
+         Print.warning
+           "%s:@\n@[<hv>%t@]"
+           "Andromeda stdlib directory could not be found, looked in"
+           (Print.sequence (fun fn ppf -> Format.fprintf ppf "%s" fn) "," dirs)
   end ;
 
   (* Set the maximum depth of pretty-printing, after which it prints ellipsis. *)
