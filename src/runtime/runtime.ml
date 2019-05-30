@@ -8,11 +8,6 @@ type coercible =
   | Convertible of Nucleus.eq_type_abstraction
   | Coercible of Nucleus.is_term_abstraction
 
-type oder =
-  | Less
-  | Equal
-  | Greater
-
 (** In the future we should be able to drop the path and just use an ID, or even an integer. *)
 type ml_constructor = Ident.t
 
