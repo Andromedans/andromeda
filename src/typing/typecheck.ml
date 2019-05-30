@@ -154,18 +154,18 @@ let rec check_tt_pattern ({Location.thing=p';loc} as p) t =
   | Dsyntax.Patt_TT_IsTerm _
   | Dsyntax.Patt_TT_EqType _
   | Dsyntax.Patt_TT_EqTerm _ ->
-     tt_pattern p >>= fun (p, t', xts) ->
+     infer_tt_pattern p >>= fun (p, t', xts) ->
      Tyenv.add_equation ~loc (Mlty.Judgement t') (Mlty.Judgement t) >>= fun () ->
      return (p, xts)
 
 
 (** Infer the type of a TT pattern. *)
-and tt_pattern {Location.thing=p';loc} =
+and infer_tt_pattern {Location.thing=p';loc} =
   match p' with
 
   | Dsyntax.Patt_TT_As (p1, p2) ->
      (* We insist that the first pattern be inferrable *)
-     tt_pattern p1 >>= fun (p1, t, xts1) ->
+     infer_tt_pattern p1 >>= fun (p1, t, xts1) ->
      check_tt_pattern p2 t >>= fun (p2, xts2) ->
      return (locate ~loc (Rsyntax.Pattern.TTAs (p1, p2)), t, xts1 @ xts2)
 
@@ -200,7 +200,7 @@ and tt_pattern {Location.thing=p';loc} =
 
   | Dsyntax.Patt_TT_Abstraction (xopt, p1, p2) ->
      check_tt_pattern p1 (Mlty.NotAbstract Mlty.IsType) >>= fun (p1, xts1) ->
-     tt_pattern p2 >>= fun (p2, t, xts2) ->
+     infer_tt_pattern p2 >>= fun (p2, t, xts2) ->
      let xts2 =
        match xopt with
        | None -> xts2
@@ -248,7 +248,7 @@ let rec pattern {Location.thing=p;loc} =
      return (locate ~loc (Rsyntax.Pattern.As (p1, p2)), t1, xts1 @ xts2)
 
   | Dsyntax.Patt_Judgement p ->
-     tt_pattern p >>= fun (p, t, xts) ->
+     infer_tt_pattern p >>= fun (p, t, xts) ->
      let xts = List.map (fun (x,j) -> (x, Mlty.Judgement j)) xts in
      return (locate ~loc (Rsyntax.Pattern.Judgement p), Mlty.Judgement t, xts)
 
@@ -302,7 +302,7 @@ and check_pattern ({Location.thing=p'; loc} as p) t =
 
      | Mlty.String | Mlty.Meta _ | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _
      | Mlty.Handler _ | Mlty.Apply _ | Mlty.Ref _ | Mlty.Dynamic _ ->
-        tt_pattern p >>= fun (p, pt, xts) ->
+        infer_tt_pattern p >>= fun (p, pt, xts) ->
         Tyenv.add_equation ~loc (Mlty.Judgement pt) t >>= fun () ->
         let xts = List.map (fun (x,j) -> (x, Mlty.Judgement j)) xts in
         return (locate ~loc (Rsyntax.Pattern.Judgement p), xts)
