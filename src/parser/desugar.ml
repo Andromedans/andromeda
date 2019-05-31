@@ -1579,17 +1579,17 @@ and require ~loc ~loading ~basedir ctx mdl_name =
     error ~loc (CircularRequire (List.rev (mdl_name :: loading)))
   else
     let rec unique xs = function
-      | [] -> []
+      | [] -> List.rev xs
       | y :: ys ->
-         let ys = unique (y :: xs) ys in
-         if List.mem y xs then ys else y :: ys
+         if List.mem y xs then unique xs ys else unique (y::xs) ys
     in
     let basename = Name.module_filename mdl_name in
     let fns =
       unique []
-        [
-          Filename.concat basedir basename ;
-        ]
+        (List.map
+           (fun dirname -> Filename.concat dirname basename)
+           (basedir :: (!Config.require_dirs))
+        )
     in
     match List.find_opt Sys.file_exists fns with
 
