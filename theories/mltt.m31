@@ -1,8 +1,8 @@
-require "eq_type.m31"
-require "eq_term.m31"
-require "dependent_product.m31"
-require "dependent_sum.m31"
-require "identity_type.m31"
-require "empty.m31"
-require "unit.m31"
-require "nat.m31"
+require judgemental_equality_type
+require judgemental_equality_term
+require dependent_product
+require dependent_sum
+require identity_type
+require empty
+require unit
+require nat
