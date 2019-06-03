@@ -78,7 +78,7 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
              let e = Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a) in
              add_var (Runtime.mk_is_term e) xvs
         in
-        collect_is_term env xvs p2 v
+        collect_is_term env xvs p2 v2
      end
 
   | (Rsyntax.Pattern.TTEqType _ | Rsyntax.Pattern.TTEqTerm _ | Rsyntax.Pattern.TTIsType _) ->
