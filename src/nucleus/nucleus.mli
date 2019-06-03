@@ -291,7 +291,7 @@ val alpha_equal_type : is_type -> is_type -> bool
 
 (** Test whether two abstractions are alpha-equal. *)
 val alpha_equal_abstraction
-  : ('a -> 'b -> bool) -> 'a abstraction -> 'b abstraction -> bool
+  : ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
 
 (** If [e1 == e2 : A] then [e2 == e1 : A] *)
 val symmetry_term : eq_term -> eq_term
