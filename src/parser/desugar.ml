@@ -713,7 +713,7 @@ and pattern_tt_constructor ~loc ctx pth ps =
   in
   fold ctx [] ps
 
-let rec pattern ctx {Location.thing=p; loc} =
+let rec pattern ~toplevel ctx {Location.thing=p; loc} =
   match p with
   | Input.Patt_Anonymous ->
      ctx, locate Dsyntax.Patt_Anonymous loc
@@ -726,7 +726,8 @@ let rec pattern ctx {Location.thing=p; loc} =
 
         | Some (Bound _ | Value _) (* we allow shadowing of named values *)
         | None ->
-           let ctx = Ctx.add_bound x ctx in
+           let add = if toplevel then Ctx.add_ml_value ~loc else Ctx.add_bound in
+           let ctx = add x ctx in
            ctx, locate (Dsyntax.Patt_Var x) loc
 
         | Some (MLConstructor (pth, arity)) ->
@@ -752,8 +753,8 @@ let rec pattern ctx {Location.thing=p; loc} =
         end
      end
   | Input.Patt_As (p1, p2) ->
-     let ctx, p1 = pattern ctx p1 in
-     let ctx, p2 = pattern ctx p2 in
+     let ctx, p1 = pattern ~toplevel ctx p1 in
+     let ctx, p2 = pattern ~toplevel ctx p2 in
      ctx, locate (Dsyntax.Patt_As (p1, p2)) loc
 
   | Input.Patt_Judgement p ->
@@ -769,7 +770,7 @@ let rec pattern ctx {Location.thing=p; loc} =
              let ps = List.rev ps in
              ctx, locate (Dsyntax.Patt_Constructor (pth, ps)) loc
           | p::rem ->
-             let ctx, p = pattern ctx p in
+             let ctx, p = pattern ~toplevel ctx p in
              fold ctx (p::ps) rem
         in
         fold ctx [] ps
@@ -784,7 +785,7 @@ let rec pattern ctx {Location.thing=p; loc} =
      let rec fold ~loc ctx = function
        | [] -> ctx, locate (Dsyntax.Patt_Constructor (nil_path, [])) loc
        | p :: ps ->
-          let ctx, p = pattern ctx  p in
+          let ctx, p = pattern ~toplevel ctx  p in
           let ctx, ps = fold ~loc:(p.Location.loc) ctx ps in
           ctx, locate (Dsyntax.Patt_Constructor (cons_path, [p ; ps])) loc
      in
@@ -796,7 +797,7 @@ let rec pattern ctx {Location.thing=p; loc} =
           let ps = List.rev ps in
           ctx, locate (Dsyntax.Patt_Tuple ps) loc
        | p::rem ->
-          let ctx, p = pattern ctx p in
+          let ctx, p = pattern ~toplevel ctx p in
           fold ctx (p::ps) rem
      in
      fold ctx [] ps
@@ -1101,7 +1102,7 @@ and let_clauses ~loc ~toplevel ctx lst =
     | Input.Let_clause_patt (pt, sch, c) :: clauses ->
        let c = comp ctx c in
        let sch = let_annotation ctx sch in
-       let ctx', pt = pattern ctx' pt in
+       let ctx', pt = pattern ~toplevel ctx' pt in
        let lst' = Dsyntax.Let_clause (pt, sch, c) :: lst' in
 
      fold ctx' lst' clauses
@@ -1291,7 +1292,7 @@ and handler ~loc ctx hcs =
 (* Desugar a match case *)
 and match_case ctx (p, g, c) =
   ignore (check_linear p) ;
-  let ctx, p = pattern ctx p in
+  let ctx, p = pattern ~toplevel:false ctx p in
   let g = when_guard ctx g
   and c = comp ctx c in
   (p, g, c)
@@ -1319,7 +1320,7 @@ and match_op_case ctx (ps, pt, c) =
        (qs, pt, c)
 
     | p :: ps ->
-       let ctx, q = pattern ctx p in
+       let ctx, q = pattern ~toplevel:false ctx p in
        fold ctx (q :: qs) ps
   in
   fold ctx [] ps
