@@ -4,11 +4,22 @@
 type prelude =
   | PreludeNone              (* do not use a prelude, turned on by the --no-prelude *)
   (* look in the default location, which is the $(LIB_DIR) or next to the executable *)
-  | PreludeDefault
+  | PreludeDefault of string
   | PreludeFile of string    (* look for prelude in a specific location *)
 
 (** Location of the prelude file *)
 val prelude_file : prelude ref
+
+(** The user may chose to not add the standard library to the load path,
+ ** select a specific directory, or use the default. The default is selected
+ ** when Andromeda is compiled. *)
+type stdlib =
+  | StdlibNone
+  | StdlibDefault of string
+  | StdlibDirectory of string
+
+(** Directory containing the standard library *)
+val stdlib_directory : stdlib ref
 
 (** Should the interactive shell be run? *)
 val interactive_shell : bool ref

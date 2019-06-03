@@ -10,7 +10,7 @@ external exit : mlforall a, mlunit -> a = "exit"
 external print_json : mlforall a, mlunit -> a = "print_json"
 
 (* Compare values. The order type has tags mlless, mlequal, mlgreater. *)
-external compare : mlforall a, a -> a -> mlorder = "compare"
+external compare : mlforall a, a -> a -> ML.order = "compare"
 
 (* Poor man's debugging mechanism. *)
 mltype debug a = | (!!) of a ;;
@@ -32,8 +32,8 @@ let failure x = print ("FAILURE", x); exit ()
 
 let ( = ) x y =
   match compare x y with
-  | mlequal => mltrue
-  | _ => mlfalse
+  | ML.equal => ML.true
+  | _ => ML.false
   end
 
 (* operation whnf : judgement -> judgement *)
