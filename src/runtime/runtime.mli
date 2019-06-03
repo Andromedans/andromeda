@@ -8,12 +8,6 @@ type coercible =
   | Convertible of Nucleus.eq_type_abstraction
   | Coercible of Nucleus.is_term_abstraction
 
-(** The OCaml equivalent of the ML type [ML.order] *)
-type oder =
-  | Less
-  | Equal
-  | Greater
-
 (** An ML reference cell. *)
 type ml_ref
 
