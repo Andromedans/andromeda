@@ -30,7 +30,7 @@ type value =
   | Dyn of ml_dyn                              (** Dynamic variable *)
   | String of string                           (** String constant (opaque, not a list) *)
 
-and operation_args = { args : value list; checking : Nucleus.boundary option }
+and operation_args = { args : value list; checking : Nucleus.is_type_abstraction option }
 
 (** A handler contains ML code for handling zero or more operations,
     plus the default case *)
@@ -232,7 +232,7 @@ val lookup_ref : ml_ref -> value comp
 val update_ref : ml_ref -> value -> unit comp
 
 (** A computation that invokes the specified operation. *)
-val operation : Ident.t -> ?checking:Nucleus.boundary -> value list -> value comp
+val operation : Ident.t -> ?checking:Nucleus.is_type_abstraction -> value list -> value comp
 
 (** Wrap the given computation with a handler. *)
 val handle_comp : handler -> value comp -> value comp
