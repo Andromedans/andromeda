@@ -192,11 +192,11 @@ and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
 and 'a result =
   | Return of 'a
-  | Operation of Ident.t * value list * Nucleus.is_type_abstraction option * dynamic * 'a continuation
+  | Operation of Ident.t * value list * Nucleus.boundary option * dynamic * 'a continuation
 
 and 'a comp = env -> 'a result * state
 
-and operation_args = { args : value list; checking : Nucleus.is_type_abstraction option }
+and operation_args = { args : value list; checking : Nucleus.boundary option }
 
 and handler = {
   handler_val: (value,value) closure option;
