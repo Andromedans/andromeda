@@ -114,7 +114,8 @@ let rap_apply sgn {rap_arguments; rap_boundary; rap_premises; rap_constructor} a
   match rap_premises with
   | [] -> RapDone (rap_constructor rap_arguments)
   | p :: rap_premises ->
-     let rap_boundary = (Form_rule.instantiate_premise rap_arguments p) in
+     (** XXX Should we not use the available arguments instead of [] in the line below? *)
+     let rap_boundary = (Form_rule.instantiate_premise [] p) in
      RapMore { rap_arguments
              ; rap_boundary
              ; rap_premises
