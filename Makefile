@@ -1,3 +1,9 @@
+# Figure out which version of OCaml is being used
+OCAML_VERSION=$(shell ocamlc --version)
+
+# Set up correct incantation for sedlex
+SEDLEX=$(shell if [ "$(OCAML_VERSION)" \< "4.07" ] ; then echo "sedlex" ; else echo "sedlex.ppx"; fi)
+
 #warnings disabled:
 # 4: fragile pattern matching (we try to stick to it but don't always)
 #27: innocuous unused variable
@@ -5,9 +11,9 @@
 #50: unexpected documentation comment
 
 # Use this to not die on all warnings
-#OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50 -use-ocamlfind -pkg menhirLib -pkg sedlex
+#OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50 -use-ocamlfind -pkg menhirLib -pkg $(SEDLEX)
 
-OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
+OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg $(SEDLEX)
 
 # The --strict flag prevents --explain, so we make a separate Makefile target to get
 # menhir explanations
