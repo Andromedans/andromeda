@@ -202,7 +202,7 @@ let rec infer {Location.thing=c'; loc} =
 
   | Rsyntax.Ascribe (c1, c2) ->
      infer_is_type_abstraction c2 >>= fun t ->
-     check c1 (Nucleus.BoundaryIsTerm t) >>=
+     check c1 t >>=
      Runtime.return_is_term
 
   | Rsyntax.Abstract (x, None, _) ->
@@ -410,29 +410,17 @@ and occurs
      return (Reflect.mk_option None)
   end
 
-(** Coerce the value [v] to the given judgement boundary [bdry] *)
-and coerce ~loc v (bdry : Nucleus.boundary) =
-  match bdry with
-  | Nucleus.BoundaryIsType _ ->
-     failwith "coercion to a type boundary not implemented"
+and check_default ~loc v t_check =
+  let abstr = Runtime.as_is_term_abstraction ~loc v in
+  Runtime.lookup_signature >>= fun sgn ->
+  Equal.coerce ~loc sgn abstr t_check >>=
+    begin function
+      | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (abstr, t_check)))
+      | Some e -> return e
+    end
 
-  | Nucleus.BoundaryIsTerm bdry ->
-     let abstr = Runtime.as_is_term_abstraction ~loc v in
-     Runtime.lookup_signature >>= fun sgn ->
-     Equal.coerce ~loc sgn abstr bdry >>=
-       begin function
-         | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (abstr, bdry)))
-         | Some e -> return e
-       end
-
-  | Nucleus.BoundaryEqType _ ->
-     failwith "coercion to a type equality boundary not implemented"
-
-  | Nucleus.BoundaryEqTerm _ ->
-     failwith "coercion to a term equality boundary not implemented"
-
-
-and check ({Location.thing=c';loc} as c) bdry =
+(* Rsyntax.comp -> Nucleus.is_type -> Nucleus.is_term Runtime.comp *)
+and check ({Location.thing=c';loc} as c) t_check =
   match c' with
 
   (* for these we switch to infer mode *)
@@ -462,16 +450,15 @@ and check ({Location.thing=c';loc} as c) bdry =
   | Rsyntax.Substitute _
   | Rsyntax.Context _
   | Rsyntax.Natural _ ->
-
     infer c >>= fun v ->
-    coerce ~loc v bdry
+    check_default ~loc v t_check
 
   | Rsyntax.Operation (op, cs) ->
      let rec fold vs = function
        | [] ->
           let vs = List.rev vs in
-          Runtime.operation op ~checking:bdry vs >>= fun v ->
-          coerce ~loc v bdry
+          Runtime.operation op ~checking:t_check vs >>= fun v ->
+          check_default ~loc v t_check
        | c :: cs ->
           infer c >>= fun v ->
           fold (v :: vs) cs
@@ -479,51 +466,42 @@ and check ({Location.thing=c';loc} as c) bdry =
      fold [] cs
 
   | Rsyntax.Let (xcs, c) ->
-     let_bind ~loc xcs (check c bdry)
+     let_bind ~loc xcs (check c t_check)
 
   | Rsyntax.Sequence (c1,c2) ->
     infer c1 >>= fun v ->
     sequence ~loc v >>= fun () ->
-    check c2 bdry
+    check c2 t_check
 
   | Rsyntax.LetRec (fxcs, c) ->
-     letrec_bind fxcs (check c bdry)
+     letrec_bind fxcs (check c t_check)
 
   | Rsyntax.Now (x,c1,c2) ->
      let xloc = x.Location.loc in
      infer x >>= as_dyn ~loc:xloc >>= fun x ->
      infer c1 >>= fun v ->
-     Runtime.now x v (check c2 bdry)
+     Runtime.now x v (check c2 t_check)
 
   | Rsyntax.Assume ((Some x, t), c) ->
      infer_is_type t >>= fun t ->
      Runtime.add_free x t (fun _ ->
-     check c bdry)
+     check c t_check)
 
   | Rsyntax.Assume ((None, t), c) ->
      infer_is_type t >>= fun _ ->
-     check c bdry
+     check c t_check
 
   | Rsyntax.Match (c, cases) ->
      infer c >>=
-     match_cases ~loc cases (fun c -> check c bdry)
+     match_cases ~loc cases (fun c -> check c t_check)
 
   | Rsyntax.Abstract (xopt, uopt, c) ->
-    check_abstract ~loc bdry xopt uopt c
+    check_abstract ~loc t_check xopt uopt c
 
 
-(** Run the abstraction [Abstract(x, uopt, c)] in checking mode with boundary [bdry]. *)
-and check_abstract ~loc bdry x uopt c =
-  (* We need to invert the data-structures here, so we set-up the necessary auxliary function first. *)
-  let stump =
-    match bdry with
-    | Nucleus.BoundaryIsType bdry -> Nucleus.invert_is_type_abstraction ~name:x bdry
-    | Nucleus.BoundaryIsTerm bdry -> Nucleus.invert_is_type_abstraction ~name:x bdry
-    | Nucleus.BoundaryEqType _ -> failwith "check_abstract"
-    | Nucleus.BoundaryEqTerm _ -> failwith "check_abstract"
-  in
-
-  match stump with
+(** Check that the abstraction [Abstract(x, uopt, c)] has type [t_check]. *)
+and check_abstract ~loc t_check x uopt c =
+  match Nucleus.invert_is_type_abstraction ~name:x t_check with
 
   | Nucleus.Stump_NotAbstract t ->
      Runtime.(error ~loc (UnexpectedAbstraction t))
@@ -536,7 +514,7 @@ and check_abstract ~loc bdry x uopt c =
         Runtime.add_bound
           (Runtime.mk_is_term (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a)))
           begin
-            check c (Nucleus.BoundaryIsTerm t_check') >>= fun e ->
+            check c t_check' >>= fun e ->
             return (Nucleus.abstract_is_term a e)
           end
 
@@ -557,12 +535,13 @@ and check_abstract ~loc bdry x uopt c =
                in
                Runtime.add_bound (Runtime.mk_is_term a')
                begin
-                 check c bdry >>= fun e ->
+                 check c t_check >>= fun e ->
                  return (Nucleus.abstract_is_term a e)
                end
           end
      end
 
+(* sequence: loc:Location.t -> Runtime.value -> unit Runtime.comp *)
 and sequence ~loc v =
   match v with
     | Runtime.Tuple [] -> return ()
