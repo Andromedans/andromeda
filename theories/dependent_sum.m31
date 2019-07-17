@@ -1,4 +1,4 @@
-require "eq_subst.m31"
+require eq_subst
 
 rule Σ (⊢ A type) (x : A ⊢ B type)
   type
@@ -28,9 +28,9 @@ let type_of e = match e with ⊢ _ : t => t end
 
 rule Σ_β₂ (⊢ A type) (x : A ⊢ B type) (⊢ a : A) (⊢ b : B{a})
   :
-  ( let H ξ = handler coerce _ _ => yield (Convertible ξ) end in
+  ( let H ξ = handler ML.coerce _ _ => yield (ML.Convertible ξ) end in
     let eq_π₁_a = Σ_β₁ A B a b in
-    let ξ = eq_subst A B (π₁ A B (pair A B a b)) a eq_π₁_a in
+    let ξ = eq_subst.eq_subst A B (π₁ A B (pair A B a b)) a eq_π₁_a in
     with H ξ handle
     (π₂ A B (pair A B a b)) : B{a} )
   ==

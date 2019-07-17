@@ -1,2 +1,2 @@
-(* require "std/base.m31" *)
+require base
 (* require "std/equal.m31" *)

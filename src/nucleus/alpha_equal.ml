@@ -99,3 +99,5 @@ let check_is_term_boundary sgn abstr bdry =
 
 let check_eq_type_boundary _ _ = failwith "check_eq_type_boundary"
 let check_eq_term_boundary _ _ = failwith "check_eq_term_boundary"
+
+let abstraction eq_v e e' = e == e' || abstraction eq_v e e'

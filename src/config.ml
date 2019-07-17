@@ -2,10 +2,17 @@
 
 type prelude =
   | PreludeNone
-  | PreludeDefault
+  | PreludeDefault of string
   | PreludeFile of string
 
-let prelude_file = ref PreludeDefault
+let prelude_file = ref (PreludeDefault "prelude.m31")
+
+type stdlib =
+  | StdlibNone
+  | StdlibDefault of string
+  | StdlibDirectory of string
+
+let stdlib_directory = ref (StdlibDefault "stdlib")
 
 let interactive_shell = ref true
 
