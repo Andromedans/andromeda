@@ -208,6 +208,8 @@ val invert_is_term : signature -> is_term -> stump_is_term
 
 val invert_eq_type : eq_type -> stump_eq_type
 
+val invert_eq_term : eq_term -> stump_eq_term
+
 val atom_name : is_atom -> Name.t
 
 val meta_nonce : 'a meta -> Nonce.t
@@ -225,16 +227,16 @@ val invert_eq_term_abstraction :
   ?name:Name.t -> eq_term_abstraction -> eq_term stump_abstraction
 
 val invert_is_term_boundary :
-  ?name:Name.t -> is_term_boundary -> is_term stump_abstraction
+  ?name:Name.t -> is_term_boundary -> is_type stump_abstraction
 
 val invert_is_type_boundary :
-  ?name:Name.t -> is_type_boundary -> is_type stump_abstraction
+  ?name:Name.t -> is_type_boundary -> unit stump_abstraction
 
 val invert_eq_type_boundary :
-  ?name:Name.t -> eq_type_boundary -> eq_type stump_abstraction
+  ?name:Name.t -> eq_type_boundary -> (is_type * is_type) stump_abstraction
 
 val invert_eq_term_boundary :
-  ?name:Name.t -> eq_term_boundary -> eq_term stump_abstraction
+  ?name:Name.t -> eq_term_boundary -> (is_term * is_term * is_type) stump_abstraction
 
 val context_is_type_abstraction : is_type_abstraction -> is_atom list
 val context_is_term_abstraction : is_term_abstraction -> is_atom list

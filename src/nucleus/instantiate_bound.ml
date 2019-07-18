@@ -197,3 +197,19 @@ and argument_fully ?(lvl=0) es = function
   | ArgumentEqTerm abstr ->
      let abstr = abstraction_fully eq_term_fully ~lvl es abstr in
      ArgumentEqTerm abstr
+
+let is_type_boundary _ ?(lvl=0) () = ()
+
+let is_term_boundary e0 ?(lvl=0) t =
+  is_type e0 ~lvl t
+
+let eq_type_boundary e0 ?(lvl=0) (t1, t2) =
+  let t1 = is_type e0 ~lvl t1
+  and t2 = is_type e0 ~lvl t2 in
+  (t1, t2)
+
+let eq_term_boundary e0 ?(lvl=0) (e1, e2, t) =
+  let e1 = is_term e0 ~lvl e1
+  and e2 = is_term e0 ~lvl e2
+  and t = is_type e0 ~lvl t in
+  (e1, e2, t)

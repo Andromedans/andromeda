@@ -263,7 +263,7 @@ let rec infer {Location.thing=c'; loc} =
        match Nucleus.type_at_abstraction abstr with
        | None -> Runtime.(error ~loc (AbstractionExpected v1))
        | Some t ->
-          check c2 (Nucleus.abstract_not_abstract t) >>= fun v2 ->
+          check c2 (Nucleus.BoundaryIsTerm (Nucleus.abstract_not_abstract t)) >>= fun v2 ->
           begin match Nucleus.as_not_abstract v2 with
           | None -> Runtime.(error ~loc (IsTermExpected (Runtime.mk_is_term v2)))
           | Some v2 ->
@@ -370,15 +370,10 @@ and check_arguments :
 and check_argument c bdry =
   match bdry with
 
-  | Nucleus.BoundaryIsType bdry ->
-    (** XXX we should improve checking mode so that we can check against any boundary *)
-     infer_is_type_abstraction c >>= fun t ->
-     if Nucleus.check_is_type_boundary t bdry then
-       return (Nucleus.ArgumentIsType t)
-     else
-       failwith "type expected, need a good error message here"
+  | Nucleus.BoundaryIsType _ ->
+     check c bdry >>= fun () -> return (Nucleus.ArgumentIsType ())
 
-  | Nucleus.BoundaryIsTerm bdry ->
+  | Nucleus.BoundaryIsTerm _ ->
      check c bdry >>= fun t -> return (Nucleus.ArgumentIsTerm t)
 
   | Nucleus.BoundaryEqType bdry ->
