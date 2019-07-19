@@ -77,10 +77,10 @@ and arguments ~lvl args =
   fold Assumption.empty args
 
 and argument ?(lvl=0) = function
-  | ArgumentIsType abstr -> abstraction is_type ~lvl abstr
-  | ArgumentIsTerm abstr -> abstraction is_term ~lvl abstr
-  | ArgumentEqType abstr -> abstraction eq_type ~lvl abstr
-  | ArgumentEqTerm abstr -> abstraction eq_term ~lvl abstr
+  | JudgementIsType abstr -> abstraction is_type ~lvl abstr
+  | JudgementIsTerm abstr -> abstraction is_term ~lvl abstr
+  | JudgementEqType abstr -> abstraction eq_type ~lvl abstr
+  | JudgementEqTerm abstr -> abstraction eq_term ~lvl abstr
 
 and assumptions ?(lvl=0) asmp = Assumption.at_level ~lvl asmp
 

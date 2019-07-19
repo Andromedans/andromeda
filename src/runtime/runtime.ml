@@ -170,10 +170,8 @@ and lexical = {
 and state = value Store.Ref.t
 
 and value =
-  | IsTerm of Nucleus.is_term_abstraction
-  | IsType of Nucleus.is_type_abstraction
-  | EqTerm of Nucleus.eq_term_abstraction
-  | EqType of Nucleus.eq_type_abstraction
+  | Judgement of Nucleus.judgement
+  | Boundary of Nucleus.boundary
   | Closure of (value, value) closure
   | Handler of handler
   | Tag of ml_constructor * value list

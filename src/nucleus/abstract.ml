@@ -87,17 +87,17 @@ and arguments x ?(lvl=0) args = List.map (argument x ~lvl) args
 
 and argument x ?(lvl=0) = function
 
-  | ArgumentIsType t -> ArgumentIsType (abstraction is_type x ~lvl t)
+  | JudgementIsType t -> JudgementIsType (abstraction is_type x ~lvl t)
 
-  | ArgumentIsTerm e -> ArgumentIsTerm (abstraction is_term x ~lvl e)
+  | JudgementIsTerm e -> JudgementIsTerm (abstraction is_term x ~lvl e)
 
-  | ArgumentEqType asmp ->
+  | JudgementEqType asmp ->
      let asmp = abstraction eq_type x ~lvl asmp in
-     ArgumentEqType asmp
+     JudgementEqType asmp
 
-  | ArgumentEqTerm asmp ->
+  | JudgementEqTerm asmp ->
      let asmp = abstraction eq_term x ~lvl asmp in
-     ArgumentEqTerm asmp
+     JudgementEqTerm asmp
 
 
 let not_abstract u = Mk.not_abstract u

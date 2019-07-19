@@ -1,5 +1,5 @@
 open Nucleus_types
-val nth : indices -> int -> argument
-val of_list : argument list -> indices
-val to_list : indices -> argument list
-val cons : argument -> indices -> indices
+val nth : indices -> int -> judgement
+val of_list : judgement list -> indices
+val to_list : indices -> judgement list
+val cons : judgement -> indices -> indices

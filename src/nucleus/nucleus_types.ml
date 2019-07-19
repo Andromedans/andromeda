@@ -4,13 +4,13 @@ type bound = int
 
 type is_type =
   | TypeMeta of is_type_meta * is_term list
-  | TypeConstructor of Ident.t * argument list
+  | TypeConstructor of Ident.t * judgement list
 
 and is_term =
   | TermBound of bound
   | TermAtom of is_atom
   | TermMeta of is_term_meta * is_term list
-  | TermConstructor of Ident.t * argument list
+  | TermConstructor of Ident.t * judgement list
   | TermConvert of is_term * assumption * is_type
 
 and eq_type = EqType of assumption * is_type * is_type
@@ -38,11 +38,11 @@ and 'a abstraction =
   | NotAbstract of 'a
   | Abstract of is_atom * 'a abstraction
 
-and argument =
-  | ArgumentIsType of is_type abstraction
-  | ArgumentIsTerm of is_term abstraction
-  | ArgumentEqType of eq_type abstraction
-  | ArgumentEqTerm of eq_term abstraction
+and judgement =
+  | JudgementIsType of is_type abstraction
+  | JudgementIsTerm of is_term abstraction
+  | JudgementEqType of eq_type abstraction
+  | JudgementEqTerm of eq_term abstraction
 
 and is_type_boundary = unit abstraction
 and is_term_boundary = is_type abstraction
@@ -56,10 +56,10 @@ and boundary =
     | BoundaryEqTerm of eq_term_boundary
 
 type 'a rule_application_status =
-  { rap_arguments : argument list (* the arguments collected so far *)
+  { rap_arguments : judgement list (* the arguments collected so far *)
   ; rap_boundary : boundary (* the boundary of the next argument *)
   ; rap_premises : Rule.premise list (* the remaining premises to be applied *)
-  ; rap_constructor : argument list -> 'a (* the function which makes the final result *)
+  ; rap_constructor : judgement list -> 'a (* the function which makes the final result *)
   }
 
 (* A partial rule application *)
@@ -85,12 +85,12 @@ type eq_term_abstraction = eq_term abstraction
    as "stumps", i.e., the lowest level of a derivation tree. *)
 
 type nonrec stump_is_type =
-  | Stump_TypeConstructor of Ident.t * argument list
+  | Stump_TypeConstructor of Ident.t * judgement list
   | Stump_TypeMeta of is_type_meta * is_term list
 
 and stump_is_term =
   | Stump_TermAtom of is_atom
-  | Stump_TermConstructor of Ident.t * argument list
+  | Stump_TermConstructor of Ident.t * judgement list
   | Stump_TermMeta of is_term_meta * is_term list
   | Stump_TermConvert of is_term * eq_type
 
@@ -119,7 +119,7 @@ type congruence_argument =
 
    Used by module Indices
 *)
-type indices = argument list
+type indices = judgement list
 
 type error =
   | InvalidInstantiation

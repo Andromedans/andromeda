@@ -18,13 +18,13 @@ let fully_apply_abstraction_no_typechecks inst_u abstr args =
 
 let lookup_term_meta k metas =
   match Indices.nth metas k with
-  | ArgumentIsTerm e_abstr -> e_abstr
-  | ArgumentIsType _ | ArgumentEqType _ | ArgumentEqTerm _ -> Error.raise TermExpected
+  | JudgementIsTerm e_abstr -> e_abstr
+  | JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _ -> Error.raise TermExpected
 
 let lookup_type_meta k metas =
   match Indices.nth metas k with
-  | ArgumentIsType t_abstr -> t_abstr
-  | ArgumentIsTerm _ | ArgumentEqType _ | ArgumentEqTerm _ -> Error.raise TypeExpected
+  | JudgementIsType t_abstr -> t_abstr
+  | JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _ -> Error.raise TypeExpected
 
 (** [instantiate ~lvl metas] instantiates  *)
 
@@ -65,22 +65,22 @@ and arguments ~lvl metas args =
   List.map (argument ~lvl metas) args
 
 and argument ~lvl metas = function
-  | Rule.ArgumentIsType abstr ->
+  | Rule.JudgementIsType abstr ->
      let abstr = abstraction is_type ~lvl metas abstr
      in Mk.arg_is_type abstr
 
-  | Rule.ArgumentIsTerm abstr ->
+  | Rule.JudgementIsTerm abstr ->
      let abstr = abstraction is_term ~lvl metas abstr
      in Mk.arg_is_term abstr
 
-  | Rule.ArgumentEqType abstr ->
+  | Rule.JudgementEqType abstr ->
      (* XXX could do this lazily so that it's discarded when it's an
             argument in a premise, and computed only when it's an argument in
             a constructor in the output of a rule *)
      let abstr = abstraction eq_type ~lvl metas abstr
      in Mk.arg_eq_type abstr
 
-  | Rule.ArgumentEqTerm abstr ->
+  | Rule.JudgementEqTerm abstr ->
      let abstr = abstraction eq_term ~lvl metas abstr
      in Mk.arg_eq_term abstr
 

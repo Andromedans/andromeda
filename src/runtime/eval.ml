@@ -371,22 +371,22 @@ and check_argument c bdry =
   match bdry with
 
   | Nucleus.BoundaryIsType _ ->
-     check c bdry >>= fun () -> return (Nucleus.ArgumentIsType ())
+     check c bdry >>= fun () -> return (Nucleus.JudgementIsType ())
 
   | Nucleus.BoundaryIsTerm _ ->
-     check c bdry >>= fun t -> return (Nucleus.ArgumentIsTerm t)
+     check c bdry >>= fun t -> return (Nucleus.JudgementIsTerm t)
 
   | Nucleus.BoundaryEqType bdry ->
      infer_eq_type_abstraction c >>= fun eq ->
      if Nucleus.check_eq_type_boundary eq bdry then
-       return (Nucleus.ArgumentEqType eq)
+       return (Nucleus.JudgementEqType eq)
      else
        failwith "type equation expected, need a good error message"
 
   | Nucleus.BoundaryEqTerm bdry ->
      infer_eq_term_abstraction c >>= fun eq ->
      if Nucleus.check_eq_term_boundary eq bdry then
-       return (Nucleus.ArgumentEqTerm eq)
+       return (Nucleus.JudgementEqTerm eq)
      else
        failwith "term equation expected, need a good error message"
 

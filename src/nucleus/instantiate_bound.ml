@@ -83,21 +83,21 @@ and term_arguments e0 ~lvl args =
 
 and argument e0 ?(lvl=0) = function
 
-    | ArgumentIsType t ->
+    | JudgementIsType t ->
        let t = abstraction is_type e0 ~lvl t in
-       ArgumentIsType t
+       JudgementIsType t
 
-    | ArgumentIsTerm e ->
+    | JudgementIsTerm e ->
        let e = abstraction is_term e0 ~lvl e in
-       ArgumentIsTerm e
+       JudgementIsTerm e
 
-    | ArgumentEqType asmp ->
+    | JudgementEqType asmp ->
        let asmp = abstraction eq_type e0 ~lvl asmp in
-       ArgumentEqType asmp
+       JudgementEqType asmp
 
-    | ArgumentEqTerm asmp ->
+    | JudgementEqTerm asmp ->
        let asmp = abstraction eq_term e0 ~lvl asmp in
-       ArgumentEqTerm asmp
+       JudgementEqTerm asmp
 
 
 (* [instantiate_fully ?lvl es t] replaces bound variables [k] for
@@ -182,21 +182,21 @@ and term_arguments_fully ?(lvl=0) es args =
   List.map (is_term_fully ~lvl es) args
 
 and argument_fully ?(lvl=0) es = function
-  | ArgumentIsType abstr ->
+  | JudgementIsType abstr ->
      let abstr = abstraction_fully is_type_fully ~lvl es abstr in
-     ArgumentIsType abstr
+     JudgementIsType abstr
 
-  | ArgumentIsTerm abstr ->
+  | JudgementIsTerm abstr ->
      let abstr = abstraction_fully is_term_fully ~lvl es abstr in
-     ArgumentIsTerm abstr
+     JudgementIsTerm abstr
 
-  | ArgumentEqType abstr ->
+  | JudgementEqType abstr ->
      let abstr = abstraction_fully eq_type_fully ~lvl es abstr in
-     ArgumentEqType abstr
+     JudgementEqType abstr
 
-  | ArgumentEqTerm abstr ->
+  | JudgementEqTerm abstr ->
      let abstr = abstraction_fully eq_term_fully ~lvl es abstr in
-     ArgumentEqTerm abstr
+     JudgementEqTerm abstr
 
 let is_type_boundary _ ?(lvl=0) () = ()
 

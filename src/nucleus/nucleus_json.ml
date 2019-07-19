@@ -59,10 +59,10 @@ and is_type t =
 and args lst =
   (List.map
      (function
-       | ArgumentIsTerm abstr -> Json.tag "ArgumentIsTerm" (abstraction is_term [] abstr)
-       | ArgumentIsType abstr -> Json.tag "ArgumentIsType" (abstraction is_type [] abstr)
-       | ArgumentEqType _ -> Json.tag "ArgumentIsType" []
-       | ArgumentEqTerm _ -> Json.tag "ArgumentEqTerm" [])
+       | JudgementIsTerm abstr -> Json.tag "JudgementIsTerm" (abstraction is_term [] abstr)
+       | JudgementIsType abstr -> Json.tag "JudgementIsType" (abstraction is_type [] abstr)
+       | JudgementEqType _ -> Json.tag "JudgementIsType" []
+       | JudgementEqTerm _ -> Json.tag "JudgementEqTerm" [])
      lst)
 
 and abstraction : 'a . ('a -> Json.t) -> (Name.t * is_type) list -> 'a abstraction -> Json.t list =

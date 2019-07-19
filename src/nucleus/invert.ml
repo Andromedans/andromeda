@@ -5,10 +5,10 @@ let atom_name {atom_nonce=x;_} = Nonce.name x
 (** Destructors *)
 
 let invert_argument = function
-  | ArgumentIsTerm abstr -> ArgumentIsTerm abstr
-  | ArgumentIsType abstr -> ArgumentIsType abstr
-  | ArgumentEqType abstr -> ArgumentEqType abstr
-  | ArgumentEqTerm abstr -> ArgumentEqTerm abstr
+  | JudgementIsTerm abstr -> JudgementIsTerm abstr
+  | JudgementIsType abstr -> JudgementIsType abstr
+  | JudgementEqType abstr -> JudgementEqType abstr
+  | JudgementEqTerm abstr -> JudgementEqTerm abstr
 
 let invert_arguments args = List.map invert_argument args
 

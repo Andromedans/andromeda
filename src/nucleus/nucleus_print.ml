@@ -122,13 +122,13 @@ and abstraction
 
 and argument ~penv arg ppf =
   match arg with
-  | ArgumentIsType abstr ->
+  | JudgementIsType abstr ->
      abstraction Occurs.is_type thesis_ty ~max_level:Level.constructor_arg ~penv abstr ppf
-  | ArgumentIsTerm abstr ->
+  | JudgementIsTerm abstr ->
      abstraction Occurs.is_term thesis_term ~max_level:Level.constructor_arg ~penv abstr ppf
-  | ArgumentEqType abstr ->
+  | JudgementEqType abstr ->
      abstraction Occurs.eq_type thesis_eq_type ~max_level:Level.constructor_arg ~penv abstr ppf
-  | ArgumentEqTerm abstr ->
+  | JudgementEqTerm abstr ->
      abstraction Occurs.eq_term thesis_eq_term ~max_level:Level.constructor_arg ~penv abstr ppf
 
 

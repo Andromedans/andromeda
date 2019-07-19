@@ -38,7 +38,7 @@ and term_arguments k = function
   | arg :: args -> is_term k arg || term_arguments k args
 
 and argument k = function
-  | ArgumentIsType t  -> abstraction is_type k t
-  | ArgumentIsTerm e  -> abstraction is_term k e
-  | ArgumentEqType abstr -> abstraction eq_type k abstr
-  | ArgumentEqTerm abstr -> abstraction eq_term k abstr
+  | JudgementIsType t  -> abstraction is_type k t
+  | JudgementIsTerm e  -> abstraction is_term k e
+  | JudgementEqType abstr -> abstraction eq_type k abstr
+  | JudgementEqTerm abstr -> abstraction eq_term k abstr

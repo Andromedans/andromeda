@@ -18,10 +18,8 @@ type ml_constructor = Ident.t
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
 type value =
-  | IsTerm of Nucleus.is_term_abstraction      (** A term judgment *)
-  | IsType of Nucleus.is_type_abstraction      (** A type judgment *)
-  | EqTerm of Nucleus.eq_term_abstraction      (** A term equality *)
-  | EqType of Nucleus.eq_type_abstraction      (** A type equality *)
+  | Judgement of Nucleus.judgement             (** A judgement *)
+  | Boundary of Nucleus.boundary               (** A judgement boundary (also known as a goal) *)
   | Closure of (value,value) closure           (** An ML function *)
   | Handler of handler                         (** Handler value *)
   | Tag of ml_constructor * value list         (** Application of a data constructor *)

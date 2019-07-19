@@ -225,10 +225,10 @@ and collect_args env xvs ps vs =
   | p::ps, v::vs ->
      let xvs =
        begin match v with
-       | Nucleus.ArgumentIsType t -> collect_is_type env xvs p t
-       | Nucleus.ArgumentIsTerm e -> collect_is_term env xvs p e
-       | Nucleus.ArgumentEqType eq -> collect_eq_type env xvs p eq
-       | Nucleus.ArgumentEqTerm eq -> collect_eq_term env xvs p eq
+       | Nucleus.JudgementIsType t -> collect_is_type env xvs p t
+       | Nucleus.JudgementIsTerm e -> collect_is_term env xvs p e
+       | Nucleus.JudgementEqType eq -> collect_eq_type env xvs p eq
+       | Nucleus.JudgementEqTerm eq -> collect_eq_term env xvs p eq
      end in
      collect_args env xvs ps vs
 

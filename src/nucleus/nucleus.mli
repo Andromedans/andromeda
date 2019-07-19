@@ -32,13 +32,12 @@ type is_type_abstraction = is_type abstraction
 type eq_type_abstraction = eq_type abstraction
 type eq_term_abstraction = eq_term abstraction
 
-
-(** An argument to a term or type constructor *)
-type argument =
-  | ArgumentIsType of is_type_abstraction
-  | ArgumentIsTerm of is_term_abstraction
-  | ArgumentEqType of eq_type_abstraction
-  | ArgumentEqTerm of eq_term_abstraction
+(** Judgement *)
+type judgement =
+  | JudgementIsType of is_type_abstraction
+  | JudgementIsTerm of is_term_abstraction
+  | JudgementEqType of eq_type_abstraction
+  | JudgementEqTerm of eq_term_abstraction
 
 (** Boundary of a type judgement *)
 type is_type_boundary = unit abstraction
@@ -70,12 +69,12 @@ type eq_term_meta = eq_term_boundary meta
 (** A stump is obtained when we invert a judgement. *)
 
 type nonrec stump_is_type =
-  | Stump_TypeConstructor of Ident.t * argument list
+  | Stump_TypeConstructor of Ident.t * judgement list
   | Stump_TypeMeta of is_type_meta * is_term list
 
 and stump_is_term =
   | Stump_TermAtom of is_atom
-  | Stump_TermConstructor of Ident.t * argument list
+  | Stump_TermConstructor of Ident.t * judgement list
   | Stump_TermMeta of is_term_meta * is_term list
   | Stump_TermConvert of is_term * eq_type
 
@@ -144,7 +143,7 @@ val form_rap_eq_type : signature -> Ident.t -> eq_type rule_application
 val form_rap_eq_term : signature -> Ident.t -> eq_term rule_application
 
 (** Apply a rap to one more argument *)
-val rap_apply : signature -> 'a rule_application_status -> argument -> 'a rule_application
+val rap_apply : signature -> 'a rule_application_status -> judgement -> 'a rule_application
 
 (** Give the boundary of a rap status, i.e., the boundary of the next argument. *)
 val rap_boundary : 'a rule_application_status -> boundary

@@ -19,10 +19,10 @@ and eq_type = EqType of ty * ty
 and eq_term = EqTerm of term * term * ty
 
 and argument =
-  | ArgumentIsType of ty abstraction
-  | ArgumentIsTerm of term abstraction
-  | ArgumentEqType of eq_type abstraction
-  | ArgumentEqTerm of eq_term abstraction
+  | JudgementIsType of ty abstraction
+  | JudgementIsTerm of term abstraction
+  | JudgementEqType of eq_type abstraction
+  | JudgementEqTerm of eq_term abstraction
 
 and 'a abstraction =
   | NotAbstract of 'a

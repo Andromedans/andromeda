@@ -77,18 +77,18 @@ and arguments ~lvl k args =
   List.map (argument ~lvl k) args
 
 and argument ~lvl k = function
-   | ArgumentIsTerm abstr ->
+   | JudgementIsTerm abstr ->
       let abstr = abstraction is_term ~lvl k abstr in
-      ArgumentIsTerm abstr
+      JudgementIsTerm abstr
 
-   | ArgumentIsType abstr ->
+   | JudgementIsType abstr ->
       let abstr = abstraction is_type ~lvl k abstr in
-      ArgumentIsType abstr
+      JudgementIsType abstr
 
-   | ArgumentEqType abstr ->
+   | JudgementEqType abstr ->
       let abstr = abstraction eq_type ~lvl k abstr in
-      ArgumentEqType abstr
+      JudgementEqType abstr
 
-   | ArgumentEqTerm abstr ->
+   | JudgementEqTerm abstr ->
       let abstr = abstraction eq_term ~lvl k abstr in
-      ArgumentEqTerm abstr
+      JudgementEqTerm abstr

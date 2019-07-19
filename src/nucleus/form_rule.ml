@@ -34,36 +34,36 @@ let instantiate_premise metas prem =
 let check_argument sgn metas arg prem =
   match arg, instantiate_premise metas prem with
 
-  | ArgumentIsType abstr, BoundaryIsType bdry ->
+  | JudgementIsType abstr, BoundaryIsType bdry ->
      Alpha_equal.check_is_type_boundary abstr bdry
 
-  | ArgumentIsTerm abstr, BoundaryIsTerm bdry  ->
+  | JudgementIsTerm abstr, BoundaryIsTerm bdry  ->
      Alpha_equal.check_is_term_boundary sgn abstr bdry
 
-  | ArgumentEqType abstr, BoundaryEqType bdry ->
+  | JudgementEqType abstr, BoundaryEqType bdry ->
      Alpha_equal.check_eq_type_boundary abstr bdry
 
-  | ArgumentEqTerm abstr, BoundaryEqTerm bdry  ->
+  | JudgementEqTerm abstr, BoundaryEqTerm bdry  ->
      Alpha_equal.check_eq_term_boundary abstr bdry
 
-  | (ArgumentIsTerm _ | ArgumentEqType _ | ArgumentEqTerm _) , (BoundaryIsType _ as bdry)
-  | (ArgumentIsType _ | ArgumentEqType _ | ArgumentEqTerm _) , (BoundaryIsTerm _ as bdry)
-  | (ArgumentIsType _ | ArgumentIsTerm _ | ArgumentEqTerm _) , (BoundaryEqType _ as bdry)
-  | (ArgumentIsType _ | ArgumentIsTerm _ | ArgumentEqType _) , (BoundaryEqTerm _ as bdry) ->
+  | (JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) , (BoundaryIsType _ as bdry)
+  | (JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) , (BoundaryIsTerm _ as bdry)
+  | (JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _) , (BoundaryEqType _ as bdry)
+  | (JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _) , (BoundaryEqTerm _ as bdry) ->
      Error.raise (ArgumentExpected bdry)
 
 let arg_of_argument = function
-  | ArgumentIsType t -> Mk.arg_is_type t
-  | ArgumentIsTerm e -> Mk.arg_is_term e
-  | ArgumentEqType eq -> Mk.arg_eq_type eq
-  | ArgumentEqTerm eq-> Mk.arg_eq_term eq
+  | JudgementIsType t -> Mk.arg_is_type t
+  | JudgementIsTerm e -> Mk.arg_is_term e
+  | JudgementEqType eq -> Mk.arg_eq_type eq
+  | JudgementEqTerm eq-> Mk.arg_eq_term eq
 
-let match_argument sgn metas (s : Rule.premise) (p : argument) : argument =
+let match_argument sgn metas (s : Rule.premise) (p : judgement) : judgement =
   failwith "form_rule match_argument shouldn't be needed"
   (* check_argument sgn metas s p ;
    * arg_of_argument p *)
 
-let match_arguments sgn (premises : Rule.premise list) (arguments : argument list) =
+let match_arguments sgn (premises : Rule.premise list) (arguments : judgement list) =
   let rec fold args_out = function
     | [], [] ->
        (* The arguments must _not_ be reversed because we refer to them by meta-variable
@@ -159,21 +159,21 @@ and mk_rule_assumptions metas asmp =
 
 and mk_rule_arg metas = function
 
-  | ArgumentIsType abstr ->
+  | JudgementIsType abstr ->
      let abstr = mk_rule_abstraction mk_rule_is_type metas abstr in
-     Rule.ArgumentIsType abstr
+     Rule.JudgementIsType abstr
 
-  | ArgumentIsTerm abstr ->
+  | JudgementIsTerm abstr ->
      let abstr = mk_rule_abstraction mk_rule_is_term metas abstr in
-     Rule.ArgumentIsTerm abstr
+     Rule.JudgementIsTerm abstr
 
-  | ArgumentEqType abstr ->
+  | JudgementEqType abstr ->
      let abstr = mk_rule_abstraction mk_rule_eq_type metas abstr in
-     Rule.ArgumentEqType abstr
+     Rule.JudgementEqType abstr
 
-  | ArgumentEqTerm abstr ->
+  | JudgementEqTerm abstr ->
      let abstr = mk_rule_abstraction mk_rule_eq_term metas abstr in
-     Rule.ArgumentEqTerm abstr
+     Rule.JudgementEqTerm abstr
 
 and mk_rule_args metas args =
   List.map (mk_rule_arg metas) args

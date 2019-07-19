@@ -104,10 +104,10 @@ let form_rap_eq_term sgn c =
 
 let rap_apply sgn {rap_arguments; rap_boundary; rap_premises; rap_constructor} arg =
   if not (match rap_boundary, arg with
-          | BoundaryIsType bdry, ArgumentIsType arg -> Alpha_equal.check_is_type_boundary arg bdry
-          | BoundaryIsTerm bdry, ArgumentIsTerm arg -> Alpha_equal.check_is_term_boundary sgn arg bdry
-          | BoundaryEqType bdry, ArgumentEqType arg -> Alpha_equal.check_eq_type_boundary arg bdry
-          | BoundaryEqTerm bdry, ArgumentEqTerm arg -> Alpha_equal.check_eq_term_boundary arg bdry
+          | BoundaryIsType bdry, JudgementIsType arg -> Alpha_equal.check_is_type_boundary arg bdry
+          | BoundaryIsTerm bdry, JudgementIsTerm arg -> Alpha_equal.check_is_term_boundary sgn arg bdry
+          | BoundaryEqType bdry, JudgementEqType arg -> Alpha_equal.check_eq_type_boundary arg bdry
+          | BoundaryEqTerm bdry, JudgementEqTerm arg -> Alpha_equal.check_eq_term_boundary arg bdry
           | _, _ -> false)
   then Error.raise InvalidArgument ;
   let rap_arguments = arg :: rap_arguments in

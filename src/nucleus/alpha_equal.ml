@@ -71,17 +71,17 @@ and arguments args args' =
 
   | [], [] -> true
 
-  | (ArgumentIsTerm e) :: args, (ArgumentIsTerm e') :: args' ->
+  | (JudgementIsTerm e) :: args, (JudgementIsTerm e') :: args' ->
      abstraction is_term e e' && arguments args args'
 
-  | (ArgumentIsType t) :: args, (ArgumentIsType t') :: args' ->
+  | (JudgementIsType t) :: args, (JudgementIsType t') :: args' ->
      abstraction is_type t t' && arguments args args'
 
-  | ArgumentEqType _ :: args, ArgumentEqType _ :: args' -> arguments args args'
+  | JudgementEqType _ :: args, JudgementEqType _ :: args' -> arguments args args'
 
-  | ArgumentEqTerm _ :: args, ArgumentEqTerm _ :: args' -> arguments args args'
+  | JudgementEqTerm _ :: args, JudgementEqTerm _ :: args' -> arguments args args'
 
-  | (ArgumentIsTerm _ | ArgumentIsType _ | ArgumentEqType _ | ArgumentEqTerm _)::_, _::_
+  | (JudgementIsTerm _ | JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _)::_, _::_
 
   | (_::_), []
 
