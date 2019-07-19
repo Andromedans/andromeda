@@ -223,18 +223,18 @@ and collect_args env xvs ps vs =
   | [], [] -> Some xvs
 
   | p::ps, v::vs ->
-     let xvs =
-       begin match v with
-       | Nucleus.JudgementIsType t -> collect_is_type env xvs p t
-       | Nucleus.JudgementIsTerm e -> collect_is_term env xvs p e
-       | Nucleus.JudgementEqType eq -> collect_eq_type env xvs p eq
-       | Nucleus.JudgementEqTerm eq -> collect_eq_term env xvs p eq
-     end in
+     let xvs = collect_judgement env xvs p v in
      collect_args env xvs ps vs
 
   | [], _::_ | _::_, [] -> None
 
-and collect_pattern env xvs {Location.thing=p';loc} v =
+and collect_judgement env xvs p = function
+  | Nucleus.JudgementIsType t -> collect_is_type env xvs p t
+  | Nucleus.JudgementIsTerm e -> collect_is_term env xvs p e
+  | Nucleus.JudgementEqType eq -> collect_eq_type env xvs p eq
+  | Nucleus.JudgementEqTerm eq -> collect_eq_term env xvs p eq
+
+let rec collect_pattern env xvs {Location.thing=p';loc} v =
   match p', v with
   | Rsyntax.Pattern.Anonymous, _ -> xvs
 
@@ -245,17 +245,8 @@ and collect_pattern env xvs {Location.thing=p';loc} v =
      let xvs = collect_pattern env xvs p1 v in
      collect_pattern env xvs p2 v
 
-  | Rsyntax.Pattern.Judgement p, Runtime.IsType t ->
-     collect_is_type env xvs p t
-
-  | Rsyntax.Pattern.Judgement p, Runtime.IsTerm e ->
-     collect_is_term env xvs p e
-
-  | Rsyntax.Pattern.Judgement p, Runtime.EqType eq ->
-     collect_eq_type env xvs p eq
-
-  | Rsyntax.Pattern.Judgement p, Runtime.EqTerm eq ->
-     collect_eq_term env xvs p eq
+  | Rsyntax.Pattern.Judgement p, Runtime.Judgement jdg ->
+     collect_judgement env xvs p jdg
 
   | Rsyntax.Pattern.MLConstructor (tag, ps), Runtime.Tag (tag', vs) ->
      if not (Runtime.equal_tag tag tag')
@@ -276,18 +267,14 @@ and collect_pattern env xvs {Location.thing=p';loc} v =
     end
 
   (* mismatches *)
-  | Rsyntax.Pattern.Judgement _, (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
-                          Runtime.Ref _ | Runtime.Dyn _ |
-                          Runtime.Tuple _ | Runtime.String _)
+  | Rsyntax.Pattern.Judgement _,
+    Runtime.(Boundary _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _ | String _)
 
-  | Rsyntax.Pattern.MLConstructor _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
-                               Runtime.Closure _ | Runtime.Handler _ |
-                               Runtime.Ref _ | Runtime.Dyn _ |
-                               Runtime.Tuple _ | Runtime.String _)
+  | Rsyntax.Pattern.MLConstructor _,
+    Runtime.(Judgement _ | Boundary _ | Closure _ | Handler _ | Ref _ | Dyn _ | Tuple _ | String _)
 
-  | Rsyntax.Pattern.Tuple _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
-                      Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
-                      Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) ->
+  | Rsyntax.Pattern.Tuple _,
+    Runtime.(Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _) ->
      Runtime.(error ~loc (InvalidPatternMatch v))
 
 and multicollect_pattern env xvs ps vs =

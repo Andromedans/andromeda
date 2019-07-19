@@ -202,10 +202,8 @@ val return : 'a -> 'a comp
 
 val return_unit : value comp
 
+val return_judgement : Nucleus.judgement -> value comp
 val return_is_term : Nucleus.is_term_abstraction -> value comp
-val return_is_type : Nucleus.is_type_abstraction -> value comp
-val return_eq_term : Nucleus.eq_term_abstraction -> value comp
-val return_eq_type : Nucleus.eq_type_abstraction -> value comp
 
 val return_closure : (value -> value comp) -> value comp
 val return_handler :

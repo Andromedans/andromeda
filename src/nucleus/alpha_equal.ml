@@ -91,6 +91,41 @@ and arguments args args' =
         with that *)
      assert false
 
+let judgement jdg1 jdg2 =
+  match jdg1, jdg2 with
+  | JudgementIsType t1, JudgementIsType t2 -> abstraction is_type t1 t2
+
+  | JudgementIsTerm e1, JudgementIsTerm e2 -> abstraction is_term e1 e2
+
+  (** Comparing equality types means comparing their "proof terms", not their boundaries! *)
+  | JudgementEqType eq1, JudgementEqType eq2 -> abstraction (fun _ _ -> true) eq1 eq2
+  | JudgementEqTerm eq1, JudgementEqTerm eq2 -> abstraction (fun _ _ -> true) eq1 eq2
+
+  | JudgementIsType _, (JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _)
+  | JudgementIsTerm _, (JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _)
+  | JudgementEqType _, (JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _)
+  | JudgementEqTerm _, (JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _) ->
+     false
+
+let boundary jdg1 jdg2 =
+  match jdg1, jdg2 with
+  | BoundaryIsType abstr1, BoundaryIsType abstr2 -> abstraction (fun () () -> true) abstr1 abstr2
+
+  | BoundaryIsTerm t1, BoundaryIsTerm t2 -> abstraction is_type t1 t2
+
+  | BoundaryEqType eq1, BoundaryEqType eq2 ->
+     abstraction (fun (u1, t1) (u2, t2) -> is_type u1 u2 && is_type t1 t2) eq1 eq2
+
+  | BoundaryEqTerm eq1, BoundaryEqTerm eq2 ->
+     abstraction (fun (a1, b1, t1) (a2, b2, t2) -> is_type t1 t2 && is_term a1 a2 && is_term b1 b2) eq1 eq2
+
+  | BoundaryIsType _, (BoundaryIsTerm _ | BoundaryEqType _ | BoundaryEqTerm _)
+  | BoundaryIsTerm _, (BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _)
+  | BoundaryEqType _, (BoundaryIsType _ | BoundaryIsTerm _ | BoundaryEqTerm _)
+  | BoundaryEqTerm _, (BoundaryIsType _ | BoundaryIsTerm _ | BoundaryEqType _) ->
+     false
+
+
 let check_is_type_boundary abstr bdry =
   abstraction (fun _ _ -> true) abstr bdry
 

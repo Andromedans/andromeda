@@ -251,10 +251,10 @@ let equal_tag = Ident.equal
 
 (** Make values *)
 
-let mk_is_term t = IsTerm t
-let mk_is_type t = IsType t
-let mk_eq_term eq = EqTerm eq
-let mk_eq_type eq = EqType eq
+let mk_is_term t = Judgement (Nucleus.JudgementIsTerm t)
+let mk_is_type t = Judgement (Nucleus.JudgementIsType t)
+let mk_eq_term eq = Judgement (Nucleus.JudgementEqTerm eq)
+let mk_eq_type eq = Judgement (Nucleus.JudgementEqType eq)
 
 let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
@@ -309,9 +309,7 @@ let top_return_closure f env = mk_closure0 f env, env
 let return x env = Return x, env.state
 
 let return_is_term e = return (mk_is_term e)
-let return_is_type e = return (mk_is_type e)
-let return_eq_term e = return (mk_eq_term e)
-let return_eq_type e = return (mk_eq_type e)
+let return_judgement jdg = return (Judgement jdg)
 
 let return_closure f env = Return (Closure (mk_closure0 f env)), env.state
 
@@ -339,10 +337,14 @@ let as_ml_module m ({lexical;_} as env) =
 
 let name_of v =
   match v with
-    | IsTerm _ -> "a term"
-    | IsType _ -> "a type"
-    | EqTerm _ -> "a term equality"
-    | EqType _ -> "a type equality"
+    | Judgement (Nucleus.JudgementIsTerm _) -> "a term"
+    | Judgement (Nucleus.JudgementIsType _) -> "a type"
+    | Judgement (Nucleus.JudgementEqTerm _) -> "a term equality"
+    | Judgement (Nucleus.JudgementEqType _) -> "a type equality"
+    | Boundary (Nucleus.BoundaryIsTerm _) -> "a term"
+    | Boundary (Nucleus.BoundaryIsType _) -> "a type"
+    | Boundary (Nucleus.BoundaryEqTerm _) -> "a term equality"
+    | Boundary (Nucleus.BoundaryEqType _) -> "a type equality"
     | Closure _ -> "a function"
     | Handler _ -> "a handler"
     | Tag _ -> "a data tag"
@@ -354,96 +356,96 @@ let name_of v =
 (** Coerce values *)
 
 let as_is_type ~loc = function
-  | IsType t as v ->
+  | Judgement (Nucleus.JudgementIsType t) as v ->
      begin match Nucleus.as_not_abstract t with
      | Some t -> t
-     | None -> error ~loc (IsTermExpected v)
+     | None -> error ~loc (IsTypeExpected v)
      end
-  | (IsTerm _ | EqTerm _ | EqType _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Judgement (Nucleus.(JudgementIsTerm _ | JudgementEqTerm _ | JudgementEqType _)) |
+    Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (IsTypeExpected v)
 
 let as_is_term ~loc = function
-  | IsTerm e as v ->
+  | Judgement (Nucleus.JudgementIsTerm e) as v ->
      begin match Nucleus.as_not_abstract e with
      | Some e -> e
      | None -> error ~loc (IsTermExpected v)
      end
-  | (IsType _ | EqTerm _ | EqType _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Judgement (Nucleus.(JudgementIsType _ | JudgementEqTerm _ | JudgementEqType _)) |
+     Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (IsTermExpected v)
 
 let as_eq_type ~loc = function
-  | EqType eq as v ->
+  | Judgement (Nucleus.JudgementEqType eq) as v ->
      begin match Nucleus.as_not_abstract eq with
      | Some eq -> eq
      | None -> error ~loc (EqTypeExpected v)
      end
-  | (IsType _ | IsTerm _ | EqTerm _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Judgement (Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _)) |
+     Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (EqTypeExpected v)
 
 let as_eq_term ~loc = function
-  | EqTerm eq as v ->
+  | Judgement (Nucleus.JudgementEqTerm eq) as v ->
      begin match Nucleus.as_not_abstract eq with
      | Some eq -> eq
      | None -> error ~loc (EqTermExpected v)
      end
-  | (IsType _ | IsTerm _ | EqType _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Judgement (Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _)) |
+     Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (EqTermExpected v)
 
 let as_is_type_abstraction ~loc = function
-  | IsType t -> t
-  | (IsTerm _ | EqTerm _ | EqType _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | Judgement (Nucleus.JudgementIsType t) -> t
+  | (Judgement (Nucleus.(JudgementIsTerm _ | JudgementEqTerm _ | JudgementEqType _)) |
+     Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (IsTypeAbstractionExpected v)
 
 let as_is_term_abstraction ~loc = function
-  | IsTerm e -> e
-  | (IsType _ | EqTerm _ | EqType _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | Judgement (Nucleus.JudgementIsTerm e) -> e
+  | (Judgement (Nucleus.(JudgementIsType _ | JudgementEqTerm _ | JudgementEqType _)) |
+     Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (IsTermAbstractionExpected v)
 
 let as_eq_type_abstraction ~loc = function
-  | EqType eq -> eq
-  | (IsType _ | IsTerm _ | EqTerm _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | Judgement (Nucleus.JudgementEqType eq) -> eq
+  | (Judgement (Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _)) |
+     Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (EqTypeAbstractionExpected v)
 
 let as_eq_term_abstraction ~loc = function
-  | EqTerm eq -> eq
-  | (IsType _ | IsTerm _ | EqType _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | Judgement (Nucleus.JudgementEqTerm eq) -> eq
+  | (Judgement (Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _)) |
+     Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (EqTermAbstractionExpected v)
 
 let as_closure ~loc = function
   | Closure f -> f
-  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+  | (Judgement _ | Boundary _ |
      Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (ClosureExpected v)
 
 let as_handler ~loc = function
   | Handler h -> h
-  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+  | (Judgement _ | Boundary _ |
      Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (HandlerExpected v)
 
 let as_ref ~loc = function
   | Ref v -> v
-  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+  | (Judgement _ | Boundary _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | String _) as v ->
     error ~loc (RefExpected v)
 
 let as_dyn ~loc = function
   | Dyn v -> v
-  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+  | (Judgement _ | Boundary _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~loc (DynExpected v)
 
 let as_string ~loc = function
   | String v -> v
-  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+  | (Judgement _ | Boundary _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | Ref _) as v ->
     error ~loc (StringExpected v)
 
@@ -633,13 +635,9 @@ let top_lookup_signature env =
 let rec print_value ?max_level ~penv v ppf =
   match v with
 
-  | IsTerm e -> Nucleus.print_is_term_abstraction ~penv:(mk_nucleus_penv penv) ?max_level e ppf
+  | Judgement jdg -> Nucleus.print_judgement ~penv:(mk_nucleus_penv penv) ?max_level jdg ppf
 
-  | IsType t -> Nucleus.print_is_type_abstraction ~penv:(mk_nucleus_penv penv) ?max_level t ppf
-
-  | EqTerm eq -> Nucleus.print_eq_term_abstraction ~penv:(mk_nucleus_penv penv) ?max_level eq ppf
-
-  | EqType eq -> Nucleus.print_eq_type_abstraction ~penv:(mk_nucleus_penv penv) ?max_level eq ppf
+  | Boundary bdry -> Nucleus.print_boundary ~penv:(mk_nucleus_penv penv) ?max_level bdry ppf
 
   | Closure f -> Format.fprintf ppf "<function>"
 
@@ -931,19 +929,9 @@ let top_handle ~loc c env =
 (** Equality *)
 let rec equal_value v1 v2 =
   match v1, v2 with
-    | IsTerm e1, IsTerm e2 ->
-      Nucleus.alpha_equal_abstraction Nucleus.alpha_equal_term e1 e2
+    | Judgement jdg1, Judgement jdg2 -> Nucleus.alpha_equal_judgement jdg1 jdg2
 
-    | IsType t1, IsType t2 ->
-      Nucleus.alpha_equal_abstraction Nucleus.alpha_equal_type t1 t2
-
-    | EqTerm eq1, EqTerm eq2 ->
-       (* XXX: should we even compare equality judgements for equality? That will lead to comparison of contexts. *)
-       eq1 == eq2
-
-    | EqType eq1, EqType eq2 ->
-       (* XXX: should we even compare equality judgements for equality? That will lead to comparison of contexts. *)
-       eq1 == eq2
+    | Boundary bdry1, Boundary bdry2 -> Nucleus.alpha_equal_boundary bdry1 bdry2
 
     | Tag (t1, vs1), Tag (t2, vs2) ->
       equal_tag t1 t2 &&
@@ -982,17 +970,15 @@ let rec equal_value v1 v2 =
        false
 
     (* At some level the following is a bit ridiculous *)
-    | IsTerm _, (IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | IsType _, (IsTerm _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | EqTerm _, (IsTerm _ | IsType _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | EqType _, (IsTerm _ | IsType _ | EqTerm _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Closure _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Handler _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Tag _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Tuple _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _)
-    | String _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _)
-    | Ref _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Dyn _)
-    | Dyn _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ref _) ->
+    | Judgement _, (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Boundary _, (Judgement _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Closure _, (Judgement _ | Boundary _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Handler _, (Judgement _ | Boundary _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Tag _, (Judgement _ | Boundary _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Tuple _, (Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _)
+    | String _, (Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _)
+    | Ref _, (Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Dyn _)
+    | Dyn _, (Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ref _) ->
        false
 
 type topenv = env
@@ -1006,13 +992,9 @@ struct
   let rec value v =
     match v with
 
-    | IsTerm e -> Json.tag "IsTerm" [Nucleus.Json.abstraction Nucleus.Json.is_term e]
+    | Judgement jdg -> Json.tag "Judgement" [Nucleus.Json.judgement jdg]
 
-    | IsType t -> Json.tag "IsType" [Nucleus.Json.abstraction Nucleus.Json.is_type t]
-
-    | EqType eq -> Json.tag "EqType" [Nucleus.Json.abstraction Nucleus.Json.eq_type eq]
-
-    | EqTerm eq -> Json.tag "EqTerm" [Nucleus.Json.abstraction Nucleus.Json.eq_term eq]
+    | Boundary bdry -> Json.tag "Boundary" [Nucleus.Json.boundary bdry]
 
     | Closure _ -> Json.tag "<fun>" []
 

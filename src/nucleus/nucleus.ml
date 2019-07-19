@@ -35,6 +35,10 @@ let alpha_equal_term = Alpha_equal.is_term
 let alpha_equal_type = Alpha_equal.is_type
 let alpha_equal_abstraction = Alpha_equal.abstraction
 
+let alpha_equal_judgement = Alpha_equal.judgement
+let alpha_equal_boundary = Alpha_equal.boundary
+
+
 (** Construct judgements *)
 let form_alpha_equal_term = Form.form_alpha_equal_term
 let form_alpha_equal_type = Form.form_alpha_equal_type
@@ -60,14 +64,20 @@ let form_rule_eq_type = Form_rule.form_rule_eq_type
 let form_rule_is_term = Form_rule.form_rule_is_term
 let form_rule_is_type = Form_rule.form_rule_is_type
 
-let abstract_boundary_eq_term = Abstract.boundary_eq_term_abstraction
-let abstract_boundary_eq_type = Abstract.boundary_eq_type_abstraction
-let abstract_boundary_is_term = Abstract.boundary_is_term_abstraction
-let abstract_boundary_is_type = Abstract.boundary_is_type_abstraction
-let abstract_eq_term = Abstract.eq_term_abstraction
-let abstract_eq_type = Abstract.eq_type_abstraction
+(* let abstract_boundary_eq_term = Abstract.boundary_eq_term_abstraction *)
+(* let abstract_boundary_eq_type = Abstract.boundary_eq_type_abstraction *)
+(* let abstract_boundary_is_term = Abstract.boundary_is_term_abstraction *)
+(* let abstract_boundary_is_type = Abstract.boundary_is_type_abstraction *)
+
+let abstract_boundary = Abstract.boundary
+
+(* let abstract_eq_term = Abstract.eq_term_abstraction *)
+(* let abstract_eq_type = Abstract.eq_type_abstraction *)
 let abstract_is_term = Abstract.is_term_abstraction
-let abstract_is_type = Abstract.is_type_abstraction
+(* let abstract_is_type = Abstract.is_type_abstraction *)
+
+let abstract_judgement = Abstract.judgement
+
 let abstract_not_abstract = Abstract.not_abstract
 
 let invert_eq_term_abstraction = Invert.invert_eq_term_abstraction
@@ -120,6 +130,8 @@ let print_is_term_abstraction = Nucleus_print.is_term_abstraction
 let print_is_type_abstraction = Nucleus_print.is_type_abstraction
 let print_eq_term_abstraction = Nucleus_print.eq_term_abstraction
 let print_eq_type_abstraction = Nucleus_print.eq_type_abstraction
+let print_judgement = Nucleus_print.judgement
+let print_boundary = Nucleus_print.boundary
 let print_error = Nucleus_print.error
 
 module Json = Nucleus_json

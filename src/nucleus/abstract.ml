@@ -99,8 +99,9 @@ and argument x ?(lvl=0) = function
      let asmp = abstraction eq_term x ~lvl asmp in
      JudgementEqTerm asmp
 
-
 let not_abstract u = Mk.not_abstract u
+
+let judgement atm jdg = argument atm.atom_nonce jdg
 
 let is_type_abstraction atm abstr =
   (* XXX occurs check?! *)
@@ -145,3 +146,9 @@ let boundary_eq_term_abstraction atm abstr =
          (lhs, rhs, t))
       atm.atom_nonce abstr in
   Mk.abstract atm abstr
+
+let boundary atm = function
+  | BoundaryIsTerm abstr -> BoundaryIsTerm (boundary_is_term_abstraction atm abstr)
+  | BoundaryIsType abstr -> BoundaryIsType (boundary_is_type_abstraction atm abstr)
+  | BoundaryEqType abstr -> BoundaryEqType (boundary_eq_type_abstraction atm abstr)
+  | BoundaryEqTerm abstr -> BoundaryEqTerm (boundary_eq_term_abstraction atm abstr)

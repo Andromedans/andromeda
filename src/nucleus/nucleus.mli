@@ -171,16 +171,18 @@ val form_eq_term_meta : signature -> eq_term_meta -> is_term list -> eq_term
 val abstract_not_abstract : 'a -> 'a abstraction
 
 (** Form an abstracted judgement *)
-val abstract_is_type : is_atom -> is_type_abstraction -> is_type_abstraction
+(* val abstract_is_type : is_atom -> is_type_abstraction -> is_type_abstraction *)
 val abstract_is_term : is_atom -> is_term_abstraction -> is_term_abstraction
-val abstract_eq_type : is_atom -> eq_type_abstraction -> eq_type_abstraction
-val abstract_eq_term : is_atom -> eq_term_abstraction -> eq_term_abstraction
+(* val abstract_eq_type : is_atom -> eq_type_abstraction -> eq_type_abstraction *)
+(* val abstract_eq_term : is_atom -> eq_term_abstraction -> eq_term_abstraction *)
+val abstract_judgement : is_atom -> judgement -> judgement
 
 (** Form an abstracted boundary *)
-val abstract_boundary_is_type : is_atom -> is_type_boundary -> is_type_boundary
-val abstract_boundary_is_term : is_atom -> is_term_boundary -> is_term_boundary
-val abstract_boundary_eq_type : is_atom -> eq_type_boundary -> eq_type_boundary
-val abstract_boundary_eq_term : is_atom -> eq_term_boundary -> eq_term_boundary
+(* val abstract_boundary_is_type : is_atom -> is_type_boundary -> is_type_boundary *)
+(* val abstract_boundary_is_term : is_atom -> is_term_boundary -> is_term_boundary *)
+(* val abstract_boundary_eq_type : is_atom -> eq_type_boundary -> eq_type_boundary *)
+(* val abstract_boundary_eq_term : is_atom -> eq_term_boundary -> eq_term_boundary *)
+val abstract_boundary : is_atom -> boundary -> boundary
 
 (** [fresh_atom x t] Create a fresh atom from name [x] with type [t] *)
 val fresh_atom : Name.t -> is_type -> is_atom
@@ -304,6 +306,12 @@ val alpha_equal_type : is_type -> is_type -> bool
 val alpha_equal_abstraction
   : ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
 
+(** Test whether two judgements are alpha-equal. *)
+val alpha_equal_judgement : judgement -> judgement -> bool
+
+(** Test whether two boundaries are alpha-equal. *)
+val alpha_equal_boundary : boundary -> boundary -> bool
+
 (** If [e1 == e2 : A] then [e2 == e1 : A] *)
 val symmetry_term : eq_term -> eq_term
 
@@ -353,6 +361,12 @@ val print_eq_term_abstraction :
 val print_eq_type_abstraction :
   ?max_level:Level.t -> penv:print_environment -> eq_type_abstraction -> Format.formatter -> unit
 
+val print_judgement :
+  ?max_level:Level.t -> penv:print_environment -> judgement -> Format.formatter -> unit
+
+val print_boundary :
+  ?max_level:Level.t -> penv:print_environment -> boundary -> Format.formatter -> unit
+
 (** An error emitted by the nucleus *)
 type error
 
@@ -363,13 +377,7 @@ val print_error : penv:print_environment -> error -> Format.formatter -> unit
 
 module Json :
 sig
-  val abstraction : ('a -> Json.t) -> 'a abstraction -> Json.t
+  val judgement : judgement -> Json.t
 
-  val is_term : is_term -> Json.t
-
-  val is_type : is_type -> Json.t
-
-  val eq_term : eq_term -> Json.t
-
-  val eq_type : eq_type -> Json.t
+  val boundary : boundary -> Json.t
 end

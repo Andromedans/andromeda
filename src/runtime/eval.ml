@@ -26,8 +26,7 @@ let as_bool ~loc v =
      else
      Runtime.(error ~loc (BoolExpected v))
 
-  | (Runtime.Tag (_, _::_) | Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
-     Runtime.Closure _ | Runtime.Handler _ | Runtime.Tuple _ | Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) ->
+  | Runtime.(Tag (_, _::_) | Judgement _ | Boundary _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _) ->
      Runtime.(error ~loc (BoolExpected v))
 
 
@@ -216,18 +215,9 @@ let rec infer {Location.thing=c'; loc} =
            (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom a))
            begin infer c >>=
              function
+             | Runtime.Judgement jdg -> Runtime.return_judgement (Nucleus.abstract_judgement a jdg)
 
-             | Runtime.IsType abstr -> Runtime.return_is_type (Nucleus.abstract_is_type a abstr)
-
-             | Runtime.IsTerm abstr -> Runtime.return_is_term (Nucleus.abstract_is_term a abstr)
-
-             | Runtime.EqType abstr -> Runtime.return_eq_type (Nucleus.abstract_eq_type a abstr)
-
-             | Runtime.EqTerm abstr -> Runtime.return_eq_term (Nucleus.abstract_eq_term a abstr)
-
-             | (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
-                Runtime.Tuple _ | Runtime.Ref _ | Runtime.Dyn _ |
-                Runtime.String _) as v ->
+             | Runtime.(Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
                 Runtime.(error ~loc (JudgementExpected v))
 
            end)

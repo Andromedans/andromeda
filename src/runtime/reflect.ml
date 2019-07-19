@@ -42,9 +42,8 @@ let mk_option = function
 let as_option ~loc = function
   | Runtime.Tag (t, []) when (Runtime.equal_tag t tag_none)  -> None
   | Runtime.Tag (t, [x]) when (Runtime.equal_tag t tag_some) -> Some x
-  | (Runtime.IsType _ | Runtime.IsTerm _ | Runtime.EqType _ | Runtime.EqTerm _ |
-     Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
-     Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) as v ->
+  | Runtime.(Judgement _ | Boundary _ | Closure _ | Handler _ |
+             Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
      Runtime.(error ~loc (OptionExpected v))
 
 (** Conversion between OCaml coercible and ML coercible *)
@@ -62,9 +61,8 @@ let as_coercible ~loc = function
     let e = Runtime.as_is_term_abstraction ~loc v in
     Runtime.Coercible e
 
-  | (Runtime.IsType _ | Runtime.IsTerm _ | Runtime.EqType _ | Runtime.EqTerm _ |
-     Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
-     Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) as v ->
+  | Runtime.(Judgement _ | Boundary _  | Closure _ | Handler _ | Tag _ | Tuple _ |
+             Ref _ | Dyn _ | String _) as v ->
      Runtime.(error ~loc (CoercibleExpected v))
 
 (** Conversion from OCaml [Runtime.order] to  [ML.order]. *)
