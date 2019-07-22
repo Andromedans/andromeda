@@ -247,53 +247,59 @@ let rec infer {Location.thing=c'; loc} =
             c1{c2}  ==>  jdg[s/x]
 
  *)
-     infer c1 >>= fun v1 ->
+     infer c1 >>=
+       begin function
+         | Runtime.Judgement jdg as v1 ->
+            begin
 
-     let infer_substitute ~loc sbst rtrn abstr =
-       match Nucleus.type_at_abstraction abstr with
-       | None -> Runtime.(error ~loc (AbstractionExpected v1))
-       | Some t ->
-          check c2 (Nucleus.BoundaryIsTerm (Nucleus.abstract_not_abstract t)) >>= fun v2 ->
-          begin match Nucleus.as_not_abstract v2 with
-          | None -> Runtime.(error ~loc (IsTermExpected (Runtime.mk_is_term v2)))
-          | Some v2 ->
-             Runtime.lookup_signature >>= fun sgn ->
-             let v = sbst sgn abstr v2 in
-             rtrn v
-          end
-     in
+              let infer_substitute ~loc appl jdg_form abstr =
+                match Nucleus.type_at_abstraction abstr with
+                | None -> Runtime.(error ~loc (AbstractionExpected v1))
+                | Some t ->
+                   check c2 (Nucleus.BoundaryIsTerm (Nucleus.abstract_not_abstract t)) >>= fun v2 ->
+                   begin match Nucleus.as_not_abstract v2 with
+                   | None -> Runtime.(error ~loc (IsTermExpected (Runtime.mk_is_term v2)))
+                   | Some v2 ->
+                      Runtime.lookup_signature >>= fun sgn ->
+                      let v = appl sgn abstr v2 in
+                      Runtime.return_judgement (jdg_form v)
+                   end
+              in
 
-     begin match v1 with
-       | Runtime.IsType abstr ->
-          infer_substitute ~loc:c1.Location.loc
-            Nucleus.apply_is_type_abstraction
-            Runtime.return_is_type
-            abstr
+              match jdg with
 
-       | Runtime.IsTerm abstr ->
-          infer_substitute ~loc:c1.Location.loc
-            Nucleus.apply_is_term_abstraction
-            Runtime.return_is_term
-            abstr
+              | Nucleus.JudgementIsType abstr ->
+                 infer_substitute
+                   ~loc:c1.Location.loc
+                   Nucleus.apply_is_type_abstraction
+                   (fun abstr -> Nucleus.JudgementIsType abstr)
+                   abstr
 
-       | Runtime.EqTerm abstr ->
-          infer_substitute ~loc:c1.Location.loc
-            Nucleus.apply_eq_term_abstraction
-            Runtime.return_eq_term
-            abstr
+              | Nucleus.JudgementIsTerm abstr ->
+                 infer_substitute
+                   ~loc:c1.Location.loc
+                   Nucleus.apply_is_term_abstraction
+                   (fun abstr -> Nucleus.JudgementIsTerm abstr)
+                   abstr
 
-       | Runtime.EqType abstr ->
-          infer_substitute ~loc:c1.Location.loc
-            Nucleus.apply_eq_type_abstraction
-            Runtime.return_eq_type
-            abstr
+              | Nucleus.JudgementEqType abstr ->
+                 infer_substitute
+                   ~loc:c1.Location.loc
+                   Nucleus.apply_eq_type_abstraction
+                   (fun abstr -> Nucleus.JudgementEqType abstr)
+                   abstr
 
-       | (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag (_, _)
-          | Runtime.Tuple _ | Runtime.Ref _ | Runtime.Dyn _
-          | Runtime.String _) as v ->
-          Runtime.(error ~loc (JudgementExpected v))
-     end
+              | Nucleus.JudgementEqTerm abstr ->
+                 infer_substitute
+                   ~loc:c1.Location.loc
+                   Nucleus.apply_eq_term_abstraction
+                   (fun abstr -> Nucleus.JudgementEqTerm abstr)
+                   abstr
+            end
 
+         | Runtime.(Boundary _ | Closure _ | Handler _ | Tag (_, _) | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+            Runtime.(error ~loc (JudgementExpected v))
+       end
   | Rsyntax.Yield c ->
     infer c >>= fun v ->
     Runtime.continue v
@@ -303,9 +309,7 @@ let rec infer {Location.thing=c'; loc} =
       | Runtime.Closure f ->
         infer c2 >>= fun v ->
         Runtime.apply_closure f v
-      | Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
-        Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
-        Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _ as h ->
+      | Runtime.(Judgement _ | Boundary _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as h ->
         Runtime.(error ~loc (Inapplicable h))
     end
 
@@ -339,7 +343,7 @@ let rec infer {Location.thing=c'; loc} =
     infer_is_term c >>= fun j ->
     Runtime.lookup_signature >>= fun signature ->
     let eq = Nucleus.natural_type_eq signature j in
-    Runtime.return_eq_type (Nucleus.abstract_not_abstract eq)
+    Runtime.return_judgement (Nucleus.JudgementEqType (Nucleus.abstract_not_abstract eq))
 
 and check_arguments :
   'a . 'a Nucleus.rule_application -> Rsyntax.comp list -> 'a Runtime.comp

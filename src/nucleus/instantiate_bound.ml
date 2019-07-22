@@ -76,12 +76,12 @@ and abstraction
      Abstract ({atom_nonce=x; atom_type=u}, abstr)
 
 and arguments e0 ~lvl args =
-  List.map (argument e0 ~lvl) args
+  List.map (judgement e0 ~lvl) args
 
 and term_arguments e0 ~lvl args =
   List.map (is_term e0 ~lvl) args
 
-and argument e0 ?(lvl=0) = function
+and judgement e0 ?(lvl=0) = function
 
     | JudgementIsType t ->
        let t = abstraction is_type e0 ~lvl t in
