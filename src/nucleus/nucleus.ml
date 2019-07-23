@@ -24,6 +24,7 @@ let check_is_type_boundary = Alpha_equal.check_is_type_boundary
 let check_is_term_boundary = Alpha_equal.check_is_term_boundary
 let check_eq_type_boundary = Alpha_equal.check_eq_type_boundary
 let check_eq_term_boundary = Alpha_equal.check_eq_term_boundary
+let check_judgement_boundary = Alpha_equal.check_judgement_boundary
 
 let fresh_atom = Mk.fresh_atom
 let fresh_is_type_meta = Mk.fresh_type_meta

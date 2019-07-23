@@ -259,6 +259,7 @@ val check_is_type_boundary : is_type_abstraction -> is_type_boundary -> bool
 val check_is_term_boundary : signature -> is_term_abstraction -> is_term_boundary -> bool
 val check_eq_type_boundary : eq_type_abstraction -> eq_type_boundary -> bool
 val check_eq_term_boundary : eq_term_abstraction -> eq_term_boundary -> bool
+val check_judgement_boundary : signature -> judgement -> boundary -> bool
 
 (** Typeof for atoms *)
 val type_of_atom : is_atom -> is_type

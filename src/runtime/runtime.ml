@@ -238,7 +238,7 @@ type error =
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvertible of Nucleus.is_type_abstraction * Nucleus.is_type_abstraction * Nucleus.eq_type_abstraction
-  | InvalidCoerce of Nucleus.is_type_abstraction * Nucleus.is_term_abstraction
+  | InvalidCoerce of Nucleus.judgement * Nucleus.boundary
   | UnhandledOperation of Ident.t * value list
   | InvalidPatternMatch of value
   | InvalidHandlerMatch
@@ -861,11 +861,11 @@ let print_error ~penv err ppf =
                     (Nucleus.print_is_type_abstraction ~penv t2)
                     (Nucleus.print_eq_type_abstraction ~penv eq)
 
-  | InvalidCoerce (t, e) ->
+  | InvalidCoerce (jdg, bdry) ->
      let penv = mk_nucleus_penv penv in
-     Format.fprintf ppf "expected a term of type@ %t@ but got@ %t"
-                    (Nucleus.print_is_type_abstraction ~penv t)
-                    (Nucleus.print_is_term_abstraction ~penv e)
+     Format.fprintf ppf "expected a judgement with boundary@ %t@ but got@ %t"
+                    (Nucleus.print_boundary ~penv bdry)
+                    (Nucleus.print_judgement ~penv jdg)
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "unhandled operation %t"

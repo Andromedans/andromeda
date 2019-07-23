@@ -135,4 +135,31 @@ let check_is_term_boundary sgn abstr bdry =
 let check_eq_type_boundary _ _ = failwith "check_eq_type_boundary"
 let check_eq_term_boundary _ _ = failwith "check_eq_term_boundary"
 
+let check_judgement_boundary sgn jdg bdry =
+  match bdry with
+    | BoundaryIsType bdry ->
+       begin match jdg with
+       | JudgementIsType jdg -> check_is_type_boundary jdg bdry
+       | JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _ -> false
+       end
+
+    | BoundaryIsTerm bdry ->
+       begin match jdg with
+       | JudgementIsTerm jdg -> check_is_term_boundary sgn jdg bdry
+       | JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _ -> false
+       end
+
+    | BoundaryEqType bdry ->
+       begin match jdg with
+       | JudgementEqType jdg -> check_eq_type_boundary jdg bdry
+       | JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _ -> false
+       end
+
+    | BoundaryEqTerm bdry ->
+       begin match jdg with
+       | JudgementEqTerm jdg -> check_eq_term_boundary jdg bdry
+       | JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _ -> false
+       end
+
+
 let abstraction eq_v e e' = e == e' || abstraction eq_v e e'

@@ -8,9 +8,9 @@ let tag_cons, _, _ = Typecheck.Builtin.cons
 let tag_none, _, _ = Typecheck.Builtin.none
 let tag_some, _, _ = Typecheck.Builtin.some
 
-let tag_notcoercible, _, _ = Typecheck.Builtin.notcoercible
-let tag_convertible, _, _ = Typecheck.Builtin.convertible
-let tag_coercible_constructor, _, _ = Typecheck.Builtin.coercible_constructor
+(* let tag_notcoercible, _, _ = Typecheck.Builtin.notcoercible
+ * let tag_convertible, _, _ = Typecheck.Builtin.convertible
+ * let tag_coercible_constructor, _, _ = Typecheck.Builtin.coercible_constructor *)
 
 let tag_mlless, _, _ = Typecheck.Builtin.mlless
 let tag_mlequal, _, _ = Typecheck.Builtin.mlequal
@@ -46,24 +46,31 @@ let as_option ~loc = function
              Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
      Runtime.(error ~loc (OptionExpected v))
 
+let as_judgement_option ~loc v =
+  match as_option ~loc v with
+  | None -> None
+  | Some (Runtime.Judgement jdg) -> Some jdg
+  | Some (Runtime.(Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v) ->
+     Runtime.(error ~loc (JudgementExpected v))
+
 (** Conversion between OCaml coercible and ML coercible *)
 
-let as_coercible ~loc = function
-
-  | Runtime.Tag (t, []) when Runtime.equal_tag t tag_notcoercible ->
-    Runtime.NotCoercible
-
-  | Runtime.Tag (t, [v]) when Runtime.equal_tag t tag_convertible ->
-    let eq = Runtime.as_eq_type_abstraction ~loc v in
-    Runtime.Convertible eq
-
-  | Runtime.Tag (t, [v]) when Runtime.equal_tag t tag_coercible_constructor ->
-    let e = Runtime.as_is_term_abstraction ~loc v in
-    Runtime.Coercible e
-
-  | Runtime.(Judgement _ | Boundary _  | Closure _ | Handler _ | Tag _ | Tuple _ |
-             Ref _ | Dyn _ | String _) as v ->
-     Runtime.(error ~loc (CoercibleExpected v))
+(* let as_coercible ~loc = function
+ *
+ *   | Runtime.Tag (t, []) when Runtime.equal_tag t tag_notcoercible ->
+ *     Runtime.NotCoercible
+ *
+ *   | Runtime.Tag (t, [v]) when Runtime.equal_tag t tag_convertible ->
+ *     let eq = Runtime.as_eq_type_abstraction ~loc v in
+ *     Runtime.Convertible eq
+ *
+ *   | Runtime.Tag (t, [v]) when Runtime.equal_tag t tag_coercible_constructor ->
+ *     let e = Runtime.as_is_term_abstraction ~loc v in
+ *     Runtime.Coercible e
+ *
+ *   | Runtime.(Judgement _ | Boundary _  | Closure _ | Handler _ | Tag _ | Tuple _ |
+ *              Ref _ | Dyn _ | String _) as v ->
+ *      Runtime.(error ~loc (CoercibleExpected v)) *)
 
 (** Conversion from OCaml [Runtime.order] to  [ML.order]. *)
 let mlless = Runtime.mk_tag tag_mlless []
@@ -100,11 +107,11 @@ let operation_equal_type ~loc t1 t2 =
   Runtime.operation equal_type [v1;v2] >>= fun v ->
   return (as_eq_type_option ~loc v)
 
-let operation_coerce ~loc e t =
-  let v1 = Runtime.mk_is_term e
-  and v2 = Runtime.mk_is_type t in
+let operation_coerce ~loc jdg bdry =
+  let v1 = Runtime.Judgement jdg
+  and v2 = Runtime.Boundary bdry in
   Runtime.operation coerce [v1;v2] >>= fun v ->
-  return (as_coercible ~loc v)
+  return (as_judgement_option ~loc v)
 
 let add_abstracting j m =
   let v = Runtime.mk_is_term j in             (* The given variable as an ML value *)

@@ -170,7 +170,7 @@ type error =
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvertible of Nucleus.is_type_abstraction * Nucleus.is_type_abstraction * Nucleus.eq_type_abstraction
-  | InvalidCoerce of Nucleus.is_type_abstraction * Nucleus.is_term_abstraction
+  | InvalidCoerce of Nucleus.judgement * Nucleus.boundary
   | UnhandledOperation of Ident.t * value list
   | InvalidPatternMatch of value
   | InvalidHandlerMatch

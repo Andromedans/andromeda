@@ -30,7 +30,7 @@ val operation_equal_type :
     the resulting ML value as a value of the correponding ML type [coercible].
  *)
 val operation_coerce :
-  loc:Location.t -> Nucleus.is_term_abstraction -> Nucleus.is_type_abstraction -> Runtime.coercible Runtime.comp
+  loc:Location.t -> Nucleus.judgement -> Nucleus.boundary -> Nucleus.judgement option Runtime.comp
 
 (** A hack which will probably disappear: add an atom to the dynamic variable [hypotheses] *)
 val add_abstracting : Nucleus.is_term Nucleus.abstraction -> 'a Runtime.comp -> 'a Runtime.comp

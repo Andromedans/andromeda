@@ -201,8 +201,8 @@ let rec infer {Location.thing=c'; loc} =
 
   | Rsyntax.Ascribe (c1, c2) ->
      infer_is_type_abstraction c2 >>= fun t ->
-     check c1 (Nucleus.BoundaryIsTerm t) >>=
-     Runtime.return_is_term
+     check_judgement c1 (Nucleus.BoundaryIsTerm t) >>=
+     Runtime.return_judgement
 
   | Rsyntax.Abstract (x, None, _) ->
     Runtime.(error ~loc (UnannotatedAbstract x))
@@ -256,7 +256,7 @@ let rec infer {Location.thing=c'; loc} =
                 match Nucleus.type_at_abstraction abstr with
                 | None -> Runtime.(error ~loc (AbstractionExpected v1))
                 | Some t ->
-                   check c2 (Nucleus.BoundaryIsTerm (Nucleus.abstract_not_abstract t)) >>= fun v2 ->
+                   check_judgement c2 (Nucleus.BoundaryIsTerm (Nucleus.abstract_not_abstract t)) >>= fun v2 ->
                    begin match Nucleus.as_not_abstract v2 with
                    | None -> Runtime.(error ~loc (IsTermExpected (Runtime.mk_is_term v2)))
                    | Some v2 ->
@@ -353,36 +353,13 @@ and check_arguments :
   | Nucleus.RapMore rap, c :: cs ->
      let bdry = Nucleus.rap_boundary rap in
      Runtime.lookup_signature >>= fun sgn ->
-     check_argument c bdry >>= fun arg ->
+     check_judgement c bdry >>= fun arg ->
      let rap = Nucleus.rap_apply sgn rap arg in
      check_arguments rap cs
   | Nucleus.RapDone _, _::_ ->
      assert false (* cannot happen, typechecking prevents this *)
   | Nucleus.RapMore _, [] ->
      assert false (* cannot happen, typechecking prevents this *)
-
-and check_argument c bdry =
-  match bdry with
-
-  | Nucleus.BoundaryIsType _ ->
-     check c bdry >>= fun () -> return (Nucleus.JudgementIsType ())
-
-  | Nucleus.BoundaryIsTerm _ ->
-     check c bdry >>= fun t -> return (Nucleus.JudgementIsTerm t)
-
-  | Nucleus.BoundaryEqType bdry ->
-     infer_eq_type_abstraction c >>= fun eq ->
-     if Nucleus.check_eq_type_boundary eq bdry then
-       return (Nucleus.JudgementEqType eq)
-     else
-       failwith "type equation expected, need a good error message"
-
-  | Nucleus.BoundaryEqTerm bdry ->
-     infer_eq_term_abstraction c >>= fun eq ->
-     if Nucleus.check_eq_term_boundary eq bdry then
-       return (Nucleus.JudgementEqTerm eq)
-     else
-       failwith "term equation expected, need a good error message"
 
 and occurs
   : 'a . (Nucleus.is_atom -> 'a Nucleus.abstraction -> bool)
@@ -420,8 +397,8 @@ and coerce ~loc v (bdry : Nucleus.boundary) =
   | Nucleus.BoundaryEqTerm _ ->
      failwith "coercion to a term equality boundary not implemented"
 
-
-and check ({Location.thing=c';loc} as c) bdry =
+(** Compute a judgement with the given boundary *)
+and check_judgement ({Location.thing=c';loc} as c) bdry : Nucleus.judgement Runtime.comp =
   match c' with
 
   (* for these we switch to infer mode *)
@@ -468,38 +445,37 @@ and check ({Location.thing=c';loc} as c) bdry =
      fold [] cs
 
   | Rsyntax.Let (xcs, c) ->
-     let_bind ~loc xcs (check c bdry)
+     let_bind ~loc xcs (check_judgement c bdry)
 
   | Rsyntax.Sequence (c1,c2) ->
     infer c1 >>= fun v ->
     sequence ~loc v >>= fun () ->
-    check c2 bdry
+    check_judgement c2 bdry
 
   | Rsyntax.LetRec (fxcs, c) ->
-     letrec_bind fxcs (check c bdry)
+     letrec_bind fxcs (check_judgement c bdry)
 
   | Rsyntax.Now (x,c1,c2) ->
      let xloc = x.Location.loc in
      infer x >>= as_dyn ~loc:xloc >>= fun x ->
      infer c1 >>= fun v ->
-     Runtime.now x v (check c2 bdry)
+     Runtime.now x v (check_judgement c2 bdry)
 
   | Rsyntax.Assume ((Some x, t), c) ->
      infer_is_type t >>= fun t ->
      Runtime.add_free x t (fun _ ->
-     check c bdry)
+     check_judgement c bdry)
 
   | Rsyntax.Assume ((None, t), c) ->
      infer_is_type t >>= fun _ ->
-     check c bdry
+     check_judgement c bdry
 
   | Rsyntax.Match (c, cases) ->
      infer c >>=
-     match_cases ~loc cases (fun c -> check c bdry)
+     match_cases ~loc cases (fun c -> check_judgement c bdry)
 
   | Rsyntax.Abstract (xopt, uopt, c) ->
     check_abstract ~loc bdry xopt uopt c
-
 
 (** Run the abstraction [Abstract(x, uopt, c)] in checking mode with boundary [bdry]. *)
 and check_abstract ~loc bdry x uopt c =
@@ -507,7 +483,7 @@ and check_abstract ~loc bdry x uopt c =
   let stump =
     match bdry with
     | Nucleus.BoundaryIsType bdry -> Nucleus.invert_is_type_abstraction ~name:x bdry
-    | Nucleus.BoundaryIsTerm bdry -> Nucleus.invert_is_type_abstraction ~name:x bdry
+    | Nucleus.BoundaryIsTerm bdry -> Nucleus.invert_is_term_abstraction ~name:x bdry
     | Nucleus.BoundaryEqType _ -> failwith "check_abstract"
     | Nucleus.BoundaryEqTerm _ -> failwith "check_abstract"
   in
