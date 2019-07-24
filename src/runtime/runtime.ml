@@ -384,29 +384,45 @@ let as_eq_term ~loc abstr = function
   | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (EqTermExpected v)
 
-let as_is_type_abstraction ~loc = function
-  | Judgement (Nucleus.JudgementIsType t) -> t
-  | (Judgement (Nucleus.(JudgementIsTerm _ | JudgementEqTerm _ | JudgementEqType _)) |
-     Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+let as_is_type_abstraction ~loc v =
+  match v with
+  | Judgement abstr ->
+     begin match Nucleus.as_is_type_abstraction abstr with
+     | Some abstr -> abstr
+     | None -> error ~loc (IsTypeAbstractionExpected v)
+     end
+  | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (IsTypeAbstractionExpected v)
 
-let as_is_term_abstraction ~loc = function
-  | Judgement (Nucleus.JudgementIsTerm e) -> e
-  | (Judgement (Nucleus.(JudgementIsType _ | JudgementEqTerm _ | JudgementEqType _)) |
-     Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+let as_is_term_abstraction ~loc v =
+  match v with
+  | Judgement abstr ->
+     begin match Nucleus.as_is_term_abstraction abstr with
+     | Some abstr -> abstr
+     | None -> error ~loc (IsTermAbstractionExpected v)
+     end
+  | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (IsTermAbstractionExpected v)
 
-let as_eq_type_abstraction ~loc = function
-  | Judgement (Nucleus.JudgementEqType eq) -> eq
-  | (Judgement (Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _)) |
-     Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (EqTypeAbstractionExpected v)
+let as_eq_type_abstraction ~loc v =
+  match v with
+  | Judgement abstr ->
+     begin match Nucleus.as_eq_type_abstraction abstr with
+     | Some abstr -> abstr
+     | None -> error ~loc (EqTypeAbstractionExpected v)
+     end
+  | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (IsTypeAbstractionExpected v)
 
-let as_eq_term_abstraction ~loc = function
-  | Judgement (Nucleus.JudgementEqTerm eq) -> eq
-  | (Judgement (Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _)) |
-     Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (EqTermAbstractionExpected v)
+let as_eq_term_abstraction ~loc v =
+  match v with
+  | Judgement abstr ->
+     begin match Nucleus.as_eq_term_abstraction abstr with
+     | Some abstr -> abstr
+     | None -> error ~loc (EqTermAbstractionExpected v)
+     end
+  | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (IsTermAbstractionExpected v)
 
 let as_closure ~loc = function
   | Closure f -> f
@@ -502,7 +518,7 @@ let add_bound0 v env =
 
 let add_free x jt m env =
   let jy = Nucleus.fresh_atom x jt in
-  let y_val = mk_is_term (Nucleus.abstract_not_abstract (Nucleus.form_is_term_atom jy)) in
+  let y_val = mk_judgement Nucleus.(abstract_not_abstract (JudgementIsTerm (form_is_term_atom jy))) in
   let env = add_bound0 y_val env in
   m jy env
 
@@ -624,9 +640,9 @@ let top_lookup_signature env =
 let rec print_value ?max_level ~penv v ppf =
   match v with
 
-  | Judgement jdg -> Nucleus.print_judgement ~penv:(mk_nucleus_penv penv) ?max_level jdg ppf
+  | Judgement jdg -> Nucleus.print_judgement_abstraction ~penv:(mk_nucleus_penv penv) ?max_level jdg ppf
 
-  | Boundary bdry -> Nucleus.print_boundary ~penv:(mk_nucleus_penv penv) ?max_level bdry ppf
+  | Boundary bdry -> Nucleus.print_boundary_abstraction ~penv:(mk_nucleus_penv penv) ?max_level bdry ppf
 
   | Closure f -> Format.fprintf ppf "<function>"
 

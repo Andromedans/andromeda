@@ -207,6 +207,11 @@ val eq_term_meta_eta_expanded : signature -> eq_term_meta -> eq_term_abstraction
 (** Verify that an abstraction is in fact not abstract *)
 val as_not_abstract : 'a abstraction -> 'a option
 
+val as_is_type_abstraction : judgement_abstraction -> is_type abstraction option
+val as_is_term_abstraction : judgement_abstraction -> is_term abstraction option
+val as_eq_type_abstraction : judgement_abstraction -> eq_type abstraction option
+val as_eq_term_abstraction : judgement_abstraction -> eq_term abstraction option
+
 (** Inversion principles *)
 
 val invert_is_type : is_type -> stump_is_type
@@ -371,6 +376,12 @@ val print_eq_term_abstraction :
 
 val print_eq_type_abstraction :
   ?max_level:Level.t -> penv:print_environment -> eq_type_abstraction -> Format.formatter -> unit
+
+val print_judgement :
+  ?max_level:Level.t -> penv:print_environment -> judgement -> Format.formatter -> unit
+
+val print_boundary :
+  ?max_level:Level.t -> penv:print_environment -> boundary -> Format.formatter -> unit
 
 val print_judgement_abstraction :
   ?max_level:Level.t -> penv:print_environment -> judgement_abstraction -> Format.formatter -> unit

@@ -96,6 +96,10 @@ let invert_eq_term_boundary = Invert.invert_eq_term_boundary
 let as_not_abstract = Invert.as_not_abstract
 let atom_name = Invert.atom_name
 
+let as_is_type_abstraction = Judgement.as_is_type_abstraction
+let as_is_term_abstraction = Judgement.as_is_term_abstraction
+let as_eq_type_abstraction = Judgement.as_eq_type_abstraction
+let as_eq_term_abstraction = Judgement.as_eq_term_abstraction
 
 let context_is_type_abstraction = Collect_assumptions.context_of_abstraction Collect_assumptions.is_type
 let context_is_term_abstraction = Collect_assumptions.context_of_abstraction Collect_assumptions.is_term
@@ -128,6 +132,8 @@ let print_is_term_abstraction = Nucleus_print.is_term_abstraction
 let print_is_type_abstraction = Nucleus_print.is_type_abstraction
 let print_eq_term_abstraction = Nucleus_print.eq_term_abstraction
 let print_eq_type_abstraction = Nucleus_print.eq_type_abstraction
+let print_judgement = Nucleus_print.judgement
+let print_boundary = Nucleus_print.boundary
 let print_judgement_abstraction = Nucleus_print.judgement_abstraction
 let print_boundary_abstraction = Nucleus_print.boundary_abstraction
 let print_error = Nucleus_print.error

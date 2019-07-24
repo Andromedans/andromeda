@@ -30,6 +30,28 @@ let as_is_term_abstraction abstr =
   with
   | ConversionError -> None
 
+let as_eq_type_abstraction abstr =
+  try
+    Some
+      (convert
+         (function
+          | JudgementEqType eq -> eq
+          | JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _ -> raise ConversionError)
+         abstr)
+  with
+  | ConversionError -> None
+
+let as_eq_term_abstraction abstr =
+  try
+    Some
+      (convert
+         (function
+          | JudgementEqTerm eq -> eq
+          | JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _ -> raise ConversionError)
+         abstr)
+  with
+  | ConversionError -> None
+
 let from_is_type_abstraction abstr =
   convert (fun t -> JudgementIsType t) abstr
 
