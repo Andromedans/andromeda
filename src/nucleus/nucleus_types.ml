@@ -59,24 +59,19 @@ and boundary =
 
 and boundary_abstraction = boundary abstraction
 
-type 'a rule_application_status =
+type rule_application_status =
   { rap_arguments : judgement_abstraction list (* the arguments collected so far *)
   ; rap_boundary : boundary_abstraction (* the boundary of the next argument *)
-  ; rap_premises : Rule.premise_abstraction list (* the remaining premises to be applied *)
-  ; rap_constructor : judgement_abstraction list -> 'a (* the function which makes the final result *)
+  ; rap_premises : Rule.boundary_abstraction list (* the remaining premises to be applied *)
+  ; rap_constructor : judgement_abstraction list -> judgement (* the function which makes the final result *)
   }
 
 (* A partial rule application *)
-type 'a rule_application =
-  | RapDone of 'a
-  | RapMore of 'a rule_application_status
+type rule_application =
+  | RapDone of judgement
+  | RapMore of rule_application_status
 
-type signature =
-  { is_type : Rule.rule_is_type Ident.map
-  ; is_term : Rule.rule_is_term Ident.map
-  ; eq_type : Rule.rule_eq_type Ident.map
-  ; eq_term : Rule.rule_eq_term Ident.map
-  }
+type signature = Rule.rule Ident.map
 
 type is_term_abstraction = is_term abstraction
 type is_type_abstraction = is_type abstraction

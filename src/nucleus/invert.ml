@@ -35,6 +35,10 @@ let as_not_abstract = function
   | Abstract _ -> None
   | NotAbstract v -> Some v
 
+let as_abstract = function
+  | Abstract (atm, abstr) -> Some (atm, abstr)
+  | NotAbstract _ -> None
+
 let invert_abstraction ?name inst_v = function
   | Abstract ({atom_nonce=x; atom_type=t}, abstr) ->
      let x = (match name with None -> Nonce.name x | Some y -> y) in

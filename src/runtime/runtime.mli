@@ -18,8 +18,8 @@ type ml_constructor = Ident.t
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
 type value =
-  | Judgement of Nucleus.judgement             (** A judgement *)
-  | Boundary of Nucleus.boundary               (** A judgement boundary (also known as a goal) *)
+  | Judgement of Nucleus.judgement_abstraction (** A judgement *)
+  | Boundary of Nucleus.boundary_abstraction   (** A judgement boundary (also known as a goal) *)
   | Closure of (value,value) closure           (** An ML function *)
   | Handler of handler                         (** Handler value *)
   | Tag of ml_constructor * value list         (** Application of a data constructor *)
@@ -164,7 +164,7 @@ type error =
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvertible of Nucleus.is_type_abstraction * Nucleus.is_type_abstraction * Nucleus.eq_type_abstraction
-  | InvalidCoerce of Nucleus.judgement * Nucleus.boundary
+  | InvalidCoerce of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnhandledOperation of Ident.t * value list
   | InvalidPatternMatch of value
   | InvalidHandlerMatch
@@ -196,7 +196,7 @@ val return : 'a -> 'a comp
 
 val return_unit : value comp
 
-val return_judgement : Nucleus.judgement -> value comp
+val return_judgement : Nucleus.judgement_abstraction -> value comp
 
 val return_closure : (value -> value comp) -> value comp
 val return_handler :
@@ -292,17 +292,8 @@ val add_dynamic : Name.t -> value -> unit toplevel
 (** Modify the value bound by a dynamic variable *)
 val top_now : ml_dyn -> value -> unit toplevel
 
-(** Extend the signature with a new is_type rule *)
-val add_rule_is_type : Ident.t -> Rule.rule_is_type -> unit toplevel
-
-(** Extend the signature with a new is_term rule *)
-val add_rule_is_term : Ident.t -> Rule.rule_is_term -> unit toplevel
-
-(** Extend the signature with a new is_type rule *)
-val add_rule_eq_type : Ident.t -> Rule.rule_eq_type -> unit toplevel
-
-(** Extend the signature with a new is_term rule *)
-val add_rule_eq_term : Ident.t -> Rule.rule_eq_term -> unit toplevel
+(** Extend the signature with a new rule *)
+val add_rule : Ident.t -> Rule.rule -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
 val top_handle : loc:Location.t -> 'a comp -> 'a toplevel

@@ -37,10 +37,7 @@ let rec generalizable c =
   | Rsyntax.Assume _
   | Rsyntax.Match _
   | Rsyntax.Ascribe _
-  | Rsyntax.IsTypeConstructor _
-  | Rsyntax.IsTermConstructor _
-  | Rsyntax.EqTypeConstructor _
-  | Rsyntax.EqTermConstructor _
+  | Rsyntax.TTConstructor _
   | Rsyntax.Abstract _
   | Rsyntax.Substitute _
   | Rsyntax.Yield _
@@ -292,14 +289,7 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
     let rec fold cs_out = function
       | [] ->
         let cs_out = List.rev cs_out in
-        let e =
-          begin match out with
-          | Mlty.IsType -> Rsyntax.IsTypeConstructor (c, cs_out)
-          | Mlty.IsTerm -> Rsyntax.IsTermConstructor (c, cs_out)
-          | Mlty.EqType -> Rsyntax.EqTypeConstructor (c, cs_out)
-          | Mlty.EqTerm -> Rsyntax.EqTermConstructor (c, cs_out)
-          end
-        in
+        let e = Rsyntax.TTConstructor (c, cs_out) in
         return (locate ~loc e, Mlty.Judgement)
       | c :: cs->
         check_comp c Mlty.Judgement >>= fun c ->
@@ -412,13 +402,13 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
     return (locate ~loc (Rsyntax.Sequence (c1, c2)), t)
 
   | Dsyntax.Assume ((None, c1), c2) ->
-     check_comp c1 Mlty.is_type >>= fun c1 ->
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
      infer_comp c2 >>= fun (c2, u) ->
      return (locate ~loc (Rsyntax.Assume ((None, c1), c2)), u)
 
   | Dsyntax.Assume ((Some x, c1), c2) ->
-     check_comp c1 Mlty.is_type >>= fun c1 ->
-     Tyenv.add_bound_mono x Mlty.is_term
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
+     Tyenv.add_bound_mono x Mlty.Judgement
      begin
        infer_comp c2 >>= fun (c2, u) ->
        return (locate ~loc (Rsyntax.Assume ((Some x, c1), c2)), u)
@@ -430,50 +420,25 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
     return (locate ~loc (Rsyntax.Match (c, cases)), t)
 
   | Dsyntax.Ascribe (c1, c2) ->
-     infer_comp c2 >>= fun (c2, t2) ->
-     let t1 =
-       match t2 with
-       | Mlty.Judgement abstr ->
-          let rec is_term_of_is_type_abstraction abstr =
-            begin match abstr with
-            | Mlty.Abstract abstr ->
-               let matched, abstr = is_term_of_is_type_abstraction abstr in
-               (matched, Mlty.Abstract abstr)
-            | Mlty.NotAbstract jdg ->
-               (match jdg with
-                | Mlty.IsType -> (true, Mlty.NotAbstract Mlty.IsTerm)
-                | Mlty.IsTerm
-                | Mlty.EqType
-                | Mlty.EqTerm -> (false, Mlty.NotAbstract Mlty.IsType))
-            end
-          in
-          let (matched, abstr) = is_term_of_is_type_abstraction abstr in
-          let t1 = Mlty.Judgement abstr in
-          if matched then
-            t1
-          else
-            Mlty.(error ~loc:c2.Location.loc (TypeMismatch (t2, t1)))
-       | _ -> Mlty.(error ~loc:c2.Location.loc (JudgementExpected t2))
-     in
-     check_comp c1 t1 >>= fun c1 ->
-     return (locate ~loc (Rsyntax.Ascribe (c1, c2)), t1)
+     check_comp c2 Mlty.Boundary >>= fun c2 ->
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
+     return (locate ~loc (Rsyntax.Ascribe (c1, c2)), Mlty.Judgement)
 
   | Dsyntax.Abstract (x, copt, c) ->
     begin match copt with
-      | Some ct -> check_comp ct Mlty.is_type >>= fun ct -> return (Some ct)
+      | Some ct -> check_comp ct Mlty.Judgement >>= fun ct -> return (Some ct)
       | None -> return None
     end >>= fun copt ->
     Tyenv.add_bound_mono
       x
-      Mlty.is_term
+      Mlty.Judgement
       begin
         infer_comp c >>= fun (c,t) ->
         begin match t with
-        | Mlty.Judgement t ->
-           let c = locate ~loc (Rsyntax.Abstract (x, copt, c))
-           and t = Mlty.Judgement (Mlty.Abstract t) in
-           return (c, t)
-        | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _
+        | Mlty.Judgement ->
+           let c = locate ~loc (Rsyntax.Abstract (x, copt, c)) in
+           return (c, Mlty.Judgement)
+        | Mlty.(Boundary | String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _
                | Apply _ | Ref _| Dynamic _) as t ->
            (* XXX should Meta and Param be errors? *)
            Mlty.error ~loc (Mlty.JudgementExpected t)
@@ -481,24 +446,9 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
       end
 
   | Dsyntax.Substitute (c1, c2) ->
-     let as_judgement c =
-       infer_comp c >>= fun (c, t) ->
-       match t with
-       | Mlty.Judgement abstr -> return (c, abstr)
-       | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _
-         | Handler _ | Apply _ | Ref _ | Dynamic _) ->
-          (* XXX should Meta and Param be errors? *)
-          Mlty.error ~loc:c.Location.loc (Mlty.JudgementExpected t)
-     in
-
-     as_judgement c1 >>= fun (c1, t1) ->
-     begin match t1 with
-     | Mlty.NotAbstract t1 -> Mlty.(error ~loc:c1.Location.loc (AbstractionExpected t1))
-     | Mlty.Abstract t1 ->
-        check_comp c2 Mlty.is_term >>= fun c2 ->
-        return (locate ~loc (Rsyntax.Substitute (c1, c2)), Mlty.Judgement t1)
-     end
-
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
+     check_comp c2 Mlty.Judgement >>= fun c2 ->
+     return (locate ~loc (Rsyntax.Substitute (c1, c2)), Mlty.Judgement)
 
   | Dsyntax.Apply (c1, c2) ->
      infer_comp c1 >>= fun (c1, t1) ->
@@ -515,47 +465,18 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
   | Dsyntax.String s -> return (locate ~loc (Rsyntax.String s), Mlty.String)
 
   | Dsyntax.Occurs (c1, c2) ->
-     let t = Mlty.is_term in
-     check_comp c1 t >>= fun c1 ->
-     infer_comp c2 >>= fun (c2, t2) ->
-     begin match t2 with
-
-     | Mlty.Judgement abstr ->
-
-        let t = Mlty.Apply (Desugar.Builtin.option, [Mlty.is_type]) in
-
-        let rec form = function
-          | Mlty.Abstract u -> form u
-          | Mlty.NotAbstract frm -> frm
-        in
-        begin match form abstr with
-        | Mlty.IsType ->
-           return (locate ~loc (Rsyntax.OccursIsTypeAbstraction (c1, c2)), t)
-        | Mlty.IsTerm ->
-           return (locate ~loc (Rsyntax.OccursIsTermAbstraction (c1, c2)), t)
-        | Mlty.EqType ->
-           return (locate ~loc (Rsyntax.OccursEqTypeAbstraction (c1, c2)), t)
-        | Mlty.EqTerm ->
-           return (locate ~loc (Rsyntax.OccursEqTermAbstraction (c1, c2)), t)
-        end
-
-     | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _
-     | Handler _ | Apply _ | Ref _ | Dynamic _) ->
-        (* XXX should Meta and Param be errors? *)
-        Mlty.error ~loc:c2.Location.loc (Mlty.JudgementExpected t2)
-     end
-
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
+     check_comp c2 Mlty.Judgement >>= fun c2 ->
+     return (locate ~loc (Rsyntax.Occurs (c1, c2)), Mlty.Judgement)
 
   | Dsyntax.Context c ->
-     let t = Mlty.is_term in
-     check_comp c t >>= fun c ->
-     let t = Mlty.Apply (Desugar.Builtin.list, [t]) in
+     check_comp c Mlty.Judgement >>= fun c ->
+     let t = Mlty.Apply (Desugar.Builtin.list, [Mlty.Judgement]) in
      return (locate ~loc (Rsyntax.Context c), t)
 
   | Dsyntax.Natural c ->
-     let t = Mlty.is_term in
-     check_comp c t >>= fun c ->
-     return (locate ~loc (Rsyntax.Natural c), Mlty.eq_type)
+     check_comp c Mlty.Judgement >>= fun c ->
+     return (locate ~loc (Rsyntax.Natural c), Mlty.Judgement)
 
 and check_comp c t =
   infer_comp c >>= fun (c, t') ->
@@ -635,8 +556,7 @@ and match_op_cases op cases t_out =
                 begin match popt with
                 | None -> return (None, xts)
                 | Some p ->
-                   check_tt_pattern p (Mlty.NotAbstract Mlty.IsType) >>= fun (p, xts_p) ->
-                   let xts_p = List.map (fun (x, j) -> (x, Mlty.Judgement j)) xts_p in
+                   check_tt_pattern p >>= fun (p, xts_p) ->
                    return (Some p, xts @ xts_p)
                 end >>= fun (popt, xts) ->
                 Tyenv.add_bounds_mono xts
@@ -813,105 +733,93 @@ let local_context lctx m =
        let xcs = List.rev xcs in
        m >>= fun x -> return (xcs, x)
     | (x, c) :: lctx ->
-       check_comp c Mlty.is_type >>= fun c ->
-       Tyenv.add_bound_mono x Mlty.is_term
+       check_comp c Mlty.Judgement >>= fun c ->
+       Tyenv.add_bound_mono x Mlty.Judgement
        (fold ((x, c) :: xcs) lctx)
   in
   fold [] lctx
 
 let premise {Location.thing=prem;loc} =
-  let rec abstractify t = function
-    | [] -> Mlty.NotAbstract t
-    | _ :: lst -> Mlty.Abstract (abstractify t lst)
-  in
-
   match prem with
 
   | Dsyntax.PremiseIsType (x, lctx) ->
      local_context lctx (return ()) >>= fun (lctx, ()) ->
-     let p = locate ~loc (Rsyntax.PremiseIsType (x, lctx))
-     and t = abstractify Mlty.IsType lctx in
-     return (x, p, t)
+     let p = locate ~loc (Rsyntax.PremiseIsType (x, lctx)) in
+     return (x, p)
 
   | Dsyntax.PremiseIsTerm (x, lctx, c) ->
-     local_context lctx (check_comp c Mlty.is_type) >>= fun (lctx, c) ->
-     let p = locate ~loc (Rsyntax.PremiseIsTerm (x, lctx, c))
-     and t = abstractify Mlty.IsTerm lctx in
-     return (x, p, t)
+     local_context lctx (check_comp c Mlty.Judgement) >>= fun (lctx, c) ->
+     let p = locate ~loc (Rsyntax.PremiseIsTerm (x, lctx, c)) in
+     return (x, p)
 
   | Dsyntax.PremiseEqType (x, lctx, (c1, c2)) ->
      local_context lctx
-       (check_comp c1 Mlty.is_type >>= fun c1 ->
-        check_comp c2 Mlty.is_type >>= fun c2 ->
+       (check_comp c1 Mlty.Judgement >>= fun c1 ->
+        check_comp c2 Mlty.Judgement >>= fun c2 ->
         return (c1, c2))
      >>= fun (lctx, c12) ->
-     let p = locate ~loc (Rsyntax.PremiseEqType (x, lctx, c12))
-     and t = abstractify Mlty.EqType lctx in
-     return (x, p, t)
+     let p = locate ~loc (Rsyntax.PremiseEqType (x, lctx, c12)) in
+     return (x, p)
 
   | Dsyntax.PremiseEqTerm (x, lctx, (c1, c2, c3)) ->
      local_context lctx
-       (check_comp c1 Mlty.is_term >>= fun c1 ->
-        check_comp c2 Mlty.is_term >>= fun c2 ->
-        check_comp c3 Mlty.is_type >>= fun c3 ->
+       (check_comp c1 Mlty.Judgement >>= fun c1 ->
+        check_comp c2 Mlty.Judgement >>= fun c2 ->
+        check_comp c3 Mlty.Judgement >>= fun c3 ->
         return (c1, c2, c3))
      >>= fun (lctx, c123) ->
-     let p = locate ~loc (Rsyntax.PremiseEqTerm (x, lctx, c123))
-     and t = abstractify Mlty.EqTerm lctx in
-     return (x, p, t)
+     let p = locate ~loc (Rsyntax.PremiseEqTerm (x, lctx, c123)) in
+     return (x, p)
 
 let premises prems m =
-  let rec fold ps js = function
+  let rec fold ps = function
     | [] ->
-       m >>= (fun x ->
-        let ps = List.rev ps
-        and js = List.rev js in
-        return (ps, js, x))
+       m >>= fun x ->
+       let ps = List.rev ps in return (ps, x)
     | prem :: prems ->
-       premise prem >>= fun (xopt, p, j) ->
+       premise prem >>= fun (xopt, p) ->
        begin match xopt with
-       | None -> fold (p :: ps) (j :: js) prems
+       | None -> fold (p :: ps) prems
        | Some x ->
-          Tyenv.add_bound_mono x (Mlty.Judgement j)
-            (fold (p::ps) (j::js) prems)
+          Tyenv.add_bound_mono x Mlty.Judgement (fold (p::ps) prems)
        end
   in
-  fold [] [] prems
+  fold [] prems
 
 let rec toplevel' ({Location.thing=c; loc} : Dsyntax.toplevel) =
   match c with
 
   | Dsyntax.RuleIsType (rname, prems) ->
-     premises prems (return ()) >>= fun (ps, js, ()) ->
+     premises prems (return ()) >>= fun (ps, ()) ->
      let r = Ident.create rname in
-     Tyenv.add_tt_constructor r (js, Mlty.IsType) >>= fun () ->
+     Tyenv.add_tt_constructor r >>= fun () ->
      return_located ~loc (Rsyntax.RuleIsType (r, ps))
 
   | Dsyntax.RuleIsTerm (rname, prems, c) ->
-     premises prems (check_comp c Mlty.is_type) >>= fun (ps, js, c) ->
+     premises prems (check_comp c Mlty.Judgement) >>= fun (ps, c) ->
      let r = Ident.create rname in
-     Tyenv.add_tt_constructor r (js, Mlty.IsTerm) >>= fun () ->
+     Tyenv.add_tt_constructor r >>= fun () ->
      return_located ~loc (Rsyntax.RuleIsTerm (r, ps, c))
 
   | Dsyntax.RuleEqType (rname, prems, (c1, c2)) ->
      premises prems
-       (check_comp c1 Mlty.is_type >>= fun c1 ->
-        check_comp c2 Mlty.is_type >>= fun c2 ->
+       (check_comp c1 Mlty.Judgement >>= fun c1 ->
+        check_comp c2 Mlty.Judgement >>= fun c2 ->
         return (c1, c2))
-     >>= fun (ps, js, c12) ->
+     >>= fun (ps, c12) ->
      let r = Ident.create rname in
-     Tyenv.add_tt_constructor r (js, Mlty.EqType) >>= fun () ->
+     Tyenv.add_tt_constructor r >>= fun () ->
      return_located ~loc (Rsyntax.RuleEqType (r, ps, c12))
 
   | Dsyntax.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
      premises prems
-       (check_comp c1 Mlty.is_term >>= fun c1 ->
-        check_comp c2 Mlty.is_term >>= fun c2 ->
-        check_comp c3 Mlty.is_type >>= fun c3 ->
+       (check_comp c1 Mlty.Judgement >>= fun c1 ->
+        check_comp c2 Mlty.Judgement >>= fun c2 ->
+        check_comp c3 Mlty.Judgement >>= fun c3 ->
         return (c1, c2, c3))
-     >>= fun (ps, js, c123) ->
+     >>= fun (ps, c123) ->
      let r = Ident.create rname in
-     Tyenv.add_tt_constructor r (js, Mlty.EqTerm) >>= fun () ->
+     Tyenv.add_tt_constructor r >>= fun () ->
      return_located ~loc (Rsyntax.RuleEqTerm (r, ps, c123))
 
   (* Desugar is the only place where recursion/nonrecursion matters,

@@ -65,10 +65,7 @@ and comp' =
   | Assume of (Name.t option * comp) * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | IsTypeConstructor of tt_constructor * comp list
-  | IsTermConstructor of tt_constructor * comp list
-  | EqTypeConstructor of tt_constructor * comp list
-  | EqTermConstructor of tt_constructor * comp list
+  | TTConstructor of tt_constructor * comp list
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp
   | Substitute of comp * comp

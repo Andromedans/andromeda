@@ -37,14 +37,14 @@ let equal_type ~loc t1 t2 =
            Runtime.(error ~loc (InvalidEqualType (t1, t2)))
 
 let coerce ~loc sgn jdg bdry =
-  if Nucleus.check_judgement_boundary sgn jdg bdry then
+  if Nucleus.check_judgement_boundary_abstraction sgn jdg bdry then
     return (Some jdg)
   else
     Reflect.operation_coerce ~loc jdg bdry >>= function
     | None -> return None
 
     | Some jdg ->
-       if Nucleus.check_judgement_boundary sgn jdg bdry then
+       if Nucleus.check_judgement_boundary_abstraction sgn jdg bdry then
          return (Some jdg)
        else
          Runtime.(error ~loc (InvalidCoerce (jdg, bdry)))

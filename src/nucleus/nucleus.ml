@@ -40,10 +40,7 @@ let alpha_equal_boundary = Alpha_equal.boundary
 let form_alpha_equal_term = Form.form_alpha_equal_term
 let form_alpha_equal_type = Form.form_alpha_equal_type
 let form_alpha_equal_abstraction = Form.form_alpha_equal_abstraction
-let form_rap_is_type = Form.form_rap_is_type
-let form_rap_is_term = Form.form_rap_is_term
-let form_rap_eq_type = Form.form_rap_eq_type
-let form_rap_eq_term = Form.form_rap_eq_term
+let form_rap = Form.form_rap
 let rap_apply = Form.rap_apply
 let rap_boundary = Form.rap_boundary
 
@@ -56,10 +53,7 @@ let symmetry_type = Form.symmetry_type
 let symmetry_term = Form.symmetry_term
 
 (** Creation of rules of inference from judgements. *)
-let form_rule_eq_term = Form_rule.form_rule_eq_term
-let form_rule_eq_type = Form_rule.form_rule_eq_type
-let form_rule_is_term = Form_rule.form_rule_is_term
-let form_rule_is_type = Form_rule.form_rule_is_type
+let form_rule = Form_rule.form_rule
 
 (* let abstract_boundary_eq_term = Abstract.boundary_eq_term_abstraction *)
 (* let abstract_boundary_eq_type = Abstract.boundary_eq_type_abstraction *)
@@ -94,6 +88,7 @@ let invert_eq_type_boundary = Invert.invert_eq_type_boundary
 let invert_eq_term_boundary = Invert.invert_eq_term_boundary
 
 let as_not_abstract = Invert.as_not_abstract
+let as_abstract = Invert.as_abstract
 let atom_name = Invert.atom_name
 
 let as_is_type_abstraction = Judgement.as_is_type_abstraction

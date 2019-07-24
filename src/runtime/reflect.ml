@@ -96,14 +96,14 @@ let (>>=) = Runtime.bind
 let return = Runtime.return
 
 let operation_equal_term ~loc e1 e2 =
-  let v1 = Runtime.mk_is_term (Nucleus.abstract_not_abstract e1)
-  and v2 = Runtime.mk_is_term (Nucleus.abstract_not_abstract e2) in
+  let v1 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsTerm e1)))
+  and v2 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsTerm e2))) in
   Runtime.operation equal_term [v1;v2] >>= fun v ->
   return (as_eq_term_option ~loc v)
 
 let operation_equal_type ~loc t1 t2 =
-  let v1 = Runtime.mk_is_type (Nucleus.abstract_not_abstract t1)
-  and v2 = Runtime.mk_is_type (Nucleus.abstract_not_abstract t2) in
+  let v1 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsType t1)))
+  and v2 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsType t2))) in
   Runtime.operation equal_type [v1;v2] >>= fun v ->
   return (as_eq_type_option ~loc v)
 
@@ -113,9 +113,13 @@ let operation_coerce ~loc jdg bdry =
   Runtime.operation coerce [v1;v2] >>= fun v ->
   return (as_judgement_option ~loc v)
 
-let add_abstracting j m =
-  let v = Runtime.mk_is_term j in             (* The given variable as an ML value *)
-  Runtime.hypotheses >>= fun hyps_dyn ->      (* Get the ML list of [hypotheses] *)
+let add_abstracting e m =
+  (* The given variable as an ML value *)
+  let v = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsTerm e))) in
+  (* Get the ML list of [hypotheses] *)
+  Runtime.hypotheses >>= fun hyps_dyn ->
   Runtime.lookup_dyn hyps_dyn >>= fun hyps ->
-  let hyps = list_cons v hyps in              (* Add v to the front of that ML list *)
-  Runtime.now hyps_dyn hyps m                 (* Run computation m in this dynamic scope *)
+  (* Add v to the front of that ML list *)
+  let hyps = list_cons v hyps in
+  (* Run computation m in this dynamic scope *)
+  Runtime.now hyps_dyn hyps m

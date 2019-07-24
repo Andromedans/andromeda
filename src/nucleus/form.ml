@@ -53,7 +53,38 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
 
 
 (** Partial rule applications *)
-let form_rap sgn constr prems =
+
+let form_rap sgn c =
+  let prems, concl = Signature.lookup_rule c sgn in
+  let constr =
+    match concl with
+    | Rule.BoundaryIsType _ ->
+       (fun args -> JudgementIsType (Mk.type_constructor c (Indices.to_list args)))
+
+    | Rule.BoundaryIsTerm _ ->
+       (fun args -> JudgementIsTerm (Mk.term_constructor c (Indices.to_list args)))
+
+    | Rule.BoundaryEqType (lhs_schema, rhs_schema) ->
+       (fun args ->
+         (* order of arguments not important in [Collect_assumptions.arguments],
+            we could try avoiding a list reversal caused by [Indices.to_list]. *)
+         let asmp = Collect_assumptions.arguments (Indices.to_list args)
+         and lhs = Instantiate_meta.is_type ~lvl:0 args lhs_schema
+         and rhs = Instantiate_meta.is_type ~lvl:0 args rhs_schema
+         in
+         JudgementEqType (Mk.eq_type asmp lhs rhs))
+
+    | Rule.BoundaryEqTerm (e1_schema, e2_schema, t_schema) ->
+       (fun args ->
+         (* order of arguments not important in [Collect_assumptions.arguments],
+            we could try avoiding a list reversal caused by [Indices.to_list]. *)
+         let asmp = Collect_assumptions.arguments (Indices.to_list args)
+         and e1 = Instantiate_meta.is_term ~lvl:0 args e1_schema
+         and e2 = Instantiate_meta.is_term ~lvl:0 args e2_schema
+         and t = Instantiate_meta.is_type ~lvl:0 args t_schema
+         in
+         JudgementEqTerm (Mk.eq_term asmp e1 e2 t))
+  in
   match prems with
   | [] -> RapDone (constr [])
   | p :: ps ->
@@ -65,42 +96,6 @@ let form_rap sgn constr prems =
        }
 
 let rap_boundary {rap_boundary;_} = rap_boundary
-
-let form_rap_is_type sgn c =
-  let prems, () = Signature.lookup_rule_is_type c sgn in
-  form_rap sgn
-    (fun args -> Mk.type_constructor c (Indices.to_list args)) prems
-
-let form_rap_is_term sgn c =
-  let prems, _t_schema = Signature.lookup_rule_is_term c sgn in
-  form_rap sgn
-    (fun args -> Mk.term_constructor c (Indices.to_list args))
-    prems
-
-let form_rap_eq_type sgn c =
-  let prems, (lhs_schema, rhs_schema) = Signature.lookup_rule_eq_type c sgn in
-  form_rap sgn
-    (fun args ->
-      (* order of arguments not important in [Collect_assumptions.arguments],
-         we could try avoiding a list reversal caused by [Indices.to_list]. *)
-      let asmp = Collect_assumptions.arguments (Indices.to_list args)
-      and lhs = Instantiate_meta.is_type ~lvl:0 args lhs_schema
-      and rhs = Instantiate_meta.is_type ~lvl:0 args rhs_schema
-      in Mk.eq_type asmp lhs rhs)
-    prems
-
-let form_rap_eq_term sgn c =
-  let prems, (e1_schema, e2_schema, t_schema) = Signature.lookup_rule_eq_term c sgn in
-  form_rap sgn
-    (fun args ->
-      (* order of arguments not important in [Collect_assumptions.arguments],
-         we could try avoiding a list reversal caused by [Indices.to_list]. *)
-      let asmp = Collect_assumptions.arguments (Indices.to_list args)
-      and e1 = Instantiate_meta.is_term ~lvl:0 args e1_schema
-      and e2 = Instantiate_meta.is_term ~lvl:0 args e2_schema
-      and t = Instantiate_meta.is_type ~lvl:0 args t_schema
-      in Mk.eq_term asmp e1 e2 t)
-    prems
 
 (* Apply the given partially applied rule instance to the given argument. The result
    is again a partially applied rule (a special case of which is a fully applied rule). *)

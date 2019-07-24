@@ -7,6 +7,8 @@ exception Match_fail
 
 let add_var (v : Runtime.value) vs = v :: vs
 
+(*
+
 (* There is a lot of repetition in the [collect_is_XYZ] functions below,
    but this seems to be the price to pay for the discrepancy between the
    syntax of patterns and the structure of runtime values. *)
@@ -217,6 +219,57 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
      Rsyntax.Pattern.TTConstructor _) ->
      Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_eq_term v)))
 
+and collect_judgement' env xvs p = function
+  | Nucleus.JudgementIsType t -> collect_is_type env xvs p t
+  | Nucleus.JudgementIsTerm e -> collect_is_term env xvs p e
+  | Nucleus.JudgementEqType eq -> collect_eq_type env xvs p eq
+  | Nucleus.JudgementEqTerm eq -> collect_eq_term env xvs p eq
+*)
+
+let rec collect_tt_pattern env xvs {Location.thing=p';loc} jdg =
+  match p' with
+
+  | Rsyntax.Pattern.TTAnonymous -> xvs
+
+  | Rsyntax.Pattern.TTVar ->
+     add_var (Runtime.Judgement jdg) xvs
+
+  | Rsyntax.Pattern.TTAs (p1, p2) ->
+     let xvs = collect_tt_pattern env xvs p1 jdg in
+     collect_tt_pattern env xvs p2 jdg
+
+  | Rsyntax.Pattern.TTAbstract (xopt, p1, p2) ->
+     begin match Nucleus.as_abstract jdg with
+     | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_judgement jdg)))
+     | Some (a, v2) ->
+        let v1 = Nucleus.(abstract_not_abstract (JudgementIsType (type_of_atom a))) in
+        let xvs = collect_tt_pattern env xvs p1 v1 in
+        let xvs =
+          match xopt with
+          | None -> xvs
+          | Some _ ->
+             let e = Nucleus.(abstract_not_abstract (JudgementIsTerm (form_is_term_atom a))) in
+             add_var (Runtime.mk_judgement e) xvs
+        in
+        collect_tt_pattern env xvs p2 v2
+     end
+
+  | Rsyntax.Pattern.TTConstructor (c, ps) ->
+     begin match Nucleus.as_not_abstract jdg with
+     | None -> Runtime.(error ~loc (InvalidPatternMatch (Runtime.mk_judgement jdg)))
+     | Some jdg ->
+        begin match Nucleus.as_is_type t with
+        | Nucleus.Stump_TypeConstructor (c', args) when Ident.equal c c' ->
+           begin
+             match collect_args env xvs ps args with
+             | None -> Runtime.(error ~loc (InvalidPatternMatch (mk_is_type v)))
+             | Some vs -> vs
+           end
+        | Nucleus.(Stump_TypeConstructor _ | Stump_TypeMeta _) -> raise Match_fail
+        end
+     end
+
+
 and collect_args env xvs ps vs =
   match ps, vs with
 
@@ -227,12 +280,6 @@ and collect_args env xvs ps vs =
      collect_args env xvs ps vs
 
   | [], _::_ | _::_, [] -> None
-
-and collect_judgement env xvs p = function
-  | Nucleus.JudgementIsType t -> collect_is_type env xvs p t
-  | Nucleus.JudgementIsTerm e -> collect_is_term env xvs p e
-  | Nucleus.JudgementEqType eq -> collect_eq_type env xvs p eq
-  | Nucleus.JudgementEqTerm eq -> collect_eq_term env xvs p eq
 
 let rec collect_pattern env xvs {Location.thing=p';loc} v =
   match p', v with

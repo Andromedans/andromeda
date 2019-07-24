@@ -238,7 +238,7 @@ type error =
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvertible of Nucleus.is_type_abstraction * Nucleus.is_type_abstraction * Nucleus.eq_type_abstraction
-  | InvalidCoerce of Nucleus.judgement * Nucleus.boundary
+  | InvalidCoerce of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnhandledOperation of Ident.t * value list
   | InvalidPatternMatch of value
   | InvalidHandlerMatch
@@ -344,7 +344,7 @@ let name_of v =
 
 (** Coerce values *)
 
-let as_is_type ~loc abstr = function
+let as_is_type ~loc = function
   | Judgement abstr as v ->
      begin match Nucleus.as_not_abstract abstr with
      | Some (Nucleus.JudgementIsType t) -> t
@@ -354,7 +354,7 @@ let as_is_type ~loc abstr = function
   | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (IsTypeExpected v)
 
-let as_is_term ~loc abstr = function
+let as_is_term ~loc = function
   | Judgement abstr as v ->
      begin match Nucleus.as_not_abstract abstr with
      | Some (Nucleus.JudgementIsTerm e) -> e
@@ -364,7 +364,7 @@ let as_is_term ~loc abstr = function
   | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (IsTermExpected v)
 
-let as_eq_type ~loc abstr = function
+let as_eq_type ~loc = function
   | Judgement abstr as v ->
      begin match Nucleus.as_not_abstract abstr with
      | Some (Nucleus.JudgementEqType eq) -> eq
@@ -374,7 +374,7 @@ let as_eq_type ~loc abstr = function
   | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (EqTypeExpected v)
 
-let as_eq_term ~loc abstr = function
+let as_eq_term ~loc = function
   | Judgement abstr as v ->
      begin match Nucleus.as_not_abstract abstr with
      | Some (Nucleus.JudgementEqTerm eq) -> eq
@@ -472,8 +472,8 @@ let get_signature env = env.dynamic.signature
 let lookup_signature env =
   Return env.dynamic.signature, env.state
 
-let add_rule add_rule_to_signature rname rule env =
-  let signature = add_rule_to_signature rname rule env.dynamic.signature
+let add_rule rname rule env =
+  let signature = Nucleus.Signature.add_rule rname rule env.dynamic.signature
   and penv =
     penv_forbid
     (match Ident.path rname with
@@ -485,11 +485,6 @@ let add_rule add_rule_to_signature rname rule env =
                  ; lexical = { env.lexical with penv }
             } in
   (), env
-
-let add_rule_is_type = add_rule Nucleus.Signature.add_rule_is_type
-let add_rule_is_term = add_rule Nucleus.Signature.add_rule_is_term
-let add_rule_eq_type = add_rule Nucleus.Signature.add_rule_eq_type
-let add_rule_eq_term = add_rule Nucleus.Signature.add_rule_eq_term
 
 let get_bound (Path.Index (_, k)) env = List.nth env.lexical.current_values k
 
@@ -869,8 +864,8 @@ let print_error ~penv err ppf =
   | InvalidCoerce (jdg, bdry) ->
      let penv = mk_nucleus_penv penv in
      Format.fprintf ppf "expected a judgement with boundary@ %t@ but got@ %t"
-                    (Nucleus.print_boundary ~penv bdry)
-                    (Nucleus.print_judgement ~penv jdg)
+                    (Nucleus.print_boundary_abstraction ~penv bdry)
+                    (Nucleus.print_judgement_abstraction ~penv jdg)
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "unhandled operation %t"
@@ -934,9 +929,11 @@ let top_handle ~loc c env =
 (** Equality *)
 let rec equal_value v1 v2 =
   match v1, v2 with
-    | Judgement jdg1, Judgement jdg2 -> Nucleus.alpha_equal_judgement jdg1 jdg2
+    | Judgement jdg1, Judgement jdg2 ->
+       Nucleus.alpha_equal_abstraction Nucleus.alpha_equal_judgement jdg1 jdg2
 
-    | Boundary bdry1, Boundary bdry2 -> Nucleus.alpha_equal_boundary bdry1 bdry2
+    | Boundary bdry1, Boundary bdry2 ->
+       Nucleus.alpha_equal_abstraction Nucleus.alpha_equal_boundary bdry1 bdry2
 
     | Tag (t1, vs1), Tag (t2, vs2) ->
       equal_tag t1 t2 &&
@@ -997,9 +994,9 @@ struct
   let rec value v =
     match v with
 
-    | Judgement jdg -> Json.tag "Judgement" [Nucleus.Json.judgement jdg]
+    | Judgement jdg -> Json.tag "Judgement" [Nucleus.Json.judgement_abstraction jdg]
 
-    | Boundary bdry -> Json.tag "Boundary" [Nucleus.Json.boundary bdry]
+    | Boundary bdry -> Json.tag "Boundary" [Nucleus.Json.boundary_abstraction bdry]
 
     | Closure _ -> Json.tag "<fun>" []
 

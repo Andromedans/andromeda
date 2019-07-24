@@ -108,51 +108,35 @@ module Signature : sig
 
   val empty : signature
 
-  val add_rule_is_type : Ident.t -> Rule.rule_is_type -> signature -> signature
-  val add_rule_is_term : Ident.t -> Rule.rule_is_term -> signature -> signature
-  val add_rule_eq_type : Ident.t -> Rule.rule_eq_type -> signature -> signature
-  val add_rule_eq_term : Ident.t -> Rule.rule_eq_term -> signature -> signature
-
+  val add_rule : Ident.t -> Rule.rule -> signature -> signature
 end
 
-val form_rule_is_type :
-  (Nonce.t * boundary_abstraction) list -> Rule.rule_is_type
-
-val form_rule_is_term :
-  (Nonce.t * boundary_abstraction) list -> is_type -> Rule.rule_is_term
-
-val form_rule_eq_type :
-  (Nonce.t * boundary_abstraction) list -> is_type * is_type -> Rule.rule_eq_type
-
-val form_rule_eq_term :
-  (Nonce.t * boundary_abstraction) list -> is_term * is_term * is_type -> Rule.rule_eq_term
+val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> Rule.rule
 
 (** A partially applied rule is a rule with an initial part of the premises
    applied already. We need to represent such partial applications in order to
    be able to compute the boundary of the next argument from the already given
    ones _before_ the next argument is known. We call such a partially applied
    rule a (partial) _rule application_. *)
-type 'a rule_application_status
+type rule_application_status
 
 (** When we apply a rule application to one more argument two things may happen.
    Either we are done and we get a result, or more arguments are needed, in
    which case we get the rap with one more argument applied, and the boundary of
    the next argument. *)
-type 'a rule_application = private
-  | RapDone of 'a
-  | RapMore of 'a rule_application_status
+type rule_application = private
+  | RapDone of judgement
+  | RapMore of rule_application_status
 
 (** Form a fully non-applied rule application for a given constructor *)
-val form_rap_is_type : signature -> Ident.t -> is_type rule_application
-val form_rap_is_term : signature -> Ident.t -> is_term rule_application
-val form_rap_eq_type : signature -> Ident.t -> eq_type rule_application
-val form_rap_eq_term : signature -> Ident.t -> eq_term rule_application
+val form_rap : signature -> Ident.t -> rule_application
 
 (** Apply a rap to one more argument *)
-val rap_apply : signature -> 'a rule_application_status -> judgement_abstraction -> 'a rule_application
+val rap_apply : signature -> rule_application_status -> judgement_abstraction -> rule_application
+
 
 (** Give the boundary of a rap status, i.e., the boundary of the next argument. *)
-val rap_boundary : 'a rule_application_status -> boundary_abstraction
+val rap_boundary : rule_application_status -> boundary_abstraction
 
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
@@ -206,6 +190,9 @@ val eq_term_meta_eta_expanded : signature -> eq_term_meta -> eq_term_abstraction
 
 (** Verify that an abstraction is in fact not abstract *)
 val as_not_abstract : 'a abstraction -> 'a option
+
+(** Verify that an abstraction is in fact abstract *)
+val as_abstract : 'a abstraction -> (is_atom * 'a abstraction) option
 
 val as_is_type_abstraction : judgement_abstraction -> is_type abstraction option
 val as_is_term_abstraction : judgement_abstraction -> is_term abstraction option
@@ -399,7 +386,7 @@ val print_error : penv:print_environment -> error -> Format.formatter -> unit
 
 module Json :
 sig
-  val judgement : judgement -> Json.t
+  val judgement_abstraction : judgement_abstraction -> Json.t
 
-  val boundary : boundary -> Json.t
+  val boundary_abstraction : boundary_abstraction -> Json.t
 end

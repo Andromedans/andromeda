@@ -84,3 +84,7 @@ let boundary = function
 
   | BoundaryEqTerm (e1, e2, t) ->
      Json.tag "BoundaryEqTerm" [is_term e1; is_term e2; is_type t]
+
+let judgement_abstraction abstr = Json.List (abstraction judgement [] abstr)
+
+let boundary_abstraction abstr = Json.List (abstraction boundary [] abstr)
