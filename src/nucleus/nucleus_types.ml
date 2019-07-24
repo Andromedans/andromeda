@@ -4,13 +4,13 @@ type bound = int
 
 type is_type =
   | TypeMeta of is_type_meta * is_term list
-  | TypeConstructor of Ident.t * judgement list
+  | TypeConstructor of Ident.t * judgement_abstraction list
 
 and is_term =
   | TermBound of bound
   | TermAtom of is_atom
   | TermMeta of is_term_meta * is_term list
-  | TermConstructor of Ident.t * judgement list
+  | TermConstructor of Ident.t * judgement_abstraction list
   | TermConvert of is_term * assumption * is_type
 
 and eq_type = EqType of assumption * is_type * is_type
@@ -21,17 +21,17 @@ and is_atom = { atom_nonce : Nonce.t ; atom_type : is_type }
 
 and 't meta = { meta_nonce : Nonce.t ; meta_type : 't }
 
-and is_type_meta = is_type_boundary meta
-and is_term_meta = is_term_boundary meta
-and eq_type_meta = eq_type_boundary meta
-and eq_term_meta = eq_term_boundary meta
+and is_type_meta = is_type_boundary abstraction meta
+and is_term_meta = is_term_boundary abstraction meta
+and eq_type_meta = eq_type_boundary abstraction meta
+and eq_term_meta = eq_term_boundary abstraction meta
 
 and assumption =
   { free : is_type Nonce.map
-  ; is_type_meta : is_type_boundary Nonce.map
-  ; is_term_meta : is_term_boundary Nonce.map
-  ; eq_type_meta : eq_type_boundary Nonce.map
-  ; eq_term_meta : eq_term_boundary Nonce.map
+  ; is_type_meta : is_type_boundary abstraction Nonce.map
+  ; is_term_meta : is_term_boundary abstraction Nonce.map
+  ; eq_type_meta : eq_type_boundary abstraction Nonce.map
+  ; eq_term_meta : eq_term_boundary abstraction Nonce.map
   ; bound : Bound_set.t }
 
 and 'a abstraction =
@@ -39,27 +39,31 @@ and 'a abstraction =
   | Abstract of is_atom * 'a abstraction
 
 and judgement =
-  | JudgementIsType of is_type abstraction
-  | JudgementIsTerm of is_term abstraction
-  | JudgementEqType of eq_type abstraction
-  | JudgementEqTerm of eq_term abstraction
+  | JudgementIsType of is_type
+  | JudgementIsTerm of is_term
+  | JudgementEqType of eq_type
+  | JudgementEqTerm of eq_term
 
-and is_type_boundary = unit abstraction
-and is_term_boundary = is_type abstraction
-and eq_type_boundary = (is_type * is_type) abstraction
-and eq_term_boundary = (is_term * is_term * is_type) abstraction
+and judgement_abstraction = judgement abstraction
+
+and is_type_boundary = unit
+and is_term_boundary = is_type
+and eq_type_boundary = is_type * is_type
+and eq_term_boundary = is_term * is_term * is_type
 
 and boundary =
-    | BoundaryIsType of is_type_boundary
-    | BoundaryIsTerm of is_term_boundary
-    | BoundaryEqType of eq_type_boundary
-    | BoundaryEqTerm of eq_term_boundary
+  | BoundaryIsType of is_type_boundary
+  | BoundaryIsTerm of is_term_boundary
+  | BoundaryEqType of eq_type_boundary
+  | BoundaryEqTerm of eq_term_boundary
+
+and boundary_abstraction = boundary abstraction
 
 type 'a rule_application_status =
-  { rap_arguments : judgement list (* the arguments collected so far *)
-  ; rap_boundary : boundary (* the boundary of the next argument *)
-  ; rap_premises : Rule.premise list (* the remaining premises to be applied *)
-  ; rap_constructor : judgement list -> 'a (* the function which makes the final result *)
+  { rap_arguments : judgement_abstraction list (* the arguments collected so far *)
+  ; rap_boundary : boundary_abstraction (* the boundary of the next argument *)
+  ; rap_premises : Rule.premise_abstraction list (* the remaining premises to be applied *)
+  ; rap_constructor : judgement_abstraction list -> 'a (* the function which makes the final result *)
   }
 
 (* A partial rule application *)
@@ -85,12 +89,12 @@ type eq_term_abstraction = eq_term abstraction
    as "stumps", i.e., the lowest level of a derivation tree. *)
 
 type nonrec stump_is_type =
-  | Stump_TypeConstructor of Ident.t * judgement list
+  | Stump_TypeConstructor of Ident.t * judgement_abstraction list
   | Stump_TypeMeta of is_type_meta * is_term list
 
 and stump_is_term =
   | Stump_TermAtom of is_atom
-  | Stump_TermConstructor of Ident.t * judgement list
+  | Stump_TermConstructor of Ident.t * judgement_abstraction list
   | Stump_TermMeta of is_term_meta * is_term list
   | Stump_TermConvert of is_term * eq_type
 
@@ -119,7 +123,7 @@ type congruence_argument =
 
    Used by module Indices
 *)
-type indices = judgement list
+type 'a indices = 'a list
 
 type error =
   | InvalidInstantiation

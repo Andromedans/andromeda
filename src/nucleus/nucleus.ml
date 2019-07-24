@@ -20,11 +20,7 @@ let type_at_abstraction = Sanity.type_at_abstraction
 let type_of_atom = Sanity.type_of_atom
 let natural_type_eq = Sanity.natural_type_eq
 
-let check_is_type_boundary = Alpha_equal.check_is_type_boundary
-let check_is_term_boundary = Alpha_equal.check_is_term_boundary
-let check_eq_type_boundary = Alpha_equal.check_eq_type_boundary
-let check_eq_term_boundary = Alpha_equal.check_eq_term_boundary
-let check_judgement_boundary = Alpha_equal.check_judgement_boundary
+let check_judgement_boundary_abstraction = Alpha_equal.check_judgement_boundary_abstraction
 
 let fresh_atom = Mk.fresh_atom
 let fresh_is_type_meta = Mk.fresh_type_meta
@@ -110,6 +106,7 @@ let apply_eq_term_abstraction = Apply_abstraction.apply_eq_term_abstraction
 let apply_eq_type_abstraction = Apply_abstraction.apply_eq_type_abstraction
 let apply_is_term_abstraction = Apply_abstraction.apply_is_term_abstraction
 let apply_is_type_abstraction = Apply_abstraction.apply_is_type_abstraction
+let apply_judgement_abstraction = Apply_abstraction.apply_judgement_abstraction
 
 let occurs_abstraction assumptions_u a abstr =
   let asmp = Collect_assumptions.abstraction assumptions_u abstr in
@@ -131,8 +128,11 @@ let print_is_term_abstraction = Nucleus_print.is_term_abstraction
 let print_is_type_abstraction = Nucleus_print.is_type_abstraction
 let print_eq_term_abstraction = Nucleus_print.eq_term_abstraction
 let print_eq_type_abstraction = Nucleus_print.eq_type_abstraction
-let print_judgement = Nucleus_print.judgement
-let print_boundary = Nucleus_print.boundary
+let print_judgement_abstraction = Nucleus_print.judgement_abstraction
+let print_boundary_abstraction = Nucleus_print.boundary_abstraction
 let print_error = Nucleus_print.error
+
+let name_of_judgement = Nucleus_print.name_of_judgement
+let name_of_boundary = Nucleus_print.name_of_boundary
 
 module Json = Nucleus_json

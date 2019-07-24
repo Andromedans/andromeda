@@ -76,7 +76,7 @@ and abstraction
      Abstract ({atom_nonce=x; atom_type=u}, abstr)
 
 and arguments e0 ~lvl args =
-  List.map (judgement e0 ~lvl) args
+  List.map (abstraction judgement e0 ~lvl) args
 
 and term_arguments e0 ~lvl args =
   List.map (is_term e0 ~lvl) args
@@ -84,20 +84,16 @@ and term_arguments e0 ~lvl args =
 and judgement e0 ?(lvl=0) = function
 
     | JudgementIsType t ->
-       let t = abstraction is_type e0 ~lvl t in
-       JudgementIsType t
+       JudgementIsType (is_type e0 ~lvl t)
 
     | JudgementIsTerm e ->
-       let e = abstraction is_term e0 ~lvl e in
-       JudgementIsTerm e
+       JudgementIsTerm (is_term e0 ~lvl e)
 
     | JudgementEqType asmp ->
-       let asmp = abstraction eq_type e0 ~lvl asmp in
-       JudgementEqType asmp
+       JudgementEqType (eq_type e0 ~lvl asmp)
 
     | JudgementEqTerm asmp ->
-       let asmp = abstraction eq_term e0 ~lvl asmp in
-       JudgementEqTerm asmp
+       JudgementEqTerm (eq_term e0 ~lvl asmp)
 
 
 (* [instantiate_fully ?lvl es t] replaces bound variables [k] for
@@ -176,27 +172,23 @@ and abstraction_fully
      in Abstract ({atom_nonce=x; atom_type=t}, abstr)
 
 and arguments_fully ?(lvl=0) es args =
-  List.map (argument_fully ~lvl es) args
+  List.map (abstraction_fully judgement_fully ~lvl es) args
 
 and term_arguments_fully ?(lvl=0) es args =
   List.map (is_term_fully ~lvl es) args
 
-and argument_fully ?(lvl=0) es = function
-  | JudgementIsType abstr ->
-     let abstr = abstraction_fully is_type_fully ~lvl es abstr in
-     JudgementIsType abstr
+and judgement_fully ?(lvl=0) es = function
+  | JudgementIsType t ->
+     JudgementIsType (is_type_fully ~lvl es t)
 
-  | JudgementIsTerm abstr ->
-     let abstr = abstraction_fully is_term_fully ~lvl es abstr in
-     JudgementIsTerm abstr
+  | JudgementIsTerm e ->
+     JudgementIsTerm (is_term_fully ~lvl es e)
 
-  | JudgementEqType abstr ->
-     let abstr = abstraction_fully eq_type_fully ~lvl es abstr in
-     JudgementEqType abstr
+  | JudgementEqType eq ->
+     JudgementEqType (eq_type_fully ~lvl es eq)
 
-  | JudgementEqTerm abstr ->
-     let abstr = abstraction_fully eq_term_fully ~lvl es abstr in
-     JudgementEqTerm abstr
+  | JudgementEqTerm eq ->
+     JudgementEqTerm (eq_term_fully ~lvl es eq)
 
 let is_type_boundary _ ?(lvl=0) () = ()
 

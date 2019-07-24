@@ -74,10 +74,7 @@ and comp' =
   | Substitute of comp * comp
   | Yield of comp
   | String of string
-  | OccursIsTypeAbstraction of comp * comp
-  | OccursIsTermAbstraction of comp * comp
-  | OccursEqTypeAbstraction of comp * comp
-  | OccursEqTermAbstraction of comp * comp
+  | Occurs of comp * comp
   | Context of comp
   | Natural of comp
 

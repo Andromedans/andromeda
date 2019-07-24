@@ -45,17 +45,11 @@ val equal_tag : ml_constructor -> ml_constructor -> bool
 
 (** {b Value construction} *)
 
-(** Build an [IsTerm] value *)
-val mk_is_term : Nucleus.is_term_abstraction -> value
+(** Build an abstracted judgement as a value *)
+val mk_judgement : Nucleus.judgement_abstraction -> value
 
-(** Build an [IsType] value *)
-val mk_is_type : Nucleus.is_type_abstraction -> value
-
-(** Build an [EqTerm] value *)
-val mk_eq_term : Nucleus.eq_term_abstraction -> value
-
-(** Build an [EqType] value *)
-val mk_eq_type : Nucleus.eq_type_abstraction -> value
+(** Build an abstracted boundary as a value *)
+val mk_boundary : Nucleus.boundary_abstraction -> value
 
 (** Build a [Handler] value *)
 val mk_handler : handler -> value
@@ -203,7 +197,6 @@ val return : 'a -> 'a comp
 val return_unit : value comp
 
 val return_judgement : Nucleus.judgement -> value comp
-val return_is_term : Nucleus.is_term_abstraction -> value comp
 
 val return_closure : (value -> value comp) -> value comp
 val return_handler :

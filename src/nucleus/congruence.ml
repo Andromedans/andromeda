@@ -26,7 +26,7 @@ let process_congruence_args args =
             Alpha_equal.is_type t1 t1' && Alpha_equal.is_type t2 t2')
          t1 t2 eq ;
        let asmp_out = Assumption.union asmp_out (Collect_assumptions.abstraction Collect_assumptions.eq_type eq)
-       in fold asmp_out (JudgementIsType t1 :: lhs) (JudgementIsType t2 :: rhs) eqs
+       in fold asmp_out (Judgement.from_is_type_abstraction t1 :: lhs) (Judgement.from_is_type_abstraction t2 :: rhs) eqs
 
     | CongrIsTerm (e1, e2, eq) :: eqs ->
        check_endpoints
@@ -34,16 +34,16 @@ let process_congruence_args args =
             Alpha_equal.is_term e1 e1' && Alpha_equal.is_term e2 e2')
          e1 e2 eq ;
        let asmp_out = Assumption.union asmp_out (Collect_assumptions.abstraction Collect_assumptions.eq_term eq)
-       in fold asmp_out (JudgementIsTerm e1 :: lhs) (JudgementIsTerm e2 :: rhs) eqs
+       in fold asmp_out (Judgement.from_is_term_abstraction e1 :: lhs) (Judgement.from_is_term_abstraction e2 :: rhs) eqs
 
     | CongrEqType (eq1, eq2) :: eqs ->
-       let l = JudgementEqType eq1
-       and r = JudgementEqType eq2
+       let l = Judgement.from_eq_type_abstraction eq1
+       and r = Judgement.from_eq_type_abstraction  eq2
        in fold asmp_out (l :: lhs) (r :: rhs) eqs
 
     | CongrEqTerm (eq1, eq2) :: eqs ->
-       let l = JudgementEqTerm eq1
-       and r = JudgementEqTerm eq2
+       let l = Judgement.from_eq_term_abstraction eq1
+       and r = Judgement.from_eq_term_abstraction eq2
        in fold asmp_out (l :: lhs) (r :: rhs) eqs
 
   in fold Assumption.empty [] [] args

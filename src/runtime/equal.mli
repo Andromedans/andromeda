@@ -11,5 +11,5 @@ val equal_type :
 
 (** Coerce the given term to the given type, if possible *)
 val coerce :
-  loc:Location.t -> Nucleus.signature -> Nucleus.judgement -> Nucleus.boundary ->
-  Nucleus.judgement option Runtime.comp
+  loc:Location.t -> Nucleus.signature -> Nucleus.judgement_abstraction -> Nucleus.boundary_abstraction ->
+  Nucleus.judgement_abstraction option Runtime.comp

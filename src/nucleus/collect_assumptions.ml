@@ -72,15 +72,15 @@ and term_arguments ~lvl ts =
 and arguments ~lvl args =
   let rec fold asmp = function
     | [] -> asmp
-    | arg :: args -> Assumption.union (argument ~lvl arg) (fold asmp args)
+    | arg :: args -> Assumption.union (abstraction argument ~lvl arg) (fold asmp args)
   in
   fold Assumption.empty args
 
 and argument ?(lvl=0) = function
-  | JudgementIsType abstr -> abstraction is_type ~lvl abstr
-  | JudgementIsTerm abstr -> abstraction is_term ~lvl abstr
-  | JudgementEqType abstr -> abstraction eq_type ~lvl abstr
-  | JudgementEqTerm abstr -> abstraction eq_term ~lvl abstr
+  | JudgementIsType t -> is_type ~lvl t
+  | JudgementIsTerm e -> is_term ~lvl e
+  | JudgementEqType eq -> eq_type ~lvl eq
+  | JudgementEqTerm eq -> eq_term ~lvl eq
 
 and assumptions ?(lvl=0) asmp = Assumption.at_level ~lvl asmp
 

@@ -38,7 +38,7 @@ let rec is_term e =
 
     | TermBound b -> Json.tag "TermBound" [Json.Int b]
 
-    | TermConstructor (c, lst) -> Json.tag "TermConstructor" (Ident.Json.ident c :: args lst)
+    | TermConstructor (c, lst) -> Json.tag "TermConstructor" (Ident.Json.ident c :: arguments lst)
 
     | TermMeta ({meta_nonce; _}, lst) ->
        Json.tag "TermMeta" (Nonce.Json.nonce meta_nonce :: (List.map is_term lst))
@@ -50,17 +50,17 @@ let rec is_term e =
 and is_type t =
   let t =
     match t with
-    | TypeConstructor (c, lst) -> Json.tag "TypeConstructor" (Ident.Json.ident c :: args lst)
+    | TypeConstructor (c, lst) -> Json.tag "TypeConstructor" (Ident.Json.ident c :: arguments lst)
     | TypeMeta ({meta_nonce; _}, lst) ->
        Json.tag "TypeMeta" (Nonce.Json.nonce meta_nonce :: (List.map is_term lst))
   in Json.tag "IsType" [t]
 
-and args lst = List.map judgement lst
+and arguments lst = List.map (fun abstr -> Json.tuple (abstraction judgement [] abstr)) lst
 
 and judgement = function
-  | JudgementIsTerm abstr -> Json.tag "JudgementIsTerm" (abstraction is_term [] abstr)
-  | JudgementIsType abstr -> Json.tag "JudgementIsType" (abstraction is_type [] abstr)
-  | JudgementEqType _ -> Json.tag "JudgementIsType" []
+  | JudgementIsType t -> Json.tag "JudgementIsType" [is_type t]
+  | JudgementIsTerm e -> Json.tag "JudgementIsTerm" [is_term e]
+  | JudgementEqType _ -> Json.tag "JudgementEqType" []
   | JudgementEqTerm _ -> Json.tag "JudgementEqTerm" []
 
 and abstraction : 'a . ('a -> Json.t) -> (Name.t * is_type) list -> 'a abstraction -> Json.t list =
@@ -74,13 +74,13 @@ and abstraction : 'a . ('a -> Json.t) -> (Name.t * is_type) list -> 'a abstracti
 
 let boundary = function
   | BoundaryIsType abstr ->
-     Json.tag "BoundaryIsType" (abstraction (fun () -> Json.tuple []) [] abstr)
+     Json.tag "BoundaryIsType" []
 
-  | BoundaryIsTerm abstr ->
-     Json.tag "BoundaryIsTerm" (abstraction is_type [] abstr)
+  | BoundaryIsTerm t ->
+     Json.tag "BoundaryIsTerm" [is_type t]
 
-  | BoundaryEqType abstr ->
-     Json.tag "BoundaryIsType" (abstraction (fun (t1, t2) -> Json.tuple [is_type t1; is_type t2]) [] abstr)
+  | BoundaryEqType (t1, t2) ->
+     Json.tag "BoundaryIsType" [is_type t1; is_type t2]
 
-  | BoundaryEqTerm abstr ->
-     Json.tag "BoundaryEqTerm" (abstraction (fun (e1, e2, t) -> Json.tuple [is_term e1; is_term e2; is_type t]) [] abstr)
+  | BoundaryEqTerm (e1, e2, t) ->
+     Json.tag "BoundaryEqTerm" [is_term e1; is_term e2; is_type t]

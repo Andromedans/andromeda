@@ -45,10 +45,7 @@ let rec generalizable c =
   | Rsyntax.Substitute _
   | Rsyntax.Yield _
   | Rsyntax.Apply _
-  | Rsyntax.OccursIsTypeAbstraction _
-  | Rsyntax.OccursIsTermAbstraction _
-  | Rsyntax.OccursEqTypeAbstraction _
-  | Rsyntax.OccursEqTermAbstraction _
+  | Rsyntax.Occurs _
   | Rsyntax.Context _
   | Rsyntax.Natural _ -> Ungeneralizable
 

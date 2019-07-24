@@ -77,30 +77,26 @@ let rec infer {Location.thing=c'; loc} =
     | Rsyntax.IsTypeConstructor (c, cs) ->
        Runtime.lookup_signature >>= fun sgn ->
        let rap = Nucleus.form_rap_is_type sgn c in
-       check_arguments rap cs >>= fun e ->
-       let v = Runtime.mk_is_type (Nucleus.abstract_not_abstract e) in
-       return v
+       check_arguments rap cs >>= fun t ->
+       Runtime.return_judgement (Nucleus.JudgementIsType t)
 
     | Rsyntax.IsTermConstructor (c, cs) ->
        Runtime.lookup_signature >>= fun sgn ->
        let rap = Nucleus.form_rap_is_term sgn c in
        check_arguments rap cs >>= fun e ->
-       let v = Runtime.mk_is_term (Nucleus.abstract_not_abstract e) in
-       return v
+       Runtime.return_judgement (Nucleus.JudgementIsTerm e)
 
     | Rsyntax.EqTypeConstructor (c, cs) ->
        Runtime.lookup_signature >>= fun sgn ->
        let rap = Nucleus.form_rap_eq_type sgn c in
-       check_arguments rap cs >>= fun e ->
-       let v = Runtime.mk_eq_type (Nucleus.abstract_not_abstract e) in
-       return v
+       check_arguments rap cs >>= fun eq ->
+       Runtime.return_judgement (Nucleus.JudgementEqType eq)
 
     | Rsyntax.EqTermConstructor (c, cs) ->
        Runtime.lookup_signature >>= fun sgn ->
        let rap = Nucleus.form_rap_eq_term sgn c in
-       check_arguments rap cs >>= fun e ->
-       let v = Runtime.mk_eq_term (Nucleus.abstract_not_abstract e) in
-       return v
+       check_arguments rap cs >>= fun eq ->
+       Runtime.return_judgement (Nucleus.JudgementEqTerm eq)
 
     | Rsyntax.Tuple cs ->
       let rec fold vs = function
@@ -256,14 +252,14 @@ let rec infer {Location.thing=c'; loc} =
                 match Nucleus.type_at_abstraction abstr with
                 | None -> Runtime.(error ~loc (AbstractionExpected v1))
                 | Some t ->
-                   check_judgement c2 (Nucleus.BoundaryIsTerm (Nucleus.abstract_not_abstract t)) >>= fun v2 ->
-                   begin match Nucleus.as_not_abstract v2 with
-                   | None -> Runtime.(error ~loc (IsTermExpected (Runtime.mk_is_term v2)))
-                   | Some v2 ->
-                      Runtime.lookup_signature >>= fun sgn ->
-                      let v = appl sgn abstr v2 in
-                      Runtime.return_judgement (jdg_form v)
-                   end
+                   check_judgement c2 (Nucleus.BoundaryIsTerm t) >>=
+                     function
+                     | Nucleus.JudgementIsTerm e ->
+                        Runtime.lookup_signature >>= fun sgn ->
+                        let v = appl sgn abstr e in
+                        Runtime.return_judgement (jdg_form v)
+                     | Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) as jdg ->
+                        Runtime.(error ~loc (IsTermExpected (Runtime.mk_judgement (Nucleus.abstract_not_abstract jdg))))
               in
 
               match jdg with
@@ -320,8 +316,8 @@ let rec infer {Location.thing=c'; loc} =
      infer_is_type_abstraction c2 >>= fun abstr ->
      occurs Nucleus.occurs_is_type_abstraction c1 abstr
 
-  | Rsyntax.OccursIsTermAbstraction (c1,c2) ->
-     infer_is_term_abstraction c2 >>= fun abstr ->
+  | Rsyntax.Occurs (c1,c2) ->
+     infer_judgement c2 >>= fun abstr ->
      occurs Nucleus.occurs_is_term_abstraction c1 abstr
 
   | Rsyntax.OccursEqTypeAbstraction (c1, c2) ->
@@ -377,7 +373,7 @@ and occurs
   end
 
 (** Coerce the value [v] to the given judgement boundary [bdry] *)
-and coerce ~loc v (bdry : Nucleus.boundary) =
+and coerce ~loc v (bdry : Nucleus.boundary_abstraction) =
   match bdry with
   | Nucleus.BoundaryIsType _ ->
      failwith "coercion to a type boundary not implemented"
@@ -397,8 +393,8 @@ and coerce ~loc v (bdry : Nucleus.boundary) =
   | Nucleus.BoundaryEqTerm _ ->
      failwith "coercion to a term equality boundary not implemented"
 
-(** Compute a judgement with the given boundary *)
-and check_judgement ({Location.thing=c';loc} as c) bdry : Nucleus.judgement Runtime.comp =
+(** Compute a judgement with the given abstracted boundary *)
+and check_judgement ({Location.thing=c';loc} as c) (bdry : Nucleus.boundary_abstraction) : Nucleus.judgement Runtime.comp =
   match c' with
 
   (* for these we switch to infer mode *)

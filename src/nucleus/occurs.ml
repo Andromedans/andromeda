@@ -31,14 +31,20 @@ and abstraction
 
 and arguments k = function
   | [] -> false
-  | arg :: args -> argument k arg || arguments k args
+  | arg :: args -> abstraction judgement k arg || arguments k args
 
 and term_arguments k = function
   | [] -> false
   | arg :: args -> is_term k arg || term_arguments k args
 
-and argument k = function
-  | JudgementIsType t  -> abstraction is_type k t
-  | JudgementIsTerm e  -> abstraction is_term k e
-  | JudgementEqType abstr -> abstraction eq_type k abstr
-  | JudgementEqTerm abstr -> abstraction eq_term k abstr
+and judgement k = function
+  | JudgementIsType t  -> is_type k t
+  | JudgementIsTerm e  -> is_term k e
+  | JudgementEqType eq -> eq_type k eq
+  | JudgementEqTerm eq -> eq_term k eq
+
+let boundary k = function
+  | BoundaryIsType ()  -> false
+  | BoundaryIsTerm t  -> is_type k t
+  | BoundaryEqType (t1, t2) -> is_type k t1 || is_type k t2
+  | BoundaryEqTerm (e1, e2, t) -> is_type k t || is_term k e1  || is_term k e2

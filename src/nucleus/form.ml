@@ -59,7 +59,7 @@ let form_rap sgn constr prems =
   | p :: ps ->
      RapMore
        { rap_arguments = []
-       ; rap_boundary = Form_rule.instantiate_premise [] p
+       ; rap_boundary = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 [] p
        ; rap_premises = ps
        ; rap_constructor = constr
        }
@@ -102,20 +102,17 @@ let form_rap_eq_term sgn c =
       in Mk.eq_term asmp e1 e2 t)
     prems
 
+(* Apply the given partially applied rule instance to the given argument. The result
+   is again a partially applied rule (a special case of which is a fully applied rule). *)
 let rap_apply sgn {rap_arguments; rap_boundary; rap_premises; rap_constructor} arg =
-  if not (match rap_boundary, arg with
-          | BoundaryIsType bdry, JudgementIsType arg -> Alpha_equal.check_is_type_boundary arg bdry
-          | BoundaryIsTerm bdry, JudgementIsTerm arg -> Alpha_equal.check_is_term_boundary sgn arg bdry
-          | BoundaryEqType bdry, JudgementEqType arg -> Alpha_equal.check_eq_type_boundary arg bdry
-          | BoundaryEqTerm bdry, JudgementEqTerm arg -> Alpha_equal.check_eq_term_boundary arg bdry
-          | _, _ -> false)
+  if not (Alpha_equal.abstraction (Alpha_equal.check_judgement_boundary sgn) arg rap_boundary)
   then Error.raise InvalidArgument ;
   let rap_arguments = arg :: rap_arguments in
   match rap_premises with
   | [] -> RapDone (rap_constructor rap_arguments)
   | p :: rap_premises ->
      (** XXX Should we not use the available arguments instead of [] in the line below? *)
-     let rap_boundary = (Form_rule.instantiate_premise [] p) in
+     let rap_boundary = (Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 [] p) in
      RapMore { rap_arguments
              ; rap_boundary
              ; rap_premises

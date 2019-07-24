@@ -34,22 +34,25 @@ type eq_term_abstraction = eq_term abstraction
 
 (** Judgement *)
 type judgement =
-  | JudgementIsType of is_type_abstraction
-  | JudgementIsTerm of is_term_abstraction
-  | JudgementEqType of eq_type_abstraction
-  | JudgementEqTerm of eq_term_abstraction
+  | JudgementIsType of is_type
+  | JudgementIsTerm of is_term
+  | JudgementEqType of eq_type
+  | JudgementEqTerm of eq_term
+
+(** A shorthand abstracted judgement *)
+type judgement_abstraction = judgement abstraction
 
 (** Boundary of a type judgement *)
-type is_type_boundary = unit abstraction
+type is_type_boundary = unit
 
 (** Boundary of a term judgement *)
-type is_term_boundary = is_type abstraction
+type is_term_boundary = is_type
 
 (** Boundary of a type equality judgement *)
-type eq_type_boundary = (is_type * is_type) abstraction
+type eq_type_boundary = (is_type * is_type)
 
 (** Boundary of a term equality judgement *)
-type eq_term_boundary = (is_term * is_term * is_type) abstraction
+type eq_term_boundary = (is_term * is_term * is_type)
 
 (** Boundary of a judgement *)
 type boundary =
@@ -58,23 +61,26 @@ type boundary =
     | BoundaryEqType of eq_type_boundary
     | BoundaryEqTerm of eq_term_boundary
 
+(** A shorthand for abstracted boundary *)
+type boundary_abstraction = boundary abstraction
+
 type assumption
 
 type 'a meta
-type is_type_meta = is_type_boundary meta
-type is_term_meta = is_term_boundary meta
-type eq_type_meta = eq_type_boundary meta
-type eq_term_meta = eq_term_boundary meta
+type is_type_meta = is_type_boundary abstraction meta
+type is_term_meta = is_term_boundary abstraction meta
+type eq_type_meta = eq_type_boundary abstraction meta
+type eq_term_meta = eq_term_boundary abstraction meta
 
 (** A stump is obtained when we invert a judgement. *)
 
 type nonrec stump_is_type =
-  | Stump_TypeConstructor of Ident.t * judgement list
+  | Stump_TypeConstructor of Ident.t * judgement_abstraction list
   | Stump_TypeMeta of is_type_meta * is_term list
 
 and stump_is_term =
   | Stump_TermAtom of is_atom
-  | Stump_TermConstructor of Ident.t * judgement list
+  | Stump_TermConstructor of Ident.t * judgement_abstraction list
   | Stump_TermMeta of is_term_meta * is_term list
   | Stump_TermConvert of is_term * eq_type
 
@@ -110,16 +116,16 @@ module Signature : sig
 end
 
 val form_rule_is_type :
-  (Nonce.t * boundary) list -> Rule.rule_is_type
+  (Nonce.t * boundary_abstraction) list -> Rule.rule_is_type
 
 val form_rule_is_term :
-  (Nonce.t * boundary) list -> is_type -> Rule.rule_is_term
+  (Nonce.t * boundary_abstraction) list -> is_type -> Rule.rule_is_term
 
 val form_rule_eq_type :
-  (Nonce.t * boundary) list -> is_type * is_type -> Rule.rule_eq_type
+  (Nonce.t * boundary_abstraction) list -> is_type * is_type -> Rule.rule_eq_type
 
 val form_rule_eq_term :
-  (Nonce.t * boundary) list -> is_term * is_term * is_type -> Rule.rule_eq_term
+  (Nonce.t * boundary_abstraction) list -> is_term * is_term * is_type -> Rule.rule_eq_term
 
 (** A partially applied rule is a rule with an initial part of the premises
    applied already. We need to represent such partial applications in order to
@@ -143,10 +149,10 @@ val form_rap_eq_type : signature -> Ident.t -> eq_type rule_application
 val form_rap_eq_term : signature -> Ident.t -> eq_term rule_application
 
 (** Apply a rap to one more argument *)
-val rap_apply : signature -> 'a rule_application_status -> judgement -> 'a rule_application
+val rap_apply : signature -> 'a rule_application_status -> judgement_abstraction -> 'a rule_application
 
 (** Give the boundary of a rap status, i.e., the boundary of the next argument. *)
-val rap_boundary : 'a rule_application_status -> boundary
+val rap_boundary : 'a rule_application_status -> boundary_abstraction
 
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
@@ -188,10 +194,10 @@ val abstract_boundary : is_atom -> boundary -> boundary
 val fresh_atom : Name.t -> is_type -> is_atom
 
 (** [fresh_is_type_meta x abstr] creates a fresh type meta-variable of type [abstr] *)
-val fresh_is_type_meta : Name.t -> is_type_boundary -> is_type_meta
-val fresh_is_term_meta : Name.t -> is_term_boundary -> is_term_meta
-val fresh_eq_type_meta : Name.t -> eq_type_boundary -> eq_type_meta
-val fresh_eq_term_meta : Name.t -> eq_term_boundary -> eq_term_meta
+val fresh_is_type_meta : Name.t -> is_type_boundary abstraction -> is_type_meta
+val fresh_is_term_meta : Name.t -> is_term_boundary abstraction -> is_term_meta
+val fresh_eq_type_meta : Name.t -> eq_type_boundary abstraction -> eq_type_meta
+val fresh_eq_term_meta : Name.t -> eq_term_boundary abstraction -> eq_term_meta
 
 val is_type_meta_eta_expanded : signature -> is_type_meta -> is_type_abstraction
 val is_term_meta_eta_expanded : signature -> is_term_meta -> is_term_abstraction
@@ -228,16 +234,16 @@ val invert_eq_term_abstraction :
   ?name:Name.t -> eq_term_abstraction -> eq_term stump_abstraction
 
 val invert_is_term_boundary :
-  ?name:Name.t -> is_term_boundary -> is_type stump_abstraction
+  ?name:Name.t -> is_term_boundary abstraction -> is_type stump_abstraction
 
 val invert_is_type_boundary :
-  ?name:Name.t -> is_type_boundary -> unit stump_abstraction
+  ?name:Name.t -> is_type_boundary abstraction -> unit stump_abstraction
 
 val invert_eq_type_boundary :
-  ?name:Name.t -> eq_type_boundary -> (is_type * is_type) stump_abstraction
+  ?name:Name.t -> eq_type_boundary abstraction -> (is_type * is_type) stump_abstraction
 
 val invert_eq_term_boundary :
-  ?name:Name.t -> eq_term_boundary -> (is_term * is_term * is_type) stump_abstraction
+  ?name:Name.t -> eq_term_boundary abstraction -> (is_term * is_term * is_type) stump_abstraction
 
 val context_is_type_abstraction : is_type_abstraction -> is_atom list
 val context_is_term_abstraction : is_term_abstraction -> is_atom list
@@ -255,11 +261,7 @@ val type_of_term_abstraction : signature -> is_term_abstraction -> is_type_abstr
 val type_at_abstraction : 'a abstraction -> is_type option
 
 (** Checking that an abstracted judgement has the desired boundary *)
-val check_is_type_boundary : is_type_abstraction -> is_type_boundary -> bool
-val check_is_term_boundary : signature -> is_term_abstraction -> is_term_boundary -> bool
-val check_eq_type_boundary : eq_type_abstraction -> eq_type_boundary -> bool
-val check_eq_term_boundary : eq_term_abstraction -> eq_term_boundary -> bool
-val check_judgement_boundary : signature -> judgement -> boundary -> bool
+val check_judgement_boundary_abstraction : signature -> judgement_abstraction -> boundary_abstraction -> bool
 
 (** Typeof for atoms *)
 val type_of_atom : is_atom -> is_type
@@ -281,6 +283,9 @@ val apply_eq_type_abstraction :
 
 val apply_eq_term_abstraction :
   signature -> eq_term_abstraction -> is_term -> eq_term_abstraction
+
+val apply_judgement_abstraction :
+  signature -> judgement_abstraction -> is_term -> judgement_abstraction
 
 (** If [e1 == e2 : A] and [A == B] then [e1 == e2 : B] *)
 val form_eq_term_convert : eq_term -> eq_type -> eq_term
@@ -336,6 +341,11 @@ val congruence_type_constructor :
 val congruence_term_constructor :
   signature -> Ident.t -> congruence_argument list -> eq_term
 
+(** Give human names to things *)
+
+val name_of_judgement : judgement_abstraction -> string
+val name_of_boundary : boundary_abstraction -> string
+
 (** Printing routines *)
 
 val print_is_term :
@@ -362,11 +372,11 @@ val print_eq_term_abstraction :
 val print_eq_type_abstraction :
   ?max_level:Level.t -> penv:print_environment -> eq_type_abstraction -> Format.formatter -> unit
 
-val print_judgement :
-  ?max_level:Level.t -> penv:print_environment -> judgement -> Format.formatter -> unit
+val print_judgement_abstraction :
+  ?max_level:Level.t -> penv:print_environment -> judgement_abstraction -> Format.formatter -> unit
 
-val print_boundary :
-  ?max_level:Level.t -> penv:print_environment -> boundary -> Format.formatter -> unit
+val print_boundary_abstraction :
+  ?max_level:Level.t -> penv:print_environment -> boundary_abstraction -> Format.formatter -> unit
 
 (** An error emitted by the nucleus *)
 type error

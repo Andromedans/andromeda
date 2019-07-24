@@ -4,14 +4,6 @@ let atom_name {atom_nonce=x;_} = Nonce.name x
 
 (** Destructors *)
 
-let invert_argument = function
-  | JudgementIsTerm abstr -> JudgementIsTerm abstr
-  | JudgementIsType abstr -> JudgementIsType abstr
-  | JudgementEqType abstr -> JudgementEqType abstr
-  | JudgementEqTerm abstr -> JudgementEqTerm abstr
-
-let invert_arguments args = List.map invert_argument args
-
 let invert_is_term sgn = function
 
   | TermAtom a -> Stump_TermAtom a
@@ -19,8 +11,7 @@ let invert_is_term sgn = function
   | TermBound _ -> assert false
 
   | TermConstructor (c, args) ->
-     let arguments = invert_arguments args in
-     Stump_TermConstructor (c, arguments)
+     Stump_TermConstructor (c, args)
 
   | TermMeta (mv, args) ->
      Stump_TermMeta (mv, args)
@@ -32,8 +23,8 @@ let invert_is_term sgn = function
 
 let invert_is_type = function
   | TypeConstructor (c, args) ->
-     let arguments = invert_arguments args in
-     Stump_TypeConstructor (c, arguments)
+     Stump_TypeConstructor (c, args)
+
   | TypeMeta (mv, args) -> Stump_TypeMeta (mv, args)
 
 let invert_eq_type (EqType (asmp, t1, t2)) = Stump_EqType (asmp, t1, t2)

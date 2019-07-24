@@ -74,21 +74,13 @@ and term_arguments ~lvl k args =
   List.map (is_term ~lvl k) args
 
 and arguments ~lvl k args =
-  List.map (argument ~lvl k) args
+  List.map (abstraction argument ~lvl k) args
 
 and argument ~lvl k = function
-   | JudgementIsTerm abstr ->
-      let abstr = abstraction is_term ~lvl k abstr in
-      JudgementIsTerm abstr
+   | JudgementIsType t -> JudgementIsType (is_type ~lvl k t)
 
-   | JudgementIsType abstr ->
-      let abstr = abstraction is_type ~lvl k abstr in
-      JudgementIsType abstr
+   | JudgementIsTerm e -> JudgementIsTerm (is_term ~lvl k e)
 
-   | JudgementEqType abstr ->
-      let abstr = abstraction eq_type ~lvl k abstr in
-      JudgementEqType abstr
+   | JudgementEqType eq -> JudgementEqType (eq_type ~lvl k eq)
 
-   | JudgementEqTerm abstr ->
-      let abstr = abstraction eq_term ~lvl k abstr in
-      JudgementEqTerm abstr
+   | JudgementEqTerm eq -> JudgementEqTerm (eq_term ~lvl k eq)

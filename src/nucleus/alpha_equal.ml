@@ -71,17 +71,8 @@ and arguments args args' =
 
   | [], [] -> true
 
-  | (JudgementIsTerm e) :: args, (JudgementIsTerm e') :: args' ->
-     abstraction is_term e e' && arguments args args'
-
-  | (JudgementIsType t) :: args, (JudgementIsType t') :: args' ->
-     abstraction is_type t t' && arguments args args'
-
-  | JudgementEqType _ :: args, JudgementEqType _ :: args' -> arguments args args'
-
-  | JudgementEqTerm _ :: args, JudgementEqTerm _ :: args' -> arguments args args'
-
-  | (JudgementIsTerm _ | JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _)::_, _::_
+  | abstr :: args, abstr' :: args' ->
+     abstraction judgement abstr abstr' && arguments args args'
 
   | (_::_), []
 
@@ -91,15 +82,17 @@ and arguments args args' =
         with that *)
      assert false
 
-let judgement jdg1 jdg2 =
+and judgement jdg1 jdg2 =
   match jdg1, jdg2 with
-  | JudgementIsType t1, JudgementIsType t2 -> abstraction is_type t1 t2
+  | JudgementIsType t1, JudgementIsType t2 -> is_type t1 t2
 
-  | JudgementIsTerm e1, JudgementIsTerm e2 -> abstraction is_term e1 e2
+  | JudgementIsTerm e1, JudgementIsTerm e2 -> is_term e1 e2
 
-  (** Comparing equality types means comparing their "proof terms", not their boundaries! *)
-  | JudgementEqType eq1, JudgementEqType eq2 -> abstraction (fun _ _ -> true) eq1 eq2
-  | JudgementEqTerm eq1, JudgementEqTerm eq2 -> abstraction (fun _ _ -> true) eq1 eq2
+  | JudgementEqType (EqType (_asmp1, t1, u1)), JudgementEqType (EqType (_asmp2, t2, u2)) ->
+     is_type t1 u2 && is_type u1 u2
+
+  | JudgementEqTerm (EqTerm (_asmp1, a1, b1, t1)), JudgementEqTerm (EqTerm (_asmp2, a2, b2, t2)) ->
+     is_type t1 t2 && is_term a1 a2 && is_term b1 b2
 
   | JudgementIsType _, (JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _)
   | JudgementIsTerm _, (JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _)
@@ -109,15 +102,15 @@ let judgement jdg1 jdg2 =
 
 let boundary jdg1 jdg2 =
   match jdg1, jdg2 with
-  | BoundaryIsType abstr1, BoundaryIsType abstr2 -> abstraction (fun () () -> true) abstr1 abstr2
+  | BoundaryIsType (), BoundaryIsType () -> true
 
-  | BoundaryIsTerm t1, BoundaryIsTerm t2 -> abstraction is_type t1 t2
+  | BoundaryIsTerm t1, BoundaryIsTerm t2 -> is_type t1 t2
 
-  | BoundaryEqType eq1, BoundaryEqType eq2 ->
-     abstraction (fun (u1, t1) (u2, t2) -> is_type u1 u2 && is_type t1 t2) eq1 eq2
+  | BoundaryEqType (u1, t1), BoundaryEqType (u2, t2) ->
+     is_type u1 u2 && is_type t1 t2
 
-  | BoundaryEqTerm eq1, BoundaryEqTerm eq2 ->
-     abstraction (fun (a1, b1, t1) (a2, b2, t2) -> is_type t1 t2 && is_term a1 a2 && is_term b1 b2) eq1 eq2
+  | BoundaryEqTerm (a1, b1, t1), BoundaryEqTerm (a2, b2, t2) ->
+     is_type t1 t2 && is_term a1 a2 && is_term b1 b2
 
   | BoundaryIsType _, (BoundaryIsTerm _ | BoundaryEqType _ | BoundaryEqTerm _)
   | BoundaryIsTerm _, (BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _)
@@ -125,15 +118,16 @@ let boundary jdg1 jdg2 =
   | BoundaryEqTerm _, (BoundaryIsType _ | BoundaryIsTerm _ | BoundaryEqType _) ->
      false
 
+let check_is_type_boundary abstr bdry = true
 
-let check_is_type_boundary abstr bdry =
-  abstraction (fun _ _ -> true) abstr bdry
+let check_is_term_boundary sgn e t =
+  is_type (Sanity.type_of_term sgn e) t
 
-let check_is_term_boundary sgn abstr bdry =
-  abstraction (fun e t -> is_type (Sanity.type_of_term sgn e) t) abstr bdry
+let check_eq_type_boundary (EqType (_asmp, t1, t2)) (u1, u2) =
+  is_type t1 u1 && is_type t2 u2
 
-let check_eq_type_boundary _ _ = failwith "check_eq_type_boundary"
-let check_eq_term_boundary _ _ = failwith "check_eq_term_boundary"
+let check_eq_term_boundary (EqTerm (_asmp, a, b, t)) (a', b', t') =
+  is_type t t' && is_term a a' && is_term b b'
 
 let check_judgement_boundary sgn jdg bdry =
   match bdry with
@@ -161,5 +155,7 @@ let check_judgement_boundary sgn jdg bdry =
        | JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _ -> false
        end
 
+let check_judgement_boundary_abstraction sgn =
+  abstraction (check_judgement_boundary sgn)
 
-let abstraction eq_v e e' = e == e' || abstraction eq_v e e'
+(* let abstraction eq_v e e' = e == e' || abstraction eq_v e e' *)
