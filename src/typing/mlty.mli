@@ -16,21 +16,10 @@ end
 (** Sets of metavariables. *)
 module MetaSet : Set.S with type elt = meta
 
-(** ML typing keeps track of judgement forms *)
-type judgement =
-  | IsType
-  | IsTerm
-  | EqType
-  | EqTerm
-
-(** ML typing keeps track of TT abstractions (without dependencies) *)
-type abstracted_judgement =
-  | NotAbstract of judgement
-  | Abstract of abstracted_judgement
-
 (** The type of ML types. *)
 type ty =
-  | Judgement of abstracted_judgement
+  | Judgement
+  | Boundary
   | String
   | Meta of meta
   | Param of param
@@ -40,18 +29,6 @@ type ty =
   | Apply of Path.t * ty list
   | Ref of ty
   | Dynamic of ty
-
-(** The ML type of a TT constructor. *)
-type tt_constructor = abstracted_judgement list * judgement
-
-(** Non-abstracted type judgement *)
-val is_type : ty
-
-(** Non-abstracted term judgement *)
-val is_term : ty
-
-(** Non-abstracted equality type judgement *)
-val eq_type : ty
 
 (** The unit type encoded as an empty product. *)
 val unit_ty : ty
@@ -89,8 +66,6 @@ type error =
   | Ungeneralizable of param list * ty
   | UnknownJudgementForm
   | JudgementExpected of ty
-  | AbstractionExpected of judgement
-  | UnexpectedJudgementAbstraction of judgement
 
 exception Error of error Location.located
 

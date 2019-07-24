@@ -26,13 +26,13 @@ val lookup_ml_operation : Path.t -> t -> Ident.t * (Mlty.ty list * Mlty.ty)
 val lookup_ml_constructor : Path.ml_constructor -> t -> Ident.t * Mlty.ty list * Mlty.ty
 
 (** Lookup the (M)L type of a TT constructor. *)
-val lookup_tt_constructor : Path.t -> t -> Ident.t * Mlty.tt_constructor
+val lookup_tt_constructor : Path.t -> t -> Ident.t
 
 (** Lookup the type of the current continuation. *)
 val lookup_continuation : t -> Mlty.ty * Mlty.ty
 
 (** Declare a new TT constructor. *)
-val add_tt_constructor : Ident.t -> Mlty.tt_constructor -> t -> t
+val add_tt_constructor : Ident.t -> t -> t
 
 (** Define a new type. The type definition may refer to not-yet-defined types, relying on the caller to add them afterwards. *)
 val add_ml_type : Path.t -> Mlty.ty_def -> t -> t

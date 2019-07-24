@@ -532,22 +532,6 @@ let check_arity ~loc pth used expected =
 
 let locate = Location.locate
 
-let mlty_judgement = function
-  | Input.ML_IsType -> Dsyntax.ML_IsType
-  | Input.ML_IsTerm -> Dsyntax.ML_IsTerm
-  | Input.ML_EqType -> Dsyntax.ML_EqType
-  | Input.ML_EqTerm -> Dsyntax.ML_EqTerm
-
-let rec mlty_abstracted_judgement = function
-
-  | Input.ML_NotAbstract frm ->
-     let frm = mlty_judgement frm in
-     Dsyntax.ML_NotAbstract frm
-
-  | Input.ML_Abstract abstr ->
-     let abstr = mlty_abstracted_judgement abstr in
-     Dsyntax.ML_Abstract abstr
-
 (* Desugar an ML type, with the given list of known type parameters *)
 let mlty ctx params ty =
   let rec mlty ({Location.thing=ty';loc}) =
@@ -612,9 +596,11 @@ let mlty ctx params ty =
       | Input.ML_Anonymous ->
          Dsyntax.ML_Anonymous
 
-      | Input.ML_Judgement abstr ->
-         let abstr = mlty_abstracted_judgement abstr
-         in Dsyntax.ML_Judgement abstr
+      | Input.ML_Judgement ->
+         Dsyntax.ML_Judgement
+
+      | Input.ML_Boundary ->
+         Dsyntax.ML_Boundary
 
       | Input.ML_String -> Dsyntax.ML_String
       end

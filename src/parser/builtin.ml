@@ -7,8 +7,6 @@ let unloc x = Location.locate x Location.unknown
 
 let builtin_ml_types =
   let ty_alpha = unloc (Input.ML_TyApply (Name.PName name_alpha, [])) in
-  let un_ml_is_term = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_IsTerm)) in
-  let un_ml_eq_type = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_EqType)) in
   let decl_bool = Input.DefMLType [Name.Builtin.bool_name, ([],
     Input.ML_Sum [
     (Name.Builtin.mlfalse_name, []);
@@ -20,13 +18,6 @@ let builtin_ml_types =
     (Name.Builtin.some_name, [ty_alpha])
     ])]
 
-  and decl_coercible = Input.DefMLType [Name.Builtin.coercible_ty_name, ([],
-    Input.ML_Sum [
-    (Name.Builtin.notcoercible_name, []) ;
-    (Name.Builtin.convertible_name, [un_ml_eq_type]);
-    (Name.Builtin.coercible_constructor_name, [un_ml_is_term])
-    ])]
-
   and decl_order = Input.DefMLType [Name.Builtin.mlorder_name, ([],
     Input.ML_Sum [
       (Name.Builtin.mlless_name, []) ;
@@ -34,36 +25,34 @@ let builtin_ml_types =
       (Name.Builtin.mlgreater_name, [])
       ])]
   in
-  [unloc decl_bool; unloc decl_option; unloc decl_coercible; unloc decl_order]
+  [unloc decl_bool; unloc decl_option; unloc decl_order]
 
 let builtin_ops =
-  let un_ml_is_type = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_IsType)) in
-  let un_ml_is_term = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_IsTerm)) in
-  let un_ml_eq_type = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_EqType)) in
-  let un_ml_eq_term = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_EqTerm)) in
+  let un_ml_judgement = unloc (Input.ML_Judgement) in
+  let un_ml_boundary = unloc (Input.ML_Boundary) in
   let decl_equal_term =
     Input.DeclOperation
       (Name.Builtin.equal_term_name,
-       ([un_ml_is_term; un_ml_is_term],
-        unloc (Input.ML_TyApply (Name.PName Name.Builtin.option_name, [un_ml_eq_term]))))
+       ([un_ml_judgement; un_ml_judgement],
+        unloc (Input.ML_TyApply (Name.PName Name.Builtin.option_name, [un_ml_judgement]))))
   and decl_equal_type =
     Input.DeclOperation
       (Name.Builtin.equal_type_name,
-       ([un_ml_is_type; un_ml_is_type],
-        unloc (Input.ML_TyApply (Name.PName Name.Builtin.option_name, [un_ml_eq_type]))))
+       ([un_ml_judgement; un_ml_judgement],
+        unloc (Input.ML_TyApply (Name.PName Name.Builtin.option_name, [un_ml_judgement]))))
   and decl_coerce =
     Input.DeclOperation
       (Name.Builtin.coerce_name,
-       ([un_ml_is_term; un_ml_is_type],
-        unloc (Input.ML_TyApply (Name.PName Name.Builtin.coercible_ty_name, []))))
+       ([un_ml_judgement; un_ml_boundary],
+        unloc (Input.ML_TyApply (Name.PName Name.Builtin.option_name, [un_ml_judgement]))))
   in
   [unloc decl_equal_term;
    unloc decl_equal_type;
    unloc decl_coerce]
 
 let builtin_ml_values =
-  let un_ml_is_term = unloc (Input.ML_Judgement (Input.ML_NotAbstract Input.ML_IsTerm)) in
-  let hyps_annot = unloc (Input.ML_TyApply (Name.PName Name.Builtin.list_name, [un_ml_is_term])) in
+  let un_ml_judgement = unloc (Input.ML_Judgement) in
+  let hyps_annot = unloc (Input.ML_TyApply (Name.PName Name.Builtin.list_name, [un_ml_judgement])) in
   let empty_list = unloc (Input.Spine (unloc (Input.Name (Name.PName Name.Builtin.nil_name)), [])) in
   let decl_hyps = Input.TopDynamic
                     (Name.Builtin.hypotheses_name, Input.Arg_annot_ty hyps_annot, empty_list) in

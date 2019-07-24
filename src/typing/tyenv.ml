@@ -123,34 +123,21 @@ let rec whnf ctx s = function
      | None -> t
      end
 
-  | (Mlty.Judgement _ | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
-     Mlty.Handler _ | Mlty.Ref _ | Mlty.Dynamic _) as t -> t
+  | Mlty.(Judgement | Boundary | String | Param _ | Prod _ | Arrow _ |
+     Handler _ | Ref _ | Dynamic _) as t -> t
 
 (** Unify types [t] and [t'] under current substitition [s],
     and return the updated substitution, or [None] if the types
     are not unifiable. *)
 let rec unifiable ctx s t t' =
-  let rec unifiable_judgement_abstraction s abstr1 abstr2 =
-    match abstr1, abstr2 with
-    | Mlty.NotAbstract frm1, Mlty.NotAbstract frm2 ->
-       if frm1 = frm2 then
-         Some s
-       else
-         None
-    | Mlty.Abstract abstr1, Mlty.Abstract abstr2 ->
-       unifiable_judgement_abstraction s abstr1 abstr2
-    | Mlty.NotAbstract _, Mlty.Abstract _
-    | Mlty.Abstract _, Mlty.NotAbstract _ -> None
-  in
   let (>?=) m f = match m with
     | Some x -> f x
     | None -> None
   in
   match whnf ctx s t, whnf ctx s t' with
-  | Mlty.Judgement abstr1, Mlty.Judgement abstr2 ->
-     unifiable_judgement_abstraction s abstr1 abstr2
-
-  | Mlty.String, Mlty.String ->
+  | Mlty.(Judgement, Judgement)
+  | Mlty.(Boundary, Boundary)
+  | Mlty.(String, String) ->
      Some s
 
   | Mlty.Meta m, Mlty.Meta m' when Mlty.eq_meta m m' ->
@@ -205,12 +192,12 @@ let rec unifiable ctx s t t' =
         fold s ts ts'
      end
 
-  | (Mlty.Judgement _ | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Prod _ |
-     Mlty.Param _ | Mlty.Arrow _ | Mlty.Handler _ | Mlty.Apply _), _ ->
+  | Mlty.(Judgement | Boundary | String | Ref _ | Dynamic _ | Prod _ |
+     Param _ | Arrow _ | Handler _ | Apply _), _ ->
      None
 
-let add_tt_constructor c t env =
-  let context = Context.add_tt_constructor c t env.context in
+let add_tt_constructor c env =
+  let context = Context.add_tt_constructor c env.context in
   (), {env with context}
 
 let add_equation ~loc t t' env =
@@ -220,9 +207,9 @@ let add_equation ~loc t t' env =
      return () {env with substitution=s}
 
   | None ->
-     Mlty.error ~loc
-                (Mlty.TypeMismatch (Substitution.apply env.substitution t,
-                                    Substitution.apply env.substitution t'))
+     Mlty.(error ~loc
+                (TypeMismatch (Substitution.apply env.substitution t,
+                               Substitution.apply env.substitution t')))
 
 let as_handler ~loc t env =
   let t = whnf env.context env.substitution t in
@@ -238,9 +225,9 @@ let as_handler ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Judgement _ | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ |  Mlty.Param _ |
-     Mlty.Prod _ | Mlty.Arrow _ | Mlty.Apply _) ->
-     Mlty.error ~loc (Mlty.HandlerExpected t)
+  | Mlty.(Judgement | Boundary | String | Ref _ | Dynamic _ |  Param _ |
+     Prod _ | Arrow _ | Apply _) ->
+     Mlty.(error ~loc (HandlerExpected t))
 
 let as_ref ~loc t env =
   let t = whnf env.context env.substitution t in
@@ -255,9 +242,9 @@ let as_ref ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Judgement _ | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
-     Mlty.Arrow _ | Mlty.Apply _ | Mlty.Dynamic _) ->
-     Mlty.error ~loc (Mlty.RefExpected t)
+  | Mlty.(Judgement | Boundary | String | Param _ | Prod _ | Handler _ |
+     Arrow _ | Apply _ | Dynamic _) ->
+     Mlty.(error ~loc (RefExpected t))
 
 let as_dynamic ~loc t env =
   let t = whnf env.context env.substitution t in
@@ -272,9 +259,8 @@ let as_dynamic ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Judgement _ | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
-     Mlty.Arrow _ | Mlty.Apply _ | Mlty.Ref _) ->
-     Mlty.error ~loc (Mlty.DynamicExpected t)
+  | Mlty.(Judgement | Boundary | String | Param _ | Prod _ | Handler _ | Arrow _ | Apply _ | Ref _) ->
+     Mlty.(error ~loc (DynamicExpected t))
 
 let op_cases op ~output m env =
   let oid, argts, context = Context.op_cases op ~output env.context in

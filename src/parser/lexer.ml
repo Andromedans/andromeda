@@ -2,15 +2,12 @@
 open Parser
 
 let reserved = [
-  ("is_type", MLISTYPE) ;
-  ("is_term", MLISTERM) ;
-  ("eq_type", MLEQTYPE) ;
-  ("eq_term", MLEQTERM) ;
   ("_", UNDERSCORE) ;
   ("_atom", UATOM) ;
   ("and", AND) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
+  ("boundary", MLBOUNDARY) ;
   ("context", CONTEXT) ;
   ("current", CURRENT) ;
   ("dynamic", DYNAMIC) ;
@@ -22,6 +19,7 @@ let reserved = [
   ("handler", HANDLER) ;
   ("in", IN) ;
   ("include", INCLUDE) ;
+  ("judgement", MLJUDGEMENT) ;
   ("let", LET) ;
   ("match", MATCH) ;
   ("mlforall", MLFORALL) ;

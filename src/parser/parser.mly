@@ -47,7 +47,7 @@
 
 (* Meta types *)
 %token MLUNIT MLSTRING
-%token MLISTYPE MLISTERM MLEQTYPE MLEQTERM
+%token MLJUDGEMENT MLBOUNDARY
 %token MLTYPE
 %token MLFORALL
 %token OF
@@ -501,21 +501,12 @@ plain_app_mlty:
 simple_mlty: mark_location(plain_simple_mlty) { $1 }
 plain_simple_mlty:
   | LPAREN t=plain_mlty RPAREN          { t }
-  | c=long(ml_name)                    { ML_TyApply (c, []) }
-  | abstr=mlty_abstracted_judgement     { ML_Judgement abstr }
+  | c=long(ml_name)                     { ML_TyApply (c, []) }
+  | MLJUDGEMENT                         { ML_Judgement }
+  | MLBOUNDARY                          { ML_Boundary }
   | MLUNIT                              { ML_Prod [] }
   | MLSTRING                            { ML_String }
   | UNDERSCORE                          { ML_Anonymous }
-
-mlty_judgement:
-  | MLISTYPE { ML_IsType }
-  | MLISTERM { ML_IsTerm }
-  | MLEQTYPE { ML_EqType }
-  | MLEQTERM { ML_EqTerm }
-
-mlty_abstracted_judgement:
-  | frm=mlty_judgement                                      { ML_NotAbstract frm }
-  | LBRACE RBRACE abstr=mlty_abstracted_judgement           { ML_Abstract abstr }
 
 mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def) { lst }
