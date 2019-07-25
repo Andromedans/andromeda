@@ -4,9 +4,11 @@ open Nucleus_types
 
 (** [abstract_is_type x0 ~lvl:k t] replaces atom [x0] in type [t] with bound variable [k] (default [0]). *)
 let rec is_type x ?(lvl=0) = function
+
   | TypeConstructor (c, args) ->
      let args = arguments x ~lvl args in
      TypeConstructor (c, args)
+
   | TypeMeta (mv, args) ->
      let args = term_arguments x ~lvl args
      and mv = is_type_meta x ~lvl mv in
@@ -18,8 +20,8 @@ and is_term x ?(lvl=0) = function
        e
      else
        assert false
-  (* we should never get here because abstracting should always introduce a
-     highest-level bound index. *)
+       (* we should never get here because abstracting should always introduce a
+          highest-level bound index. *)
 
   | (TermAtom {atom_nonce=y; atom_type=t}) as e ->
      begin match Nonce.equal x y with
@@ -40,10 +42,11 @@ and is_term x ?(lvl=0) = function
      let args = arguments x ~lvl args in
      TermConstructor (c, args)
 
-  | TermConvert (c, asmp, t) ->
-     let asmp = Assumption.abstract x ~lvl asmp
+  | TermConvert (e, asmp, t) ->
+     let e = is_term x ~lvl e
+     and asmp = Assumption.abstract x ~lvl asmp
      and t = is_type x ~lvl t in
-     TermConvert (c, asmp, t)
+     TermConvert (e, asmp, t)
 
 and eq_type x ?(lvl=0) (EqType (asmp, t1, t2)) =
   let asmp = assumptions x ~lvl asmp
