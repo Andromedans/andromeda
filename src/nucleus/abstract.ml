@@ -86,9 +86,9 @@ and abstraction
 
 and term_arguments x ?(lvl=0) args = List.map (is_term x ~lvl) args
 
-and arguments x ?(lvl=0) args = List.map (abstraction argument x ~lvl) args
+and arguments x ?(lvl=0) args = List.map (abstraction judgement x ~lvl) args
 
-and argument x ?(lvl=0) = function
+and judgement x ?(lvl=0) = function
   | JudgementIsType t -> JudgementIsType (is_type x ~lvl t)
 
   | JudgementIsTerm e -> JudgementIsTerm (is_term x ~lvl e)
@@ -98,8 +98,6 @@ and argument x ?(lvl=0) = function
   | JudgementEqTerm asmp -> JudgementEqTerm (eq_term x ~lvl asmp)
 
 let not_abstract u = Mk.not_abstract u
-
-let judgement atm jdg = argument atm.atom_nonce jdg
 
 let is_type_abstraction atm abstr =
   (* XXX occurs check?! *)
@@ -118,6 +116,10 @@ let eq_term_abstraction atm abstr =
   let abstr = abstraction eq_term atm.atom_nonce abstr in
   Mk.abstract atm abstr
 
+let judgement_abstraction atm abstr =
+  let abstr = abstraction judgement atm.atom_nonce abstr in
+  Mk.abstract atm abstr
+
 let boundary_is_type _atm ?lvl () = ()
 
 let boundary_is_term atm ?lvl t = is_type atm ?lvl t
@@ -132,6 +134,12 @@ let boundary_eq_term atm ?lvl (lhs, rhs, t) =
   and rhs = is_term ?lvl atm rhs
   and t = is_type ?lvl atm t in
   (lhs, rhs, t)
+
+let boundary atm ?lvl = function
+  | BoundaryIsTerm bdry -> BoundaryIsTerm (boundary_is_term atm ?lvl bdry)
+  | BoundaryIsType bdry -> BoundaryIsType (boundary_is_type atm ?lvl bdry)
+  | BoundaryEqType bdry -> BoundaryEqType (boundary_eq_type atm ?lvl bdry)
+  | BoundaryEqTerm bdry -> BoundaryEqTerm (boundary_eq_term atm ?lvl bdry)
 
 let boundary_is_type_abstraction atm abstr =
   let abstr = abstraction boundary_is_type atm.atom_nonce abstr in
@@ -149,8 +157,6 @@ let boundary_eq_term_abstraction atm abstr =
   let abstr = abstraction boundary_eq_term atm.atom_nonce abstr in
   Mk.abstract atm abstr
 
-let boundary atm = function
-  | BoundaryIsTerm bdry -> BoundaryIsTerm (boundary_is_term atm.atom_nonce bdry)
-  | BoundaryIsType bdry -> BoundaryIsType (boundary_is_type atm.atom_nonce bdry)
-  | BoundaryEqType bdry -> BoundaryEqType (boundary_eq_type atm.atom_nonce bdry)
-  | BoundaryEqTerm bdry -> BoundaryEqTerm (boundary_eq_term atm.atom_nonce bdry)
+let boundary_abstraction atm abstr =
+  let abstr = abstraction boundary atm.atom_nonce abstr in
+  Mk.abstract atm abstr

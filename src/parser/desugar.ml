@@ -1400,7 +1400,8 @@ let premise ctx {Location.thing=prem;loc} =
   | Input.PremiseIsType (mvar, local_ctx) ->
      let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
      let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
-     ctx, locate (Dsyntax.PremiseIsType (mvar, local_ctx)) loc
+     let bdry = Dsyntax.BoundaryIsType in
+     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 
   | Input.PremiseIsTerm (mvar, local_ctx, c) ->
      let c, local_ctx =
@@ -1409,10 +1410,11 @@ let premise ctx {Location.thing=prem;loc} =
          (fun ctx -> comp ctx c)
      in
      let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
-     ctx, locate (Dsyntax.PremiseIsTerm (mvar, local_ctx, c)) loc
+     let bdry = Dsyntax.BoundaryIsTerm c in
+     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 
   | Input.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
-     let c12, local_ctx =
+     let (c1, c2), local_ctx =
        local_context
          ctx local_ctx
          (fun ctx ->
@@ -1420,10 +1422,11 @@ let premise ctx {Location.thing=prem;loc} =
            comp ctx c2)
      in
      let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
-     ctx, locate (Dsyntax.PremiseEqType (mvar, local_ctx, c12)) loc
+     let bdry = Dsyntax.BoundaryEqType (c1, c2) in
+     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 
   | Input.PremiseEqTerm (mvar, local_ctx, (c1, c2, c3)) ->
-     let c123, local_ctx =
+     let (c1, c2, c3), local_ctx =
        local_context ctx local_ctx
        (fun ctx ->
          comp ctx c1,
@@ -1431,7 +1434,8 @@ let premise ctx {Location.thing=prem;loc} =
          comp ctx c3)
      in
      let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
-     ctx, locate (Dsyntax.PremiseEqTerm (mvar, local_ctx, c123)) loc
+     let bdry = Dsyntax.BoundaryEqTerm (c1, c2, c3) in
+     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 
 let premises ctx prems m =
   let rec fold ctx prems_out = function
@@ -1454,7 +1458,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
   | Input.RuleIsType (rname, prems) ->
      let (), prems = premises ctx prems (fun _ -> ()) in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate1 (Dsyntax.RuleIsType (pth, prems)))
+     let bdry = Dsyntax.BoundaryIsType in
+     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
 
   | Input.RuleIsTerm (rname, prems, c) ->
      let c, prems =
@@ -1463,10 +1468,11 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
          (fun ctx -> comp ctx c)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate1 (Dsyntax.RuleIsTerm (pth, prems, c)))
+     let bdry = Dsyntax.BoundaryIsTerm c in
+     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
 
   | Input.RuleEqType (rname, prems, (c1, c2)) ->
-     let c12, prems =
+     let (c1, c2), prems =
        premises
          ctx prems
          (fun ctx ->
@@ -1474,10 +1480,11 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
            comp ctx c2)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate1 (Dsyntax.RuleEqType (pth, prems, c12)))
+     let bdry = Dsyntax.BoundaryEqType (c1, c2) in
+     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
 
   | Input.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
-     let c123, prems =
+     let (c1, c2, c3), prems =
        premises
          ctx prems
          (fun ctx ->
@@ -1486,7 +1493,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
           comp ctx c3)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate1 (Dsyntax.RuleEqTerm (pth, prems, c123)))
+     let bdry = Dsyntax.BoundaryEqTerm (c1, c2, c3) in
+     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
 
   | Input.DeclOperation (op, (args, res)) ->
      let args, res = decl_operation ~loc ctx args res in

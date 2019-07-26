@@ -54,7 +54,9 @@ let form_eq_term_meta sgn {meta_nonce; meta_type} args =
   in
   Mk.eq_term asmp lhs rhs t
 
-let meta_eta_expanded instantiate_meta form_meta abstract_meta mv =
+let form_judgement_meta sgn mv args = failwith "form_judgement_meta not implemented"
+
+let meta_eta_expanded' instantiate_meta form_meta abstract_meta mv =
   let rec fold args = function
 
     | NotAbstract u ->
@@ -70,19 +72,19 @@ let meta_eta_expanded instantiate_meta form_meta abstract_meta mv =
   in fold [] mv.meta_type
 
 let is_type_meta_eta_expanded sgn =
-  meta_eta_expanded
+  meta_eta_expanded'
     (fun _e0 ?lvl () -> ())
     (form_is_type_meta sgn)
     Abstract.is_type
 
 let is_term_meta_eta_expanded sgn =
-  meta_eta_expanded
+  meta_eta_expanded'
     Instantiate_bound.is_type
     (form_is_term_meta sgn)
     Abstract.is_term
 
 let eq_type_meta_eta_expanded sgn =
-  meta_eta_expanded
+  meta_eta_expanded'
     (fun e0 ?lvl (lhs, rhs) ->
        Instantiate_bound.is_type e0 ?lvl lhs,
        Instantiate_bound.is_type e0 ?lvl rhs)
@@ -90,10 +92,16 @@ let eq_type_meta_eta_expanded sgn =
     Abstract.eq_type
 
 let eq_term_meta_eta_expanded sgn =
-  meta_eta_expanded
+  meta_eta_expanded'
     (fun e0 ?lvl (lhs, rhs, t) ->
        Instantiate_bound.is_term e0 ?lvl lhs,
        Instantiate_bound.is_term e0 ?lvl rhs,
        Instantiate_bound.is_type e0 ?lvl t)
     (form_eq_term_meta sgn)
     Abstract.eq_term
+
+let meta_eta_expanded sgn =
+  meta_eta_expanded'
+    Instantiate_bound.boundary
+    (form_judgement_meta sgn)
+    Abstract.judgement

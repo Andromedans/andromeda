@@ -205,3 +205,16 @@ let eq_term_boundary e0 ?(lvl=0) (e1, e2, t) =
   and e2 = is_term e0 ~lvl e2
   and t = is_type e0 ~lvl t in
   (e1, e2, t)
+
+let boundary e0 ?(lvl=0) = function
+  | BoundaryIsType () ->
+     BoundaryIsType (is_type_boundary e0 ~lvl ())
+
+  | BoundaryIsTerm t ->
+     BoundaryIsTerm (is_term_boundary e0 ~lvl t)
+
+  | BoundaryEqType (t1, t2) ->
+     BoundaryEqType (eq_type_boundary e0 ~lvl (t1, t2))
+
+  | BoundaryEqTerm (e1, e2, t) ->
+     BoundaryEqTerm (eq_term_boundary e0 ~lvl (e1, e2, t))

@@ -160,19 +160,15 @@ val form_eq_term_meta : signature -> eq_term_meta -> is_term list -> eq_term
 (** Form a non-abstracted abstraction *)
 val abstract_not_abstract : 'a -> 'a abstraction
 
-(** Form an abstracted judgement *)
+(** Abstract a judgement abstraction *)
 (* val abstract_is_type : is_atom -> is_type_abstraction -> is_type_abstraction *)
 val abstract_is_term : is_atom -> is_term_abstraction -> is_term_abstraction
 (* val abstract_eq_type : is_atom -> eq_type_abstraction -> eq_type_abstraction *)
 (* val abstract_eq_term : is_atom -> eq_term_abstraction -> eq_term_abstraction *)
-val abstract_judgement : is_atom -> judgement -> judgement
+val abstract_judgement : is_atom -> judgement_abstraction -> judgement_abstraction
 
-(** Form an abstracted boundary *)
-(* val abstract_boundary_is_type : is_atom -> is_type_boundary -> is_type_boundary *)
-(* val abstract_boundary_is_term : is_atom -> is_term_boundary -> is_term_boundary *)
-(* val abstract_boundary_eq_type : is_atom -> eq_type_boundary -> eq_type_boundary *)
-(* val abstract_boundary_eq_term : is_atom -> eq_term_boundary -> eq_term_boundary *)
-val abstract_boundary : is_atom -> boundary -> boundary
+(** Abstract a boundary abstraction *)
+val abstract_boundary : is_atom -> boundary_abstraction -> boundary_abstraction
 
 (** [fresh_atom x t] Create a fresh atom from name [x] with type [t] *)
 val fresh_atom : Name.t -> is_type -> is_atom
@@ -183,10 +179,14 @@ val fresh_is_term_meta : Name.t -> is_term_boundary abstraction -> is_term_meta
 val fresh_eq_type_meta : Name.t -> eq_type_boundary abstraction -> eq_type_meta
 val fresh_eq_term_meta : Name.t -> eq_term_boundary abstraction -> eq_term_meta
 
+(** [fresh_meta x bdry] creates a fresh meta-variable with the given boundary *)
+val fresh_meta : Name.t -> boundary_abstraction -> boundary_abstraction meta
+
 val is_type_meta_eta_expanded : signature -> is_type_meta -> is_type_abstraction
 val is_term_meta_eta_expanded : signature -> is_term_meta -> is_term_abstraction
 val eq_type_meta_eta_expanded : signature -> eq_type_meta -> eq_type_abstraction
 val eq_term_meta_eta_expanded : signature -> eq_term_meta -> eq_term_abstraction
+val meta_eta_expanded : signature -> boundary_abstraction meta -> judgement_abstraction
 
 (** Verify that an abstraction is in fact not abstract *)
 val as_not_abstract : 'a abstraction -> 'a option
@@ -263,6 +263,7 @@ val occurs_is_type_abstraction : is_atom -> is_type_abstraction -> bool
 val occurs_is_term_abstraction : is_atom -> is_term_abstraction -> bool
 val occurs_eq_type_abstraction : is_atom -> eq_type_abstraction -> bool
 val occurs_eq_term_abstraction : is_atom -> eq_term_abstraction -> bool
+val occurs_judgement_abstraction : is_atom -> judgement_abstraction -> bool
 
 val apply_is_type_abstraction :
   signature -> is_type_abstraction -> is_term -> is_type_abstraction

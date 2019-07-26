@@ -28,7 +28,7 @@ type value =
   | Dyn of ml_dyn                              (** Dynamic variable *)
   | String of string                           (** String constant (opaque, not a list) *)
 
-and operation_args = { args : value list; checking : Nucleus.boundary option }
+and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
 
 (** A handler contains ML code for handling zero or more operations,
     plus the default case *)
@@ -78,6 +78,9 @@ val as_eq_term : loc:Location.t -> value -> Nucleus.eq_term
 (** Convert, or fail with [EqTypeExpected] *)
 val as_eq_type : loc:Location.t -> value -> Nucleus.eq_type
 
+(** Convert, or fail with [JudgementExpected] *)
+val as_judgement : loc:Location.t -> value -> Nucleus.judgement
+
 (** Convert, or fail with [IsTermAbstractionExpected] *)
 val as_is_term_abstraction : loc:Location.t -> value -> Nucleus.is_term_abstraction
 
@@ -89,6 +92,12 @@ val as_eq_term_abstraction : loc:Location.t -> value -> Nucleus.eq_term_abstract
 
 (** Convert, or fail with [EqTypeAbstractionExpected] *)
 val as_eq_type_abstraction : loc:Location.t -> value -> Nucleus.eq_type_abstraction
+
+(** Convert, or fail with [JudgementAbstractionExpected] *)
+val as_judgement_abstraction : loc:Location.t -> value -> Nucleus.judgement_abstraction
+
+(** Convert, or fail with [BoundaryAbstractionExpected] *)
+val as_boundary_abstraction : loc:Location.t -> value -> Nucleus.boundary_abstraction
 
 (** Convert, or fail with [ClosureExpected] *)
 val as_closure : loc:Location.t -> value -> (value,value) closure
@@ -134,8 +143,8 @@ type error =
   | UnknownConfig of string
   | Inapplicable of value
   | AnnotationMismatch of Nucleus.is_type * Nucleus.is_type_abstraction
-  | TypeMismatchCheckingMode of Nucleus.is_term_abstraction * Nucleus.is_type_abstraction
-  | UnexpectedAbstraction of Nucleus.is_type
+  | TypeMismatchCheckingMode of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
+  | UnexpectedAbstraction of Nucleus.boundary_abstraction
   | TermEqualityFail of Nucleus.is_term * Nucleus.is_term
   | TypeEqualityFail of Nucleus.is_type * Nucleus.is_type
   | UnannotatedAbstract of Name.t
@@ -155,7 +164,8 @@ type error =
   | IsTermAbstractionExpected of value
   | EqTypeAbstractionExpected of value
   | EqTermAbstractionExpected of value
-  | AbstractionExpected of value
+  | JudgementAbstractionExpected of value
+  | BoundaryAbstractionExpected of value
   | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
@@ -221,7 +231,7 @@ val lookup_ref : ml_ref -> value comp
 val update_ref : ml_ref -> value -> unit comp
 
 (** A computation that invokes the specified operation. *)
-val operation : Ident.t -> ?checking:Nucleus.boundary -> value list -> value comp
+val operation : Ident.t -> ?checking:Nucleus.boundary_abstraction -> value list -> value comp
 
 (** Wrap the given computation with a handler. *)
 val handle_comp : handler -> value comp -> value comp

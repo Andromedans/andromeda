@@ -7,6 +7,8 @@ let eq_term_meta_eta_expanded = Meta.eq_term_meta_eta_expanded
 let eq_type_meta_eta_expanded = Meta.eq_type_meta_eta_expanded
 let is_term_meta_eta_expanded = Meta.is_term_meta_eta_expanded
 let is_type_meta_eta_expanded = Meta.is_type_meta_eta_expanded
+let meta_eta_expanded = Meta.meta_eta_expanded
+
 let form_eq_term_meta = Meta.form_eq_term_meta
 let form_eq_type_meta = Meta.form_eq_type_meta
 let form_is_term_meta = Meta.form_is_term_meta
@@ -27,6 +29,8 @@ let fresh_is_type_meta = Mk.fresh_type_meta
 let fresh_is_term_meta = Mk.fresh_term_meta
 let fresh_eq_type_meta = Mk.fresh_eq_type_meta
 let fresh_eq_term_meta = Mk.fresh_eq_term_meta
+
+let fresh_meta = Mk.fresh_meta
 
 let alpha_equal_term = Alpha_equal.is_term
 let alpha_equal_type = Alpha_equal.is_type
@@ -60,14 +64,14 @@ let form_rule = Form_rule.form_rule
 (* let abstract_boundary_is_term = Abstract.boundary_is_term_abstraction *)
 (* let abstract_boundary_is_type = Abstract.boundary_is_type_abstraction *)
 
-let abstract_boundary = Abstract.boundary
+let abstract_boundary = Abstract.boundary_abstraction
 
 (* let abstract_eq_term = Abstract.eq_term_abstraction *)
 (* let abstract_eq_type = Abstract.eq_type_abstraction *)
 let abstract_is_term = Abstract.is_term_abstraction
 (* let abstract_is_type = Abstract.is_type_abstraction *)
 
-let abstract_judgement = Abstract.judgement
+let abstract_judgement = Abstract.judgement_abstraction
 
 let abstract_not_abstract = Abstract.not_abstract
 
@@ -115,6 +119,7 @@ let occurs_is_type_abstraction = occurs_abstraction Collect_assumptions.is_type
 let occurs_is_term_abstraction = occurs_abstraction Collect_assumptions.is_term
 let occurs_eq_type_abstraction = occurs_abstraction Collect_assumptions.eq_type
 let occurs_eq_term_abstraction = occurs_abstraction Collect_assumptions.eq_term
+let occurs_judgement_abstraction = occurs_abstraction Collect_assumptions.judgement
 
 let congruence_term_constructor = Congruence.congruence_term_constructor
 let congruence_type_constructor = Congruence.congruence_type_constructor

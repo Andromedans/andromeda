@@ -105,20 +105,19 @@ type ml_tydef =
 
 type local_context = (Name.t * comp) list
 
+type boundary =
+   | BoundaryIsType
+   | BoundaryIsTerm of comp
+   | BoundaryEqType of comp * comp
+   | BoundaryEqTerm of comp * comp * comp
+
 type premise = premise' located
-and premise' =
-  | PremiseIsType of Name.t option * local_context
-  | PremiseIsTerm of Name.t option * local_context * comp
-  | PremiseEqType of Name.t option * local_context * (comp * comp)
-  | PremiseEqTerm of Name.t option * local_context * (comp * comp * comp)
+and premise' = Premise of Name.t option * local_context * boundary
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
-  | RuleIsType of Path.t * premise list
-  | RuleIsTerm of Path.t * premise list * comp
-  | RuleEqType of Path.t * premise list * (comp * comp)
-  | RuleEqTerm of Path.t * premise list * (comp * comp * comp)
+  | Rule of Path.t * premise list * boundary
   | DefMLType of (Path.t * (Name.t option list * ml_tydef)) list
   | DefMLTypeRec of (Path.t * (Name.t option list * ml_tydef)) list
   | DeclOperation of Path.t * (ml_ty list * ml_ty)
