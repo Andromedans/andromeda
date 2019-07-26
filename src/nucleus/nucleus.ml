@@ -7,7 +7,7 @@ let eq_term_meta_eta_expanded = Meta.eq_term_meta_eta_expanded
 let eq_type_meta_eta_expanded = Meta.eq_type_meta_eta_expanded
 let is_term_meta_eta_expanded = Meta.is_term_meta_eta_expanded
 let is_type_meta_eta_expanded = Meta.is_type_meta_eta_expanded
-let meta_eta_expanded = Meta.meta_eta_expanded
+let judgement_meta_eta_expanded = Meta.judgement_meta_eta_expanded
 
 let form_eq_term_meta = Meta.form_eq_term_meta
 let form_eq_type_meta = Meta.form_eq_type_meta
@@ -30,7 +30,7 @@ let fresh_is_term_meta = Mk.fresh_term_meta
 let fresh_eq_type_meta = Mk.fresh_eq_type_meta
 let fresh_eq_term_meta = Mk.fresh_eq_term_meta
 
-let fresh_meta = Mk.fresh_meta
+let fresh_judgement_meta = Mk.fresh_judgement_meta
 
 let alpha_equal_term = Alpha_equal.is_term
 let alpha_equal_type = Alpha_equal.is_type

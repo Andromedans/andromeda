@@ -603,8 +603,8 @@ let premise {Location.thing=Rsyntax.Premise(xopt, lctx, bdry);_} =
   local_context lctx (eval_boundary bdry) >>= fun bdry ->
   Runtime.lookup_signature >>= fun sgn ->
   let x = (match xopt with Some x -> x | None -> Name.anonymous ()) in
-  let mv = Nucleus.fresh_meta x bdry in
-  let v = Runtime.Judgement (Nucleus.meta_eta_expanded sgn mv) in
+  let mv = Nucleus.fresh_judgement_meta x bdry in
+  let v = Runtime.Judgement (Nucleus.judgement_meta_eta_expanded sgn mv) in
   return ((Nucleus.meta_nonce mv, bdry), Some v)
 
 

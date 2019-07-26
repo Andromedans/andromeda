@@ -179,14 +179,14 @@ val fresh_is_term_meta : Name.t -> is_term_boundary abstraction -> is_term_meta
 val fresh_eq_type_meta : Name.t -> eq_type_boundary abstraction -> eq_type_meta
 val fresh_eq_term_meta : Name.t -> eq_term_boundary abstraction -> eq_term_meta
 
-(** [fresh_meta x bdry] creates a fresh meta-variable with the given boundary *)
-val fresh_meta : Name.t -> boundary_abstraction -> boundary_abstraction meta
+(** [fresh_judgement_meta x bdry] creates a fresh meta-variable with the given boundary *)
+val fresh_judgement_meta : Name.t -> boundary_abstraction -> boundary_abstraction meta
 
 val is_type_meta_eta_expanded : signature -> is_type_meta -> is_type_abstraction
 val is_term_meta_eta_expanded : signature -> is_term_meta -> is_term_abstraction
 val eq_type_meta_eta_expanded : signature -> eq_type_meta -> eq_type_abstraction
 val eq_term_meta_eta_expanded : signature -> eq_term_meta -> eq_term_abstraction
-val meta_eta_expanded : signature -> boundary_abstraction meta -> judgement_abstraction
+val judgement_meta_eta_expanded : signature -> boundary_abstraction meta -> judgement_abstraction
 
 (** Verify that an abstraction is in fact not abstract *)
 val as_not_abstract : 'a abstraction -> 'a option

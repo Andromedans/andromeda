@@ -100,7 +100,7 @@ let eq_term_meta_eta_expanded sgn =
     (form_eq_term_meta sgn)
     Abstract.eq_term
 
-let meta_eta_expanded sgn =
+let judgement_meta_eta_expanded sgn =
   meta_eta_expanded'
     Instantiate_bound.boundary
     (form_judgement_meta sgn)
