@@ -925,10 +925,6 @@ struct
   let _, none = run (Tyenv.lookup_ml_constructor Desugar.Builtin.none)
   let _, some = run (Tyenv.lookup_ml_constructor Desugar.Builtin.some)
 
-  let _, notcoercible = run (Tyenv.lookup_ml_constructor Desugar.Builtin.notcoercible)
-  let _, convertible = run (Tyenv.lookup_ml_constructor Desugar.Builtin.convertible)
-  let _, coercible_constructor = run (Tyenv.lookup_ml_constructor Desugar.Builtin.coercible_constructor)
-
   let _, mlless = run (Tyenv.lookup_ml_constructor Desugar.Builtin.mlless)
   let _, mlequal = run (Tyenv.lookup_ml_constructor Desugar.Builtin.mlequal)
   let _, mlgreater = run (Tyenv.lookup_ml_constructor Desugar.Builtin.mlgreater)

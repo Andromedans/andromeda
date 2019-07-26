@@ -51,10 +51,6 @@ sig
   val none : Path.ml_constructor
   val some : Path.ml_constructor
 
-  val notcoercible : Path.ml_constructor
-  val convertible : Path.ml_constructor
-  val coercible_constructor : Path.ml_constructor
-
   val mlless : Path.ml_constructor
   val mlequal : Path.ml_constructor
   val mlgreater : Path.ml_constructor

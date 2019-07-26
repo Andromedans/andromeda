@@ -1655,10 +1655,6 @@ struct
   let none = fst (Ctx.get_ml_constructor Name.Builtin.none initial_context)
   let some = fst (Ctx.get_ml_constructor Name.Builtin.some initial_context)
 
-  let notcoercible = fst (Ctx.get_ml_constructor Name.Builtin.notcoercible initial_context)
-  let convertible = fst (Ctx.get_ml_constructor Name.Builtin.convertible initial_context)
-  let coercible_constructor = fst (Ctx.get_ml_constructor Name.Builtin.coercible_constructor initial_context)
-
   let mlless = fst (Ctx.get_ml_constructor Name.Builtin.mlless initial_context)
   let mlequal = fst (Ctx.get_ml_constructor Name.Builtin.mlequal initial_context)
   let mlgreater = fst (Ctx.get_ml_constructor Name.Builtin.mlgreater initial_context)
