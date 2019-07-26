@@ -29,10 +29,7 @@ and judgement_meta = boundary_abstraction meta
 
 and assumption =
   { free : is_type Nonce.map
-  ; is_type_meta : is_type_boundary abstraction Nonce.map
-  ; is_term_meta : is_term_boundary abstraction Nonce.map
-  ; eq_type_meta : eq_type_boundary abstraction Nonce.map
-  ; eq_term_meta : eq_term_boundary abstraction Nonce.map
+  ; meta : boundary_abstraction Nonce.map
   ; bound : Bound_set.t }
 
 and 'a abstraction =

@@ -47,11 +47,13 @@ and eq_term ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
 
 and is_type_meta ~lvl {meta_nonce; meta_type} =
   let asmp = abstraction (fun ?lvl () -> Assumption.empty) ~lvl meta_type in
-  Assumption.add_is_type_meta meta_nonce meta_type asmp
+  let meta_type = Boundary.from_is_type_abstraction meta_type in
+  Assumption.add_meta meta_nonce meta_type asmp
 
 and is_term_meta ~lvl {meta_nonce; meta_type} =
   let asmp = abstraction is_type ~lvl meta_type in
-  Assumption.add_is_term_meta meta_nonce meta_type asmp
+  let meta_type = Boundary.from_is_term_abstraction meta_type in
+  Assumption.add_meta meta_nonce meta_type asmp
 
 and abstraction
   : 'a . (?lvl:bound -> 'a -> assumption) ->

@@ -29,30 +29,30 @@ let form_is_term_meta sgn m args =
   check_term_arguments sgn m.meta_type args ;
   Mk.term_meta m args
 
-let form_eq_type_meta sgn {meta_nonce; meta_type} args =
-  let asmp = Assumption.add_eq_type_meta meta_nonce meta_type Assumption.empty in
-  let (lhs, rhs) =
-    let inst_eq_type_boundary e0 ?lvl (lhs, rhs) =
-      let lhs = Instantiate_bound.is_type e0 ?lvl lhs
-      and rhs = Instantiate_bound.is_type e0 ?lvl rhs
-      in (lhs, rhs)
-    in
-    Apply_abstraction.fully_apply_abstraction inst_eq_type_boundary sgn meta_type args
-  in
-  Mk.eq_type asmp lhs rhs
+(* let form_eq_type_meta sgn {meta_nonce; meta_type} args = *)
+(*   let asmp = Assumption.add_eq_type_meta meta_nonce meta_type Assumption.empty in *)
+(*   let (lhs, rhs) = *)
+(*     let inst_eq_type_boundary e0 ?lvl (lhs, rhs) = *)
+(*       let lhs = Instantiate_bound.is_type e0 ?lvl lhs *)
+(*       and rhs = Instantiate_bound.is_type e0 ?lvl rhs *)
+(*       in (lhs, rhs) *)
+(*     in *)
+(*     Apply_abstraction.fully_apply_abstraction inst_eq_type_boundary sgn meta_type args *)
+(*   in *)
+(*   Mk.eq_type asmp lhs rhs *)
 
-let form_eq_term_meta sgn {meta_nonce; meta_type} args =
-  let asmp = Assumption.add_eq_term_meta meta_nonce meta_type Assumption.empty in
-  let (lhs, rhs, t) =
-    let inst_eq_term_boundary e0 ?lvl (lhs, rhs, t) =
-      let lhs = Instantiate_bound.is_term e0 ?lvl lhs
-      and rhs = Instantiate_bound.is_term e0 ?lvl rhs
-      and t = Instantiate_bound.is_type e0 ?lvl t
-      in (lhs, rhs, t)
-    in
-    Apply_abstraction.fully_apply_abstraction inst_eq_term_boundary sgn meta_type args
-  in
-  Mk.eq_term asmp lhs rhs t
+(* let form_eq_term_meta sgn {meta_nonce; meta_type} args = *)
+(*   let asmp = Assumption.add_eq_term_meta meta_nonce meta_type Assumption.empty in *)
+(*   let (lhs, rhs, t) = *)
+(*     let inst_eq_term_boundary e0 ?lvl (lhs, rhs, t) = *)
+(*       let lhs = Instantiate_bound.is_term e0 ?lvl lhs *)
+(*       and rhs = Instantiate_bound.is_term e0 ?lvl rhs *)
+(*       and t = Instantiate_bound.is_type e0 ?lvl t *)
+(*       in (lhs, rhs, t) *)
+(*     in *)
+(*     Apply_abstraction.fully_apply_abstraction inst_eq_term_boundary sgn meta_type args *)
+(*   in *)
+(*   Mk.eq_term asmp lhs rhs t *)
 
 let form_judgement_meta sgn mv args = failwith "form_judgement_meta not implemented"
 
@@ -70,35 +70,6 @@ let meta_eta_expanded' instantiate_meta form_meta abstract_meta mv =
        Mk.abstract atm abstr
 
   in fold [] mv.meta_type
-
-let is_type_meta_eta_expanded sgn =
-  meta_eta_expanded'
-    (fun _e0 ?lvl () -> ())
-    (form_is_type_meta sgn)
-    Abstract.is_type
-
-let is_term_meta_eta_expanded sgn =
-  meta_eta_expanded'
-    Instantiate_bound.is_type
-    (form_is_term_meta sgn)
-    Abstract.is_term
-
-let eq_type_meta_eta_expanded sgn =
-  meta_eta_expanded'
-    (fun e0 ?lvl (lhs, rhs) ->
-       Instantiate_bound.is_type e0 ?lvl lhs,
-       Instantiate_bound.is_type e0 ?lvl rhs)
-    (form_eq_type_meta sgn)
-    Abstract.eq_type
-
-let eq_term_meta_eta_expanded sgn =
-  meta_eta_expanded'
-    (fun e0 ?lvl (lhs, rhs, t) ->
-       Instantiate_bound.is_term e0 ?lvl lhs,
-       Instantiate_bound.is_term e0 ?lvl rhs,
-       Instantiate_bound.is_type e0 ?lvl t)
-    (form_eq_term_meta sgn)
-    Abstract.eq_term
 
 let judgement_meta_eta_expanded sgn =
   meta_eta_expanded'

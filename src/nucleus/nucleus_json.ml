@@ -2,33 +2,21 @@
 
 open Nucleus_types
 
-let assumptions { free ; is_type_meta ; is_term_meta ; eq_type_meta ; eq_term_meta ; bound } =
+let assumptions { free ; meta ; bound } =
   let free =
     if Nonce.map_is_empty free
     then []
     else [("free", Nonce.Json.map free)]
-  and is_type_meta =
-    if Nonce.map_is_empty is_type_meta
+  and meta =
+    if Nonce.map_is_empty meta
     then []
-    else [("is_type_meta", Nonce.Json.map is_type_meta)]
-  and is_term_meta =
-    if Nonce.map_is_empty is_term_meta
-    then []
-    else [("is_term_meta", Nonce.Json.map is_term_meta)]
-  and eq_type_meta =
-    if Nonce.map_is_empty eq_type_meta
-    then []
-    else [("eq_type_meta", Nonce.Json.map eq_type_meta)]
-  and eq_term_meta =
-    if Nonce.map_is_empty eq_term_meta
-    then []
-    else [("eq_term_meta", Nonce.Json.map eq_term_meta)]
+    else [("meta", Nonce.Json.map meta)]
   and bound =
     if Bound_set.is_empty bound
     then []
     else [("bound", Json.List (List.map (fun k -> Json.Int k) (Bound_set.elements bound)))]
   in
-  Json.record (free @ is_type_meta @ is_term_meta @ eq_type_meta @ eq_term_meta @ bound)
+  Json.record (free @ meta @ bound)
 
 let rec is_term e =
   let e =

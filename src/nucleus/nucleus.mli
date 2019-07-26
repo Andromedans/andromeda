@@ -153,10 +153,6 @@ val form_is_term_meta : signature -> is_term_meta -> is_term list -> is_term
 
 val form_is_term_convert : signature -> is_term -> eq_type -> is_term
 
-val form_eq_type_meta : signature -> eq_type_meta -> is_term list -> eq_type
-
-val form_eq_term_meta : signature -> eq_term_meta -> is_term list -> eq_term
-
 (** Form a non-abstracted abstraction *)
 val abstract_not_abstract : 'a -> 'a abstraction
 
@@ -182,10 +178,6 @@ val fresh_eq_term_meta : Name.t -> eq_term_boundary abstraction -> eq_term_meta
 (** [fresh_judgement_meta x bdry] creates a fresh meta-variable with the given boundary *)
 val fresh_judgement_meta : Name.t -> boundary_abstraction -> boundary_abstraction meta
 
-val is_type_meta_eta_expanded : signature -> is_type_meta -> is_type_abstraction
-val is_term_meta_eta_expanded : signature -> is_term_meta -> is_term_abstraction
-val eq_type_meta_eta_expanded : signature -> eq_type_meta -> eq_type_abstraction
-val eq_term_meta_eta_expanded : signature -> eq_term_meta -> eq_term_abstraction
 val judgement_meta_eta_expanded : signature -> boundary_abstraction meta -> judgement_abstraction
 
 (** Verify that an abstraction is in fact not abstract *)

@@ -3,14 +3,8 @@ include Nucleus_types
 module Signature = Signature
 
 let meta_nonce = Meta.nonce
-let eq_term_meta_eta_expanded = Meta.eq_term_meta_eta_expanded
-let eq_type_meta_eta_expanded = Meta.eq_type_meta_eta_expanded
-let is_term_meta_eta_expanded = Meta.is_term_meta_eta_expanded
-let is_type_meta_eta_expanded = Meta.is_type_meta_eta_expanded
 let judgement_meta_eta_expanded = Meta.judgement_meta_eta_expanded
 
-let form_eq_term_meta = Meta.form_eq_term_meta
-let form_eq_type_meta = Meta.form_eq_type_meta
 let form_is_term_meta = Meta.form_is_term_meta
 let form_is_type_meta = Meta.form_is_type_meta
 

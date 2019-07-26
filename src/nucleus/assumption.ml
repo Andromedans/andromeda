@@ -2,18 +2,12 @@ open Nucleus_types
 
 let empty =
   { free = Nonce.map_empty
-  ; is_type_meta = Nonce.map_empty
-  ; is_term_meta = Nonce.map_empty
-  ; eq_type_meta = Nonce.map_empty
-  ; eq_term_meta = Nonce.map_empty
+  ; meta = Nonce.map_empty
   ; bound = Bound_set.empty }
 
-let is_empty {free; is_type_meta; is_term_meta; eq_type_meta; eq_term_meta; bound } =
+let is_empty {free; meta; bound } =
   Nonce.map_is_empty free
-  && Nonce.map_is_empty is_type_meta
-  && Nonce.map_is_empty is_term_meta
-  && Nonce.map_is_empty eq_type_meta
-  && Nonce.map_is_empty eq_term_meta
+  && Nonce.map_is_empty meta
   && Bound_set.is_empty bound
 
 let mem_atom x s = Nonce.map_mem x s.free
@@ -40,10 +34,7 @@ let singleton_bound k = { empty with bound = Bound_set.singleton k }
 
 let add_free x t asmp = { asmp with free = Nonce.map_add x t asmp.free }
 
-let add_is_type_meta x t asmp = { asmp with is_type_meta = Nonce.map_add x t asmp.is_type_meta }
-let add_is_term_meta x t asmp = { asmp with is_term_meta = Nonce.map_add x t asmp.is_term_meta }
-let add_eq_type_meta x t asmp = { asmp with eq_type_meta = Nonce.map_add x t asmp.eq_type_meta }
-let add_eq_term_meta x t asmp = { asmp with eq_term_meta = Nonce.map_add x t asmp.eq_term_meta }
+let add_meta x t asmp = { asmp with meta = Nonce.map_add x t asmp.meta }
 
 let add_bound k asmp = { asmp with bound = Bound_set.add k asmp.bound }
 
@@ -59,10 +50,7 @@ let union a1 a2 =
   let f_free = f "free"
   in
   { free = Nonce.map_union f_free a1.free a2.free
-  ; is_type_meta = Nonce.map_union (f "is_type_meta") a1.is_type_meta a2.is_type_meta
-  ; is_term_meta = Nonce.map_union (f "is_term_meta") a1.is_term_meta a2.is_term_meta
-  ; eq_type_meta = Nonce.map_union (f "eq_type_meta") a1.eq_type_meta a2.eq_type_meta
-  ; eq_term_meta = Nonce.map_union (f "eq_term_meta") a1.eq_term_meta a2.eq_term_meta
+  ; meta = Nonce.map_union (f "is_type_meta") a1.meta a2.meta
   ; bound = Bound_set.union a1.bound a2.bound
   }
 
