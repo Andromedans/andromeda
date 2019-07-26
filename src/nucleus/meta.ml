@@ -54,7 +54,49 @@ let form_is_term_meta sgn m args =
 (*   in *)
 (*   Mk.eq_term asmp lhs rhs t *)
 
-let form_judgement_meta sgn mv args = failwith "form_judgement_meta not implemented"
+let form_judgement_meta sgn {meta_nonce; meta_type} args =
+  let inst_meta e0 ?lvl = function
+    | BoundaryIsType () ->
+       BoundaryIsType ()
+
+    | BoundaryIsTerm t ->
+       (* We don't actually have to instantiate here, because we'll throw it away later *)
+       let t = Instantiate_bound.is_type e0 ?lvl t in
+       BoundaryIsTerm t
+
+    | BoundaryEqType (t1, t2) ->
+       let t1 = Instantiate_bound.is_type e0 ?lvl t1
+       and t2 = Instantiate_bound.is_type e0 ?lvl t2 in
+       BoundaryEqType (t1, t2)
+
+    | BoundaryEqTerm (e1, e2, t) ->
+       let e1 = Instantiate_bound.is_term e0 ?lvl e1
+       and e2 = Instantiate_bound.is_term e0 ?lvl e2
+       and t = Instantiate_bound.is_type e0 ?lvl t in
+       BoundaryEqTerm (e1, e2, t)
+
+  in
+  match Apply_abstraction.fully_apply_abstraction inst_meta sgn meta_type args with
+
+  | BoundaryIsType () ->
+     begin match Boundary.as_is_type_abstraction meta_type with
+     | None -> assert false
+     | Some meta_type -> JudgementIsType (Mk.type_meta {meta_nonce; meta_type} args)
+     end
+
+  | BoundaryIsTerm _ ->
+     begin match Boundary.as_is_term_abstraction meta_type with
+     | None -> assert false
+     | Some meta_type -> JudgementIsTerm (Mk.term_meta {meta_nonce; meta_type} args)
+     end
+
+  | BoundaryEqType (t1, t2) ->
+     let asmp = Assumption.add_meta meta_nonce meta_type Assumption.empty in
+     JudgementEqType (Mk.eq_type asmp t1 t2)
+
+  | BoundaryEqTerm (e1, e2, t) ->
+     let asmp = Assumption.add_meta meta_nonce meta_type Assumption.empty in
+     JudgementEqTerm (Mk.eq_term asmp e1 e2 t)
 
 let meta_eta_expanded' instantiate_meta form_meta abstract_meta mv =
   let rec fold args = function

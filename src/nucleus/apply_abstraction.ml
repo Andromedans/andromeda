@@ -30,7 +30,7 @@ let apply_judgement_abstraction sgn abstr e0 =
 let rec fully_apply_abstraction inst_u sgn abstr = function
   | [] ->
      begin match abstr with
-     | NotAbstract eq -> eq
+     | NotAbstract x -> x
      | Abstract _ -> Error.raise TooFewArguments
      end
   | arg :: args ->
