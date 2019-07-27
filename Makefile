@@ -31,7 +31,7 @@ andromeda.byte andromeda.native andromeda.d.byte andromeda.p.native: src/build.m
 	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
 
 menhir-explain:
-	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS_EXPLAIN) $(OCAMLBUILD_FLAGS) andromeda.native
+	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS_EXPLAIN) $(OCAMLBUILD_FLAGS) src/parser/parser.ml
 
 # "make test" to see if anything broke
 test: default

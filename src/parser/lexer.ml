@@ -9,6 +9,7 @@ let reserved = [
   ("assume", ASSUME) ;
   ("boundary", MLBOUNDARY) ;
   ("context", CONTEXT) ;
+  ("convert", CONVERT) ;
   ("current", CURRENT) ;
   ("dynamic", DYNAMIC) ;
   ("end", END) ;
@@ -122,6 +123,7 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ';'                      -> f (); SEMI
   (* We record the location of operators here because menhir cannot handle %infix and
      mark_location simultaneously, it seems. *)
+  | '?'                      -> f (); QUESTIONMARK (Name.mk_name ~fixity:Name.Prefix "?", loc_of lexbuf)
   | prefixop                 -> f (); PREFIXOP (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.mk_name ~fixity:Name.Prefix s, loc_of lexbuf)
   (* Comes before infixop0 because it also matches infixop0. *)

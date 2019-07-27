@@ -95,8 +95,13 @@ and comp' =
   | Yield of comp
   | String of string
   | Context of comp
+  | Convert of comp * comp
   | Occurs of comp * comp
   | Natural of comp
+  | MLBoundaryIsType
+  | MLBoundaryIsTerm of comp
+  | MLBoundaryEqType of comp * comp
+  | MLBoundaryEqTerm of comp * comp * comp
 
 and let_clause =
   | Let_clause_ML of (Name.t * ml_arg list) option * let_annotation * comp

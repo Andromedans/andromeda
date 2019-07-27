@@ -50,6 +50,12 @@ let transitivity_term = Form.transitivity_term
 let symmetry_type = Form.symmetry_type
 let symmetry_term = Form.symmetry_term
 
+(** Form a boundary *)
+let form_is_type_boundary = Form.form_is_type_boundary
+let form_is_term_boundary = Form.form_is_term_bondary
+let form_eq_type_boundary = Form.form_eq_type_boundary
+let form_eq_term_boundary = Form.form_eq_term_boundary
+
 (** Creation of rules of inference from judgements. *)
 let form_rule = Form_rule.form_rule
 
@@ -94,6 +100,12 @@ let as_is_term_abstraction = Judgement.as_is_term_abstraction
 let as_eq_type_abstraction = Judgement.as_eq_type_abstraction
 let as_eq_term_abstraction = Judgement.as_eq_term_abstraction
 
+let as_is_type = Judgement.as_is_type
+let as_is_term = Judgement.as_is_term
+let as_eq_type = Judgement.as_eq_type
+let as_eq_term = Judgement.as_eq_term
+
+
 let context_is_type_abstraction = Collect_assumptions.context_of_abstraction Collect_assumptions.is_type
 let context_is_term_abstraction = Collect_assumptions.context_of_abstraction Collect_assumptions.is_term
 let context_eq_type_abstraction = Collect_assumptions.context_of_abstraction Collect_assumptions.eq_type
@@ -114,6 +126,10 @@ let occurs_is_term_abstraction = occurs_abstraction Collect_assumptions.is_term
 let occurs_eq_type_abstraction = occurs_abstraction Collect_assumptions.eq_type
 let occurs_eq_term_abstraction = occurs_abstraction Collect_assumptions.eq_term
 let occurs_judgement_abstraction = occurs_abstraction Collect_assumptions.judgement
+
+let convert_term_abstraction = Convert.term_abstraction
+let convert_eq_term_abstraction = Convert.eq_term_abstraction
+let convert_judgement_abstraction = Convert.judgement_abstraction
 
 let congruence_term_constructor = Congruence.congruence_term_constructor
 let congruence_type_constructor = Congruence.congruence_type_constructor

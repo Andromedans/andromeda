@@ -209,7 +209,7 @@ type error =
   | Inapplicable of value
   | AnnotationMismatch of Nucleus.is_type * Nucleus.is_type_abstraction
   | TypeMismatchCheckingMode of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
-  | UnexpectedAbstraction of Nucleus.boundary_abstraction
+  | UnexpectedAbstraction
   | TermEqualityFail of Nucleus.is_term * Nucleus.is_term
   | TypeEqualityFail of Nucleus.is_type * Nucleus.is_type
   | UnannotatedAbstract of Name.t
@@ -225,12 +225,7 @@ type error =
   | IsTermExpected of value
   | EqTypeExpected of value
   | EqTermExpected of value
-  | IsTypeAbstractionExpected of value
-  | IsTermAbstractionExpected of value
-  | EqTypeAbstractionExpected of value
-  | EqTermAbstractionExpected of value
-  | JudgementAbstractionExpected of value
-  | BoundaryAbstractionExpected of value
+  | AbstractionExpected
   | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
@@ -238,7 +233,7 @@ type error =
   | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
-  | InvalidConvertible of Nucleus.is_type_abstraction * Nucleus.is_type_abstraction * Nucleus.eq_type_abstraction
+  | InvalidConvert of Nucleus.judgement_abstraction * Nucleus.eq_type_abstraction
   | InvalidCoerce of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnhandledOperation of Ident.t * value list
   | InvalidPatternMatch of value
@@ -308,6 +303,8 @@ let return x env = Return x, env.state
 
 let return_judgement jdg = return (Judgement jdg)
 
+let return_boundary bdry = return (Boundary bdry)
+
 let return_closure f env = Return (Closure (mk_closure0 f env)), env.state
 
 let return_handler handler_val handler_ops handler_finally env =
@@ -344,6 +341,16 @@ let name_of v =
     | String _ -> "a string"
 
 (** Coerce values *)
+
+let as_not_abstract ~loc abstr =
+  match Nucleus.as_not_abstract abstr with
+  | Some x -> x
+  | None -> error ~loc UnexpectedAbstraction
+
+let as_abstract ~loc abstr =
+  match Nucleus.as_abstract abstr with
+  | Some x -> x
+  | None -> error ~loc AbstractionExpected
 
 let as_is_type ~loc = function
   | Judgement abstr as v ->
@@ -399,52 +406,52 @@ let as_is_type_abstraction ~loc v =
   | Judgement abstr ->
      begin match Nucleus.as_is_type_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~loc (IsTypeAbstractionExpected v)
+     | None -> error ~loc AbstractionExpected
      end
-  | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (IsTypeAbstractionExpected v)
+  | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+    error ~loc AbstractionExpected
 
 let as_is_term_abstraction ~loc v =
   match v with
   | Judgement abstr ->
      begin match Nucleus.as_is_term_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~loc (IsTermAbstractionExpected v)
+     | None -> error ~loc AbstractionExpected
      end
-  | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (IsTermAbstractionExpected v)
+  | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+    error ~loc AbstractionExpected
 
 let as_eq_type_abstraction ~loc v =
   match v with
   | Judgement abstr ->
      begin match Nucleus.as_eq_type_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~loc (EqTypeAbstractionExpected v)
+     | None -> error ~loc AbstractionExpected
      end
-  | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (IsTypeAbstractionExpected v)
+  | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+    error ~loc AbstractionExpected
 
 let as_eq_term_abstraction ~loc v =
   match v with
   | Judgement abstr ->
      begin match Nucleus.as_eq_term_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~loc (EqTermAbstractionExpected v)
+     | None -> error ~loc AbstractionExpected
      end
-  | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (IsTermAbstractionExpected v)
+  | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+    error ~loc AbstractionExpected
 
 let as_judgement_abstraction ~loc v =
   match v with
   | Judgement abstr -> abstr
-  | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (JudgementAbstractionExpected v)
+  | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+    error ~loc AbstractionExpected
 
 let as_boundary_abstraction ~loc v =
   match v with
   | Boundary abstr -> abstr
-  | (Judgement _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (BoundaryAbstractionExpected v)
+  | Judgement _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+    error ~loc AbstractionExpected
 
 let as_closure ~loc = function
   | Closure f -> f
@@ -776,9 +783,8 @@ let print_error ~penv err ppf =
                     (Nucleus.print_judgement_abstraction ~penv jdg)
                     (Nucleus.print_boundary_abstraction ~penv bdry)
 
-  | UnexpectedAbstraction bdry ->
-      Format.fprintf ppf "this is an abstraction but the surroundings imply it shoule be@ %t"
-                    (Nucleus.print_boundary_abstraction ~penv:(mk_nucleus_penv penv) bdry)
+  | UnexpectedAbstraction  ->
+      Format.fprintf ppf "unexpected abstraction"
 
   | TermEqualityFail (e1, e2) ->
      let penv = mk_nucleus_penv penv in
@@ -839,23 +845,8 @@ let print_error ~penv err ppf =
   | EqTermExpected v ->
      Format.fprintf ppf "expected a term equality but got %s" (name_of v)
 
-  | IsTypeAbstractionExpected v ->
-     Format.fprintf ppf "expected a possibly abstracted type but got %s" (name_of v)
-
-  | IsTermAbstractionExpected v ->
-     Format.fprintf ppf "expected a possibly abstracted term but got %s" (name_of v)
-
-  | EqTypeAbstractionExpected v ->
-     Format.fprintf ppf "expected a possibly abstracted type equality but got %s" (name_of v)
-
-  | EqTermAbstractionExpected v ->
-     Format.fprintf ppf "expected a possibly abstracted term equality but got %s" (name_of v)
-
-  | JudgementAbstractionExpected v ->
-     Format.fprintf ppf "expected a judgement abstraction but got %s" (name_of v)
-
-  | BoundaryAbstractionExpected v ->
-     Format.fprintf ppf "expected a boundary abstraction but got %s" (name_of v)
+  | AbstractionExpected ->
+     Format.fprintf ppf "this should be an abstraction"
 
   | JudgementExpected v ->
      Format.fprintf ppf "expected a judgement but got %s" (name_of v)
@@ -878,13 +869,12 @@ let print_error ~penv err ppf =
   | CoercibleExpected v ->
     Format.fprintf ppf "expected a coercible but got %s" (name_of v)
 
-  | InvalidConvertible (t1, t2, eq) ->
+  | InvalidConvert (jdg, eq) ->
      let penv = mk_nucleus_penv penv in
      Format.fprintf ppf
-       "expected an equality between@ %t@ and@ %t@ but got@ %t"
-                    (Nucleus.print_is_type_abstraction ~penv t1)
-                    (Nucleus.print_is_type_abstraction ~penv t2)
-                    (Nucleus.print_eq_type_abstraction ~penv eq)
+       "cannot convert@ %t along@ %t"
+       (Nucleus.print_judgement_abstraction ~penv jdg)
+       (Nucleus.print_eq_type_abstraction ~penv eq)
 
   | InvalidCoerce (jdg, bdry) ->
      let penv = mk_nucleus_penv penv in

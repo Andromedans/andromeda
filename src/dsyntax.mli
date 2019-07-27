@@ -79,8 +79,16 @@ and comp' =
   | Yield of comp
   | String of string
   | Occurs of comp * comp
+  | Convert of comp * comp
   | Context of comp
   | Natural of comp
+  | MLBoundary of boundary
+
+and boundary =
+   | BoundaryIsType
+   | BoundaryIsTerm of comp
+   | BoundaryEqType of comp * comp
+   | BoundaryEqTerm of comp * comp * comp
 
 and let_clause =
   | Let_clause of ml_pattern * let_annotation * comp (* [let (?p :> t) = c] *)
@@ -104,12 +112,6 @@ type ml_tydef =
   | ML_Alias of ml_ty
 
 type local_context = (Name.t * comp) list
-
-type boundary =
-   | BoundaryIsType
-   | BoundaryIsTerm of comp
-   | BoundaryEqType of comp * comp
-   | BoundaryEqTerm of comp * comp * comp
 
 type premise = premise' located
 and premise' = Premise of Name.t option * local_context * boundary

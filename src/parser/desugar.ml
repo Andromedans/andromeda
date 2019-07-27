@@ -947,7 +947,6 @@ let rec comp ctx {Location.thing=c';loc} =
      and c = comp ctx c in
      locate (Dsyntax.Ascribe (c, t)) loc
 
-
   | Input.Abstract (xs, c) ->
      let rec fold ctx ys = function
        | [] ->
@@ -1046,10 +1045,32 @@ let rec comp ctx {Location.thing=c';loc} =
      and c2 = comp ctx c2 in
      locate (Dsyntax.Occurs (c1,c2)) loc
 
+  | Input.Convert (c1,c2) ->
+     let c1 = comp ctx c1
+     and c2 = comp ctx c2 in
+     locate (Dsyntax.Convert (c1,c2)) loc
+
   | Input.Natural c ->
      let c = comp ctx c in
      locate (Dsyntax.Natural c) loc
 
+  | Input.MLBoundaryIsType ->
+     locate Dsyntax.(MLBoundary BoundaryIsType) loc
+
+  | Input.MLBoundaryIsTerm c ->
+     let c = comp ctx c in
+     locate Dsyntax.(MLBoundary (BoundaryIsTerm c)) loc
+
+  | Input.MLBoundaryEqType (c1, c2) ->
+     let c1 = comp ctx c1
+     and c2 = comp ctx c2 in
+     locate Dsyntax.(MLBoundary (BoundaryEqType (c1, c2))) loc
+
+  | Input.MLBoundaryEqTerm (c1, c2, c3) ->
+     let c1 = comp ctx c1
+     and c2 = comp ctx c2
+     and c3 = comp ctx c3 in
+     locate Dsyntax.(MLBoundary (BoundaryEqTerm (c1, c2, c3))) loc
 
 and let_clauses ~loc ~toplevel ctx lst =
   let add = if toplevel then Ctx.add_ml_value ~loc else Ctx.add_bound in

@@ -66,6 +66,12 @@ val mk_string : string -> value
 
 (** {b Value extraction} *)
 
+(** Convert to a non-abstracted value, or fail with [UnexpectedAbstraction] *)
+val as_not_abstract : loc:Location.t -> 'a Nucleus.abstraction -> 'a
+
+(** Convert to an abstracted value, or fail with [AbstractionExpected] *)
+val as_abstract : loc:Location.t -> 'a Nucleus.abstraction -> Nucleus.is_atom * 'a Nucleus.abstraction
+
 (** Convert, or fail with [IsTermExpected] *)
 val as_is_term : loc:Location.t -> value -> Nucleus.is_term
 
@@ -144,7 +150,7 @@ type error =
   | Inapplicable of value
   | AnnotationMismatch of Nucleus.is_type * Nucleus.is_type_abstraction
   | TypeMismatchCheckingMode of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
-  | UnexpectedAbstraction of Nucleus.boundary_abstraction
+  | UnexpectedAbstraction
   | TermEqualityFail of Nucleus.is_term * Nucleus.is_term
   | TypeEqualityFail of Nucleus.is_type * Nucleus.is_type
   | UnannotatedAbstract of Name.t
@@ -160,12 +166,7 @@ type error =
   | IsTermExpected of value
   | EqTypeExpected of value
   | EqTermExpected of value
-  | IsTypeAbstractionExpected of value
-  | IsTermAbstractionExpected of value
-  | EqTypeAbstractionExpected of value
-  | EqTermAbstractionExpected of value
-  | JudgementAbstractionExpected of value
-  | BoundaryAbstractionExpected of value
+  | AbstractionExpected
   | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
@@ -173,7 +174,7 @@ type error =
   | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
-  | InvalidConvertible of Nucleus.is_type_abstraction * Nucleus.is_type_abstraction * Nucleus.eq_type_abstraction
+  | InvalidConvert of Nucleus.judgement_abstraction * Nucleus.eq_type_abstraction
   | InvalidCoerce of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnhandledOperation of Ident.t * value list
   | InvalidPatternMatch of value
@@ -207,6 +208,8 @@ val return : 'a -> 'a comp
 val return_unit : value comp
 
 val return_judgement : Nucleus.judgement_abstraction -> value comp
+
+val return_boundary : Nucleus.boundary_abstraction -> value comp
 
 val return_closure : (value -> value comp) -> value comp
 val return_handler :

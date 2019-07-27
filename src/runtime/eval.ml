@@ -193,9 +193,10 @@ let rec comp {Location.thing=c'; loc} =
              function
              | Runtime.Judgement jdg -> Runtime.return_judgement (Nucleus.abstract_judgement a jdg)
 
-             | Runtime.(Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-                Runtime.(error ~loc (JudgementExpected v))
+             | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
+             | Runtime.(Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+                Runtime.(error ~loc (JudgementExpected v))
            end)
 
   | Rsyntax.Substitute (c1, c2) ->
@@ -225,9 +226,9 @@ let rec comp {Location.thing=c'; loc} =
  *)
      comp_as_judgement_abstraction c1 >>= fun abstr ->
      begin match Nucleus.type_at_abstraction abstr with
-       | None -> Runtime.(error ~loc (JudgementAbstractionExpected (Runtime.Judgement abstr)))
+       | None -> Runtime.(error ~loc AbstractionExpected)
        | Some t ->
-          check_judgement c2 (Nucleus.abstract_not_abstract (Nucleus.BoundaryIsTerm t)) >>= fun abstr ->
+          check_judgement c2 (Nucleus.abstract_not_abstract (Nucleus.form_is_term_boundary t)) >>= fun abstr ->
           begin match Nucleus.as_not_abstract abstr with
           | Some (Nucleus.JudgementIsTerm e) ->
                Runtime.lookup_signature >>= fun sgn ->
@@ -255,7 +256,7 @@ let rec comp {Location.thing=c'; loc} =
   | Rsyntax.String s ->
     return (Runtime.mk_string s)
 
-  | Rsyntax.Occurs (c1,c2) ->
+  | Rsyntax.Occurs (c1, c2) ->
      comp_as_atom c1 >>= fun a ->
      comp_as_judgement_abstraction c2 >>= fun abstr ->
      begin match Nucleus.occurs_judgement_abstraction a abstr with
@@ -264,6 +265,16 @@ let rec comp {Location.thing=c'; loc} =
         return (Reflect.mk_option (Some t))
      | false ->
         return (Reflect.mk_option None)
+     end
+
+  | Rsyntax.Convert (c1, c2) ->
+     comp_as_judgement_abstraction c1 >>= fun jdg ->
+     comp_as_eq_type_abstraction c2 >>= fun eq ->
+     Runtime.get_env >>= fun env ->
+     let sgn = Runtime.get_signature env in
+     begin match Nucleus.convert_judgement_abstraction sgn jdg eq with
+     | None -> Runtime.(error ~loc (InvalidConvert (jdg, eq)))
+     | Some jdg -> Runtime.return_judgement jdg
      end
 
   | Rsyntax.Context c ->
@@ -281,6 +292,10 @@ let rec comp {Location.thing=c'; loc} =
     Runtime.lookup_signature >>= fun signature ->
     let eq = Nucleus.natural_type_eq signature jdg_e in
     Runtime.return_judgement Nucleus.(abstract_not_abstract (JudgementEqType eq))
+
+  | Rsyntax.MLBoundary bdry ->
+     eval_boundary ~loc bdry >>= fun bdry ->
+     Runtime.return_boundary Nucleus.(abstract_not_abstract bdry)
 
 and check_arguments rap cs =
   match rap, cs with
@@ -328,9 +343,12 @@ and check_judgement ({Location.thing=c';loc} as c) bdry =
   | Rsyntax.Current _
   | Rsyntax.String _
   | Rsyntax.Occurs _
+  | Rsyntax.Convert _
   | Rsyntax.Substitute _
   | Rsyntax.Context _
-  | Rsyntax.Natural _ ->
+  | Rsyntax.Natural _
+  | Rsyntax.MLBoundary _
+    ->
 
     comp c >>= fun v ->
     coerce ~loc v bdry
@@ -385,7 +403,7 @@ and check_abstract ~loc bdry x uopt c =
   match Nucleus.as_abstract bdry with
 
   | None ->
-     Runtime.(error ~loc (UnexpectedAbstraction bdry))
+     Runtime.(error ~loc UnexpectedAbstraction)
 
   | Some (a, bdry) ->
      (* NB: [a] is a fresh atom at this point. *)
@@ -528,12 +546,48 @@ and comp_as_judgement_abstraction c =
 and comp_as_boundary_abstraction c =
   comp c >>= fun v -> return (Runtime.as_boundary_abstraction ~loc:c.Location.loc v)
 
+(** Run [c] and convert the result to a boundary abstraction. *)
+and comp_as_eq_type_abstraction c =
+  comp c >>= fun v -> return (Runtime.as_eq_type_abstraction ~loc:c.Location.loc v)
+
 and comp_as_atom c =
   comp c >>= fun v -> (as_atom ~loc:c.Location.loc v)
 
 (** Run [c] and convert it to a boolean. *)
 and comp_as_bool c =
   comp c >>= fun v -> (as_bool ~loc:c.Location.loc v)
+
+and eval_boundary ~loc = function
+  | Rsyntax.BoundaryIsType ->
+     Runtime.return Nucleus.(form_is_type_boundary)
+
+  | Rsyntax.BoundaryIsTerm c ->
+     comp_as_is_type c >>= fun t ->
+     Runtime.return Nucleus.(form_is_term_boundary t)
+
+  | Rsyntax.BoundaryEqType (c1, c2) ->
+     comp_as_is_type c1 >>= fun t1 ->
+     comp_as_is_type c2 >>= fun t2 ->
+     Runtime.return Nucleus.(form_eq_type_boundary t1 t2)
+
+  | Rsyntax.BoundaryEqTerm (c1, c2, c3) ->
+     comp_as_is_type c3 >>= fun t ->
+     Runtime.get_env >>= fun env ->
+     let sgn = Runtime.get_signature env in
+     let bdry = Nucleus.(abstract_not_abstract (form_is_term_boundary t)) in
+     check_judgement c1 bdry >>= fun e1 ->
+     let e1 =
+       match Nucleus.as_is_term (Runtime.as_not_abstract ~loc e1) with
+       | Some e1 -> e1
+       | None -> assert false
+     in
+     check_judgement c2 bdry >>= fun e2 ->
+     let e2 =
+       match Nucleus.as_is_term (Runtime.as_not_abstract ~loc e2) with
+       | Some e2 -> e2
+       | None -> assert false
+     in
+     Runtime.return Nucleus.(form_eq_term_boundary sgn e1 e2)
 
 (** Move to toplevel monad *)
 
@@ -562,45 +616,8 @@ let local_context lctx cmp =
   in
   fold lctx
 
-let check_eq_type_boundary (c1, c2) =
-  comp_as_is_type c1 >>= fun t1 ->
-  comp_as_is_type c2 >>= fun t2 ->
-  return (t1, t2)
-
-(* Run [c] and convert it to a term of type given by the boundary [t] *)
-let check_is_term c t =
-  let bdry = Nucleus.(abstract_not_abstract (BoundaryIsTerm t)) in
-  check_judgement c bdry >>= fun abstr ->
-  match Nucleus.as_not_abstract abstr with
-  | Some (Nucleus.JudgementIsTerm e) -> return e
-  | None
-  | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
-     assert false
-
-let check_eq_term_boundary (c1, c2, c3) =
-  comp_as_is_type c3 >>= fun t ->
-  check_is_term c1 t >>= fun e1 ->
-  check_is_term c2 t >>= fun e2 ->
-  return (e1, e2, t)
-
-let eval_boundary = function
-  | Rsyntax.BoundaryIsType ->
-     return (Nucleus.BoundaryIsType ())
-
-  | Rsyntax.BoundaryIsTerm c ->
-     comp_as_is_type c >>= fun t ->
-     return (Nucleus.BoundaryIsTerm t)
-
-  | Rsyntax.BoundaryEqType (c1, c2) ->
-     check_eq_type_boundary (c1, c2) >>= fun (t1, t2) ->
-     return (Nucleus.BoundaryEqType (t1, t2))
-
-  | Rsyntax.BoundaryEqTerm (c1, c2, c3) ->
-     check_eq_term_boundary (c1, c2, c3) >>= fun (e1, e2, t) ->
-     return (Nucleus.BoundaryEqTerm (e1, e2, t))
-
-let premise {Location.thing=Rsyntax.Premise(xopt, lctx, bdry);_} =
-  local_context lctx (eval_boundary bdry) >>= fun bdry ->
+let premise {Location.thing=Rsyntax.Premise(xopt, lctx, bdry); loc} =
+  local_context lctx (eval_boundary ~loc bdry) >>= fun bdry ->
   Runtime.lookup_signature >>= fun sgn ->
   let x = (match xopt with Some x -> x | None -> Name.anonymous ()) in
   let mv = Nucleus.fresh_judgement_meta x bdry in
@@ -691,7 +708,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
   | Rsyntax.Rule (x, prems, bdry) ->
      Runtime.top_lookup_opens >>= fun opens ->
-     Runtime.top_handle ~loc (premises prems (eval_boundary bdry)) >>= fun (premises, head) ->
+     Runtime.top_handle ~loc (premises prems (eval_boundary ~loc bdry)) >>= fun (premises, head) ->
      let rule = Nucleus.form_rule premises head in
      (if not quiet then
         Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~opens ~parentheses:false x));

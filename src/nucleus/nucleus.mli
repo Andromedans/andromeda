@@ -43,23 +43,23 @@ type judgement =
 type judgement_abstraction = judgement abstraction
 
 (** Boundary of a type judgement *)
-type is_type_boundary = unit
+type is_type_boundary
 
 (** Boundary of a term judgement *)
-type is_term_boundary = is_type
+type is_term_boundary
 
 (** Boundary of a type equality judgement *)
-type eq_type_boundary = (is_type * is_type)
+type eq_type_boundary
 
 (** Boundary of a term equality judgement *)
-type eq_term_boundary = (is_term * is_term * is_type)
+type eq_term_boundary
 
 (** Boundary of a judgement *)
 type boundary =
-    | BoundaryIsType of is_type_boundary
-    | BoundaryIsTerm of is_term_boundary
-    | BoundaryEqType of eq_type_boundary
-    | BoundaryEqTerm of eq_term_boundary
+  | BoundaryIsType of is_type_boundary
+  | BoundaryIsTerm of is_term_boundary
+  | BoundaryEqType of eq_type_boundary
+  | BoundaryEqTerm of eq_term_boundary
 
 (** A shorthand for abstracted boundary *)
 type boundary_abstraction = boundary abstraction
@@ -134,7 +134,6 @@ val form_rap : signature -> Ident.t -> rule_application
 (** Apply a rap to one more argument *)
 val rap_apply : signature -> rule_application_status -> judgement_abstraction -> rule_application
 
-
 (** Give the boundary of a rap status, i.e., the boundary of the next argument. *)
 val rap_boundary : rule_application_status -> boundary_abstraction
 
@@ -152,6 +151,12 @@ val form_is_type_meta : signature -> is_type_meta -> is_term list -> is_type
 val form_is_term_meta : signature -> is_term_meta -> is_term list -> is_term
 
 val form_is_term_convert : signature -> is_term -> eq_type -> is_term
+
+(** Form a boundary *)
+val form_is_type_boundary : boundary
+val form_is_term_boundary : is_type -> boundary
+val form_eq_type_boundary : is_type -> is_type -> boundary
+val form_eq_term_boundary : signature -> is_term -> is_term -> boundary
 
 (** Form a non-abstracted abstraction *)
 val abstract_not_abstract : 'a -> 'a abstraction
@@ -190,6 +195,17 @@ val as_is_type_abstraction : judgement_abstraction -> is_type abstraction option
 val as_is_term_abstraction : judgement_abstraction -> is_term abstraction option
 val as_eq_type_abstraction : judgement_abstraction -> eq_type abstraction option
 val as_eq_term_abstraction : judgement_abstraction -> eq_term abstraction option
+
+val as_is_type : judgement -> is_type option
+val as_is_term : judgement -> is_term option
+val as_eq_type : judgement -> eq_type option
+val as_eq_term : judgement -> eq_term option
+
+val convert_term_abstraction : signature -> is_term abstraction -> eq_type abstraction -> is_term abstraction option
+
+val convert_eq_term_abstraction : eq_term abstraction -> eq_type abstraction -> eq_term abstraction option
+
+val convert_judgement_abstraction : signature -> judgement_abstraction -> eq_type_abstraction -> judgement_abstraction option
 
 (** Inversion principles *)
 

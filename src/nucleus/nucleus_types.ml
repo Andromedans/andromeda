@@ -123,8 +123,8 @@ type error =
   | InvalidAbstraction
   | TooFewArguments
   | TooManyArguments
-  | TermExpected
-  | TypeExpected
+  | IsTermExpected
+  | IsTypeExpected
   | ExtraAssumptions
   | InvalidApplication
   | InvalidArgument

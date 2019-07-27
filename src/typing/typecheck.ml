@@ -43,8 +43,11 @@ let rec generalizable c =
   | Rsyntax.Yield _
   | Rsyntax.Apply _
   | Rsyntax.Occurs _
+  | Rsyntax.Convert _
   | Rsyntax.Context _
-  | Rsyntax.Natural _ -> Ungeneralizable
+  | Rsyntax.Natural _
+  | Rsyntax.MLBoundary _
+  -> Ungeneralizable
 
 (* Instantite the bound parameters in a type with the given ones. *)
 let rec ml_ty params {Location.thing=t; loc} =
@@ -440,8 +443,10 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
         | Mlty.Judgement ->
            let c = locate ~loc (Rsyntax.Abstract (x, copt, c)) in
            return (c, Mlty.Judgement)
-        | Mlty.(Boundary | String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _
-               | Apply _ | Ref _| Dynamic _) as t ->
+        | Mlty.Boundary ->
+           let c = locate ~loc (Rsyntax.Abstract (x, copt, c)) in
+           return (c, Mlty.Boundary)
+        | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _ | Apply _ | Ref _| Dynamic _) as t ->
            (* XXX should Meta and Param be errors? *)
            Mlty.error ~loc (Mlty.JudgementExpected t)
         end
@@ -471,6 +476,11 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
      check_comp c2 Mlty.Judgement >>= fun c2 ->
      return (locate ~loc (Rsyntax.Occurs (c1, c2)), Mlty.Judgement)
 
+  | Dsyntax.Convert (c1, c2) ->
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
+     check_comp c2 Mlty.Judgement >>= fun c2 ->
+     return (locate ~loc (Rsyntax.Convert (c1, c2)), Mlty.Judgement)
+
   | Dsyntax.Context c ->
      check_comp c Mlty.Judgement >>= fun c ->
      let t = Mlty.Apply (Desugar.Builtin.list, [Mlty.Judgement]) in
@@ -479,6 +489,10 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
   | Dsyntax.Natural c ->
      check_comp c Mlty.Judgement >>= fun c ->
      return (locate ~loc (Rsyntax.Natural c), Mlty.Judgement)
+
+  | Dsyntax.MLBoundary bdry ->
+     boundary bdry >>= fun bdry ->
+     return (locate ~loc Rsyntax.(MLBoundary bdry), Mlty.Boundary)
 
 and check_comp c t =
   infer_comp c >>= fun (c, t') ->
@@ -704,6 +718,24 @@ and letrec_clauses
   m >>= fun x ->
   return (info, clauses, x)
 
+and boundary = function
+  | Dsyntax.BoundaryIsType ->
+     return Rsyntax.BoundaryIsType
+
+  | Dsyntax.BoundaryIsTerm c ->
+     check_comp c Mlty.Judgement >>= fun c ->
+     return (Rsyntax.BoundaryIsTerm c)
+
+  | Dsyntax.BoundaryEqType (c1, c2) ->
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
+     check_comp c2 Mlty.Judgement >>= fun c2 ->
+     return (Rsyntax.BoundaryEqType (c1, c2))
+
+  | Dsyntax.BoundaryEqTerm (c1, c2, c3) ->
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
+     check_comp c2 Mlty.Judgement >>= fun c2 ->
+     check_comp c3 Mlty.Judgement >>= fun c3 ->
+     return (Rsyntax.BoundaryEqTerm (c1, c2, c3))
 
 let add_ml_type (t, (params, def)) =
   let params = List.map (fun _ -> Mlty.fresh_param ()) params in
@@ -740,25 +772,6 @@ let local_context lctx m =
        (fold ((x, c) :: xcs) lctx)
   in
   fold [] lctx
-
-let boundary = function
-  | Dsyntax.BoundaryIsType ->
-     return Rsyntax.BoundaryIsType
-
-  | Dsyntax.BoundaryIsTerm c ->
-     check_comp c Mlty.Judgement >>= fun c ->
-     return (Rsyntax.BoundaryIsTerm c)
-
-  | Dsyntax.BoundaryEqType (c1, c2) ->
-     check_comp c1 Mlty.Judgement >>= fun c1 ->
-     check_comp c2 Mlty.Judgement >>= fun c2 ->
-     return (Rsyntax.BoundaryEqType (c1, c2))
-
-  | Dsyntax.BoundaryEqTerm (c1, c2, c3) ->
-     check_comp c1 Mlty.Judgement >>= fun c1 ->
-     check_comp c2 Mlty.Judgement >>= fun c2 ->
-     check_comp c3 Mlty.Judgement >>= fun c3 ->
-     return (Rsyntax.BoundaryEqTerm (c1, c2, c3))
 
 let premise {Location.thing=prem;loc} =
   let Dsyntax.Premise (x, lctx, bdry) = prem in

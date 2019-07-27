@@ -1,0 +1,10 @@
+rule A type
+rule B type
+rule ξ : A ≡ B
+rule a : A
+;;
+
+(convert a ξ)
+;;
+
+match (convert a ξ) with ⊢ _ : t => t end

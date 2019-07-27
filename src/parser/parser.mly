@@ -3,7 +3,7 @@
 %}
 
 (* Infix operations *)
-%token <Name.t * Location.t> PREFIXOP EQ INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
+%token <Name.t * Location.t> QUESTIONMARK PREFIXOP EQ INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
 
 (* Names and numerals *)
 %token UNDERSCORE
@@ -59,7 +59,7 @@
 %token FUNCTION
 
 (* Assumptions *)
-%token ASSUME CONTEXT OCCURS
+%token ASSUME CONVERT CONTEXT OCCURS
 
 (* Toplevel directives *)
 %token VERBOSITY
@@ -173,26 +173,31 @@ plain_term:
                                                                  { LetRec (lst, c) }
   | NOW x=app_term EQ c1=term IN c2=term                         { Now (x,c1,c2) }
   | CURRENT c=term                                               { Current c }
-  | ASSUME x=opt_name(ml_name) COLON t=ty_term IN c=term        { Assume ((x, t), c) }
+  | ASSUME x=opt_name(ml_name) COLON t=ty_term IN c=term         { Assume ((x, t), c) }
   | MATCH e=term WITH lst=match_cases END                        { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_cases END                     { Handle (c, hcs) }
+  | FUNCTION xs=ml_arg+ DARROW e=term                            { Function (xs, e) }
   | WITH h=term HANDLE c=term                                    { With (h, c) }
   | HANDLER hcs=handler_cases END                                { Handler (hcs) }
   | e=app_term COLON t=ty_term                                   { Ascribe (e, t) }
   | e1=binop_term SEMI e2=term                                   { Sequence (e1, e2) }
   | CONTEXT c=prefix_term                                        { Context c }
-  | OCCURS c1=prefix_term c2=prefix_term                         { Occurs (c1,c2) }
+  | CONVERT c1=prefix_term c2=prefix_term                        { Convert (c1, c2) }
+  | OCCURS c1=prefix_term c2=prefix_term                         { Occurs (c1, c2) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_binop_term                               { e }
   | a=abstraction e=binop_term                       { Abstract (a, e) }
-  | FUNCTION xs=ml_arg+ DARROW e=term                { Function (xs, e) }
 
 binop_term: mark_location(plain_binop_term) { $1 }
 plain_binop_term:
   | e=plain_app_term                                { e }
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
+  | QUESTIONMARK TYPE                                            { MLBoundaryIsType }
+  | QUESTIONMARK COLON t=app_term                                { MLBoundaryIsTerm t }
+  | l=app_term EQEQ r=app_term AS QUESTIONMARK                   { MLBoundaryEqType (l, r) }
+  | l=app_term EQEQ r=app_term COLON ty=term AS QUESTIONMARK     { MLBoundaryEqTerm (l, r, ty) }
   | e1=binop_term oploc=infix e2=binop_term
     { let (op, loc) = oploc in
       let op = Location.locate (Name (Name.PName op)) loc in
@@ -285,7 +290,7 @@ module_path:
 
 (* Prefix operators *)
 %inline prefix:
-  | op=PREFIXOP { op }
+  | op=PREFIXOP     { op }
 
 (* A name or optionally _ *)
 opt_name(X):

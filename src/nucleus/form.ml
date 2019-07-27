@@ -2,8 +2,6 @@
 
 open Nucleus_types
 
-let error = Error.raise
-
 let form_alpha_equal_type t1 t2 =
   match Alpha_equal.is_type t1 t2 with
   | false -> None
@@ -18,7 +16,7 @@ let form_alpha_equal_term sgn e1 e2 =
      conclude that their types are equal, so we don't have to compute t1, t2,
      and t1 =α= t2. *)
   match Alpha_equal.is_type t1 t2 with
-  | false -> error (AlphaEqualTypeMismatch (t1, t2))
+  | false -> Error.raise (AlphaEqualTypeMismatch (t1, t2))
   | true ->
      begin match Alpha_equal.is_term e1 e2 with
      | false -> None
@@ -117,7 +115,7 @@ let form_is_term_atom = Mk.atom
 
 (** Conversion *)
 
-let form_is_term_convert sgn e (EqType (asmp, t1, t2)) =
+let form_is_term_convert_opt sgn e (EqType (asmp, t1, t2)) =
   match e with
   | TermConvert (e, asmp0, t0) ->
      if Alpha_equal.is_type t0 t1 then
@@ -131,9 +129,9 @@ let form_is_term_convert sgn e (EqType (asmp, t1, t2)) =
        *)
        in
        (* [e] itself is not a [TermConvert] by the maintained invariant. *)
-       Mk.term_convert e asmp t2
+       Some (Mk.term_convert e asmp t2)
      else
-       error (InvalidConvert (t0, t1))
+       None
 
   | (TermAtom _ | TermBound _ | TermConstructor _ | TermMeta _) as e ->
      let t0 = Sanity.natural_type sgn e in
@@ -141,20 +139,30 @@ let form_is_term_convert sgn e (EqType (asmp, t1, t2)) =
        (* We need not include assumptions of [t1] because [t0] is alpha-equal
             to [t1] so we can use [t0] in place of [t1] if so desired. *)
        (* [e] is not a [TermConvert] by the above pattern-check *)
-       Mk.term_convert e asmp t2
+       Some (Mk.term_convert e asmp t2)
      else
-       error (InvalidConvert (t0, t1))
+       None
 
-let form_eq_term_convert (EqTerm (asmp1, e1, e2, t0)) (EqType (asmp2, t1, t2)) =
+let form_is_term_convert sgn e (EqType (_, t1, _) as eq) =
+  match form_is_term_convert_opt sgn e eq with
+  | Some e -> e
+  | None ->
+     let t0 = Sanity.natural_type sgn e in
+     Error.raise (InvalidConvert (t0, t1))
+
+let form_eq_term_convert_opt (EqTerm (asmp1, e1, e2, t0)) (EqType (asmp2, t1, t2)) =
   if Alpha_equal.is_type t0 t1 then
     (* We could have used the assumptions of [t0] instead of [t1], see comments in [form_is_term]
        about possible optimizations. *)
     let asmp = Assumption.union asmp1 (Assumption.union asmp2 (Collect_assumptions.is_type t1)) in
-    Mk.eq_term asmp e1 e2 t2
+    Some (Mk.eq_term asmp e1 e2 t2)
   else
-    error (InvalidConvert (t0, t1))
+    None
 
-
+let form_eq_term_convert (EqTerm (_, _, _, t0) as eq1) (EqType (_, t1, _) as eq2) =
+  match form_eq_term_convert_opt eq1 eq2 with
+  | Some eq -> eq
+  | None -> Error.raise (InvalidConvert (t0, t1))
 
 let symmetry_term (EqTerm (asmp, e1, e2, t)) = Mk.eq_term asmp e2 e1 t
 
@@ -162,10 +170,10 @@ let symmetry_type (EqType (asmp, t1, t2)) = Mk.eq_type asmp t2 t1
 
 let transitivity_term (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t')) =
   match Alpha_equal.is_type t t' with
-  | false -> error (AlphaEqualTypeMismatch (t, t'))
+  | false -> Error.raise (AlphaEqualTypeMismatch (t, t'))
   | true ->
      begin match Alpha_equal.is_term e2 e1' with
-     | false -> error (AlphaEqualTermMismatch (e2, e1'))
+     | false -> Error.raise (AlphaEqualTermMismatch (e2, e1'))
      | true ->
         (* XXX could use assumptions of [e1'] instead, or whichever is better. *)
         let asmp = Assumption.union asmp (Assumption.union asmp' (Collect_assumptions.is_term e2))
@@ -174,9 +182,25 @@ let transitivity_term (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t')) 
 
 let transitivity_type (EqType (asmp1, t1, t2)) (EqType (asmp2, u1, u2)) =
   begin match Alpha_equal.is_type t2 u1 with
-  | false -> error (AlphaEqualTypeMismatch (t2, u1))
+  | false -> Error.raise (AlphaEqualTypeMismatch (t2, u1))
   | true ->
      (* XXX could use assumptions of [u1] instead, or whichever is better. *)
      let asmp = Assumption.union asmp1 (Assumption.union asmp2 (Collect_assumptions.is_type t2))
      in Mk.eq_type asmp t1 u2
   end
+
+(** Formation of boundaries *)
+
+let form_is_type_boundary = BoundaryIsType ()
+
+let form_is_term_bondary t = BoundaryIsTerm t
+
+let form_eq_type_boundary t1 t2 = BoundaryEqType (t1, t2)
+
+let form_eq_term_boundary sgn e1 e2 =
+  let t1 = Sanity.type_of_term sgn e1
+  and t2 = Sanity.type_of_term sgn e2 in
+  if Alpha_equal.is_type t1 t2 then
+    BoundaryEqTerm (e1, e2, t1)
+  else
+    Error.raise (AlphaEqualTypeMismatch (t1, t2))

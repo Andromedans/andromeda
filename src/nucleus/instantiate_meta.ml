@@ -19,12 +19,12 @@ let fully_apply_abstraction_no_typechecks inst_u abstr args =
 let lookup_term_meta k metas =
   match Judgement.as_is_term_abstraction (Indices.nth metas k) with
   | Some abstr -> abstr
-  | None -> Error.raise TermExpected
+  | None -> Error.raise IsTermExpected
 
 let lookup_type_meta k metas =
   match Judgement.as_is_type_abstraction (Indices.nth metas k) with
   | Some abstr -> abstr
-  | None -> Error.raise TypeExpected
+  | None -> Error.raise IsTypeExpected
 
 (** [instantiate ~lvl metas] instantiates  *)
 

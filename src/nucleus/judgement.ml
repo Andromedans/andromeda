@@ -8,6 +8,22 @@ let rec convert f = function
   | NotAbstract a -> NotAbstract (f a)
   | Abstract (atm, abstr) -> Abstract (atm, convert f abstr)
 
+let as_is_type = function
+  | JudgementIsType t -> Some t
+  | JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _ -> None
+
+let as_is_term = function
+  | JudgementIsTerm e -> Some e
+  | JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _ -> None
+
+let as_eq_type = function
+  | JudgementEqType eq -> Some eq
+  | JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _ -> None
+
+let as_eq_term = function
+  | JudgementEqTerm eq -> Some eq
+  | JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _ -> None
+
 let as_is_type_abstraction abstr =
   try
     Some

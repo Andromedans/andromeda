@@ -1,0 +1,16 @@
+rule A type ;;
+rule B type ;;
+rule a : A ;;
+rule b : A ;;
+
+? type ;;
+{x : A} {y : A} (? type) ;;
+
+? : A ;;
+{x : A} {y : A} ? : A ;;
+
+A ≡ B as ? ;;
+{x : A} {y : A} A ≡ B as ? ;;
+
+a ≡ b : A as ? ;;
+{x : A} a ≡ x : A as ? ;;

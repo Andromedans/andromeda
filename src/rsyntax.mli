@@ -75,8 +75,17 @@ and comp' =
   | Yield of comp
   | String of string
   | Occurs of comp * comp
+  | Convert of comp * comp
   | Context of comp
   | Natural of comp
+  | MLBoundary of boundary
+
+(** The boundary of the conclusion of a premise or a rule *)
+and boundary =
+   | BoundaryIsType
+   | BoundaryIsTerm of comp
+   | BoundaryEqType of comp * comp
+   | BoundaryEqTerm of comp * comp * comp
 
 (** A let-clause is given by a list of names with their types, a pattern that
    binds these variables (so the variables list needs to match the pattern!),
@@ -107,13 +116,6 @@ type ml_tydef =
   | ML_Alias of Mlty.ty
 
 type local_context = (Name.t * comp) list
-
-(** The boundary of the conclusion of a premise or a rule *)
-type boundary =
-   | BoundaryIsType
-   | BoundaryIsTerm of comp
-   | BoundaryEqType of comp * comp
-   | BoundaryEqTerm of comp * comp * comp
 
 type premise = premise' located
 and premise' = Premise of Name.t option * local_context * boundary

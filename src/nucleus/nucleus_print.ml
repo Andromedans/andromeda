@@ -220,9 +220,9 @@ let error ~penv err ppf =
 
   | TooManyArguments -> Format.fprintf ppf "too many arguments"
 
-  | TermExpected -> Format.fprintf ppf "term expected"
+  | IsTermExpected -> Format.fprintf ppf "term expected"
 
-  | TypeExpected -> Format.fprintf ppf "type expected"
+  | IsTypeExpected -> Format.fprintf ppf "type expected"
 
   | ExtraAssumptions -> Format.fprintf ppf "extra assumptions"
 

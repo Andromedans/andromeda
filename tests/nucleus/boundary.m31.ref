@@ -1,0 +1,12 @@
+Rule A is postulated.
+Rule B is postulated.
+Rule a is postulated.
+Rule b is postulated.
+- : boundary = ? type
+- : boundary = {_ : A} {_ : A} ? type
+- : boundary = ? : A
+- : boundary = {_ : A} {_ : A} ? : A
+- : boundary = A ≡ B as ?
+- : boundary = {_ : A} {_ : A} A ≡ B as ?
+- : boundary = a ≡ b : A as ?
+- : boundary = {x : A} a ≡ x : A as ?
