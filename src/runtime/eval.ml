@@ -400,12 +400,12 @@ and check_judgement ({Location.thing=c';loc} as c) bdry =
 
 (** Run the abstraction [Abstract(x, uopt, c)] and check it against the boundary abstraction [bdry]. *)
 and check_abstract ~loc bdry x uopt c =
-  match Nucleus.as_abstract bdry with
+  match Nucleus.invert_boundary_abstraction bdry with
 
-  | None ->
-     Runtime.(error ~loc UnexpectedAbstraction)
+  | Nucleus.Stump_NotAbstract _ ->
+     Runtime.(error ~loc AbstractionExpected)
 
-  | Some (a, bdry) ->
+  | Nucleus.Stump_Abstract (a, bdry) ->
      (* NB: [a] is a fresh atom at this point. *)
      begin match uopt with
 
@@ -413,7 +413,9 @@ and check_abstract ~loc bdry x uopt c =
         Runtime.add_bound
           (Runtime.Judgement Nucleus.(abstract_not_abstract (JudgementIsTerm (form_is_term_atom a))))
           begin
-            check_judgement c bdry
+            check_judgement c bdry >>= fun jdg ->
+            let jdg = Nucleus.abstract_judgement a jdg in
+            return jdg
           end
 
      | Some ({Location.loc=u_loc;_} as u) ->
@@ -431,7 +433,9 @@ and check_abstract ~loc bdry x uopt c =
                Runtime.add_bound
                (Runtime.Judgement a')
                begin
-                 check_judgement c bdry
+                 check_judgement c bdry >>= fun jdg ->
+                 let jdg = Nucleus.abstract_judgement a jdg in
+                 return jdg
                end
           end
      end

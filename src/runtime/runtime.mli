@@ -69,9 +69,6 @@ val mk_string : string -> value
 (** Convert to a non-abstracted value, or fail with [UnexpectedAbstraction] *)
 val as_not_abstract : loc:Location.t -> 'a Nucleus.abstraction -> 'a
 
-(** Convert to an abstracted value, or fail with [AbstractionExpected] *)
-val as_abstract : loc:Location.t -> 'a Nucleus.abstraction -> Nucleus.is_atom * 'a Nucleus.abstraction
-
 (** Convert, or fail with [IsTermExpected] *)
 val as_is_term : loc:Location.t -> value -> Nucleus.is_term
 

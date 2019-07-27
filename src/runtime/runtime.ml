@@ -347,11 +347,6 @@ let as_not_abstract ~loc abstr =
   | Some x -> x
   | None -> error ~loc UnexpectedAbstraction
 
-let as_abstract ~loc abstr =
-  match Nucleus.as_abstract abstr with
-  | Some x -> x
-  | None -> error ~loc AbstractionExpected
-
 let as_is_type ~loc = function
   | Judgement abstr as v ->
      begin match Nucleus.as_not_abstract abstr with

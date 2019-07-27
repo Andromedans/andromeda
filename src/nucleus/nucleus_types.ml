@@ -81,25 +81,30 @@ type eq_term_abstraction = eq_term abstraction
    whereas the [invert_XYZ] functions do the opposite. We can think of stumps
    as "stumps", i.e., the lowest level of a derivation tree. *)
 
-type nonrec stump_is_type =
+type stump_is_type =
   | Stump_TypeConstructor of Ident.t * judgement_abstraction list
   | Stump_TypeMeta of is_type_meta * is_term list
 
-and stump_is_term =
+type stump_is_term =
   | Stump_TermAtom of is_atom
   | Stump_TermConstructor of Ident.t * judgement_abstraction list
   | Stump_TermMeta of is_term_meta * is_term list
   | Stump_TermConvert of is_term * eq_type
 
-and stump_eq_type =
+type stump_eq_type =
   | Stump_EqType of assumption * is_type * is_type
 
-and stump_eq_term =
+type stump_eq_term =
   | Stump_EqTerm of assumption * is_term * is_term * is_type
 
-and 'a stump_abstraction =
+type 'a stump_abstraction =
   | Stump_NotAbstract of 'a
   | Stump_Abstract of is_atom * 'a abstraction
+
+(** A stump for inverting two abstractions at the same time. *)
+type ('a, 'b) stump_abstractions =
+  | Stumps_NotAbstract of 'a * 'b
+  | Stumps_Abstract of is_atom * 'a abstraction * 'b abstraction
 
 type congruence_argument =
   | CongrIsType of is_type abstraction * is_type abstraction * eq_type abstraction

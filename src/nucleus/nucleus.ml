@@ -79,20 +79,21 @@ let invert_eq_term_abstraction = Invert.invert_eq_term_abstraction
 let invert_eq_type_abstraction = Invert.invert_eq_type_abstraction
 let invert_is_type_abstraction = Invert.invert_is_type_abstraction
 let invert_is_term_abstraction = Invert.invert_is_term_abstraction
+let invert_judgement_abstraction = Invert.invert_judgement_abstraction
 
 let invert_is_term = Invert.invert_is_term
 let invert_is_type = Invert.invert_is_type
 let invert_eq_type = Invert.invert_eq_type
 let invert_eq_term = Invert.invert_eq_term
 
-
 let invert_is_type_boundary = Invert.invert_is_type_boundary
 let invert_is_term_boundary = Invert.invert_is_term_boundary
 let invert_eq_type_boundary = Invert.invert_eq_type_boundary
 let invert_eq_term_boundary = Invert.invert_eq_term_boundary
 
+let invert_boundary_abstraction = Invert.invert_boundary_abstraction
+
 let as_not_abstract = Invert.as_not_abstract
-let as_abstract = Invert.as_abstract
 let atom_name = Invert.atom_name
 
 let as_is_type_abstraction = Judgement.as_is_type_abstraction

@@ -47,6 +47,30 @@ let invert_abstraction ?name inst_v = function
      Stump_Abstract (a, abstr)
   | NotAbstract v -> Stump_NotAbstract v
 
+(* We often need to jointly invert two abstractions at the same time, e.g.,
+   when type-checking an abstracted judgement against an abstracted boundary.
+   The following function does this in a reasonable manner by inverting two
+   abstractions with the same atom. *)
+let invert_abstractions ?name inst_u inst_v abstr_u abstr_v =
+  match abstr_u, abstr_v with
+
+  | NotAbstract u, NotAbstract v -> Some (Stumps_NotAbstract (u, v))
+
+  | Abstract ({atom_nonce=x_u; atom_type=t_u}, abstr_u),
+    Abstract ({atom_nonce=x_v; atom_type=t_v}, abstr_v) ->
+     if not (Alpha_equal.is_type t_u t_v) then
+       None
+     else
+       let x = (match name with None -> Nonce.name x_u | Some y -> y) in
+       let a = Mk.fresh_atom x t_u in
+       let a' = Mk.atom a in
+       let abstr_u = Instantiate_bound.abstraction inst_u a' abstr_u
+       and abstr_v = Instantiate_bound.abstraction inst_v a' abstr_v in
+       Some (Stumps_Abstract (a, abstr_u, abstr_v))
+
+  | Abstract _, NotAbstract _
+  | NotAbstract _, Abstract _ -> None
+
 let invert_is_type_abstraction ?name t =
   invert_abstraction ?name Instantiate_bound.is_type t
 
@@ -59,6 +83,9 @@ let invert_eq_type_abstraction ?name eq =
 let invert_eq_term_abstraction ?name eq =
   invert_abstraction ?name Instantiate_bound.eq_term eq
 
+let invert_judgement_abstraction ?name jdg =
+  invert_abstraction ?name Instantiate_bound.judgement jdg
+
 let invert_is_type_boundary ?name bdry =
   invert_abstraction ?name Instantiate_bound.is_type_boundary bdry
 
@@ -70,3 +97,6 @@ let invert_eq_type_boundary ?name bdry =
 
 let invert_eq_term_boundary ?name bdry =
   invert_abstraction ?name Instantiate_bound.eq_term_boundary bdry
+
+let invert_boundary_abstraction ?name jdg =
+  invert_abstraction ?name Instantiate_bound.boundary jdg

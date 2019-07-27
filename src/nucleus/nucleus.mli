@@ -185,11 +185,8 @@ val fresh_judgement_meta : Name.t -> boundary_abstraction -> boundary_abstractio
 
 val judgement_meta_eta_expanded : signature -> boundary_abstraction meta -> judgement_abstraction
 
-(** Verify that an abstraction is in fact not abstract *)
+(** Verify that an abstraction is in fact not abstract. *)
 val as_not_abstract : 'a abstraction -> 'a option
-
-(** Verify that an abstraction is in fact abstract *)
-val as_abstract : 'a abstraction -> (is_atom * 'a abstraction) option
 
 val as_is_type_abstraction : judgement_abstraction -> is_type abstraction option
 val as_is_term_abstraction : judgement_abstraction -> is_term abstraction option
@@ -233,6 +230,9 @@ val invert_eq_type_abstraction :
 val invert_eq_term_abstraction :
   ?name:Name.t -> eq_term_abstraction -> eq_term stump_abstraction
 
+val invert_judgement_abstraction :
+  ?name:Name.t -> judgement_abstraction -> judgement stump_abstraction
+
 val invert_is_term_boundary :
   ?name:Name.t -> is_term_boundary abstraction -> is_type stump_abstraction
 
@@ -244,6 +244,9 @@ val invert_eq_type_boundary :
 
 val invert_eq_term_boundary :
   ?name:Name.t -> eq_term_boundary abstraction -> (is_term * is_term * is_type) stump_abstraction
+
+val invert_boundary_abstraction :
+  ?name:Name.t -> boundary_abstraction -> boundary stump_abstraction
 
 val context_is_type_abstraction : is_type_abstraction -> is_atom list
 val context_is_term_abstraction : is_term_abstraction -> is_atom list

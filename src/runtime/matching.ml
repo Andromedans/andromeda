@@ -26,9 +26,9 @@ let rec collect_judgement sgn xvs {Location.thing=p';loc} jdg =
      collect_judgement sgn xvs p2 jdg
 
   | Rsyntax.Pattern.TTAbstract (xopt, p1, p2) ->
-     begin match Nucleus.as_abstract jdg with
-     | None -> raise Match_fail
-     | Some (a, v2) ->
+     begin match Nucleus.invert_judgement_abstraction jdg with
+     | Nucleus.Stump_NotAbstract _ -> raise Match_fail
+     | Nucleus.Stump_Abstract (a, v2) ->
         let v1 = Nucleus.(abstract_not_abstract (JudgementIsType (type_of_atom a))) in
         let xvs = collect_judgement sgn xvs p1 v1 in
         let xvs =

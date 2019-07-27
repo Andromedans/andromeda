@@ -251,8 +251,11 @@ let level x ys = index x (List.rev ys)
 
 (** Association lists indexed by de Bruijn indices *)
 let print_debruijn xs k ppf =
-  let x = List.nth xs k in
-  print x ppf
+  try
+    let x = List.nth xs k in
+    print x ppf
+  with
+  | Failure _ -> Format.fprintf ppf "[%d]" k
 
 module Json =
 struct
