@@ -5,7 +5,7 @@ type ml_constructor = Ident.t
 (** An operation is referred to by a unique identifier *)
 type operation = Ident.t
 
-(** A TT constructor is referred to by a unique identifier *)
+(** A rule/constructor is referred to by a unique identifier *)
 type tt_constructor = Ident.t
 
 (** Runtime code keeps around locations of the source code that it was generated
@@ -31,6 +31,9 @@ sig
   and is_type = judgement
   and is_term = judgement
   and argument = judgement
+
+  (** Boundary pattern *)
+  type boundary = Boundary_Pattern_Not_Implemented
 
   (** ML pattern *)
   type aml = aml' located
@@ -65,21 +68,24 @@ and comp' =
   | Assume of (Name.t option * comp) * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | IsTypeConstructor of tt_constructor * comp list
-  | IsTermConstructor of tt_constructor * comp list
-  | EqTypeConstructor of tt_constructor * comp list
-  | EqTermConstructor of tt_constructor * comp list
+  | TTConstructor of tt_constructor * comp list
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp
   | Substitute of comp * comp
   | Yield of comp
   | String of string
-  | OccursIsTypeAbstraction of comp * comp
-  | OccursIsTermAbstraction of comp * comp
-  | OccursEqTypeAbstraction of comp * comp
-  | OccursEqTermAbstraction of comp * comp
+  | Occurs of comp * comp
+  | Convert of comp * comp
   | Context of comp
   | Natural of comp
+  | MLBoundary of boundary
+
+(** The boundary of the conclusion of a premise or a rule *)
+and boundary =
+   | BoundaryIsType
+   | BoundaryIsTerm of comp
+   | BoundaryEqType of comp * comp
+   | BoundaryEqTerm of comp * comp * comp
 
 (** A let-clause is given by a list of names with their types, a pattern that
    binds these variables (so the variables list needs to match the pattern!),
@@ -101,7 +107,7 @@ and handler = {
 and match_case = Pattern.aml * comp option * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
-and match_op_case = Pattern.aml list * Pattern.judgement option * comp
+and match_op_case = Pattern.aml list * Pattern.boundary option * comp
 
 (** Type definitions are needed during runtime so that we can print them
     at the toplevel. *)
@@ -112,19 +118,12 @@ type ml_tydef =
 type local_context = (Name.t * comp) list
 
 type premise = premise' located
-and premise' =
-  | PremiseIsType of Name.t option * local_context
-  | PremiseIsTerm of Name.t option * local_context * comp
-  | PremiseEqType of Name.t option * local_context * (comp * comp)
-  | PremiseEqTerm of Name.t option * local_context * (comp * comp * comp)
+and premise' = Premise of Name.t * local_context * boundary
 
 (** Toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
-  | RuleIsType of tt_constructor * premise list
-  | RuleIsTerm of tt_constructor * premise list * comp
-  | RuleEqType of tt_constructor * premise list * (comp * comp)
-  | RuleEqTerm of tt_constructor * premise list * (comp * comp * comp)
+  | Rule of tt_constructor * premise list * boundary
   | DefMLType of Path.t list (* we only need the names *)
   | DefMLTypeRec of Path.t list
   | DeclOperation of Path.t * (Mlty.ty list * Mlty.ty)

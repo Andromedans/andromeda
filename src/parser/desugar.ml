@@ -532,22 +532,6 @@ let check_arity ~loc pth used expected =
 
 let locate = Location.locate
 
-let mlty_judgement = function
-  | Input.ML_IsType -> Dsyntax.ML_IsType
-  | Input.ML_IsTerm -> Dsyntax.ML_IsTerm
-  | Input.ML_EqType -> Dsyntax.ML_EqType
-  | Input.ML_EqTerm -> Dsyntax.ML_EqTerm
-
-let rec mlty_abstracted_judgement = function
-
-  | Input.ML_NotAbstract frm ->
-     let frm = mlty_judgement frm in
-     Dsyntax.ML_NotAbstract frm
-
-  | Input.ML_Abstract abstr ->
-     let abstr = mlty_abstracted_judgement abstr in
-     Dsyntax.ML_Abstract abstr
-
 (* Desugar an ML type, with the given list of known type parameters *)
 let mlty ctx params ty =
   let rec mlty ({Location.thing=ty';loc}) =
@@ -612,9 +596,11 @@ let mlty ctx params ty =
       | Input.ML_Anonymous ->
          Dsyntax.ML_Anonymous
 
-      | Input.ML_Judgement abstr ->
-         let abstr = mlty_abstracted_judgement abstr
-         in Dsyntax.ML_Judgement abstr
+      | Input.ML_Judgement ->
+         Dsyntax.ML_Judgement
+
+      | Input.ML_Boundary ->
+         Dsyntax.ML_Boundary
 
       | Input.ML_String -> Dsyntax.ML_String
       end
@@ -961,7 +947,6 @@ let rec comp ctx {Location.thing=c';loc} =
      and c = comp ctx c in
      locate (Dsyntax.Ascribe (c, t)) loc
 
-
   | Input.Abstract (xs, c) ->
      let rec fold ctx ys = function
        | [] ->
@@ -1060,10 +1045,32 @@ let rec comp ctx {Location.thing=c';loc} =
      and c2 = comp ctx c2 in
      locate (Dsyntax.Occurs (c1,c2)) loc
 
+  | Input.Convert (c1,c2) ->
+     let c1 = comp ctx c1
+     and c2 = comp ctx c2 in
+     locate (Dsyntax.Convert (c1,c2)) loc
+
   | Input.Natural c ->
      let c = comp ctx c in
      locate (Dsyntax.Natural c) loc
 
+  | Input.MLBoundaryIsType ->
+     locate Dsyntax.(MLBoundary BoundaryIsType) loc
+
+  | Input.MLBoundaryIsTerm c ->
+     let c = comp ctx c in
+     locate Dsyntax.(MLBoundary (BoundaryIsTerm c)) loc
+
+  | Input.MLBoundaryEqType (c1, c2) ->
+     let c1 = comp ctx c1
+     and c2 = comp ctx c2 in
+     locate Dsyntax.(MLBoundary (BoundaryEqType (c1, c2))) loc
+
+  | Input.MLBoundaryEqTerm (c1, c2, c3) ->
+     let c1 = comp ctx c1
+     and c2 = comp ctx c2
+     and c3 = comp ctx c3 in
+     locate Dsyntax.(MLBoundary (BoundaryEqTerm (c1, c2, c3))) loc
 
 and let_clauses ~loc ~toplevel ctx lst =
   let add = if toplevel then Ctx.add_ml_value ~loc else Ctx.add_bound in
@@ -1413,8 +1420,10 @@ let premise ctx {Location.thing=prem;loc} =
   match prem with
   | Input.PremiseIsType (mvar, local_ctx) ->
      let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
-     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
-     ctx, locate (Dsyntax.PremiseIsType (mvar, local_ctx)) loc
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Dsyntax.BoundaryIsType in
+     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 
   | Input.PremiseIsTerm (mvar, local_ctx, c) ->
      let c, local_ctx =
@@ -1422,30 +1431,36 @@ let premise ctx {Location.thing=prem;loc} =
          ctx local_ctx
          (fun ctx -> comp ctx c)
      in
-     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
-     ctx, locate (Dsyntax.PremiseIsTerm (mvar, local_ctx, c)) loc
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Dsyntax.BoundaryIsTerm c in
+     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 
   | Input.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
-     let c12, local_ctx =
+     let (c1, c2), local_ctx =
        local_context
          ctx local_ctx
          (fun ctx ->
            comp ctx c1,
            comp ctx c2)
      in
-     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
-     ctx, locate (Dsyntax.PremiseEqType (mvar, local_ctx, c12)) loc
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Dsyntax.BoundaryEqType (c1, c2) in
+     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 
   | Input.PremiseEqTerm (mvar, local_ctx, (c1, c2, c3)) ->
-     let c123, local_ctx =
+     let (c1, c2, c3), local_ctx =
        local_context ctx local_ctx
        (fun ctx ->
          comp ctx c1,
          comp ctx c2,
          comp ctx c3)
      in
-     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
-     ctx, locate (Dsyntax.PremiseEqTerm (mvar, local_ctx, c123)) loc
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Dsyntax.BoundaryEqTerm (c1, c2, c3) in
+     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 
 let premises ctx prems m =
   let rec fold ctx prems_out = function
@@ -1468,7 +1483,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
   | Input.RuleIsType (rname, prems) ->
      let (), prems = premises ctx prems (fun _ -> ()) in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate1 (Dsyntax.RuleIsType (pth, prems)))
+     let bdry = Dsyntax.BoundaryIsType in
+     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
 
   | Input.RuleIsTerm (rname, prems, c) ->
      let c, prems =
@@ -1477,10 +1493,11 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
          (fun ctx -> comp ctx c)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate1 (Dsyntax.RuleIsTerm (pth, prems, c)))
+     let bdry = Dsyntax.BoundaryIsTerm c in
+     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
 
   | Input.RuleEqType (rname, prems, (c1, c2)) ->
-     let c12, prems =
+     let (c1, c2), prems =
        premises
          ctx prems
          (fun ctx ->
@@ -1488,10 +1505,11 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
            comp ctx c2)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate1 (Dsyntax.RuleEqType (pth, prems, c12)))
+     let bdry = Dsyntax.BoundaryEqType (c1, c2) in
+     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
 
   | Input.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
-     let c123, prems =
+     let (c1, c2, c3), prems =
        premises
          ctx prems
          (fun ctx ->
@@ -1500,7 +1518,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
           comp ctx c3)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname (List.length prems) ctx in
-     (ctx, locate1 (Dsyntax.RuleEqTerm (pth, prems, c123)))
+     let bdry = Dsyntax.BoundaryEqTerm (c1, c2, c3) in
+     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
 
   | Input.DeclOperation (op, (args, res)) ->
      let args, res = decl_operation ~loc ctx args res in
@@ -1660,10 +1679,6 @@ struct
   let option = fst (Ctx.get_ml_type ~loc:Location.unknown Name.Builtin.option initial_context)
   let none = fst (Ctx.get_ml_constructor Name.Builtin.none initial_context)
   let some = fst (Ctx.get_ml_constructor Name.Builtin.some initial_context)
-
-  let notcoercible = fst (Ctx.get_ml_constructor Name.Builtin.notcoercible initial_context)
-  let convertible = fst (Ctx.get_ml_constructor Name.Builtin.convertible initial_context)
-  let coercible_constructor = fst (Ctx.get_ml_constructor Name.Builtin.coercible_constructor initial_context)
 
   let mlless = fst (Ctx.get_ml_constructor Name.Builtin.mlless initial_context)
   let mlequal = fst (Ctx.get_ml_constructor Name.Builtin.mlequal initial_context)

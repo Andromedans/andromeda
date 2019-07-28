@@ -2,16 +2,14 @@
 open Parser
 
 let reserved = [
-  ("is_type", MLISTYPE) ;
-  ("is_term", MLISTERM) ;
-  ("eq_type", MLEQTYPE) ;
-  ("eq_term", MLEQTERM) ;
   ("_", UNDERSCORE) ;
   ("_atom", UATOM) ;
   ("and", AND) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
+  ("boundary", MLBOUNDARY) ;
   ("context", CONTEXT) ;
+  ("convert", CONVERT) ;
   ("current", CURRENT) ;
   ("dynamic", DYNAMIC) ;
   ("end", END) ;
@@ -22,6 +20,7 @@ let reserved = [
   ("handler", HANDLER) ;
   ("in", IN) ;
   ("include", INCLUDE) ;
+  ("judgement", MLJUDGEMENT) ;
   ("let", LET) ;
   ("match", MATCH) ;
   ("mlforall", MLFORALL) ;
@@ -124,6 +123,7 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ';'                      -> f (); SEMI
   (* We record the location of operators here because menhir cannot handle %infix and
      mark_location simultaneously, it seems. *)
+  | '?'                      -> f (); QUESTIONMARK (Name.mk_name ~fixity:Name.Prefix "?", loc_of lexbuf)
   | prefixop                 -> f (); PREFIXOP (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.mk_name ~fixity:Name.Prefix s, loc_of lexbuf)
   (* Comes before infixop0 because it also matches infixop0. *)

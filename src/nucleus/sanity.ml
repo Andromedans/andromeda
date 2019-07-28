@@ -16,7 +16,13 @@ let type_of_term sgn = function
      assert false
 
   | TermConstructor (c, args) ->
-     let (_premises, t_schema) = Signature.lookup_rule_is_term c sgn in
+     let (_premises, concl) = Signature.lookup_rule c sgn in
+     let t_schema =
+       match concl with
+       | Rule.BoundaryIsTerm t_schema -> t_schema
+       | Rule.BoundaryIsType _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ ->
+          assert false
+     in
      (* we need not re-check that the premises match the arguments because
         we are computing the type of a term that was previously determined
         to be valid. *)

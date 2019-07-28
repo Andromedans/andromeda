@@ -34,14 +34,14 @@ val lookup_ml_operation : Path.t -> (Ident.t * (Mlty.ty list * Mlty.ty)) tyenvM
 val lookup_ml_constructor : Path.ml_constructor -> (Ident.t * Mlty.ty list * Mlty.ty) tyenvM
 
 (** Lookup a TT constructor and return its expected form. *)
-val lookup_tt_constructor : Path.t -> (Ident.t * Mlty.tt_constructor) tyenvM
+val lookup_tt_constructor : Path.t -> Ident.t tyenvM
 
 (** Lookup the continuation and return the expected type of its argument and the type it
    returns. *)
 val lookup_continuation : (Mlty.ty * Mlty.ty) tyenvM
 
 (** Add a TT constructor to the typing context, globally forever. *)
-val add_tt_constructor : Ident.t -> Mlty.tt_constructor -> unit tyenvM
+val add_tt_constructor : Ident.t -> unit tyenvM
 
 (** [add_equation ~loc t1 t2] try to unify the actual type [t1] with the expected type
     [t2]. If successful, retry to solve the current unsolved constraints. *)

@@ -18,10 +18,8 @@ type ml_constructor = Ident.t
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
 type value =
-  | IsTerm of Nucleus.is_term_abstraction      (** A term judgment *)
-  | IsType of Nucleus.is_type_abstraction      (** A type judgment *)
-  | EqTerm of Nucleus.eq_term_abstraction      (** A term equality *)
-  | EqType of Nucleus.eq_type_abstraction      (** A type equality *)
+  | Judgement of Nucleus.judgement_abstraction (** A judgement *)
+  | Boundary of Nucleus.boundary_abstraction   (** A judgement boundary (also known as a goal) *)
   | Closure of (value,value) closure           (** An ML function *)
   | Handler of handler                         (** Handler value *)
   | Tag of ml_constructor * value list         (** Application of a data constructor *)
@@ -30,7 +28,7 @@ type value =
   | Dyn of ml_dyn                              (** Dynamic variable *)
   | String of string                           (** String constant (opaque, not a list) *)
 
-and operation_args = { args : value list; checking : Nucleus.is_type_abstraction option }
+and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
 
 (** A handler contains ML code for handling zero or more operations,
     plus the default case *)
@@ -47,17 +45,11 @@ val equal_tag : ml_constructor -> ml_constructor -> bool
 
 (** {b Value construction} *)
 
-(** Build an [IsTerm] value *)
-val mk_is_term : Nucleus.is_term_abstraction -> value
+(** Build an abstracted judgement as a value *)
+val mk_judgement : Nucleus.judgement_abstraction -> value
 
-(** Build an [IsType] value *)
-val mk_is_type : Nucleus.is_type_abstraction -> value
-
-(** Build an [EqTerm] value *)
-val mk_eq_term : Nucleus.eq_term_abstraction -> value
-
-(** Build an [EqType] value *)
-val mk_eq_type : Nucleus.eq_type_abstraction -> value
+(** Build an abstracted boundary as a value *)
+val mk_boundary : Nucleus.boundary_abstraction -> value
 
 (** Build a [Handler] value *)
 val mk_handler : handler -> value
@@ -74,6 +66,9 @@ val mk_string : string -> value
 
 (** {b Value extraction} *)
 
+(** Convert to a non-abstracted value, or fail with [UnexpectedAbstraction] *)
+val as_not_abstract : loc:Location.t -> 'a Nucleus.abstraction -> 'a
+
 (** Convert, or fail with [IsTermExpected] *)
 val as_is_term : loc:Location.t -> value -> Nucleus.is_term
 
@@ -86,6 +81,9 @@ val as_eq_term : loc:Location.t -> value -> Nucleus.eq_term
 (** Convert, or fail with [EqTypeExpected] *)
 val as_eq_type : loc:Location.t -> value -> Nucleus.eq_type
 
+(** Convert, or fail with [JudgementExpected] *)
+val as_judgement : loc:Location.t -> value -> Nucleus.judgement
+
 (** Convert, or fail with [IsTermAbstractionExpected] *)
 val as_is_term_abstraction : loc:Location.t -> value -> Nucleus.is_term_abstraction
 
@@ -97,6 +95,12 @@ val as_eq_term_abstraction : loc:Location.t -> value -> Nucleus.eq_term_abstract
 
 (** Convert, or fail with [EqTypeAbstractionExpected] *)
 val as_eq_type_abstraction : loc:Location.t -> value -> Nucleus.eq_type_abstraction
+
+(** Convert, or fail with [JudgementAbstractionExpected] *)
+val as_judgement_abstraction : loc:Location.t -> value -> Nucleus.judgement_abstraction
+
+(** Convert, or fail with [BoundaryAbstractionExpected] *)
+val as_boundary_abstraction : loc:Location.t -> value -> Nucleus.boundary_abstraction
 
 (** Convert, or fail with [ClosureExpected] *)
 val as_closure : loc:Location.t -> value -> (value,value) closure
@@ -142,8 +146,8 @@ type error =
   | UnknownConfig of string
   | Inapplicable of value
   | AnnotationMismatch of Nucleus.is_type * Nucleus.is_type_abstraction
-  | TypeMismatchCheckingMode of Nucleus.is_term_abstraction * Nucleus.is_type_abstraction
-  | UnexpectedAbstraction of Nucleus.is_type
+  | TypeMismatchCheckingMode of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
+  | UnexpectedAbstraction
   | TermEqualityFail of Nucleus.is_term * Nucleus.is_term
   | TypeEqualityFail of Nucleus.is_type * Nucleus.is_type
   | UnannotatedAbstract of Name.t
@@ -159,11 +163,7 @@ type error =
   | IsTermExpected of value
   | EqTypeExpected of value
   | EqTermExpected of value
-  | IsTypeAbstractionExpected of value
-  | IsTermAbstractionExpected of value
-  | EqTypeAbstractionExpected of value
-  | EqTermAbstractionExpected of value
-  | AbstractionExpected of value
+  | AbstractionExpected
   | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
@@ -171,8 +171,8 @@ type error =
   | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
-  | InvalidConvertible of Nucleus.is_type_abstraction * Nucleus.is_type_abstraction * Nucleus.eq_type_abstraction
-  | InvalidCoerce of Nucleus.is_type_abstraction * Nucleus.is_term_abstraction
+  | InvalidConvert of Nucleus.judgement_abstraction * Nucleus.eq_type_abstraction
+  | InvalidCoerce of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnhandledOperation of Ident.t * value list
   | InvalidPatternMatch of value
   | InvalidHandlerMatch
@@ -204,10 +204,9 @@ val return : 'a -> 'a comp
 
 val return_unit : value comp
 
-val return_is_term : Nucleus.is_term_abstraction -> value comp
-val return_is_type : Nucleus.is_type_abstraction -> value comp
-val return_eq_term : Nucleus.eq_term_abstraction -> value comp
-val return_eq_type : Nucleus.eq_type_abstraction -> value comp
+val return_judgement : Nucleus.judgement_abstraction -> value comp
+
+val return_boundary : Nucleus.boundary_abstraction -> value comp
 
 val return_closure : (value -> value comp) -> value comp
 val return_handler :
@@ -232,7 +231,7 @@ val lookup_ref : ml_ref -> value comp
 val update_ref : ml_ref -> value -> unit comp
 
 (** A computation that invokes the specified operation. *)
-val operation : Ident.t -> ?checking:Nucleus.is_type_abstraction -> value list -> value comp
+val operation : Ident.t -> ?checking:Nucleus.boundary_abstraction -> value list -> value comp
 
 (** Wrap the given computation with a handler. *)
 val handle_comp : handler -> value comp -> value comp
@@ -303,17 +302,8 @@ val add_dynamic : Name.t -> value -> unit toplevel
 (** Modify the value bound by a dynamic variable *)
 val top_now : ml_dyn -> value -> unit toplevel
 
-(** Extend the signature with a new is_type rule *)
-val add_rule_is_type : Ident.t -> Rule.rule_is_type -> unit toplevel
-
-(** Extend the signature with a new is_term rule *)
-val add_rule_is_term : Ident.t -> Rule.rule_is_term -> unit toplevel
-
-(** Extend the signature with a new is_type rule *)
-val add_rule_eq_type : Ident.t -> Rule.rule_eq_type -> unit toplevel
-
-(** Extend the signature with a new is_term rule *)
-val add_rule_eq_term : Ident.t -> Rule.rule_eq_term -> unit toplevel
+(** Extend the signature with a new rule *)
+val add_rule : Ident.t -> Rule.rule -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
 val top_handle : loc:Location.t -> 'a comp -> 'a toplevel

@@ -17,7 +17,8 @@ let apply (s : t) t =
   then t
   else begin
       let rec app = function
-        | Mlty.Judgement _
+        | Mlty.Judgement
+        | Mlty.Boundary
         | Mlty.String
         | Mlty.Param _ as t -> t
 

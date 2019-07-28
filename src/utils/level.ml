@@ -40,6 +40,8 @@ let abstraction = 800
 let abstraction_body = abstraction
 let binder = abstraction
 
+let boundary = abstraction_body
+
 let jdg = highest
 
 let ml_app = constructor

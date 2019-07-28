@@ -19,10 +19,6 @@ sig
   val none : Ident.t * Mlty.ty list * Mlty.ty
   val some : Ident.t * Mlty.ty list * Mlty.ty
 
-  val notcoercible : Ident.t * Mlty.ty list * Mlty.ty
-  val convertible : Ident.t * Mlty.ty list * Mlty.ty
-  val coercible_constructor : Ident.t * Mlty.ty list * Mlty.ty
-
   val mlless : Ident.t * Mlty.ty list * Mlty.ty
   val mlequal : Ident.t * Mlty.ty list * Mlty.ty
   val mlgreater : Ident.t * Mlty.ty list * Mlty.ty

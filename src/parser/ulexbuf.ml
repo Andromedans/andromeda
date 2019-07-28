@@ -15,7 +15,7 @@ type error =
 
 let print_error err ppf = match err with
   | SysError s -> Format.fprintf ppf "system error %s" s
-  | Unexpected s -> Format.fprintf ppf "unexpected %s" s
+  | Unexpected s -> Format.fprintf ppf "unexpected %s" (if String.equal s "" then "end of input" else s)
   | MalformedUTF8 -> Format.fprintf ppf "malformed UTF8"
   | BadNumeral s -> Format.fprintf ppf "bad numeral %s" s
   | UnclosedComment -> Format.fprintf ppf "input ended inside unclosed comment"

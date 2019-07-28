@@ -21,13 +21,16 @@ let apply_eq_type_abstraction sgn abstr e0 =
 let apply_eq_term_abstraction sgn abstr e0 =
   apply_abstraction Instantiate_bound.eq_term sgn abstr e0
 
+let apply_judgement_abstraction sgn abstr e0 =
+  apply_abstraction Instantiate_bound.judgement sgn abstr e0
+
 (* Apply [abstr] to a list of terms of length equal to the abstraction level
    of [abstr]. Verify that the terms to be substituted match the types on the
    abstraction. *)
 let rec fully_apply_abstraction inst_u sgn abstr = function
   | [] ->
      begin match abstr with
-     | NotAbstract eq -> eq
+     | NotAbstract x -> x
      | Abstract _ -> Error.raise TooFewArguments
      end
   | arg :: args ->

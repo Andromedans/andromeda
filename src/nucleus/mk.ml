@@ -11,6 +11,7 @@ let fresh_type_meta = fresh_meta
 let fresh_term_meta = fresh_meta
 let fresh_eq_type_meta = fresh_meta
 let fresh_eq_term_meta = fresh_meta
+let fresh_judgement_meta = fresh_meta
 
 let bound k = TermBound k
 
@@ -29,10 +30,10 @@ let term_convert e asmp t =
   | TermConvert _ -> assert false
   | _ -> TermConvert (e, asmp, t)
 
-let arg_is_type t = ArgumentIsType t
-let arg_is_term e = ArgumentIsTerm e
-let arg_eq_type s = ArgumentEqType s
-let arg_eq_term s = ArgumentEqTerm s
+let arg_is_type t = JudgementIsType t
+let arg_is_term e = JudgementIsTerm e
+let arg_eq_type s = JudgementEqType s
+let arg_eq_term s = JudgementEqTerm s
 
 let eq_type asmp t1 t2 = EqType (asmp, t1, t2)
 

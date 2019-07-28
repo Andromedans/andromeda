@@ -11,6 +11,6 @@ val top_match_pattern : Rsyntax.Pattern.aml -> Runtime.value -> Runtime.value li
     the optional pattern [p_out] against the optional type [t_out]. *)
 val match_op_pattern :
   loc:Location.t ->
-  Rsyntax.Pattern.aml list -> Rsyntax.Pattern.is_type option ->
-  Runtime.value list -> Nucleus.is_type_abstraction option ->
+  Rsyntax.Pattern.aml list -> Rsyntax.Pattern.boundary option ->
+  Runtime.value list -> Nucleus.boundary_abstraction option ->
   Runtime.value list option Runtime.comp

@@ -16,12 +16,12 @@ sig
 
   val add_ml_type : Ident.t * Mlty.ty_def -> t -> t
   val add_ml_operation : Ident.t * (Mlty.ty list * Mlty.ty) -> t -> t
-  val add_tt_constructor : Ident.t * Mlty.tt_constructor -> t -> t
+  val add_tt_constructor : Ident.t -> t -> t
   val add_ml_value : Mlty.ty_schema -> t -> t
 
   val get_ml_type : Path.t -> t -> Ident.t * Mlty.ty_def
   val get_ml_operation : Path.t -> t -> Ident.t * (Mlty.ty list * Mlty.ty)
-  val get_tt_constructor : Path.t -> t -> Ident.t * Mlty.tt_constructor
+  val get_tt_constructor : Path.t -> t -> Ident.t
   val get_ml_value : Path.t -> t -> Mlty.ty_schema
 
   val push_ml_module : t -> t
@@ -60,7 +60,7 @@ struct
       ml_modules : ml_module table;
       ml_types : (Ident.t * Mlty.ty_def) table;
       ml_operations : (Ident.t * (Mlty.ty list * Mlty.ty)) table;
-      tt_constructors : (Ident.t * Mlty.tt_constructor) table;
+      tt_constructors : Ident.t table;
       ml_values : Mlty.ty_schema table;
   }
 
@@ -203,8 +203,8 @@ let lookup_continuation {ml_yield;_} =
     | Some cont -> cont
     | None -> assert false
 
-let add_tt_constructor c t ctx =
-  { ctx with table = SymbolTable.add_tt_constructor (c, t) ctx.table }
+let add_tt_constructor c ctx =
+  { ctx with table = SymbolTable.add_tt_constructor c ctx.table }
 
 let add_ml_type t d ctx =
   let t = Ident.create t in

@@ -56,6 +56,9 @@ val abstraction : t
 val abstraction_body : t
 val binder : t (* The type inside a binder *)
 
+(** A judgement boundary *)
+val boundary : t
+
 (** A judgement [ctx |- e : t] *)
 val jdg : t
 

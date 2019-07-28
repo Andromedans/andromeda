@@ -1,69 +1,57 @@
 open Nucleus_types
 
-(* Instantiate a premise with meta-variables to obtain an abstracted boundary. *)
-let instantiate_premise metas prem =
+(* Instantiate a premise with meta-variables to obtain a boundary. *)
+let instantiate_premise ~lvl metas prem =
   match prem with
 
-  | Rule.PremiseIsType abstr ->
-     let bdry = Instantiate_meta.abstraction (fun ~lvl _ () -> ()) ~lvl:0 metas abstr in
-     BoundaryIsType bdry
+  | Rule.BoundaryIsType () ->
+     BoundaryIsType ()
 
-  | Rule.PremiseIsTerm abstr ->
-     let bdry = Instantiate_meta.abstraction Instantiate_meta.is_type ~lvl:0 metas abstr in
-     BoundaryIsTerm bdry
+  | Rule.BoundaryIsTerm t ->
+     BoundaryIsTerm (Instantiate_meta.is_type ~lvl metas t)
 
-  | Rule.PremiseEqType abstr ->
-     let bdry =
-       Instantiate_meta.abstraction
-         (fun ~lvl metas (t1, t2) -> (Instantiate_meta.is_type ~lvl metas t1, Instantiate_meta.is_type ~lvl metas t2))
-         ~lvl:0 metas abstr
-     in
-     BoundaryEqType bdry
+  | Rule.BoundaryEqType (t1, t2) ->
+     BoundaryEqType (Instantiate_meta.is_type ~lvl metas t1, Instantiate_meta.is_type ~lvl metas t2)
 
-  | Rule.PremiseEqTerm abstr ->
-     let bdry =
-       Instantiate_meta.abstraction
-         (fun ~lvl metas (a, b, t) ->
-           (Instantiate_meta.is_term ~lvl metas a,
-            Instantiate_meta.is_term ~lvl metas b,
-            Instantiate_meta.is_type ~lvl metas t))
-         ~lvl:0 metas abstr in
-     BoundaryEqTerm bdry
+  | Rule.BoundaryEqTerm (a, b, t) ->
+     BoundaryEqTerm (Instantiate_meta.is_term ~lvl metas a,
+                     Instantiate_meta.is_term ~lvl metas b,
+                     Instantiate_meta.is_type ~lvl metas t)
 
 (* Check that the argument [arg] matches the premise [prem], given [metas] *)
-let check_argument sgn metas arg prem =
-  match arg, instantiate_premise metas prem with
+let check_judgement ~lvl sgn metas arg prem =
+  match arg, instantiate_premise ~lvl metas prem with
 
-  | ArgumentIsType abstr, BoundaryIsType bdry ->
-     Alpha_equal.check_is_type_boundary abstr bdry
+  | JudgementIsType abstr, BoundaryIsType bdry ->
+     Check.is_type_boundary abstr bdry
 
-  | ArgumentIsTerm abstr, BoundaryIsTerm bdry  ->
-     Alpha_equal.check_is_term_boundary sgn abstr bdry
+  | JudgementIsTerm e, BoundaryIsTerm t ->
+     Check.is_term_boundary sgn e t
 
-  | ArgumentEqType abstr, BoundaryEqType bdry ->
-     Alpha_equal.check_eq_type_boundary abstr bdry
+  | JudgementEqType eq, BoundaryEqType bdry ->
+     Check.eq_type_boundary eq bdry
 
-  | ArgumentEqTerm abstr, BoundaryEqTerm bdry  ->
-     Alpha_equal.check_eq_term_boundary abstr bdry
+  | JudgementEqTerm eq, BoundaryEqTerm bdry  ->
+     Check.eq_term_boundary eq bdry
 
-  | (ArgumentIsTerm _ | ArgumentEqType _ | ArgumentEqTerm _) , (BoundaryIsType _ as bdry)
-  | (ArgumentIsType _ | ArgumentEqType _ | ArgumentEqTerm _) , (BoundaryIsTerm _ as bdry)
-  | (ArgumentIsType _ | ArgumentIsTerm _ | ArgumentEqTerm _) , (BoundaryEqType _ as bdry)
-  | (ArgumentIsType _ | ArgumentIsTerm _ | ArgumentEqType _) , (BoundaryEqTerm _ as bdry) ->
+  | (JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) , (BoundaryIsType _ as bdry)
+  | (JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) , (BoundaryIsTerm _ as bdry)
+  | (JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _) , (BoundaryEqType _ as bdry)
+  | (JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _) , (BoundaryEqTerm _ as bdry) ->
      Error.raise (ArgumentExpected bdry)
 
 let arg_of_argument = function
-  | ArgumentIsType t -> Mk.arg_is_type t
-  | ArgumentIsTerm e -> Mk.arg_is_term e
-  | ArgumentEqType eq -> Mk.arg_eq_type eq
-  | ArgumentEqTerm eq-> Mk.arg_eq_term eq
+  | JudgementIsType t -> Mk.arg_is_type t
+  | JudgementIsTerm e -> Mk.arg_is_term e
+  | JudgementEqType eq -> Mk.arg_eq_type eq
+  | JudgementEqTerm eq-> Mk.arg_eq_term eq
 
-let match_argument sgn metas (s : Rule.premise) (p : argument) : argument =
+let match_argument sgn metas (s : Rule.boundary) (p : judgement) : judgement =
   failwith "form_rule match_argument shouldn't be needed"
   (* check_argument sgn metas s p ;
    * arg_of_argument p *)
 
-let match_arguments sgn (premises : Rule.premise list) (arguments : argument list) =
+let match_arguments sgn (premises : Rule.boundary list) (arguments : judgement list) =
   let rec fold args_out = function
     | [], [] ->
        (* The arguments must _not_ be reversed because we refer to them by meta-variable
@@ -124,16 +112,13 @@ and mk_rule_is_term metas = function
      Rule.TermBound k
 
   | TermConvert (e, asmp, t) ->
-     let {free; is_type_meta; is_term_meta; eq_type_meta; eq_term_meta; bound} = asmp
+     let {free; meta; bound} = asmp
      (* NB: We do not check that the types of the metas match because we assume that
         the type of a meta never changes. *)
      and metas_set = Nonce.set_of_list metas in
      let mem_metas_set mv _bnd = Nonce.set_mem mv metas_set in
      begin match Nonce.map_is_empty free
-                 && Nonce.map_for_all mem_metas_set is_type_meta
-                 && Nonce.map_for_all mem_metas_set is_term_meta
-                 && Nonce.map_for_all mem_metas_set eq_type_meta
-                 && Nonce.map_for_all mem_metas_set eq_term_meta
+                 && Nonce.map_for_all mem_metas_set meta
                  && Bound_set.is_empty bound
      with
      | true -> mk_rule_is_term metas e
@@ -159,24 +144,20 @@ and mk_rule_assumptions metas asmp =
 
 and mk_rule_arg metas = function
 
-  | ArgumentIsType abstr ->
-     let abstr = mk_rule_abstraction mk_rule_is_type metas abstr in
-     Rule.ArgumentIsType abstr
+  | JudgementIsType t ->
+     Rule.JudgementIsType (mk_rule_is_type metas t)
 
-  | ArgumentIsTerm abstr ->
-     let abstr = mk_rule_abstraction mk_rule_is_term metas abstr in
-     Rule.ArgumentIsTerm abstr
+  | JudgementIsTerm e ->
+     Rule.JudgementIsTerm (mk_rule_is_term metas e)
 
-  | ArgumentEqType abstr ->
-     let abstr = mk_rule_abstraction mk_rule_eq_type metas abstr in
-     Rule.ArgumentEqType abstr
+  | JudgementEqType eq ->
+     Rule.JudgementEqType (mk_rule_eq_type metas eq)
 
-  | ArgumentEqTerm abstr ->
-     let abstr = mk_rule_abstraction mk_rule_eq_term metas abstr in
-     Rule.ArgumentEqTerm abstr
+  | JudgementEqTerm eq ->
+     Rule.JudgementEqTerm (mk_rule_eq_term metas eq)
 
 and mk_rule_args metas args =
-  List.map (mk_rule_arg metas) args
+  List.map (mk_rule_abstraction mk_rule_arg metas) args
 
 and mk_rule_abstraction
   : 'a 'b 'c . (Nonce.t list -> 'a -> 'b) -> Nonce.t list -> 'a abstraction -> 'b Rule.abstraction
@@ -193,73 +174,45 @@ and mk_rule_abstraction
 
 let mk_rule_premise metas = function
 
-  | BoundaryIsType abstr ->
-     let abstr = mk_rule_abstraction (fun _ () -> ()) metas abstr in
-     Rule.PremiseIsType abstr
+  | BoundaryIsType () ->
+     Rule.BoundaryIsType ()
 
-  | BoundaryIsTerm abstr ->
-     let abstr =
-       mk_rule_abstraction (fun metas t -> mk_rule_is_type metas t) metas abstr
-     in
-     Rule.PremiseIsTerm abstr
+  | BoundaryIsTerm t ->
+     Rule.BoundaryIsTerm (mk_rule_is_type metas t)
 
-  | BoundaryEqType abstr ->
-     let abstr =
-       mk_rule_abstraction
-         (fun metas (t1, t2) ->
+  | BoundaryEqType (t1, t2) ->
+     Rule.BoundaryEqType (mk_rule_is_type metas t1, mk_rule_is_type metas t2)
+
+  | BoundaryEqTerm (e1, e2, t) ->
+     Rule.BoundaryEqTerm (mk_rule_is_term metas e1, mk_rule_is_term metas e2, mk_rule_is_type metas t)
+
+let form_rule prems concl =
+  let rec fold metas prems_out = function
+    | [] ->
+       let concl =
+         match concl with
+         | BoundaryIsType () ->
+            Rule.BoundaryIsType ()
+
+         | BoundaryIsTerm t ->
+            Rule.BoundaryIsTerm (mk_rule_is_type metas t)
+
+         | BoundaryEqType (t1, t2) ->
             let t1 = mk_rule_is_type metas t1
             and t2 = mk_rule_is_type metas t2 in
-            (t1, t2))
-         metas abstr
-     in
-     Rule.PremiseEqType abstr
+            Rule.BoundaryEqType (t1, t2)
 
-  | BoundaryEqTerm abstr ->
-     let abstr =
-       mk_rule_abstraction
-         (fun metas (e1, e2, t) ->
+         | BoundaryEqTerm (e1, e2, t) ->
             let e1 = mk_rule_is_term metas e1
             and e2 = mk_rule_is_term metas e2
             and t = mk_rule_is_type metas t in
-            (e1, e2, t))
-         metas abstr
-     in
-     Rule.PremiseEqTerm abstr
-
-let mk_rule_premises form_u prems u =
-  let rec fold metas prems_out = function
-    | [] ->
-       let u = form_u metas u in
+            Rule.BoundaryEqTerm (e1, e2, t)
+       in
        let prems_out = List.rev prems_out in
-       prems_out, u
+       prems_out, concl
 
     | (mv, prem) :: prems ->
-       let prem = mk_rule_premise metas prem in
+       let prem = mk_rule_abstraction mk_rule_premise metas prem in
        fold (mv :: metas) (prem :: prems_out) prems
   in
   fold [] [] prems
-
-let form_rule_is_type prems =
-  mk_rule_premises (fun _ () -> ()) prems ()
-
-let form_rule_is_term prems t =
-  mk_rule_premises mk_rule_is_type prems t
-
-let form_rule_eq_type prems (t1, t2) =
-  mk_rule_premises
-    (fun metas (t1, t2) ->
-       let t1 = mk_rule_is_type metas t1
-       and t2 = mk_rule_is_type metas t2 in
-       (t1, t2))
-    prems
-    (t1, t2)
-
-let form_rule_eq_term prems (e1, e2, t) =
-  mk_rule_premises
-    (fun metas (e1, e2, t) ->
-       let e1 = mk_rule_is_term metas e1
-       and e2 = mk_rule_is_term metas e2
-       and t = mk_rule_is_type metas t in
-       (e1, e2, t))
-    prems
-    (e1, e2, t)

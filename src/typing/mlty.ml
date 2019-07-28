@@ -37,18 +37,9 @@ module MetaOrd = struct
   let compare = meta_compare
 end
 
-type judgement =
-  | IsType
-  | IsTerm
-  | EqType
-  | EqTerm
-
-type abstracted_judgement =
-  | NotAbstract of judgement
-  | Abstract of abstracted_judgement
-
 type ty =
-  | Judgement of abstracted_judgement
+  | Judgement
+  | Boundary
   | String
   | Meta of meta
   | Param of param
@@ -58,14 +49,6 @@ type ty =
   | Apply of Path.t * ty list
   | Ref of ty
   | Dynamic of ty
-
-type tt_constructor = abstracted_judgement list * judgement
-
-let is_type = Judgement (NotAbstract IsType)
-
-let is_term = Judgement (NotAbstract IsTerm)
-
-let eq_type = Judgement (NotAbstract EqType)
 
 let unit_ty = Prod []
 
@@ -93,8 +76,6 @@ type error =
   | Ungeneralizable of param list * ty
   | UnknownJudgementForm
   | JudgementExpected of ty
-  | AbstractionExpected of judgement
-  | UnexpectedJudgementAbstraction of judgement
 
 exception Error of error Location.located
 
@@ -142,25 +123,12 @@ let print_param ~penv (p : param) ppf =
   in
   Format.fprintf ppf "%s" s
 
-let print_judgement frm ppf =
-  Format.fprintf ppf
-  (match frm with
-   | IsType -> "is_type"
-   | IsTerm -> "is_term"
-   | EqType -> "eq_type"
-   | EqTerm -> "eq_term")
-
-let rec print_abstracted_judgement abstr ppf =
-  match abstr with
-  | NotAbstract frm -> print_judgement frm ppf
-  | Abstract abstr ->
-     Format.fprintf ppf "{}%t"
-       (print_abstracted_judgement abstr)
-
 let rec print_ty ~penv ?max_level t ppf =
   match t with
 
-  | Judgement abstr -> print_abstracted_judgement abstr ppf
+  | Judgement -> Format.fprintf ppf "judgement"
+
+  | Boundary -> Format.fprintf ppf "boundary"
 
   | String -> Format.fprintf ppf "mlstring"
 
@@ -261,23 +229,15 @@ let print_error err ppf =
     Format.fprintf ppf "expected a judgement but got@ @[<hov>%t]"
       (print_ty ~penv t)
 
-  | AbstractionExpected t ->
-    Format.fprintf ppf "expected an abstraction but got@ @[<hov>%t]"
-      (print_judgement t)
-
-  | UnexpectedJudgementAbstraction jdg_actual ->
-     Format.fprintf ppf "expected@ @[<hov>%t]@ but got an abstraction"
-       (print_judgement jdg_actual)
-
 let rec occurs m = function
-  | Judgement _ | String | Param _ -> false
+  | Judgement | Boundary | String | Param _ -> false
   | Meta m' -> eq_meta m m'
   | Prod ts  | Apply (_, ts) -> List.exists (occurs m) ts
   | Arrow (t1, t2) | Handler (t1, t2) -> occurs m t1 || occurs m t2
   | Ref t | Dynamic t -> occurs m t
 
 let rec occuring = function
-  | Judgement _ | String | Param _ -> MetaSet.empty
+  | Judgement | Boundary | String | Param _ -> MetaSet.empty
   | Meta m -> MetaSet.singleton m
   | Prod ts  | Apply (_, ts) ->
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
@@ -291,7 +251,7 @@ let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
 let instantiate pus t =
   let rec inst = function
 
-    | Judgement _ | String | Meta _ as t -> t
+    | Judgement | Boundary | String | Meta _ as t -> t
 
     | Param p as t ->
        begin
@@ -331,7 +291,7 @@ let instantiate pus t =
 
 let params_occur ps t =
   let rec occurs = function
-  | Judgement _ | String | Meta _ -> false
+  | Judgement | Boundary | String | Meta _ -> false
   | Param p -> List.mem p ps
   | Prod ts  | Apply (_, ts) ->
     List.exists occurs ts

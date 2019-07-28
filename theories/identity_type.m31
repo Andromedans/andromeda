@@ -19,7 +19,6 @@ rule Id_β
   : Id_ind A C c a a (Id_refl A a) ≡ c{a} : C{a, a, Id_refl A a}
 
 require judgemental_equality
-let convert = judgemental_equality.convert_term
 let sym = judgemental_equality.sym_eq_type
 
 rule Id_congr

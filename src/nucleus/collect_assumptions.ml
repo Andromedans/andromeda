@@ -47,11 +47,13 @@ and eq_term ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
 
 and is_type_meta ~lvl {meta_nonce; meta_type} =
   let asmp = abstraction (fun ?lvl () -> Assumption.empty) ~lvl meta_type in
-  Assumption.add_is_type_meta meta_nonce meta_type asmp
+  let meta_type = Boundary.from_is_type_abstraction meta_type in
+  Assumption.add_meta meta_nonce meta_type asmp
 
 and is_term_meta ~lvl {meta_nonce; meta_type} =
   let asmp = abstraction is_type ~lvl meta_type in
-  Assumption.add_is_term_meta meta_nonce meta_type asmp
+  let meta_type = Boundary.from_is_term_abstraction meta_type in
+  Assumption.add_meta meta_nonce meta_type asmp
 
 and abstraction
   : 'a . (?lvl:bound -> 'a -> assumption) ->
@@ -72,15 +74,15 @@ and term_arguments ~lvl ts =
 and arguments ~lvl args =
   let rec fold asmp = function
     | [] -> asmp
-    | arg :: args -> Assumption.union (argument ~lvl arg) (fold asmp args)
+    | arg :: args -> Assumption.union (abstraction judgement ~lvl arg) (fold asmp args)
   in
   fold Assumption.empty args
 
-and argument ?(lvl=0) = function
-  | ArgumentIsType abstr -> abstraction is_type ~lvl abstr
-  | ArgumentIsTerm abstr -> abstraction is_term ~lvl abstr
-  | ArgumentEqType abstr -> abstraction eq_type ~lvl abstr
-  | ArgumentEqTerm abstr -> abstraction eq_term ~lvl abstr
+and judgement ?(lvl=0) = function
+  | JudgementIsType t -> is_type ~lvl t
+  | JudgementIsTerm e -> is_term ~lvl e
+  | JudgementEqType eq -> eq_type ~lvl eq
+  | JudgementEqTerm eq -> eq_term ~lvl eq
 
 and assumptions ?(lvl=0) asmp = Assumption.at_level ~lvl asmp
 

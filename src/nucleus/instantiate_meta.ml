@@ -17,14 +17,14 @@ let fully_apply_abstraction_no_typechecks inst_u abstr args =
   fold [] abstr args
 
 let lookup_term_meta k metas =
-  match Indices.nth metas k with
-  | ArgumentIsTerm e_abstr -> e_abstr
-  | ArgumentIsType _ | ArgumentEqType _ | ArgumentEqTerm _ -> Error.raise TermExpected
+  match Judgement.as_is_term_abstraction (Indices.nth metas k) with
+  | Some abstr -> abstr
+  | None -> Error.raise IsTermExpected
 
 let lookup_type_meta k metas =
-  match Indices.nth metas k with
-  | ArgumentIsType t_abstr -> t_abstr
-  | ArgumentIsTerm _ | ArgumentEqType _ | ArgumentEqTerm _ -> Error.raise TypeExpected
+  match Judgement.as_is_type_abstraction (Indices.nth metas k) with
+  | Some abstr -> abstr
+  | None -> Error.raise IsTypeExpected
 
 (** [instantiate ~lvl metas] instantiates  *)
 
@@ -62,31 +62,27 @@ and eq_term ~lvl metas (Rule.EqTerm (e1, e2, t)) =
   Mk.eq_term Assumption.empty e1 e2 t
 
 and arguments ~lvl metas args =
-  List.map (argument ~lvl metas) args
+  List.map (abstraction argument ~lvl metas) args
 
 and argument ~lvl metas = function
-  | Rule.ArgumentIsType abstr ->
-     let abstr = abstraction is_type ~lvl metas abstr
-     in Mk.arg_is_type abstr
+  | Rule.JudgementIsType t ->
+     Mk.arg_is_type (is_type ~lvl metas t)
 
-  | Rule.ArgumentIsTerm abstr ->
-     let abstr = abstraction is_term ~lvl metas abstr
-     in Mk.arg_is_term abstr
+  | Rule.JudgementIsTerm e ->
+     Mk.arg_is_term (is_term ~lvl metas e)
 
-  | Rule.ArgumentEqType abstr ->
+  | Rule.JudgementEqType eq ->
      (* XXX could do this lazily so that it's discarded when it's an
-            argument in a premise, and computed only when it's an argument in
-            a constructor in the output of a rule *)
-     let abstr = abstraction eq_type ~lvl metas abstr
-     in Mk.arg_eq_type abstr
+        argument in a premise, and computed only when it's an argument in
+        a constructor in the output of a rule *)
+     Mk.arg_eq_type (eq_type ~lvl metas eq)
 
-  | Rule.ArgumentEqTerm abstr ->
-     let abstr = abstraction eq_term ~lvl metas abstr
-     in Mk.arg_eq_term abstr
+  | Rule.JudgementEqTerm eq ->
+     Mk.arg_eq_term (eq_term ~lvl metas eq)
 
 and abstraction
-  : 'a 'b . (lvl:int -> indices -> 'a -> 'b) ->
-    lvl:int -> indices -> 'a Rule.abstraction -> 'b abstraction
+  : 'a 'b . (lvl:int -> judgement_abstraction indices -> 'a -> 'b) ->
+    lvl:int -> judgement_abstraction indices -> 'a Rule.abstraction -> 'b abstraction
   = fun inst_u ~lvl metas -> function
 
     | Rule.NotAbstract u ->

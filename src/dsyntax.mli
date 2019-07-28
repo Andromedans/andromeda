@@ -2,16 +2,6 @@
 
 type 'a located = 'a Location.located
 
-type ml_judgement =
-  | ML_IsType
-  | ML_IsTerm
-  | ML_EqType
-  | ML_EqTerm
-
-type ml_abstracted_judgement =
-  | ML_NotAbstract of ml_judgement
-  | ML_Abstract of ml_abstracted_judgement
-
 type ml_ty = ml_ty' located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
@@ -20,7 +10,8 @@ and ml_ty' =
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
-  | ML_Judgement of ml_abstracted_judgement
+  | ML_Judgement
+  | ML_Boundary
   | ML_String
   | ML_Bound of Path.index
   | ML_Anonymous
@@ -88,8 +79,16 @@ and comp' =
   | Yield of comp
   | String of string
   | Occurs of comp * comp
+  | Convert of comp * comp
   | Context of comp
   | Natural of comp
+  | MLBoundary of boundary
+
+and boundary =
+   | BoundaryIsType
+   | BoundaryIsTerm of comp
+   | BoundaryEqType of comp * comp
+   | BoundaryEqTerm of comp * comp * comp
 
 and let_clause =
   | Let_clause of ml_pattern * let_annotation * comp (* [let (?p :> t) = c] *)
@@ -115,19 +114,12 @@ type ml_tydef =
 type local_context = (Name.t * comp) list
 
 type premise = premise' located
-and premise' =
-  | PremiseIsType of Name.t option * local_context
-  | PremiseIsTerm of Name.t option * local_context * comp
-  | PremiseEqType of Name.t option * local_context * (comp * comp)
-  | PremiseEqTerm of Name.t option * local_context * (comp * comp * comp)
+and premise' = Premise of Name.t * local_context * boundary
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
-  | RuleIsType of Path.t * premise list
-  | RuleIsTerm of Path.t * premise list * comp
-  | RuleEqType of Path.t * premise list * (comp * comp)
-  | RuleEqTerm of Path.t * premise list * (comp * comp * comp)
+  | Rule of Path.t * premise list * boundary
   | DefMLType of (Path.t * (Name.t option list * ml_tydef)) list
   | DefMLTypeRec of (Path.t * (Name.t option list * ml_tydef)) list
   | DeclOperation of Path.t * (ml_ty list * ml_ty)

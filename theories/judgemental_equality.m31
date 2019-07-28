@@ -1,9 +1,5 @@
 require judgemental_equality_type
 
-let convert_term s ξ =
-  let b = match ξ with ⊢ _ ≡ B => B end in
-  handle s : b with ML.coerce x y => yield (ML.Convertible ξ) end
-
 let sym_eq_type h = match h with
   | ⊢ a ≡ b => judgemental_equality_type.eq_type_sym a b h
   end

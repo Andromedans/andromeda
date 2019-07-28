@@ -12,16 +12,6 @@ type bound = int
 
 type path = Name.path
 
-type ml_judgement =
-  | ML_IsType
-  | ML_IsTerm
-  | ML_EqType
-  | ML_EqTerm
-
-type ml_abstracted_judgement =
-  | ML_NotAbstract of ml_judgement
-  | ML_Abstract of ml_abstracted_judgement
-
 type ml_ty = ml_ty' located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
@@ -30,7 +20,8 @@ and ml_ty' =
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
-  | ML_Judgement of ml_abstracted_judgement
+  | ML_Judgement
+  | ML_Boundary
   | ML_String
   | ML_Anonymous
 
@@ -104,8 +95,13 @@ and comp' =
   | Yield of comp
   | String of string
   | Context of comp
+  | Convert of comp * comp
   | Occurs of comp * comp
   | Natural of comp
+  | MLBoundaryIsType
+  | MLBoundaryIsTerm of comp
+  | MLBoundaryEqType of comp * comp
+  | MLBoundaryEqTerm of comp * comp * comp
 
 and let_clause =
   | Let_clause_ML of (Name.t * ml_arg list) option * let_annotation * comp

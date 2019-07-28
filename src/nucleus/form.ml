@@ -2,8 +2,6 @@
 
 open Nucleus_types
 
-let error = Error.raise
-
 let form_alpha_equal_type t1 t2 =
   match Alpha_equal.is_type t1 t2 with
   | false -> None
@@ -18,7 +16,7 @@ let form_alpha_equal_term sgn e1 e2 =
      conclude that their types are equal, so we don't have to compute t1, t2,
      and t1 =α= t2. *)
   match Alpha_equal.is_type t1 t2 with
-  | false -> error (AlphaEqualTypeMismatch (t1, t2))
+  | false -> Error.raise (AlphaEqualTypeMismatch (t1, t2))
   | true ->
      begin match Alpha_equal.is_term e1 e2 with
      | false -> None
@@ -53,69 +51,62 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
 
 
 (** Partial rule applications *)
-let form_rap sgn constr prems =
+
+let form_rap sgn c =
+  let prems, concl = Signature.lookup_rule c sgn in
+  let constr =
+    match concl with
+    | Rule.BoundaryIsType _ ->
+       (fun args -> JudgementIsType (Mk.type_constructor c (Indices.to_list args)))
+
+    | Rule.BoundaryIsTerm _ ->
+       (fun args -> JudgementIsTerm (Mk.term_constructor c (Indices.to_list args)))
+
+    | Rule.BoundaryEqType (lhs_schema, rhs_schema) ->
+       (fun args ->
+         (* order of arguments not important in [Collect_assumptions.arguments],
+            we could try avoiding a list reversal caused by [Indices.to_list]. *)
+         let asmp = Collect_assumptions.arguments (Indices.to_list args)
+         and lhs = Instantiate_meta.is_type ~lvl:0 args lhs_schema
+         and rhs = Instantiate_meta.is_type ~lvl:0 args rhs_schema
+         in
+         JudgementEqType (Mk.eq_type asmp lhs rhs))
+
+    | Rule.BoundaryEqTerm (e1_schema, e2_schema, t_schema) ->
+       (fun args ->
+         (* order of arguments not important in [Collect_assumptions.arguments],
+            we could try avoiding a list reversal caused by [Indices.to_list]. *)
+         let asmp = Collect_assumptions.arguments (Indices.to_list args)
+         and e1 = Instantiate_meta.is_term ~lvl:0 args e1_schema
+         and e2 = Instantiate_meta.is_term ~lvl:0 args e2_schema
+         and t = Instantiate_meta.is_type ~lvl:0 args t_schema
+         in
+         JudgementEqTerm (Mk.eq_term asmp e1 e2 t))
+  in
   match prems with
   | [] -> RapDone (constr [])
   | p :: ps ->
      RapMore
        { rap_arguments = []
-       ; rap_boundary = Form_rule.instantiate_premise [] p
+       ; rap_boundary = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 [] p
        ; rap_premises = ps
        ; rap_constructor = constr
        }
 
 let rap_boundary {rap_boundary;_} = rap_boundary
 
-let form_rap_is_type sgn c =
-  let prems, () = Signature.lookup_rule_is_type c sgn in
-  form_rap sgn
-    (fun args -> Mk.type_constructor c (Indices.to_list args)) prems
-
-let form_rap_is_term sgn c =
-  let prems, _t_schema = Signature.lookup_rule_is_term c sgn in
-  form_rap sgn
-    (fun args -> Mk.term_constructor c (Indices.to_list args))
-    prems
-
-let form_rap_eq_type sgn c =
-  let prems, (lhs_schema, rhs_schema) = Signature.lookup_rule_eq_type c sgn in
-  form_rap sgn
-    (fun args ->
-      (* order of arguments not important in [Collect_assumptions.arguments],
-         we could try avoiding a list reversal caused by [Indices.to_list]. *)
-      let asmp = Collect_assumptions.arguments (Indices.to_list args)
-      and lhs = Instantiate_meta.is_type ~lvl:0 args lhs_schema
-      and rhs = Instantiate_meta.is_type ~lvl:0 args rhs_schema
-      in Mk.eq_type asmp lhs rhs)
-    prems
-
-let form_rap_eq_term sgn c =
-  let prems, (e1_schema, e2_schema, t_schema) = Signature.lookup_rule_eq_term c sgn in
-  form_rap sgn
-    (fun args ->
-      (* order of arguments not important in [Collect_assumptions.arguments],
-         we could try avoiding a list reversal caused by [Indices.to_list]. *)
-      let asmp = Collect_assumptions.arguments (Indices.to_list args)
-      and e1 = Instantiate_meta.is_term ~lvl:0 args e1_schema
-      and e2 = Instantiate_meta.is_term ~lvl:0 args e2_schema
-      and t = Instantiate_meta.is_type ~lvl:0 args t_schema
-      in Mk.eq_term asmp e1 e2 t)
-    prems
-
+(* Apply the given partially applied rule instance to the given argument. The result
+   is again a partially applied rule (a special case of which is a fully applied rule). *)
 let rap_apply sgn {rap_arguments; rap_boundary; rap_premises; rap_constructor} arg =
-  if not (match rap_boundary, arg with
-          | BoundaryIsType bdry, ArgumentIsType arg -> Alpha_equal.check_is_type_boundary arg bdry
-          | BoundaryIsTerm bdry, ArgumentIsTerm arg -> Alpha_equal.check_is_term_boundary sgn arg bdry
-          | BoundaryEqType bdry, ArgumentEqType arg -> Alpha_equal.check_eq_type_boundary arg bdry
-          | BoundaryEqTerm bdry, ArgumentEqTerm arg -> Alpha_equal.check_eq_term_boundary arg bdry
-          | _, _ -> false)
+  if not (Check.judgement_boundary_abstraction sgn arg rap_boundary)
   then Error.raise InvalidArgument ;
   let rap_arguments = arg :: rap_arguments in
   match rap_premises with
-  | [] -> RapDone (rap_constructor rap_arguments)
+  | [] ->
+     RapDone (rap_constructor rap_arguments)
   | p :: rap_premises ->
-     let rap_boundary = (Form_rule.instantiate_premise [] p) in
-     RapMore { rap_arguments
+     let rap_boundary = (Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 rap_arguments p) in
+       RapMore { rap_arguments
              ; rap_boundary
              ; rap_premises
              ; rap_constructor }
@@ -124,7 +115,7 @@ let form_is_term_atom = Mk.atom
 
 (** Conversion *)
 
-let form_is_term_convert sgn e (EqType (asmp, t1, t2)) =
+let form_is_term_convert_opt sgn e (EqType (asmp, t1, t2)) =
   match e with
   | TermConvert (e, asmp0, t0) ->
      if Alpha_equal.is_type t0 t1 then
@@ -138,9 +129,9 @@ let form_is_term_convert sgn e (EqType (asmp, t1, t2)) =
        *)
        in
        (* [e] itself is not a [TermConvert] by the maintained invariant. *)
-       Mk.term_convert e asmp t2
+       Some (Mk.term_convert e asmp t2)
      else
-       error (InvalidConvert (t0, t1))
+       None
 
   | (TermAtom _ | TermBound _ | TermConstructor _ | TermMeta _) as e ->
      let t0 = Sanity.natural_type sgn e in
@@ -148,20 +139,30 @@ let form_is_term_convert sgn e (EqType (asmp, t1, t2)) =
        (* We need not include assumptions of [t1] because [t0] is alpha-equal
             to [t1] so we can use [t0] in place of [t1] if so desired. *)
        (* [e] is not a [TermConvert] by the above pattern-check *)
-       Mk.term_convert e asmp t2
+       Some (Mk.term_convert e asmp t2)
      else
-       error (InvalidConvert (t0, t1))
+       None
 
-let form_eq_term_convert (EqTerm (asmp1, e1, e2, t0)) (EqType (asmp2, t1, t2)) =
+let form_is_term_convert sgn e (EqType (_, t1, _) as eq) =
+  match form_is_term_convert_opt sgn e eq with
+  | Some e -> e
+  | None ->
+     let t0 = Sanity.natural_type sgn e in
+     Error.raise (InvalidConvert (t0, t1))
+
+let form_eq_term_convert_opt (EqTerm (asmp1, e1, e2, t0)) (EqType (asmp2, t1, t2)) =
   if Alpha_equal.is_type t0 t1 then
     (* We could have used the assumptions of [t0] instead of [t1], see comments in [form_is_term]
        about possible optimizations. *)
     let asmp = Assumption.union asmp1 (Assumption.union asmp2 (Collect_assumptions.is_type t1)) in
-    Mk.eq_term asmp e1 e2 t2
+    Some (Mk.eq_term asmp e1 e2 t2)
   else
-    error (InvalidConvert (t0, t1))
+    None
 
-
+let form_eq_term_convert (EqTerm (_, _, _, t0) as eq1) (EqType (_, t1, _) as eq2) =
+  match form_eq_term_convert_opt eq1 eq2 with
+  | Some eq -> eq
+  | None -> Error.raise (InvalidConvert (t0, t1))
 
 let symmetry_term (EqTerm (asmp, e1, e2, t)) = Mk.eq_term asmp e2 e1 t
 
@@ -169,10 +170,10 @@ let symmetry_type (EqType (asmp, t1, t2)) = Mk.eq_type asmp t2 t1
 
 let transitivity_term (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t')) =
   match Alpha_equal.is_type t t' with
-  | false -> error (AlphaEqualTypeMismatch (t, t'))
+  | false -> Error.raise (AlphaEqualTypeMismatch (t, t'))
   | true ->
      begin match Alpha_equal.is_term e2 e1' with
-     | false -> error (AlphaEqualTermMismatch (e2, e1'))
+     | false -> Error.raise (AlphaEqualTermMismatch (e2, e1'))
      | true ->
         (* XXX could use assumptions of [e1'] instead, or whichever is better. *)
         let asmp = Assumption.union asmp (Assumption.union asmp' (Collect_assumptions.is_term e2))
@@ -181,9 +182,25 @@ let transitivity_term (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t')) 
 
 let transitivity_type (EqType (asmp1, t1, t2)) (EqType (asmp2, u1, u2)) =
   begin match Alpha_equal.is_type t2 u1 with
-  | false -> error (AlphaEqualTypeMismatch (t2, u1))
+  | false -> Error.raise (AlphaEqualTypeMismatch (t2, u1))
   | true ->
      (* XXX could use assumptions of [u1] instead, or whichever is better. *)
      let asmp = Assumption.union asmp1 (Assumption.union asmp2 (Collect_assumptions.is_type t2))
      in Mk.eq_type asmp t1 u2
   end
+
+(** Formation of boundaries *)
+
+let form_is_type_boundary = BoundaryIsType ()
+
+let form_is_term_bondary t = BoundaryIsTerm t
+
+let form_eq_type_boundary t1 t2 = BoundaryEqType (t1, t2)
+
+let form_eq_term_boundary sgn e1 e2 =
+  let t1 = Sanity.type_of_term sgn e1
+  and t2 = Sanity.type_of_term sgn e2 in
+  if Alpha_equal.is_type t1 t2 then
+    BoundaryEqTerm (e1, e2, t1)
+  else
+    Error.raise (AlphaEqualTypeMismatch (t1, t2))

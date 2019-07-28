@@ -4,9 +4,11 @@ open Nucleus_types
 
 (** [abstract_is_type x0 ~lvl:k t] replaces atom [x0] in type [t] with bound variable [k] (default [0]). *)
 let rec is_type x ?(lvl=0) = function
+
   | TypeConstructor (c, args) ->
      let args = arguments x ~lvl args in
      TypeConstructor (c, args)
+
   | TypeMeta (mv, args) ->
      let args = term_arguments x ~lvl args
      and mv = is_type_meta x ~lvl mv in
@@ -18,8 +20,8 @@ and is_term x ?(lvl=0) = function
        e
      else
        assert false
-  (* we should never get here because abstracting should always introduce a
-     highest-level bound index. *)
+       (* we should never get here because abstracting should always introduce a
+          highest-level bound index. *)
 
   | (TermAtom {atom_nonce=y; atom_type=t}) as e ->
      begin match Nonce.equal x y with
@@ -40,10 +42,11 @@ and is_term x ?(lvl=0) = function
      let args = arguments x ~lvl args in
      TermConstructor (c, args)
 
-  | TermConvert (c, asmp, t) ->
-     let asmp = Assumption.abstract x ~lvl asmp
+  | TermConvert (e, asmp, t) ->
+     let e = is_term x ~lvl e
+     and asmp = Assumption.abstract x ~lvl asmp
      and t = is_type x ~lvl t in
-     TermConvert (c, asmp, t)
+     TermConvert (e, asmp, t)
 
 and eq_type x ?(lvl=0) (EqType (asmp, t1, t2)) =
   let asmp = assumptions x ~lvl asmp
@@ -83,22 +86,16 @@ and abstraction
 
 and term_arguments x ?(lvl=0) args = List.map (is_term x ~lvl) args
 
-and arguments x ?(lvl=0) args = List.map (argument x ~lvl) args
+and arguments x ?(lvl=0) args = List.map (abstraction judgement x ~lvl) args
 
-and argument x ?(lvl=0) = function
+and judgement x ?(lvl=0) = function
+  | JudgementIsType t -> JudgementIsType (is_type x ~lvl t)
 
-  | ArgumentIsType t -> ArgumentIsType (abstraction is_type x ~lvl t)
+  | JudgementIsTerm e -> JudgementIsTerm (is_term x ~lvl e)
 
-  | ArgumentIsTerm e -> ArgumentIsTerm (abstraction is_term x ~lvl e)
+  | JudgementEqType asmp -> JudgementEqType (eq_type x ~lvl asmp)
 
-  | ArgumentEqType asmp ->
-     let asmp = abstraction eq_type x ~lvl asmp in
-     ArgumentEqType asmp
-
-  | ArgumentEqTerm asmp ->
-     let asmp = abstraction eq_term x ~lvl asmp in
-     ArgumentEqTerm asmp
-
+  | JudgementEqTerm asmp -> JudgementEqTerm (eq_term x ~lvl asmp)
 
 let not_abstract u = Mk.not_abstract u
 
@@ -119,29 +116,47 @@ let eq_term_abstraction atm abstr =
   let abstr = abstraction eq_term atm.atom_nonce abstr in
   Mk.abstract atm abstr
 
+let judgement_abstraction atm abstr =
+  let abstr = abstraction judgement atm.atom_nonce abstr in
+  Mk.abstract atm abstr
+
+let boundary_is_type _atm ?lvl () = ()
+
+let boundary_is_term atm ?lvl t = is_type atm ?lvl t
+
+let boundary_eq_type atm ?lvl (lhs, rhs) =
+  let lhs = is_type ?lvl atm lhs
+  and rhs = is_type ?lvl atm rhs in
+  (lhs, rhs)
+
+let boundary_eq_term atm ?lvl (lhs, rhs, t) =
+  let lhs = is_term ?lvl atm lhs
+  and rhs = is_term ?lvl atm rhs
+  and t = is_type ?lvl atm t in
+  (lhs, rhs, t)
+
+let boundary atm ?lvl = function
+  | BoundaryIsTerm bdry -> BoundaryIsTerm (boundary_is_term atm ?lvl bdry)
+  | BoundaryIsType bdry -> BoundaryIsType (boundary_is_type atm ?lvl bdry)
+  | BoundaryEqType bdry -> BoundaryEqType (boundary_eq_type atm ?lvl bdry)
+  | BoundaryEqTerm bdry -> BoundaryEqTerm (boundary_eq_term atm ?lvl bdry)
+
 let boundary_is_type_abstraction atm abstr =
-  let abstr = abstraction (fun _a ?lvl t -> ()) atm.atom_nonce abstr in
+  let abstr = abstraction boundary_is_type atm.atom_nonce abstr in
   Mk.abstract atm abstr
 
 let boundary_is_term_abstraction atm abstr =
-  let abstr = abstraction is_type atm.atom_nonce abstr in
+  let abstr = abstraction boundary_is_term atm.atom_nonce abstr in
   Mk.abstract atm abstr
 
 let boundary_eq_type_abstraction atm abstr =
-  let abstr = abstraction
-      (fun a ?lvl (lhs, rhs) ->
-         let lhs = is_type ?lvl a lhs
-         and rhs = is_type ?lvl a rhs in
-         (lhs, rhs))
-      atm.atom_nonce abstr in
+  let abstr = abstraction boundary_eq_type atm.atom_nonce abstr in
   Mk.abstract atm abstr
 
 let boundary_eq_term_abstraction atm abstr =
-  let abstr = abstraction
-      (fun a ?lvl (lhs, rhs, t) ->
-         let lhs = is_term ?lvl a lhs
-         and rhs = is_term ?lvl a rhs
-         and t = is_type ?lvl a t in
-         (lhs, rhs, t))
-      atm.atom_nonce abstr in
+  let abstr = abstraction boundary_eq_term atm.atom_nonce abstr in
+  Mk.abstract atm abstr
+
+let boundary_abstraction atm abstr =
+  let abstr = abstraction boundary atm.atom_nonce abstr in
   Mk.abstract atm abstr

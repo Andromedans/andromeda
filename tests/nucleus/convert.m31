@@ -1,0 +1,22 @@
+rule A type ;;
+rule B type ;;
+rule ξ : A ≡ B ;;
+rule a : A ;;
+rule b : A ;;
+
+convert a ξ ;;
+
+match (convert a ξ) with ⊢ _ : t => t end ;;
+
+rule P (⊢ _ : A) type ;;
+
+rule ζ (⊢ x : A) : P x ≡ P a ;;
+
+ζ b ;;
+
+rule z : A ;;
+
+let e = (convert ({u : P z} u) ({u : P z} ζ z)) ;;
+
+match e with ⊢ {r : R} (v : V) => (r, R, v, V) end ;;
+

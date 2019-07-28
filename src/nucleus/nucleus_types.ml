@@ -4,13 +4,13 @@ type bound = int
 
 type is_type =
   | TypeMeta of is_type_meta * is_term list
-  | TypeConstructor of Ident.t * argument list
+  | TypeConstructor of Ident.t * judgement_abstraction list
 
 and is_term =
   | TermBound of bound
   | TermAtom of is_atom
   | TermMeta of is_term_meta * is_term list
-  | TermConstructor of Ident.t * argument list
+  | TermConstructor of Ident.t * judgement_abstraction list
   | TermConvert of is_term * assumption * is_type
 
 and eq_type = EqType of assumption * is_type * is_type
@@ -21,58 +21,55 @@ and is_atom = { atom_nonce : Nonce.t ; atom_type : is_type }
 
 and 't meta = { meta_nonce : Nonce.t ; meta_type : 't }
 
-and is_type_meta = is_type_boundary meta
-and is_term_meta = is_term_boundary meta
-and eq_type_meta = eq_type_boundary meta
-and eq_term_meta = eq_term_boundary meta
+and is_type_meta = is_type_boundary abstraction meta
+and is_term_meta = is_term_boundary abstraction meta
+and eq_type_meta = eq_type_boundary abstraction meta
+and eq_term_meta = eq_term_boundary abstraction meta
+and judgement_meta = boundary_abstraction meta
 
 and assumption =
   { free : is_type Nonce.map
-  ; is_type_meta : is_type_boundary Nonce.map
-  ; is_term_meta : is_term_boundary Nonce.map
-  ; eq_type_meta : eq_type_boundary Nonce.map
-  ; eq_term_meta : eq_term_boundary Nonce.map
+  ; meta : boundary_abstraction Nonce.map
   ; bound : Bound_set.t }
 
 and 'a abstraction =
   | NotAbstract of 'a
   | Abstract of is_atom * 'a abstraction
 
-and argument =
-  | ArgumentIsType of is_type abstraction
-  | ArgumentIsTerm of is_term abstraction
-  | ArgumentEqType of eq_type abstraction
-  | ArgumentEqTerm of eq_term abstraction
+and judgement =
+  | JudgementIsType of is_type
+  | JudgementIsTerm of is_term
+  | JudgementEqType of eq_type
+  | JudgementEqTerm of eq_term
 
-and is_type_boundary = unit abstraction
-and is_term_boundary = is_type abstraction
-and eq_type_boundary = (is_type * is_type) abstraction
-and eq_term_boundary = (is_term * is_term * is_type) abstraction
+and judgement_abstraction = judgement abstraction
+
+and is_type_boundary = unit
+and is_term_boundary = is_type
+and eq_type_boundary = is_type * is_type
+and eq_term_boundary = is_term * is_term * is_type
 
 and boundary =
-    | BoundaryIsType of is_type_boundary
-    | BoundaryIsTerm of is_term_boundary
-    | BoundaryEqType of eq_type_boundary
-    | BoundaryEqTerm of eq_term_boundary
+  | BoundaryIsType of is_type_boundary
+  | BoundaryIsTerm of is_term_boundary
+  | BoundaryEqType of eq_type_boundary
+  | BoundaryEqTerm of eq_term_boundary
 
-type 'a rule_application_status =
-  { rap_arguments : argument list (* the arguments collected so far *)
-  ; rap_boundary : boundary (* the boundary of the next argument *)
-  ; rap_premises : Rule.premise list (* the remaining premises to be applied *)
-  ; rap_constructor : argument list -> 'a (* the function which makes the final result *)
+and boundary_abstraction = boundary abstraction
+
+type rule_application_status =
+  { rap_arguments : judgement_abstraction list (* the arguments collected so far *)
+  ; rap_boundary : boundary_abstraction (* the boundary of the next argument *)
+  ; rap_premises : Rule.boundary_abstraction list (* the remaining premises to be applied *)
+  ; rap_constructor : judgement_abstraction list -> judgement (* the function which makes the final result *)
   }
 
 (* A partial rule application *)
-type 'a rule_application =
-  | RapDone of 'a
-  | RapMore of 'a rule_application_status
+type rule_application =
+  | RapDone of judgement
+  | RapMore of rule_application_status
 
-type signature =
-  { is_type : Rule.rule_is_type Ident.map
-  ; is_term : Rule.rule_is_term Ident.map
-  ; eq_type : Rule.rule_eq_type Ident.map
-  ; eq_term : Rule.rule_eq_term Ident.map
-  }
+type signature = Rule.rule Ident.map
 
 type is_term_abstraction = is_term abstraction
 type is_type_abstraction = is_type abstraction
@@ -84,25 +81,30 @@ type eq_term_abstraction = eq_term abstraction
    whereas the [invert_XYZ] functions do the opposite. We can think of stumps
    as "stumps", i.e., the lowest level of a derivation tree. *)
 
-type nonrec stump_is_type =
-  | Stump_TypeConstructor of Ident.t * argument list
+type stump_is_type =
+  | Stump_TypeConstructor of Ident.t * judgement_abstraction list
   | Stump_TypeMeta of is_type_meta * is_term list
 
-and stump_is_term =
+type stump_is_term =
   | Stump_TermAtom of is_atom
-  | Stump_TermConstructor of Ident.t * argument list
+  | Stump_TermConstructor of Ident.t * judgement_abstraction list
   | Stump_TermMeta of is_term_meta * is_term list
   | Stump_TermConvert of is_term * eq_type
 
-and stump_eq_type =
+type stump_eq_type =
   | Stump_EqType of assumption * is_type * is_type
 
-and stump_eq_term =
+type stump_eq_term =
   | Stump_EqTerm of assumption * is_term * is_term * is_type
 
-and 'a stump_abstraction =
+type 'a stump_abstraction =
   | Stump_NotAbstract of 'a
   | Stump_Abstract of is_atom * 'a abstraction
+
+(** A stump for inverting two abstractions at the same time. *)
+type ('a, 'b) stumps_abstraction =
+  | Stumps_NotAbstract of 'a * 'b
+  | Stumps_Abstract of is_atom * 'a abstraction * 'b abstraction
 
 type congruence_argument =
   | CongrIsType of is_type abstraction * is_type abstraction * eq_type abstraction
@@ -119,15 +121,15 @@ type congruence_argument =
 
    Used by module Indices
 *)
-type indices = argument list
+type 'a indices = 'a list
 
 type error =
   | InvalidInstantiation
   | InvalidAbstraction
   | TooFewArguments
   | TooManyArguments
-  | TermExpected
-  | TypeExpected
+  | IsTermExpected
+  | IsTypeExpected
   | ExtraAssumptions
   | InvalidApplication
   | InvalidArgument
