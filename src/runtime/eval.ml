@@ -175,7 +175,7 @@ let rec comp {Location.thing=c'; loc} =
      comp c >>=
      match_cases ~loc cases comp
 
-  | Rsyntax.Ascribe (c1, c2) ->
+  | Rsyntax.BoundaryAscribe (c1, c2) ->
      comp_as_boundary_abstraction c2 >>= fun bdry ->
      check_judgement c1 bdry >>=
      Runtime.return_judgement
@@ -330,7 +330,7 @@ and check_judgement ({Location.thing=c';loc} as c) bdry =
   | Rsyntax.Value _
   | Rsyntax.Function _
   | Rsyntax.Handler _
-  | Rsyntax.Ascribe _
+  | Rsyntax.BoundaryAscribe _
   | Rsyntax.MLConstructor _
   | Rsyntax.TTConstructor _
   | Rsyntax.Tuple _

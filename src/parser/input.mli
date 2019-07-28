@@ -86,7 +86,7 @@ and comp' =
   | Ref of comp
   | Sequence of comp * comp
   | Assume of (Name.t option * comp) * comp
-  | Ascribe of comp * comp
+  | BoundaryAscribe of comp * comp
   | Abstract of (Name.t * comp option) list * comp
   (* Multi-argument substitutions are *not* treated as parallel substitutions
      but desugared to consecutive substitutions. *)
