@@ -29,7 +29,7 @@ let print_error state err ppf =
 
   | RuntimeError {Location.thing=err; loc} ->
      let penv = Runtime.get_penv state.runtime in
-     Format.fprintf ppf "@[<hov 2>Runtime error:@ %t@]" (Runtime.print_error ~penv err)
+     Format.fprintf ppf "%t:@.@[<hov 2>Runtime error:@ %t@]" (Location.print loc) (Runtime.print_error ~penv err)
 
   | NucleusError err ->
      let penv = Runtime.get_nucleus_penv state.runtime in
