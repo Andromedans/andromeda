@@ -44,7 +44,7 @@ let union a1 a2 =
       (if not (t1 == t2)
        then
          (Print.error "XXX %s variable %t occurs at physically different types@." vtype (Nonce.print ~parentheses:false a)
-         ; assert false )
+         (* ; assert false  *))
        else ()) ;
       Some t1) in
   let f_free = f "free"

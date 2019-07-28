@@ -118,7 +118,7 @@ type ml_tydef =
 type local_context = (Name.t * comp) list
 
 type premise = premise' located
-and premise' = Premise of Name.t option * local_context * boundary
+and premise' = Premise of Name.t * local_context * boundary
 
 (** Toplevel commands *)
 type toplevel = toplevel' located

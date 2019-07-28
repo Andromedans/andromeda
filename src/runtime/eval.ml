@@ -228,15 +228,15 @@ let rec comp {Location.thing=c'; loc} =
      begin match Nucleus.type_at_abstraction abstr with
        | None -> Runtime.(error ~loc AbstractionExpected)
        | Some t ->
-          check_judgement c2 (Nucleus.abstract_not_abstract (Nucleus.form_is_term_boundary t)) >>= fun abstr ->
-          begin match Nucleus.as_not_abstract abstr with
+          check_judgement c2 (Nucleus.abstract_not_abstract (Nucleus.form_is_term_boundary t)) >>= fun jdg ->
+          begin match Nucleus.as_not_abstract jdg with
           | Some (Nucleus.JudgementIsTerm e) ->
                Runtime.lookup_signature >>= fun sgn ->
                let abstr = Nucleus.apply_judgement_abstraction sgn abstr e in
                Runtime.return_judgement abstr
           | None
           | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
-             Runtime.(error ~loc (IsTermExpected (Runtime.Judgement abstr)))
+             Runtime.(error ~loc (IsTermExpected (Runtime.Judgement jdg)))
           end
      end
 
@@ -544,7 +544,8 @@ and comp_as_is_term_abstraction c =
 
 (** Run [c] and convert the result to a judgement abstraction. *)
 and comp_as_judgement_abstraction c =
-  comp c >>= fun v -> return (Runtime.as_judgement_abstraction ~loc:c.Location.loc v)
+  comp c >>= fun v ->
+  return (Runtime.as_judgement_abstraction ~loc:c.Location.loc v)
 
 (** Run [c] and convert the result to a boundary abstraction. *)
 and comp_as_boundary_abstraction c =
@@ -620,13 +621,12 @@ let local_context lctx cmp =
   in
   fold lctx
 
-let premise {Location.thing=Rsyntax.Premise(xopt, lctx, bdry); loc} =
+let premise {Location.thing=Rsyntax.Premise(x, lctx, bdry); loc} =
   local_context lctx (eval_boundary ~loc bdry) >>= fun bdry ->
   Runtime.lookup_signature >>= fun sgn ->
-  let x = (match xopt with Some x -> x | None -> Name.anonymous ()) in
   let mv = Nucleus.fresh_judgement_meta x bdry in
   let v = Runtime.Judgement (Nucleus.judgement_meta_eta_expanded sgn mv) in
-  return ((Nucleus.meta_nonce mv, bdry), Some v)
+  return ((Nucleus.meta_nonce mv, bdry), v)
 
 
 (** Evaluate the premises (should we call them arguments?) of a rule,
@@ -642,11 +642,9 @@ let premises prems cmp =
        return (prems_out, v)
 
     | prem :: prems ->
-       premise prem >>= fun (x_boundary, vopt) ->
+       premise prem >>= fun (x_boundary, v) ->
        let cmp = fold (x_boundary :: prems_out) prems in
-       match vopt with
-       | None -> cmp
-       | Some v -> Runtime.add_bound v cmp
+       Runtime.add_bound v cmp
   in
   fold [] prems
 

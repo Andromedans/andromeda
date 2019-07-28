@@ -44,7 +44,7 @@ and is_term e1 e2 =
   end
 
 and abstraction
-  : 'a 'b . ('a -> 'b -> bool) -> 'a abstraction -> 'b abstraction -> bool
+  : 'a 'a . ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
   = fun equal_v e e' ->
     match e, e' with
 
@@ -117,45 +117,5 @@ let boundary jdg1 jdg2 =
   | BoundaryEqType _, (BoundaryIsType _ | BoundaryIsTerm _ | BoundaryEqTerm _)
   | BoundaryEqTerm _, (BoundaryIsType _ | BoundaryIsTerm _ | BoundaryEqType _) ->
      false
-
-let check_is_type_boundary abstr bdry = true
-
-let check_is_term_boundary sgn e t =
-  is_type (Sanity.type_of_term sgn e) t
-
-let check_eq_type_boundary (EqType (_asmp, t1, t2)) (u1, u2) =
-  is_type t1 u1 && is_type t2 u2
-
-let check_eq_term_boundary (EqTerm (_asmp, a, b, t)) (a', b', t') =
-  is_type t t' && is_term a a' && is_term b b'
-
-let check_judgement_boundary sgn jdg bdry =
-  match bdry with
-    | BoundaryIsType bdry ->
-       begin match jdg with
-       | JudgementIsType jdg -> check_is_type_boundary jdg bdry
-       | JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _ -> false
-       end
-
-    | BoundaryIsTerm bdry ->
-       begin match jdg with
-       | JudgementIsTerm jdg -> check_is_term_boundary sgn jdg bdry
-       | JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _ -> false
-       end
-
-    | BoundaryEqType bdry ->
-       begin match jdg with
-       | JudgementEqType jdg -> check_eq_type_boundary jdg bdry
-       | JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _ -> false
-       end
-
-    | BoundaryEqTerm bdry ->
-       begin match jdg with
-       | JudgementEqTerm jdg -> check_eq_term_boundary jdg bdry
-       | JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _ -> false
-       end
-
-let check_judgement_boundary_abstraction sgn =
-  abstraction (check_judgement_boundary sgn)
 
 (* let abstraction eq_v e e' = e == e' || abstraction eq_v e e' *)

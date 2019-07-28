@@ -1420,7 +1420,8 @@ let premise ctx {Location.thing=prem;loc} =
   match prem with
   | Input.PremiseIsType (mvar, local_ctx) ->
      let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
-     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
      let bdry = Dsyntax.BoundaryIsType in
      ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 
@@ -1430,7 +1431,8 @@ let premise ctx {Location.thing=prem;loc} =
          ctx local_ctx
          (fun ctx -> comp ctx c)
      in
-     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
      let bdry = Dsyntax.BoundaryIsTerm c in
      ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 
@@ -1442,7 +1444,8 @@ let premise ctx {Location.thing=prem;loc} =
            comp ctx c1,
            comp ctx c2)
      in
-     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
      let bdry = Dsyntax.BoundaryEqType (c1, c2) in
      ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 
@@ -1454,7 +1457,8 @@ let premise ctx {Location.thing=prem;loc} =
          comp ctx c2,
          comp ctx c3)
      in
-     let ctx = (match mvar with None -> ctx | Some x -> Ctx.add_bound x ctx) in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
      let bdry = Dsyntax.BoundaryEqTerm (c1, c2, c3) in
      ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry)) loc
 

@@ -16,7 +16,7 @@ let type_at_abstraction = Sanity.type_at_abstraction
 let type_of_atom = Sanity.type_of_atom
 let natural_type_eq = Sanity.natural_type_eq
 
-let check_judgement_boundary_abstraction = Alpha_equal.check_judgement_boundary_abstraction
+let check_judgement_boundary_abstraction = Check.judgement_boundary_abstraction
 
 let fresh_atom = Mk.fresh_atom
 let fresh_is_type_meta = Mk.fresh_type_meta

@@ -98,15 +98,15 @@ let rap_boundary {rap_boundary;_} = rap_boundary
 (* Apply the given partially applied rule instance to the given argument. The result
    is again a partially applied rule (a special case of which is a fully applied rule). *)
 let rap_apply sgn {rap_arguments; rap_boundary; rap_premises; rap_constructor} arg =
-  if not (Alpha_equal.abstraction (Alpha_equal.check_judgement_boundary sgn) arg rap_boundary)
+  if not (Check.judgement_boundary_abstraction sgn arg rap_boundary)
   then Error.raise InvalidArgument ;
   let rap_arguments = arg :: rap_arguments in
   match rap_premises with
-  | [] -> RapDone (rap_constructor rap_arguments)
+  | [] ->
+     RapDone (rap_constructor rap_arguments)
   | p :: rap_premises ->
-     (** XXX Should we not use the available arguments instead of [] in the line below? *)
-     let rap_boundary = (Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 [] p) in
-     RapMore { rap_arguments
+     let rap_boundary = (Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 rap_arguments p) in
+       RapMore { rap_arguments
              ; rap_boundary
              ; rap_premises
              ; rap_constructor }

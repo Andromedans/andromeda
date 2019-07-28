@@ -785,12 +785,8 @@ let premises prems m =
        m >>= fun x ->
        let ps = List.rev ps in return (ps, x)
     | prem :: prems ->
-       premise prem >>= fun (xopt, p) ->
-       begin match xopt with
-       | None -> fold (p :: ps) prems
-       | Some x ->
-          Tyenv.add_bound_mono x Mlty.Judgement (fold (p::ps) prems)
-       end
+       premise prem >>= fun (x, p) ->
+       Tyenv.add_bound_mono x Mlty.Judgement (fold (p::ps) prems)
   in
   fold [] prems
 

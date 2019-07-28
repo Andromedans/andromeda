@@ -102,7 +102,7 @@ type 'a stump_abstraction =
   | Stump_Abstract of is_atom * 'a abstraction
 
 (** A stump for inverting two abstractions at the same time. *)
-type ('a, 'b) stump_abstractions =
+type ('a, 'b) stumps_abstraction =
   | Stumps_NotAbstract of 'a * 'b
   | Stumps_Abstract of is_atom * 'a abstraction * 'b abstraction
 

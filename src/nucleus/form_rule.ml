@@ -23,16 +23,16 @@ let check_judgement ~lvl sgn metas arg prem =
   match arg, instantiate_premise ~lvl metas prem with
 
   | JudgementIsType abstr, BoundaryIsType bdry ->
-     Alpha_equal.check_is_type_boundary abstr bdry
+     Check.is_type_boundary abstr bdry
 
   | JudgementIsTerm e, BoundaryIsTerm t ->
-     Alpha_equal.check_is_term_boundary sgn e t
+     Check.is_term_boundary sgn e t
 
   | JudgementEqType eq, BoundaryEqType bdry ->
-     Alpha_equal.check_eq_type_boundary eq bdry
+     Check.eq_type_boundary eq bdry
 
   | JudgementEqTerm eq, BoundaryEqTerm bdry  ->
-     Alpha_equal.check_eq_term_boundary eq bdry
+     Check.eq_term_boundary eq bdry
 
   | (JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) , (BoundaryIsType _ as bdry)
   | (JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) , (BoundaryIsTerm _ as bdry)
