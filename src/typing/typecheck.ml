@@ -37,6 +37,7 @@ let rec generalizable c =
   | Rsyntax.Assume _
   | Rsyntax.Match _
   | Rsyntax.BoundaryAscribe _
+  | Rsyntax.TypeAscribe _
   | Rsyntax.TTConstructor _
   | Rsyntax.Abstract _
   | Rsyntax.Substitute _
@@ -428,6 +429,11 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
      check_comp c2 Mlty.Boundary >>= fun c2 ->
      check_comp c1 Mlty.Judgement >>= fun c1 ->
      return (locate ~loc (Rsyntax.BoundaryAscribe (c1, c2)), Mlty.Judgement)
+
+  | Dsyntax.TypeAscribe (c1, c2) ->
+     check_comp c2 Mlty.Judgement >>= fun c2 ->
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
+     return (locate ~loc (Rsyntax.TypeAscribe (c1, c2)), Mlty.Judgement)
 
   | Dsyntax.Abstract (x, copt, c) ->
     begin match copt with

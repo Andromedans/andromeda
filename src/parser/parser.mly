@@ -14,7 +14,7 @@
 %token LPAREN RPAREN
 %token LBRACK RBRACK
 %token LBRACE RBRACE
-%token COLON COMMA PERIOD COLONGT COLONAT
+%token COLON COMMA PERIOD COLONGT COLONQT
 %token ARROW DARROW
 
 (* Modules *)
@@ -179,7 +179,8 @@ plain_term:
   | FUNCTION xs=ml_arg+ DARROW e=term                            { Function (xs, e) }
   | WITH h=term HANDLE c=term                                    { With (h, c) }
   | HANDLER hcs=handler_cases END                                { Handler (hcs) }
-  | e=app_term COLONAT bdry=ty_term                              { BoundaryAscribe (e, bdry) }
+  | e=app_term COLONQT bdry=ty_term                              { BoundaryAscribe (e, bdry) }
+  | e=app_term COLON ty=ty_term                                  { TypeAscribe (e, ty) }
   | e1=binop_term SEMI e2=term                                   { Sequence (e1, e2) }
   | CONTEXT c=prefix_term                                        { Context c }
   | CONVERT c1=prefix_term c2=prefix_term                        { Convert (c1, c2) }

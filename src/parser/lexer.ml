@@ -109,7 +109,7 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | '{'                      -> f (); LBRACE
   | '}'                      -> f (); RBRACE
   | ':'                      -> f (); COLON
-  | ":@"                     -> f (); COLONAT
+  | ":?"                     -> f (); COLONQT
   | ":>"                     -> f (); COLONGT
   | ','                      -> f (); COMMA
   | '.'                      -> f (); PERIOD

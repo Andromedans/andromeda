@@ -6,6 +6,6 @@ rule u : P a
 rule B type
 rule ξ : A ≡ B
 rule ζ : B ≡ A
-let a' = handle a : (? : B) with ML.coerce _ _ => yield (ML.Some (convert a ξ)) end
-let Q = handle P (a' : (? : A)) with ML.coerce _ _ => yield (ML.Some (convert a' ζ)) end
-let u' = u : (? : Q)
+let a' = handle a : B with ML.coerce _ _ => yield (ML.Some (convert a ξ)) end
+let Q = handle P (a' : A) with ML.coerce _ _ => yield (ML.Some (convert a' ζ)) end
+let u' = u : Q

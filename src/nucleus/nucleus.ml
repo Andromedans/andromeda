@@ -52,9 +52,10 @@ let symmetry_term = Form.symmetry_term
 
 (** Form a boundary *)
 let form_is_type_boundary = Form.form_is_type_boundary
-let form_is_term_boundary = Form.form_is_term_bondary
+let form_is_term_boundary = Form.form_is_term_boundary
 let form_eq_type_boundary = Form.form_eq_type_boundary
 let form_eq_term_boundary = Form.form_eq_term_boundary
+let form_is_term_boundary_abstraction = Form.form_is_term_boundary_abstraction
 
 (** Creation of rules of inference from judgements. *)
 let form_rule = Form_rule.form_rule

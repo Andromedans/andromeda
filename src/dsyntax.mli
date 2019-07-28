@@ -72,6 +72,7 @@ and comp' =
   | Assume of (Name.t option * comp) * comp
   | Match of comp * match_case list
   | BoundaryAscribe of comp * comp
+  | TypeAscribe of comp * comp
   | TTConstructor of Path.t * comp list
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp

@@ -180,6 +180,12 @@ let rec comp {Location.thing=c'; loc} =
      check_judgement c1 bdry >>=
      Runtime.return_judgement
 
+  | Rsyntax.TypeAscribe (c1, c2) ->
+     comp_as_is_type_abstraction c2 >>= fun abstr ->
+     let bdry = Nucleus.form_is_term_boundary_abstraction abstr in
+     check_judgement c1 bdry >>=
+     Runtime.return_judgement
+
   | Rsyntax.Abstract (x, None, _) ->
     Runtime.(error ~loc (UnannotatedAbstract x))
 
@@ -331,6 +337,7 @@ and check_judgement ({Location.thing=c';loc} as c) bdry =
   | Rsyntax.Function _
   | Rsyntax.Handler _
   | Rsyntax.BoundaryAscribe _
+  | Rsyntax.TypeAscribe _
   | Rsyntax.MLConstructor _
   | Rsyntax.TTConstructor _
   | Rsyntax.Tuple _
@@ -541,6 +548,10 @@ and comp_as_is_term c =
 (** Run [c] and convert the result to a term abstraction. *)
 and comp_as_is_term_abstraction c =
   comp c >>= fun v -> return (Runtime.as_is_term_abstraction ~loc:c.Location.loc v)
+
+(** Run [c] and convert the result to a term abstraction. *)
+and comp_as_is_type_abstraction c =
+  comp c >>= fun v -> return (Runtime.as_is_type_abstraction ~loc:c.Location.loc v)
 
 (** Run [c] and convert the result to a judgement abstraction. *)
 and comp_as_judgement_abstraction c =

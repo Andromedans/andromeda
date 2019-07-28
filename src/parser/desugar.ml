@@ -942,10 +942,15 @@ let rec comp ctx {Location.thing=c';loc} =
      and cases = List.map (match_case ctx) cases in
      locate (Dsyntax.Match (c, cases)) loc
 
-  | Input.BoundaryAscribe (c, t) ->
+  | Input.BoundaryAscribe (c, bdry) ->
+     let bdry = comp ctx bdry
+     and c = comp ctx c in
+     locate (Dsyntax.BoundaryAscribe (c, bdry)) loc
+
+  | Input.TypeAscribe (c, t) ->
      let t = comp ctx t
      and c = comp ctx c in
-     locate (Dsyntax.BoundaryAscribe (c, t)) loc
+     locate (Dsyntax.TypeAscribe (c, t)) loc
 
   | Input.Abstract (xs, c) ->
      let rec fold ctx ys = function
