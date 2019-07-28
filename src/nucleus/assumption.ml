@@ -39,18 +39,11 @@ let add_meta x t asmp = { asmp with meta = Nonce.map_add x t asmp.meta }
 let add_bound k asmp = { asmp with bound = Bound_set.add k asmp.bound }
 
 let union a1 a2 =
-  (* XXX figure out why this is happening, fix it, and remove the code below. *)
-  let f = (fun vtype a t1 t2 ->
-      (if not (t1 == t2)
-       then
-         (Print.error "XXX %s variable %t occurs at physically different types@." vtype (Nonce.print ~parentheses:false a)
-         (* ; assert false  *))
-       else ()) ;
-      Some t1) in
-  let f_free = f "free"
-  in
-  { free = Nonce.map_union f_free a1.free a2.free
-  ; meta = Nonce.map_union (f "is_type_meta") a1.meta a2.meta
+  (* We arbitrarily pick the first type because they're supposed to be equal. It
+     would be more paranoid to check that they are equal and complain if not
+     (this shouldn't happen). *)
+  { free = Nonce.map_union (fun _ t _ -> Some t) a1.free a2.free
+  ; meta = Nonce.map_union (fun _ bdry _ -> Some bdry) a1.meta a2.meta
   ; bound = Bound_set.union a1.bound a2.bound
   }
 
