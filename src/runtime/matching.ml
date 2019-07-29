@@ -48,9 +48,8 @@ let rec collect_pattern sgn xvs {Location.thing=p';loc} v =
 
   | Rsyntax.Patt_IsType p, (Runtime.Judgement abstr as v) ->
      begin match Nucleus.as_not_abstract abstr with
-     | None -> raise Match_fail
      | Some (Nucleus.JudgementIsType _) -> collect_pattern sgn xvs p v
-     | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) -> raise Match_fail
+     | None | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) -> raise Match_fail
      end
 
   | Rsyntax.Patt_IsTerm (p1, p2), (Runtime.Judgement abstr as v) ->
@@ -70,8 +69,6 @@ let rec collect_pattern sgn xvs {Location.thing=p';loc} v =
 
   | Rsyntax.Patt_EqType (pt1, pt2), Runtime.Judgement abstr ->
      begin match Nucleus.as_not_abstract abstr with
-     | None | Some Nucleus.(JudgementIsTerm _ | JudgementIsType _ | JudgementEqTerm _) ->
-        raise Match_fail
      | Some (Nucleus.JudgementEqType eq) ->
         begin match Nucleus.invert_eq_type eq with
         | Nucleus.Stump_EqType (_asmp, t1, t2) ->
@@ -80,12 +77,12 @@ let rec collect_pattern sgn xvs {Location.thing=p';loc} v =
            let xvs = collect_judgement sgn xvs pt1 t1_abstr in
            collect_judgement sgn xvs pt2 t2_abstr
         end
+     | None | Some Nucleus.(JudgementIsTerm _ | JudgementIsType _ | JudgementEqTerm _) ->
+        raise Match_fail
      end
 
   | Rsyntax.Patt_EqTerm (pe1, pe2, pt), Runtime.Judgement abstr ->
      begin match Nucleus.as_not_abstract abstr with
-     | None | Some Nucleus.(JudgementIsTerm _ | JudgementIsType _ | JudgementEqType _) ->
-        raise Match_fail
      | Some (Nucleus.JudgementEqTerm eq) ->
         begin match Nucleus.invert_eq_term eq with
         | Nucleus.Stump_EqTerm (_asmp, e1, e2, t) ->
@@ -96,23 +93,58 @@ let rec collect_pattern sgn xvs {Location.thing=p';loc} v =
            let xvs = collect_judgement sgn xvs pe2 e2_abstr in
            collect_judgement sgn xvs pt t_abstr
         end
+     | None | Some Nucleus.(JudgementIsTerm _ | JudgementIsType _ | JudgementEqType _) ->
+        raise Match_fail
+     end
+
+  | Rsyntax.Patt_BoundaryIsType, Runtime.Boundary abstr ->
+     begin match Nucleus.as_not_abstract abstr with
+     | Some Nucleus.BoundaryIsType () -> xvs
+     | None | Some Nucleus.(BoundaryIsTerm _ | BoundaryEqType _ | BoundaryEqTerm _) -> raise Match_fail
+     end
+
+  | Rsyntax.Patt_BoundaryIsTerm p, Runtime.Boundary abstr ->
+     begin match Nucleus.as_not_abstract abstr with
+     | Some (Nucleus.BoundaryIsTerm t) ->
+        let t_abstr = Nucleus.(abstract_not_abstract (JudgementIsType t)) in
+        collect_judgement sgn xvs p t_abstr
+     | None | Some Nucleus.(BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _) -> raise Match_fail
+     end
+
+  | Rsyntax.Patt_BoundaryEqType (pt1, pt2), Runtime.Boundary abstr ->
+     begin match Nucleus.as_not_abstract abstr with
+     | Some (Nucleus.BoundaryEqType (t1, t2)) ->
+        let t1_abstr = Nucleus.(abstract_not_abstract (JudgementIsType t1))
+        and t2_abstr = Nucleus.(abstract_not_abstract (JudgementIsType t2)) in
+        let xvs = collect_judgement sgn xvs pt1 t1_abstr in
+        collect_judgement sgn xvs pt2 t2_abstr
+     | None | Some Nucleus.(BoundaryIsTerm _ | BoundaryIsType _ | BoundaryEqTerm _) ->
+        raise Match_fail
+     end
+
+  | Rsyntax.Patt_BoundaryEqTerm (pe1, pe2, pt), Runtime.Boundary abstr ->
+     begin match Nucleus.as_not_abstract abstr with
+     | Some (Nucleus.BoundaryEqTerm eq) ->
+        let (e1, e2, t) = Nucleus.invert_eq_term_boundary eq in
+           let e1_abstr = Nucleus.(abstract_not_abstract (JudgementIsTerm e1))
+           and e2_abstr = Nucleus.(abstract_not_abstract (JudgementIsTerm e2))
+           and t_abstr = Nucleus.(abstract_not_abstract (JudgementIsType t)) in
+           let xvs = collect_judgement sgn xvs pe1 e1_abstr in
+           let xvs = collect_judgement sgn xvs pe2 e2_abstr in
+           collect_judgement sgn xvs pt t_abstr
+     | None | Some Nucleus.(BoundaryIsTerm _ | BoundaryIsType _ | BoundaryEqType _) ->
+        raise Match_fail
      end
 
   | Rsyntax.Patt_Abstract (xopt, p1, p2), Runtime.Judgement abstr ->
-     begin match Nucleus.invert_judgement_abstraction abstr with
-     | Nucleus.Stump_NotAbstract _ -> raise Match_fail
-     | Nucleus.Stump_Abstract (a, abstr') ->
-        let t_abstr = Nucleus.(abstract_not_abstract (JudgementIsType (type_of_atom a))) in
-        let xvs = collect_judgement sgn xvs p1 t_abstr in
-        let xvs =
-          match xopt with
-          | None -> xvs
-          | Some _ ->
-             let a_abstr = Nucleus.(abstract_not_abstract (JudgementIsTerm (form_is_term_atom a))) in
-             add_var (Runtime.mk_judgement a_abstr) xvs
-        in
-        collect_judgement sgn xvs p2 abstr'
-     end
+     let abstr_stump = Nucleus.invert_judgement_abstraction abstr in
+     let xvs, abstr' = collect_abstraction sgn xvs xopt p1 abstr_stump in
+     collect_judgement sgn xvs p2 abstr'
+
+  | Rsyntax.Patt_Abstract (xopt, p1, p2), Runtime.Boundary abstr ->
+     let abstr_stump = Nucleus.invert_boundary_abstraction abstr in
+     let xvs, abstr' = collect_abstraction sgn xvs xopt p1 abstr_stump in
+     collect_pattern sgn xvs p2 (Runtime.mk_boundary abstr')
 
   | Rsyntax.Patt_Tuple ps, Runtime.Tuple vs ->
      collect_patterns sgn xvs ps vs
@@ -121,8 +153,14 @@ let rec collect_pattern sgn xvs {Location.thing=p';loc} v =
   | Rsyntax.Patt_MLConstructor _,
     Runtime.(Judgement _ | Boundary _ | Closure _ | Handler _ | Ref _ | Dyn _ | Tuple _ | String _)
 
-  | Rsyntax.(Patt_Abstract _ | Patt_TTConstructor _ | Patt_GenAtom _ | Patt_IsType _ | Patt_IsTerm _ | Patt_EqType _ | Patt_EqTerm _),
+  | Rsyntax.Patt_Abstract _,
+    Runtime.(Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _ | String _)
+
+  | Rsyntax.(Patt_TTConstructor _ | Patt_GenAtom _ | Patt_IsType _ | Patt_IsTerm _ | Patt_EqType _ | Patt_EqTerm _),
     Runtime.(Boundary _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _ | String _)
+
+  | Rsyntax.(Patt_BoundaryIsType | Patt_BoundaryIsTerm _ | Patt_BoundaryEqType _ | Patt_BoundaryEqTerm _) ,
+    Runtime.(Judgement _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _ | String _)
 
   | Rsyntax.Patt_Tuple _,
     Runtime.(Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _) ->
@@ -130,6 +168,24 @@ let rec collect_pattern sgn xvs {Location.thing=p';loc} v =
 
 and collect_judgement sgn xvs p abstr =
   collect_pattern sgn xvs p (Runtime.mk_judgement abstr)
+
+and collect_abstraction :
+   'a . Nucleus.signature -> Runtime.value list -> Name.t option -> Rsyntax.pattern ->
+        'a Nucleus.stump_abstraction -> Runtime.value list * 'a Nucleus.abstraction
+= fun sgn xvs xopt p1 abstr_stump ->
+  match abstr_stump with
+  | Nucleus.Stump_NotAbstract _ -> raise Match_fail
+  | Nucleus.Stump_Abstract (a, abstr') ->
+     let t_abstr = Nucleus.(abstract_not_abstract (JudgementIsType (type_of_atom a))) in
+     let xvs = collect_judgement sgn xvs p1 t_abstr in
+     let xvs =
+       match xopt with
+       | None -> xvs
+       | Some _ ->
+          let a_abstr = Nucleus.(abstract_not_abstract (JudgementIsTerm (form_is_term_atom a))) in
+          add_var (Runtime.mk_judgement a_abstr) xvs
+     in
+     (xvs, abstr')
 
 and collect_constructor sgn xvs c ps = function
   | Nucleus.JudgementIsType t ->

@@ -86,16 +86,18 @@ let invert_eq_term_abstraction ?name eq =
 let invert_judgement_abstraction ?name jdg =
   invert_abstraction ?name Instantiate_bound.judgement jdg
 
-let invert_is_type_boundary ?name bdry =
+let invert_eq_term_boundary bdry = bdry
+
+let invert_is_type_boundary_abstraction ?name bdry =
   invert_abstraction ?name Instantiate_bound.is_type_boundary bdry
 
-let invert_is_term_boundary ?name bdry =
+let invert_is_term_boundary_abstraction ?name bdry =
   invert_abstraction ?name Instantiate_bound.is_term_boundary bdry
 
-let invert_eq_type_boundary ?name bdry =
+let invert_eq_type_boundary_abstraction ?name bdry =
   invert_abstraction ?name Instantiate_bound.eq_type_boundary bdry
 
-let invert_eq_term_boundary ?name bdry =
+let invert_eq_term_boundary_abstraction ?name bdry =
   invert_abstraction ?name Instantiate_bound.eq_term_boundary bdry
 
 let invert_boundary_abstraction ?name jdg =

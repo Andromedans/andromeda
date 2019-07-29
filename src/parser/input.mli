@@ -53,6 +53,10 @@ and pattern' =
   | Patt_EqType of pattern * pattern
   | Patt_EqTerm of pattern * pattern * pattern
   | Patt_Abstraction of (Name.t option * pattern option) list * pattern
+  | Patt_BoundaryIsType
+  | Patt_BoundaryIsTerm of pattern
+  | Patt_BoundaryEqType of pattern * pattern
+  | Patt_BoundaryEqTerm of pattern * pattern * pattern
   | Patt_Constructor of path * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list

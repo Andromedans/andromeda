@@ -369,12 +369,15 @@ when_guard:
 
 pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
-  | p=plain_binop_pattern                             { p }
-  | p1=binop_pattern AS p2=binop_pattern              { Patt_As (p1, p2) }
-  | p=binop_pattern TYPE                                           { Patt_IsType p }
-  | p1=binop_pattern COLON p2=binop_pattern                     { Patt_IsTerm (p1, p2) }
-  | p1=binop_pattern EQEQ  p2=binop_pattern                     { Patt_EqType (p1, p2) }
+  | p=plain_binop_pattern                                    { p }
+  | p1=binop_pattern AS p2=binop_pattern                     { Patt_As (p1, p2) }
+  | p=binop_pattern TYPE                                     { Patt_IsType p }
+  | p1=binop_pattern COLON p2=binop_pattern                  { Patt_IsTerm (p1, p2) }
+  | p1=binop_pattern EQEQ  p2=binop_pattern                  { Patt_EqType (p1, p2) }
   | p1=binop_pattern EQEQ  p2=binop_pattern COLON p3=pattern { Patt_EqTerm (p1, p2, p3) }
+  | QUESTIONMARK COLON p=binop_pattern                       { Patt_BoundaryIsTerm p }
+  | p1=binop_pattern EQEQ p2=binop_pattern AS QUESTIONMARK   { Patt_BoundaryEqType (p1, p2) }
+  | p1=binop_pattern EQEQ p2=binop_pattern COLON p3=binop_pattern AS QUESTIONMARK { Patt_BoundaryEqTerm (p1, p2, p3) }
   | abstr=tt_maybe_typed_binder p=pattern                    { Patt_Abstraction (abstr, p) }
 
 binop_pattern: mark_location(plain_binop_pattern) { $1 }
@@ -402,6 +405,7 @@ plain_prefix_pattern:
 (* simple_pattern: mark_location(plain_simple_pattern) { $1 } *)
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
+  | QUESTIONMARK TYPE              { Patt_BoundaryIsType }
   | x=long(ml_name)                { Patt_Path x }
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with

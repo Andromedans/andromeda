@@ -57,14 +57,14 @@ type ty_def =
 type error =
   | InvalidApplication of ty * ty * ty
   | TypeMismatch of ty * ty
-  | UnsolvedApp of ty * ty * ty
   | HandlerExpected of ty
   | RefExpected of ty
   | DynamicExpected of ty
   | UnknownExternal of string
   | ValueRestriction
   | Ungeneralizable of param list * ty
-  | UnknownJudgementForm
+  | UninferrableExpression
+  | JudgementOrBoundaryExpected of ty
   | JudgementExpected of ty
 
 exception Error of error Location.located
