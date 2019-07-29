@@ -17,7 +17,7 @@ end ;;
 
 rule A type ;;
 rule a : A ;;
-rule P (⊢ _ : A) type ;;
+rule P (_ : A) type ;;
 
 let test_judgement e =
 match e with

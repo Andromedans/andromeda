@@ -1,8 +1,8 @@
 rule eq_subst
-        (⊢ A type)
-        (x : A ⊢ C type)
-        (⊢ s : A)
-        (⊢ t : A)
-        (⊢ s == t : A)
+        (A type)
+        ({x : A} C type)
+        (s : A)
+        (t : A)
+        (s == t : A)
   :
   C{s} == C{t}

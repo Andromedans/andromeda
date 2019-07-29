@@ -1,7 +1,7 @@
 rule A type
 rule a : A
-rule B (⊢ X type) type
-rule P (⊢ U type) (x : U ⊢ V type) type
-rule f (⊢ x : A) (⊢ y : B A) : A
-rule Ety (⊢ X type) (⊢ Y type) : B X ≡ B Y
-rule ETm (⊢ A type) (⊢ x : A) (⊢ y : A) (⊢ x ≡ y : A as ξ): y ≡ x : A
+rule B (X type) type
+rule P (U type) ({x : U} V type) type
+rule f (x : A) (y : B A) : A
+rule Ety (X type) (Y type) : B X ≡ B Y
+rule ETm (A type) (x : A) (y : A) (x ≡ y : A as ξ): y ≡ x : A

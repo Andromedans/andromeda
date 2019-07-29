@@ -2,11 +2,11 @@ rule Unit type
 
 rule unit : Unit
 
-rule unit_ind (x : Unit ⊢ C type) (⊢ c : C {unit}) (⊢ a : Unit)
+rule unit_ind ({x : Unit} C type) (c : C{unit}) (a : Unit)
   : C {a}
 
-rule unit_β (x : Unit ⊢ C type) (⊢ c : C {unit})
+rule unit_β ({x : Unit} C type) (c : C{unit})
   : unit_ind C c unit == c : C{unit}
 
-rule unit_η (⊢ s : Unit)
+rule unit_η (s : Unit)
   : s == unit : Unit

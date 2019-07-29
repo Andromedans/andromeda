@@ -2,24 +2,24 @@ rule Nat type
 
 rule z : Nat
 
-rule s (⊢ n : Nat) : Nat
+rule s (n : Nat) : Nat
 
 rule Nat_ind
-  (x : Nat ⊢ C type)
-  (⊢ base : C{z})
-  (n : Nat, c_n : C{n} ⊢ step : C{s n})
-  (⊢ k : Nat)
+  ({x : Nat} C type)
+  (base : C{z})
+  ({n : Nat} {c_n : C{n}} step : C{s n})
+  (k : Nat)
   : C{k}
 
 rule Nat_β_z
-  (x : Nat ⊢ C type)
-  (⊢ base : C{z})
-  (n : Nat, c_n : C{n} ⊢ step : C{s n})
+  ({x : Nat} C type)
+  (base : C{z})
+  ({n : Nat} {c_n : C{n}} step : C{s n})
   : Nat_ind C base step z == base : C{z}
 
 rule Nat_β_s
-  (x : Nat ⊢ C type)
-  (⊢ base : C{z})
-  (n : Nat, c_n : C{n} ⊢ step : C{s n})
-  (⊢ k : Nat)
+  ({x : Nat} C type)
+  (base : C{z})
+  ({n : Nat} {c_n : C{n}} step : C{s n})
+  (k : Nat)
   : Nat_ind C base step (s k) == step { k, Nat_ind C base step k } : C { s k }

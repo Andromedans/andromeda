@@ -3,9 +3,9 @@ rule A type
 rule B type
 rule a : A
 rule b : B
-rule P (⊢ _ : A) (⊢ _ : B) type
+rule P (_ : A) (_ : B) type
 rule p : P a b
-rule Q (⊢ _ : P a b) (⊢ _ : A) (⊢ _ : B) type ;;
+rule Q (_ : P a b) (_ : A) (_ : B) type ;;
 P a b ;;
 p ;;
 Q p a b ;;

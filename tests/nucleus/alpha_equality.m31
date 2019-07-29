@@ -1,6 +1,6 @@
 (* Test whether conversion affects alpha equality *)
 rule A type
-rule P (⊢ x : A) type
+rule P (x : A) type
 rule a : A
 rule u : P a
 rule B type

@@ -113,7 +113,6 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ":>"                     -> f (); COLONGT
   | ','                      -> f (); COMMA
   | '.'                      -> f (); PERIOD
-  | "|-" | 8866              -> f (); VDASH
   | '|'                      -> f (); BAR
   | "->" | 8594 | 10230      -> f (); ARROW
   | "=>" | 8658 | 10233      -> f (); DARROW
