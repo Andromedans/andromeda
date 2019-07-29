@@ -101,165 +101,128 @@ let ml_schema {Location.thing=(Dsyntax.ML_Forall (params, t)); _} =
   let t = ml_ty params t in
   (params, t)
 
-(** Check a judgement pattern and return the processed pattern. *)
-let rec check_judgement_pattern {Location.thing=p';loc} =
-  match p' with
+let check_boundary_pattern {Location.thing=p';loc} =
+  failwith "type-checking of boundary patterns not implemented"
 
-  | Dsyntax.Patt_TT_Anonymous ->
-     return (locate ~loc Rsyntax.Pattern.TTAnonymous, [])
+(** Infer the type of a pattern *)
+let rec infer_pattern {Location.thing=p;loc} =
+  match p with
+  | Dsyntax.Patt_Anonymous ->
+     return (locate ~loc Rsyntax.Patt_Anonymous, Mlty.fresh_type (), [])
 
-  | Dsyntax.Patt_TT_Var x ->
-     return (locate ~loc (Rsyntax.Pattern.TTVar), [(x, Mlty.Judgement)])
+  | Dsyntax.Patt_Var x ->
+     let t = Mlty.fresh_type () in
+     return (locate ~loc Rsyntax.Patt_Var, t, [(x, t)])
 
-  | Dsyntax.Patt_TT_As (p1, p2) ->
-     check_judgement_pattern p1 >>= fun (p1, xts1) ->
-     check_judgement_pattern p2 >>= fun (p2, xts2) ->
-     return (locate ~loc (Rsyntax.Pattern.TTAs (p1, p2)), xts1 @ xts2)
+  | Dsyntax.Patt_As (p1, p2) ->
+     infer_pattern p1 >>= fun (p1, t1, xts1) ->
+     check_pattern p2 t1 >>= fun (p2, xts2) ->
+     return (locate ~loc (Rsyntax.Patt_As (p1, p2)), t1, xts1 @ xts2)
 
-  | Dsyntax.Patt_TT_Abstraction (xopt, p1, p2) ->
-     check_judgement_pattern p1 >>= fun (p1, xts1) ->
-     check_judgement_pattern p2 >>= fun (p2, xts2) ->
+  | Dsyntax.Patt_MLConstructor (tag, ps) ->
+    Tyenv.lookup_ml_constructor tag >>= fun (tag_id, ts, out) ->
+    check_patterns ps ts >>= fun (ps, xts) ->
+    return (locate ~loc (Rsyntax.Patt_MLConstructor (tag_id, ps)), out, xts)
+
+  | Dsyntax.Patt_TTConstructor (c, ps) ->
+     Tyenv.lookup_tt_constructor c >>= fun c ->
+     let ts = List.map (fun _ -> Mlty.Judgement) ps in
+     check_patterns ps ts >>= fun (ps, xts) ->
+     return (locate ~loc (Rsyntax.Patt_TTConstructor (c, ps)), Mlty.Judgement, xts)
+
+  | Dsyntax.Patt_GenAtom p ->
+     check_pattern p Mlty.Judgement >>= fun (p, xts) ->
+     return (locate ~loc (Rsyntax.Patt_GenAtom p), Mlty.Judgement, xts)
+
+  | Dsyntax.Patt_IsType p ->
+     check_pattern p Mlty.Judgement >>= fun (p, xts) ->
+     return (locate ~loc (Rsyntax.Patt_IsType p), Mlty.Judgement, xts)
+
+  | Dsyntax.Patt_IsTerm (p1, p2) ->
+     check_pattern p1 Mlty.Judgement >>= fun (p1, xts1) ->
+     check_pattern p2 Mlty.Judgement >>= fun (p2, xts2) ->
+     return (locate ~loc (Rsyntax.Patt_IsTerm (p1, p2)), Mlty.Judgement, xts1 @ xts2)
+
+  | Dsyntax.Patt_EqType (p1, p2) ->
+     check_pattern p1 Mlty.Judgement >>= fun (p1, xts1) ->
+     check_pattern p2 Mlty.Judgement >>= fun (p2, xts2) ->
+     return (locate ~loc (Rsyntax.Patt_EqType (p1, p2)), Mlty.Judgement, xts1 @ xts2)
+
+  | Dsyntax.Patt_EqTerm (p1, p2, p3) ->
+     check_pattern p1 Mlty.Judgement >>= fun (p1, xts1) ->
+     check_pattern p2 Mlty.Judgement >>= fun (p2, xts2) ->
+     check_pattern p3 Mlty.Judgement >>= fun (p3, xts3) ->
+     return (locate ~loc (Rsyntax.Patt_EqTerm (p1, p2, p3)), Mlty.Judgement, xts1 @ xts2 @ xts3)
+
+  | Dsyntax.Patt_Abstraction (xopt, p1, p2) ->
+     check_pattern p1 Mlty.Judgement >>= fun (p1, xts1) ->
+     check_pattern p2 Mlty.Judgement >>= fun (p2, xts2) ->
         let xts2 =
           match xopt with
           | None -> xts2
           | Some x -> (x, Mlty.Judgement) :: xts2
         in
-        return (locate ~loc (Rsyntax.Pattern.TTAbstract (xopt, p1, p2)), xts1 @ xts2)
-
-  | Dsyntax.Patt_TT_Constructor (c, ps) ->
-     Tyenv.lookup_tt_constructor c >>= fun c ->
-     check_judgement_pattern_list ps >>= fun (ps, args_xts) ->
-     return (locate ~loc (Rsyntax.Pattern.TTConstructor (c, ps)), args_xts)
-
-  | Dsyntax.Patt_TT_GenAtom p ->
-     check_judgement_pattern p
-
-  | Dsyntax.Patt_TT_IsType p ->
-     check_judgement_pattern p
-
-  | Dsyntax.Patt_TT_IsTerm (p1, p2) ->
-     check_judgement_pattern p1 >>= fun (p1, xts1) ->
-     check_judgement_pattern p2 >>= fun (p2, xts2) ->
-     return (locate ~loc (Rsyntax.Pattern.TTIsTerm (p1, p2)), xts1 @ xts2)
-
-  | Dsyntax.Patt_TT_EqType (p1, p2) ->
-     check_judgement_pattern p1 >>= fun (p1, xts1) ->
-     check_judgement_pattern p2 >>= fun (p2, xts2) ->
-     return (locate ~loc (Rsyntax.Pattern.TTEqType (p1, p2)), xts1 @ xts2)
-
-  | Dsyntax.Patt_TT_EqTerm (p1, p2, p3) ->
-     check_judgement_pattern p1 >>= fun (p1, xts1) ->
-     check_judgement_pattern p2 >>= fun (p2, xts2) ->
-     check_judgement_pattern p3 >>= fun (p3, xts3) ->
-     return (locate ~loc (Rsyntax.Pattern.TTEqTerm (p1, p2, p3)), xts1 @ xts2 @ xts3)
-
-and check_judgement_pattern_list ps =
-  let rec fold ps_out xts ps =
-    begin match ps with
-
-    | [] -> return (List.rev ps_out, xts)
-
-    | p :: ps ->
-       check_judgement_pattern p >>= fun (p, xts_p) ->
-       fold (p :: ps_out) (xts @ xts_p) ps
-
-    end
-  in
-  fold [] [] ps
-
-let check_boundary_pattern {Location.thing=p';loc} =
-  failwith "type-checking of boundary patterns not implemented"
-
-(** Infer the type of a pattern *)
-let rec infer_ml_pattern {Location.thing=p;loc} =
-  match p with
-  | Dsyntax.Patt_Anonymous ->
-     return (locate ~loc Rsyntax.Pattern.Anonymous, Mlty.fresh_type (), [])
-
-  | Dsyntax.Patt_Var x ->
-     let t = Mlty.fresh_type () in
-     return (locate ~loc Rsyntax.Pattern.Var, t, [(x, t)])
-
-  | Dsyntax.Patt_As (p1, p2) ->
-     infer_ml_pattern p1 >>= fun (p1, t1, xts1) ->
-     check_ml_pattern p2 t1 >>= fun (p2, xts2) ->
-     return (locate ~loc (Rsyntax.Pattern.As (p1, p2)), t1, xts1 @ xts2)
-
-  | Dsyntax.Patt_Judgement p ->
-     check_judgement_pattern p >>= fun (p, xts) ->
-     return (locate ~loc (Rsyntax.Pattern.Judgement p), Mlty.Judgement, xts)
-
-  | Dsyntax.Patt_Constructor (tag, ps) ->
-    Tyenv.lookup_ml_constructor tag >>= fun (tag_id, ts, out) ->
-    let rec fold qs xts ps ts =
-      match ps, ts with
-      | [], [] ->
-         let qs = List.rev qs in
-         return (locate ~loc (Rsyntax.Pattern.MLConstructor (tag_id, qs)), out, xts)
-      | p::ps, t::ts ->
-        check_ml_pattern p t >>= fun (q, p_xts) ->
-        fold (q::qs) (xts @ p_xts) ps ts
-      | [], _::_ | _::_, [] ->
-         assert false
-    in
-    fold [] [] ps ts
+        return (locate ~loc (Rsyntax.Patt_Abstract (xopt, p1, p2)), Mlty.Judgement, xts1 @ xts2)
 
   | Dsyntax.Patt_Tuple ps ->
     let rec fold qs ts xts = function
       | [] ->
          let qs = List.rev qs
          and ts = List.rev ts in
-         return (locate ~loc (Rsyntax.Pattern.Tuple qs), Mlty.Prod ts, xts)
+         return (locate ~loc (Rsyntax.Patt_Tuple qs), Mlty.Prod ts, xts)
       | p :: ps ->
-         infer_ml_pattern p >>= fun (q, t, p_xts) ->
+         infer_pattern p >>= fun (q, t, p_xts) ->
          fold (q :: qs) (t :: ts) (xts @ p_xts) ps
     in
     fold [] [] [] ps
 
-and check_ml_pattern ({Location.thing=p'; loc} as p) t =
+
+and check_pattern ({Location.thing=p'; loc} as p) t =
   match p' with
   | Dsyntax.Patt_Anonymous ->
-     return (locate ~loc Rsyntax.Pattern.Anonymous, [])
+     return (locate ~loc Rsyntax.Patt_Anonymous, [])
 
   | Dsyntax.Patt_Var x ->
-     return (locate ~loc Rsyntax.Pattern.Var, [(x, t)])
+     return (locate ~loc Rsyntax.Patt_Var, [(x, t)])
 
   | Dsyntax.Patt_As (p1, p2) ->
-     check_ml_pattern p1 t >>= fun (p1, xts1) ->
-     check_ml_pattern p2 t >>= fun (p2, xts2) ->
-     return (locate ~loc (Rsyntax.Pattern.As (p1, p2)), xts1 @ xts2)
-
-  | Dsyntax.Patt_Judgement p ->
-     check_judgement_pattern p >>= fun (p, xts) ->
-     Tyenv.add_equation ~loc Mlty.Judgement t >>= fun () ->
-     return (locate ~loc (Rsyntax.Pattern.Judgement p), xts)
+     check_pattern p1 t >>= fun (p1, xts1) ->
+     check_pattern p2 t >>= fun (p2, xts2) ->
+     return (locate ~loc (Rsyntax.Patt_As (p1, p2)), xts1 @ xts2)
 
   | Dsyntax.Patt_Tuple ps ->
      begin match t with
      | Mlty.Prod ts when (List.length ps = List.length ts) ->
-        let rec fold ps_out xts ps ts =
-          match ps, ts with
-          | [], [] ->
-             let ps_out = List.rev ps_out in
-             return (locate ~loc (Rsyntax.Pattern.Tuple ps_out), xts)
-          | p :: ps, t :: ts ->
-             check_ml_pattern p t >>= fun (p, p_xts) ->
-             fold (p :: ps_out) (xts @ p_xts) ps ts
-          | [], _::_ | _::_, [] -> assert false
-        in
-        fold [] [] ps ts
+        check_patterns ps ts >>= fun (ps, xts) ->
+        return (locate ~loc (Rsyntax.Patt_Tuple ps), xts)
 
      | Mlty.(Prod _ | Judgement | Boundary | String | Meta _ | Param _ |
              Arrow _ | Handler _ | Apply _ | Ref _ | Dynamic _) ->
-        infer_ml_pattern p >>= fun (p, t', xts) ->
+        infer_pattern p >>= fun (p, t', xts) ->
         Tyenv.add_equation ~loc t' t >>= fun () ->
         return (p, xts)
      end
 
-  | Dsyntax.Patt_Constructor _ ->
-     infer_ml_pattern p >>= fun (p, t', xts) ->
+  | Dsyntax.(Patt_MLConstructor _ | Patt_TTConstructor _ |
+             Patt_GenAtom _ | Patt_IsType _ | Patt_IsTerm _ | Patt_EqType _ | Patt_EqTerm _ | Patt_Abstraction _)->
+     infer_pattern p >>= fun (p, t', xts) ->
      Tyenv.add_equation ~loc:p.Location.loc t' t >>= fun () ->
      return (p, xts)
+
+and check_patterns ps ts =
+  let rec fold ps_out xts ps ts =
+    match ps, ts with
+    | [], [] ->
+       let ps_out = List.rev ps_out in
+       return (ps_out, xts)
+    | p::ps, t::ts ->
+       check_pattern p t >>= fun (p_out, p_xts) ->
+       fold (p_out::ps_out) (xts @ p_xts) ps ts
+    | [], _::_ | _::_, [] ->
+       assert false
+  in
+  fold [] [] ps ts
+
 
 let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty) Tyenv.tyenvM =
   match c with
@@ -526,7 +489,7 @@ and handler ~loc {Dsyntax.handler_val=handler_val;handler_ops;handler_finally} =
   return ({Rsyntax.handler_val=handler_val;handler_ops;handler_finally}, Mlty.Handler (input, final))
 
 and match_case p t g c =
-  check_ml_pattern p t >>= fun (p, xts) ->
+  check_pattern p t >>= fun (p, xts) ->
   Tyenv.add_bounds_mono xts
     (when_guard g >>= fun g ->
      infer_comp c >>= fun (c, tc) ->
@@ -541,7 +504,7 @@ and when_guard =
      return (Some c)
 
 and check_match_case p tp g c tc =
-  check_ml_pattern p tp >>= fun (p, xts) ->
+  check_pattern p tp >>= fun (p, xts) ->
   Tyenv.add_bounds_mono xts
     (when_guard g >>= fun g ->
      check_comp c tc >>= fun c ->
@@ -586,7 +549,7 @@ and match_op_cases op cases t_out =
                    return (ps_out, popt, c))
 
              | p::ps, t::ts ->
-                check_ml_pattern p t >>= fun (p, xts_p) ->
+                check_pattern p t >>= fun (p, xts_p) ->
                 fold_args (p :: ps_out) (xts @ xts_p) ps ts
 
              | [], _::_ | _::_, [] ->
@@ -613,7 +576,7 @@ and let_clauses
     | [] -> return (List.rev clauses_out)
 
     | (p, annot, c, t) :: clauses_in ->
-       check_ml_pattern p t >>= fun (p, xts) ->
+       check_pattern p t >>= fun (p, xts) ->
        begin match generalizable c with
 
        | Generalizable ->

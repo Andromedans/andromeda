@@ -352,7 +352,7 @@ handler_case:
 
 handler_checking:
   |                     { None }
-  | COLON pt=tt_pattern { Some pt }
+  | COLON pt=pattern { Some pt }
 
 match_cases:
   | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }
@@ -371,7 +371,11 @@ pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
   | p=plain_binop_pattern                             { p }
   | p1=binop_pattern AS p2=binop_pattern              { Patt_As (p1, p2) }
-  | VDASH p=abstracted_tt_pattern                     { Patt_Judgement p }
+  | p=binop_pattern TYPE                                           { Patt_IsType p }
+  | p1=binop_pattern COLON p2=binop_pattern                     { Patt_IsTerm (p1, p2) }
+  | p1=binop_pattern EQEQ  p2=binop_pattern                     { Patt_EqType (p1, p2) }
+  | p1=binop_pattern EQEQ  p2=binop_pattern COLON p3=pattern { Patt_EqTerm (p1, p2, p3) }
+  | abstr=tt_maybe_typed_binder p=pattern                    { Patt_Abstraction (abstr, p) }
 
 binop_pattern: mark_location(plain_binop_pattern) { $1 }
 plain_binop_pattern:
@@ -383,12 +387,13 @@ plain_binop_pattern:
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
 plain_app_pattern:
-  | e=plain_prefix_pattern                          { e }
-  | t=long(constr_name) ps=prefix_pattern+          { Patt_Constructor (t, ps) }
+  | e=plain_prefix_pattern                       { e }
+  | t=long(any_name) ps=prefix_pattern+          { Patt_Constructor (t, ps) }
 
 prefix_pattern: mark_location(plain_prefix_pattern) { $1 }
 plain_prefix_pattern:
-  | e=plain_simple_pattern            { e }
+  | e=plain_simple_pattern           { e }
+  | UATOM p=prefix_pattern        { Patt_GenAtom p }
   | oploc=prefix e=prefix_pattern
     { let (op, _) = oploc in
       Patt_Constructor (Name.PName op, [e])
@@ -397,57 +402,13 @@ plain_prefix_pattern:
 (* simple_pattern: mark_location(plain_simple_pattern) { $1 } *)
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
-  | x=long(ml_name)                { Patt_Name x }
+  | x=long(ml_name)                { Patt_Path x }
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
       | [{Location.thing=p;loc=_}] -> p
       | _ -> Patt_Tuple ps
     }
   | LBRACK ps=separated_list(SEMI, pattern) RBRACK { Patt_List ps }
-
-(* Judgement pattern (further disambiguation is performed during desugaring) *)
-
-abstracted_tt_pattern: mark_location(plain_abstracted_tt_pattern) { $1 }
-plain_abstracted_tt_pattern:
-  | p=plain_tt_pattern                                            { p }
-  | abstr=tt_abstraction p=tt_pattern                             { Patt_TT_Abstraction (abstr, p) }
-
-tt_pattern: mark_location(plain_tt_pattern) { $1 }
-plain_tt_pattern:
-  | p1=binop_tt_pattern AS p2=binop_tt_pattern                        { Patt_TT_As (p1, p2) }
-  | p=plain_binop_tt_pattern                                          { p }
-  | p=binop_tt_pattern TYPE                                           { Patt_TT_IsType p }
-  | p1=binop_tt_pattern COLON p2=binop_tt_pattern                     { Patt_TT_IsTerm (p1, p2) }
-  | p1=binop_tt_pattern EQEQ  p2=binop_tt_pattern                     { Patt_TT_EqType (p1, p2) }
-  | p1=binop_tt_pattern EQEQ  p2=binop_tt_pattern COLON p3=tt_pattern { Patt_TT_EqTerm (p1, p2, p3) }
-
-binop_tt_pattern: mark_location(plain_binop_tt_pattern) { $1 }
-plain_binop_tt_pattern:
-  | p=plain_app_tt_pattern                        { p }
-  | e1=binop_tt_pattern oploc=infix e2=binop_tt_pattern
-    { let (op, _loc) = oploc in
-      Patt_TT_Constructor (Name.PName op, [e1; e2])
-    }
-
-(* app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 } *)
-plain_app_tt_pattern:
-  | p=plain_prefix_tt_pattern                             { p }
-  | c=long(tt_name) ps=nonempty_list(prefix_tt_pattern)   { Patt_TT_Constructor (c, ps) }
-
-prefix_tt_pattern: op=mark_location(plain_prefix_tt_pattern) { op }
-plain_prefix_tt_pattern:
-  | p=plain_simple_tt_pattern        { p }
-  | UATOM p=prefix_tt_pattern        { Patt_TT_GenAtom p }
-  | oploc=prefix e=prefix_tt_pattern
-    { let (op, _loc) = oploc in
-      Patt_TT_Constructor (Name.PName op, [e])
-    }
-
-(* simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 } *)
-plain_simple_tt_pattern:
-  | UNDERSCORE                        { Patt_TT_Anonymous }
-  | x=tt_name                         { Patt_TT_Name x }
-  | LPAREN p=plain_abstracted_tt_pattern RPAREN  { p }
 
 let_pattern: mark_location(plain_let_pattern) { $1 }
 plain_let_pattern:
@@ -459,14 +420,9 @@ plain_let_pattern:
   | LBRACK ps=separated_list(SEMI, pattern) RBRACK
     { Patt_List ps }
 
-
 tt_maybe_typed_binder:
   | LBRACE xs=opt_name(tt_name)+ RBRACE                            { List.map (fun x -> (x, None)) xs }
-  | LBRACE xs=opt_name(tt_name)+ COLON t=tt_pattern RBRACE         { List.map (fun x -> (x, Some t)) xs }
-
-tt_abstraction:
-  | lst=nonempty_list(tt_maybe_typed_binder)
-    { List.concat lst }
+  | LBRACE xs=opt_name(tt_name)+ COLON t=pattern RBRACE         { List.map (fun x -> (x, Some t)) xs }
 
 (* ML types *)
 

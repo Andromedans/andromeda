@@ -1,0 +1,19 @@
+- : mlstring = "bar"
+- : mlstring = "foo"
+- : mlstring * mlstring * mlstring = ("baz", "foo", "bar")
+- : mlstring * mlstring * mlstring = ("baz", "foo", "bar")
+- : mlstring = "foo"
+Rule A is postulated.
+Rule a is postulated.
+Rule P is postulated.
+- : list judgement * mlstring = (a :: A :: [], "isterm")
+- : list judgement * mlstring = (A :: [], "istype")
+- : list judgement * mlstring = (P a :: [], "istype")
+Rule B is postulated.
+Rule ξ is postulated.
+- : list judgement * mlstring = (A :: B :: [], "eqtype")
+Rule b is postulated.
+Rule ζ is postulated.
+- : list judgement * mlstring = (a :: b :: A :: [], "eqterm")
+- : list judgement * mlstring = (a :: B :: [], "isterm")
+- : list judgement * mlstring = (?z₀ :: A :: P ?z₀ :: [], "abstraction")

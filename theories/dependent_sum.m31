@@ -15,7 +15,7 @@ rule π₂ (⊢ A type) (x : A ⊢ B type) (⊢ s : Σ A B)
 rule Σ_β₁ (⊢ A type) (x : A ⊢ B type) (⊢ a : A) (⊢ b : B{a})
   : π₁ A B (pair A B a b) == a : A
 
-let type_of e = match e with ⊢ _ : t => t end
+let type_of e = match e with _ : t => t end
 
 
 (* To show that the computation rule for the second projection is well-typed,

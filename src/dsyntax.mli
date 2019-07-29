@@ -27,27 +27,20 @@ type let_annotation =
   | Let_annot_none
   | Let_annot_schema of ml_schema
 
-type tt_pattern = tt_pattern' located
-and tt_pattern' =
-  | Patt_TT_Anonymous
-  | Patt_TT_Var of Name.t
-  | Patt_TT_As of tt_pattern * tt_pattern
-  | Patt_TT_Constructor of Path.t * tt_pattern list
-  | Patt_TT_GenAtom of tt_pattern
-  | Patt_TT_IsType of tt_pattern
-  | Patt_TT_IsTerm of tt_pattern * tt_pattern
-  | Patt_TT_EqType of tt_pattern * tt_pattern
-  | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern
-  | Patt_TT_Abstraction of Name.t option * tt_pattern * tt_pattern
-
-type ml_pattern = ml_pattern' located
-and ml_pattern' =
+type pattern = pattern' located
+and pattern' =
   | Patt_Anonymous
   | Patt_Var of Name.t
-  | Patt_As of ml_pattern * ml_pattern
-  | Patt_Judgement of tt_pattern
-  | Patt_Constructor of Path.ml_constructor * ml_pattern list
-  | Patt_Tuple of ml_pattern list
+  | Patt_As of pattern * pattern
+  | Patt_TTConstructor of Path.t * pattern list
+  | Patt_GenAtom of pattern
+  | Patt_IsType of pattern
+  | Patt_IsTerm of pattern * pattern
+  | Patt_EqType of pattern * pattern
+  | Patt_EqTerm of pattern * pattern * pattern
+  | Patt_Abstraction of Name.t option * pattern * pattern
+  | Patt_MLConstructor of Path.ml_constructor * pattern list
+  | Patt_Tuple of pattern list
 
 (** Desugared computations *)
 type comp = comp' located
@@ -92,7 +85,7 @@ and boundary =
    | BoundaryEqTerm of comp * comp * comp
 
 and let_clause =
-  | Let_clause of ml_pattern * let_annotation * comp (* [let (?p :> t) = c] *)
+  | Let_clause of pattern * let_annotation * comp (* [let (?p :> t) = c] *)
 
 and letrec_clause =
   | Letrec_clause of Name.t * (Name.t * arg_annotation) * let_annotation * comp
@@ -103,10 +96,10 @@ and handler = {
   handler_finally : match_case list;
 }
 
-and match_case = ml_pattern * comp option * comp
+and match_case = pattern * comp option * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
-and match_op_case = ml_pattern list * tt_pattern option * comp
+and match_op_case = pattern list * pattern option * comp
 
 type ml_tydef =
   | ML_Sum of (Name.t * ml_ty list) list
