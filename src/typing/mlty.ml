@@ -67,14 +67,14 @@ type ty_def =
 type error =
   | InvalidApplication of ty * ty * ty
   | TypeMismatch of ty * ty
-  | UnsolvedApp of ty * ty * ty
   | HandlerExpected of ty
   | RefExpected of ty
   | DynamicExpected of ty
   | UnknownExternal of string
   | ValueRestriction
   | Ungeneralizable of param list * ty
-  | UnknownJudgementForm
+  | UninferrableExpression
+  | JudgementOrBoundaryExpected of ty
   | JudgementExpected of ty
 
 exception Error of error Location.located
@@ -183,7 +183,7 @@ let print_error err ppf =
   match err with
 
   | InvalidApplication (h, arg, out) ->
-    Format.fprintf ppf "invalid application of@ @[<hov>%t]@ to@ @[<hov>%t]@ producing@ @[<hov>%t]"
+    Format.fprintf ppf "invalid application of@ @[<hov>%t]@ to@ @[<hov>%t@]@ producing@ @[<hov>%t]"
       (print_ty ~penv h)
       (print_ty ~penv arg)
       (print_ty ~penv out)
@@ -193,22 +193,16 @@ let print_error err ppf =
       (print_ty ~penv t2)
       (print_ty ~penv t1)
 
-  | UnsolvedApp (h, arg, out) ->
-    Format.fprintf ppf "unsolved application of@ @[<hov>%t]@ to@ @[<hov>%t]@ producing@ @[<hov>%t]"
-      (print_ty ~penv h)
-      (print_ty ~penv arg)
-      (print_ty ~penv out)
-
   | HandlerExpected t ->
-    Format.fprintf ppf "expected a handler but got@ @[<hov>%t]"
+    Format.fprintf ppf "expected a handler but got@ @[<hov>%t@]"
       (print_ty ~penv t)
 
   | RefExpected t ->
-    Format.fprintf ppf "expected a reference but got@ @[<hov>%t]"
+    Format.fprintf ppf "expected a reference but got@ @[<hov>%t@]"
       (print_ty ~penv t)
 
   | DynamicExpected t ->
-    Format.fprintf ppf "expected a dynamic but got@ @[<hov>%t]"
+    Format.fprintf ppf "expected a dynamic but got@ @[<hov>%t@]"
       (print_ty ~penv t)
 
   | UnknownExternal s ->
@@ -218,16 +212,20 @@ let print_error err ppf =
      Format.fprintf ppf "this computation cannot be polymorphic (value restriction)"
 
   | Ungeneralizable (ps, ty) ->
-     Format.fprintf ppf "cannot generalize@ @[<hov>%t]@ in@ @[<hov>%t]"
+     Format.fprintf ppf "cannot generalize@ @[<hov>%t]@ in@ @[<hov>%t@]"
                     (Print.sequence (print_param ~penv) "," ps)
                     (print_ty ~penv ty)
 
-  | UnknownJudgementForm ->
-     Format.fprintf ppf "cannot infer the judgement form"
+  | UninferrableExpression ->
+     Format.fprintf ppf "cannot determine the type of this expression, please annotate it"
 
-  | JudgementExpected t ->
-    Format.fprintf ppf "expected a judgement but got@ @[<hov>%t]"
-      (print_ty ~penv t)
+  | JudgementOrBoundaryExpected ty ->
+    Format.fprintf ppf "expected a judgement or boundary but got@ @[<hov>%t@]"
+      (print_ty ~penv ty)
+
+  | JudgementExpected ty ->
+    Format.fprintf ppf "expected a judgement but got@ @[<hov>%t@]"
+      (print_ty ~penv ty)
 
 let rec occurs m = function
   | Judgement | Boundary | String | Param _ -> false

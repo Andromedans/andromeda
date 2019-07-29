@@ -42,16 +42,21 @@ type judgement =
 (** A shorthand abstracted judgement *)
 type judgement_abstraction = judgement abstraction
 
-(** Boundary of a type judgement *)
-type is_type_boundary
+(** Boundary of a type judgement, it is safe to expose it since the user cannot create an
+   invalid unit. *)
+type is_type_boundary = unit
 
-(** Boundary of a term judgement *)
-type is_term_boundary
+(** Boundary of a term judgement, it is safe to expose it since the user cannot create an
+   invalid type judgement. *)
+type is_term_boundary = is_type
 
-(** Boundary of a type equality judgement *)
-type eq_type_boundary
+(** Boundary of a type equality judgement, it is safe to expose it since the user cannot create an
+   invalid type judgements. *)
+type eq_type_boundary = is_type * is_type
 
-(** Boundary of a term equality judgement *)
+(** Boundary of a term equality judgement. It is *not* safe to expose it since a term boundary
+    consists of terms [e1] and [e2] which both have type [t]. If we exposed the type, the user
+    could create an invalid boundary in which the types of [e1] and [e2] do not match. *)
 type eq_term_boundary
 
 (** Boundary of a judgement *)
@@ -234,16 +239,19 @@ val invert_eq_term_abstraction :
 val invert_judgement_abstraction :
   ?name:Name.t -> judgement_abstraction -> judgement stump_abstraction
 
-val invert_is_term_boundary :
+val invert_eq_term_boundary :
+  eq_term_boundary -> is_term * is_term * is_type
+
+val invert_is_term_boundary_abstraction :
   ?name:Name.t -> is_term_boundary abstraction -> is_type stump_abstraction
 
-val invert_is_type_boundary :
+val invert_is_type_boundary_abstraction :
   ?name:Name.t -> is_type_boundary abstraction -> unit stump_abstraction
 
-val invert_eq_type_boundary :
+val invert_eq_type_boundary_abstraction :
   ?name:Name.t -> eq_type_boundary abstraction -> (is_type * is_type) stump_abstraction
 
-val invert_eq_term_boundary :
+val invert_eq_term_boundary_abstraction :
   ?name:Name.t -> eq_term_boundary abstraction -> (is_term * is_term * is_type) stump_abstraction
 
 val invert_boundary_abstraction :

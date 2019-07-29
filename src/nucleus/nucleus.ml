@@ -87,10 +87,12 @@ let invert_is_type = Invert.invert_is_type
 let invert_eq_type = Invert.invert_eq_type
 let invert_eq_term = Invert.invert_eq_term
 
-let invert_is_type_boundary = Invert.invert_is_type_boundary
-let invert_is_term_boundary = Invert.invert_is_term_boundary
-let invert_eq_type_boundary = Invert.invert_eq_type_boundary
 let invert_eq_term_boundary = Invert.invert_eq_term_boundary
+
+let invert_is_type_boundary_abstraction = Invert.invert_is_type_boundary_abstraction
+let invert_is_term_boundary_abstraction = Invert.invert_is_term_boundary_abstraction
+let invert_eq_type_boundary_abstraction = Invert.invert_eq_type_boundary_abstraction
+let invert_eq_term_boundary_abstraction = Invert.invert_eq_term_boundary_abstraction
 
 let invert_boundary_abstraction = Invert.invert_boundary_abstraction
 

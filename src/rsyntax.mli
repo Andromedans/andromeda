@@ -24,6 +24,10 @@ and pattern' =
   | Patt_EqType of pattern * pattern
   | Patt_EqTerm of pattern * pattern * pattern
   | Patt_Abstract of Name.t option * pattern * pattern
+  | Patt_BoundaryIsType
+  | Patt_BoundaryIsTerm of pattern
+  | Patt_BoundaryEqType of pattern * pattern
+  | Patt_BoundaryEqTerm of pattern * pattern * pattern
   | Patt_MLConstructor of ml_constructor * pattern list
   | Patt_Tuple of pattern list
 

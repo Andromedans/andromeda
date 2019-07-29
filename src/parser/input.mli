@@ -46,6 +46,7 @@ type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
   | Patt_Path of Name.path
+  | Patt_MLAscribe of pattern * ml_ty
   | Patt_As of pattern * pattern
   | Patt_GenAtom of pattern
   | Patt_IsType of pattern
@@ -53,6 +54,10 @@ and pattern' =
   | Patt_EqType of pattern * pattern
   | Patt_EqTerm of pattern * pattern * pattern
   | Patt_Abstraction of (Name.t option * pattern option) list * pattern
+  | Patt_BoundaryIsType
+  | Patt_BoundaryIsTerm of pattern
+  | Patt_BoundaryEqType of pattern * pattern
+  | Patt_BoundaryEqTerm of pattern * pattern * pattern
   | Patt_Constructor of path * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list

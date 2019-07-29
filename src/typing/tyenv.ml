@@ -3,6 +3,10 @@ type t =
     substitution : Substitution.t;
   }
 
+type judgement_or_boundary =
+  | Is_judgement
+  | Is_boundary
+
 type 'a tyenvM = t -> 'a * t
 
 let empty =
@@ -210,6 +214,20 @@ let add_equation ~loc t t' env =
      Mlty.(error ~loc
                 (TypeMismatch (Substitution.apply env.substitution t,
                                Substitution.apply env.substitution t')))
+
+let as_judgement_or_boundary ~loc t env =
+  let t = whnf env.context env.substitution t in
+  match t with
+
+  | Mlty.Judgement -> return Is_judgement env
+
+  | Mlty.Boundary -> return Is_boundary env
+
+  | Mlty.Meta _ ->
+     Mlty.error ~loc Mlty.UninferrableExpression
+
+  | Mlty.(String | Ref _ | Dynamic _ |  Param _ | Handler _ | Prod _ | Arrow _ | Apply _) ->
+     Mlty.(error ~loc (JudgementOrBoundaryExpected t))
 
 let as_handler ~loc t env =
   let t = whnf env.context env.substitution t in

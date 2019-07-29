@@ -663,6 +663,11 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
         end
      end
 
+  | Input.Patt_MLAscribe (p, t) ->
+     let ctx, p = pattern ~toplevel ctx p in
+     let t = mlty ctx [] t in
+     ctx, locate (Dsyntax.Patt_MLAscribe (p, t)) loc
+
   | Input.Patt_As (p1, p2) ->
      let ctx, p1 = pattern ~toplevel ctx p1 in
      let ctx, p2 = pattern ~toplevel ctx p2 in
@@ -707,6 +712,24 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
      let ctx, p2 = pattern ~toplevel ctx p2 in
      let ctx, p3 = pattern ~toplevel ctx p3 in
      ctx, locate (Dsyntax.Patt_EqTerm (p1, p2, p3)) loc
+
+  | Input.Patt_BoundaryIsType ->
+     ctx, locate (Dsyntax.Patt_BoundaryIsType) loc
+
+  | Input.Patt_BoundaryIsTerm p ->
+     let ctx, p = pattern ~toplevel ctx p in
+     ctx, locate (Dsyntax.Patt_BoundaryIsTerm p) loc
+
+  | Input.Patt_BoundaryEqType (p1, p2) ->
+     let ctx, p1 = pattern ~toplevel ctx p1 in
+     let ctx, p2 = pattern ~toplevel ctx p2 in
+     ctx, locate (Dsyntax.Patt_BoundaryEqType (p1, p2)) loc
+
+  | Input.Patt_BoundaryEqTerm (p1, p2, p3) ->
+     let ctx, p1 = pattern ~toplevel ctx p1 in
+     let ctx, p2 = pattern ~toplevel ctx p2 in
+     let ctx, p3 = pattern ~toplevel ctx p3 in
+     ctx, locate (Dsyntax.Patt_BoundaryEqTerm (p1, p2, p3)) loc
 
   | Input.Patt_Abstraction (abstr, p0) ->
      let rec fold ctx = function
@@ -778,6 +801,9 @@ let rec check_linear ?(forbidden=Name.set_empty) {Location.thing=p';loc} =
   | Input.Patt_Path (Name.PName x) ->
      check_linear_pattern_variable ~loc ~forbidden x
 
+  | Input.Patt_MLAscribe (p, _) ->
+     check_linear ~forbidden p
+
   | Input.Patt_As (p1, p2) ->
      let forbidden = check_linear ~forbidden p1 in
      check_linear ~forbidden p2
@@ -797,6 +823,21 @@ let rec check_linear ?(forbidden=Name.set_empty) {Location.thing=p';loc} =
      check_linear ~forbidden p2
 
   | Input.Patt_EqTerm (p1, p2, p3) ->
+     let forbidden = check_linear ~forbidden p1 in
+     let forbidden = check_linear ~forbidden p2 in
+     check_linear ~forbidden p3
+
+  | Input.Patt_BoundaryIsType ->
+     forbidden
+
+  | Input.Patt_BoundaryIsTerm p ->
+     check_linear ~forbidden p
+
+  | Input.Patt_BoundaryEqType (p1, p2) ->
+     let forbidden = check_linear ~forbidden p1 in
+     check_linear ~forbidden p2
+
+  | Input.Patt_BoundaryEqTerm (p1, p2, p3) ->
      let forbidden = check_linear ~forbidden p1 in
      let forbidden = check_linear ~forbidden p2 in
      check_linear ~forbidden p3
