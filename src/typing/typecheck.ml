@@ -114,6 +114,11 @@ let rec infer_pattern {Location.thing=p;loc} =
      let t = Mlty.fresh_type () in
      return (locate ~loc Rsyntax.Patt_Var, t, [(x, t)])
 
+  | Dsyntax.Patt_MLAscribe (p, t) ->
+     let t = ml_ty [] t in
+     check_pattern p t >>= fun (p, xts) ->
+     return (p, t, xts)
+
   | Dsyntax.Patt_As (p1, p2) ->
      infer_pattern p1 >>= fun (p1, t1, xts1) ->
      check_pattern p2 t1 >>= fun (p2, xts2) ->
@@ -175,22 +180,18 @@ let rec infer_pattern {Location.thing=p;loc} =
   | Dsyntax.Patt_Abstraction (xopt, p1, p2) ->
      check_pattern p1 Mlty.Judgement >>= fun (p1, xts1) ->
      infer_pattern p2 >>= fun (p2, t2, xts2) ->
-     (** XXX verify whether [t2] is guaranteed to be normalized *)
-     begin match t2 with
-
-     | Mlty.(Judgement | Boundary) ->
-        let xts2 =
-          match xopt with
-          | None -> xts2
-          | Some x -> (x, Mlty.Judgement) :: xts2
-        in
-        return (locate ~loc (Rsyntax.Patt_Abstract (xopt, p1, p2)), Mlty.Judgement, xts1 @ xts2)
-
-     | Mlty.Meta _ -> Mlty.error ~loc Mlty.UninferrableExpression
-
-     | Mlty.(String | Param _ | Prod _ | Arrow _ | Handler _ | Apply _ | Ref _| Dynamic _) as t ->
-        Mlty.error ~loc (Mlty.JudgementOrBoundaryExpected t)
-     end
+     let xts2 =
+       match xopt with
+       | None -> xts2
+       | Some x -> (x, Mlty.Judgement) :: xts2
+     in
+     Tyenv.as_judgement_or_boundary ~loc t2 >>=
+       begin function
+         | Tyenv.Is_judgement ->
+            return (locate ~loc (Rsyntax.Patt_Abstract (xopt, p1, p2)), Mlty.Judgement, xts1 @ xts2)
+         | Tyenv.Is_boundary ->
+            return (locate ~loc (Rsyntax.Patt_Abstract (xopt, p1, p2)), Mlty.Boundary, xts1 @ xts2)
+       end
 
   | Dsyntax.Patt_Tuple ps ->
     let rec fold qs ts xts = function
@@ -212,6 +213,12 @@ and check_pattern ({Location.thing=p'; loc} as p) t =
 
   | Dsyntax.Patt_Var x ->
      return (locate ~loc Rsyntax.Patt_Var, [(x, t)])
+
+  | Dsyntax.Patt_MLAscribe (p, t') ->
+     let t' = ml_ty [] t' in
+     check_pattern p t' >>= fun (p, xts) ->
+     Tyenv.add_equation ~loc t' t >>= fun () ->
+     return (p, xts)
 
   | Dsyntax.Patt_As (p1, p2) ->
      check_pattern p1 t >>= fun (p1, xts1) ->
@@ -437,17 +444,14 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
       Mlty.Judgement
       begin
         infer_comp c >>= fun (c,t) ->
-        (* XXX verify whether we guarantee that [t] is normalized *)
-        begin match t with
-        | Mlty.Judgement ->
-           let c = locate ~loc (Rsyntax.Abstract (x, copt, c)) in
-           return (c, Mlty.Judgement)
-        | Mlty.Boundary ->
-           let c = locate ~loc (Rsyntax.Abstract (x, copt, c)) in
-           return (c, Mlty.Boundary)
-        | Mlty.Meta _ -> Mlty.error ~loc Mlty.UninferrableExpression
-        | Mlty.(String | Param _ | Prod _ | Arrow _ | Handler _ | Apply _ | Ref _| Dynamic _) as t ->
-           Mlty.error ~loc (Mlty.JudgementOrBoundaryExpected t)
+        Tyenv.as_judgement_or_boundary ~loc t >>=
+          begin function
+            | Tyenv.Is_judgement ->
+               let c = locate ~loc (Rsyntax.Abstract (x, copt, c)) in
+               return (c, Mlty.Judgement)
+            | Tyenv.Is_boundary ->
+               let c = locate ~loc (Rsyntax.Abstract (x, copt, c)) in
+               return (c, Mlty.Boundary)
         end
       end
 

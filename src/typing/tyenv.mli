@@ -4,6 +4,11 @@
     substitution and unsolved constraints. *)
 type t
 
+(** A type for signaling whether a thing is a judgement or a boundary *)
+type judgement_or_boundary =
+  | Is_judgement
+  | Is_boundary
+
 (** The empty typing environment. *)
 val empty : t
 
@@ -46,6 +51,9 @@ val add_tt_constructor : Ident.t -> unit tyenvM
 (** [add_equation ~loc t1 t2] try to unify the actual type [t1] with the expected type
     [t2]. If successful, retry to solve the current unsolved constraints. *)
 val add_equation : loc:Location.t -> Mlty.ty -> Mlty.ty -> unit tyenvM
+
+(** Express the given type either as a judgement or a boundary type. *)
+val as_judgement_or_boundary : loc:Location.t -> Mlty.ty -> judgement_or_boundary tyenvM
 
 (** Express the given type as a handler type. *)
 val as_handler : loc:Location.t -> Mlty.ty -> (Mlty.ty * Mlty.ty) tyenvM

@@ -6,6 +6,10 @@ match ("foo", "bar", "baz") with (x, y, z) => (z, x, y) end ;;
 
 let (x, y, z) = ("foo", "bar", "baz") in (z, x, y) ;;
 
+match (["foo"; "bar"], "baz") with
+  | (a, b) as (x :: xs, c) => (a, b, x, xs, c)
+end ;;
+
 match ML.Some "foo" with
   | ML.Some s => s
   | ML.None => "WRONG ANSWER"
@@ -15,64 +19,58 @@ rule A type ;;
 rule a : A ;;
 rule P (⊢ _ : A) type ;;
 
-match a with
+let test_judgement e =
+match e with
   | x : X => ([x; X], "isterm")
   | X ≡ Y => ([X; Y], "eqtype")
   | X type => ([X], "istype")
   | x ≡ y : X => ([x; y; X], "eqterm")
-  | {x : X} jdg => ([x; X; jdg], "abstraction")
+  | {x : X} (j :> judgement) => ([x; X; j], "abstraction")
 end ;;
 
-match A with
-  | x : X => ([x; X], "isterm")
-  | X ≡ Y => ([X; Y], "eqtype")
-  | X type => ([X], "istype")
-  | x ≡ y : X => ([x; y; X], "eqterm")
-  | {x : X} jdg => ([x; X; jdg], "abstraction")
-end ;;
+test_judgement a ;;
 
-match P a with
-  | x : X => ([x; X], "isterm")
-  | X ≡ Y => ([X; Y], "eqtype")
-  | X type => ([X], "istype")
-  | x ≡ y : X => ([x; y; X], "eqterm")
-  | {x : X} jdg => ([x; X; jdg], "abstraction")
-end ;;
+test_judgement A ;;
+
+test_judgement (P a) ;;
 
 rule B type ;;
 rule ξ : A ≡ B ;;
 
-match ξ with
-  | x : X => ([x; X], "isterm")
-  | X ≡ Y => ([X; Y], "eqtype")
-  | X type => ([X], "istype")
-  | x ≡ y : X => ([x; y; X], "eqterm")
-  | {x : X} jdg => ([x; X; jdg], "abstraction")
-end ;;
+test_judgement ξ ;;
 
 rule b : A ;;
 rule ζ : a ≡ b : A ;;
 
-match ζ with
-  | x : X => ([x; X], "isterm")
-  | X ≡ Y => ([X; Y], "eqtype")
-  | X type => ([X], "istype")
-  | x ≡ y : X => ([x; y; X], "eqterm")
-  | {x : X} jdg => ([x; X; jdg], "abstraction")
+test_judgement ζ ;;
+
+test_judgement (convert a ξ) ;;
+
+test_judgement ({z : A} P z) ;;
+
+let test_boundary bdry =
+match bdry with
+  | ? type => ([], [], "istype boundary")
+  | ? : X => ([X], [], "isterm boundary")
+  | (X ≡ Y as ?) as Θ => ([X; Y], [Θ], "eqtype boundary")
+  | x ≡ y : X as ? => ([x; y; X], [], "eqterm boundary")
+  | {x : X} (u :> boundary) => ([x; X], [u], "abstraction boundary")
 end ;;
 
-match (convert a ξ) with
-  | x : X => ([x; X], "isterm")
-  | X ≡ Y => ([X; Y], "eqtype")
-  | X type => ([X], "istype")
-  | x ≡ y : X => ([x; y; X], "eqterm")
-  | {x : X} jdg => ([x; X; jdg], "abstraction")
-end ;;
+test_boundary (? type) ;;
 
-match {z : A} P z with
-  | x : X => ([x; X], "isterm")
-  | X ≡ Y => ([X; Y], "eqtype")
-  | X type => ([X], "istype")
-  | x ≡ y : X => ([x; y; X], "eqterm")
-  | {x : X} jdg => ([x; X; jdg], "abstraction")
-end ;;
+test_boundary (? : A) ;;
+
+test_boundary (? : P a) ;;
+
+test_boundary (A ≡ P a as ?) ;;
+
+test_boundary (a ≡ b : A as ?) ;;
+
+test_boundary ((convert a ξ) ≡ (convert b ξ) : B as ?) ;;
+
+test_boundary ({z : A} ? : P z) ;;
+
+rule θ : B ≡ A ;;
+
+test_boundary ({z : B} ? : P (convert z θ)) ;;

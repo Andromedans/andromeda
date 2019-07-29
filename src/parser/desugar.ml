@@ -663,6 +663,11 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
         end
      end
 
+  | Input.Patt_MLAscribe (p, t) ->
+     let ctx, p = pattern ~toplevel ctx p in
+     let t = mlty ctx [] t in
+     ctx, locate (Dsyntax.Patt_MLAscribe (p, t)) loc
+
   | Input.Patt_As (p1, p2) ->
      let ctx, p1 = pattern ~toplevel ctx p1 in
      let ctx, p2 = pattern ~toplevel ctx p2 in
@@ -795,6 +800,9 @@ let rec check_linear ?(forbidden=Name.set_empty) {Location.thing=p';loc} =
 
   | Input.Patt_Path (Name.PName x) ->
      check_linear_pattern_variable ~loc ~forbidden x
+
+  | Input.Patt_MLAscribe (p, _) ->
+     check_linear ~forbidden p
 
   | Input.Patt_As (p1, p2) ->
      let forbidden = check_linear ~forbidden p1 in

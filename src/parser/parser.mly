@@ -373,6 +373,7 @@ plain_pattern:
   | p1=binop_pattern AS p2=binop_pattern                     { Patt_As (p1, p2) }
   | p=binop_pattern TYPE                                     { Patt_IsType p }
   | p1=binop_pattern COLON p2=binop_pattern                  { Patt_IsTerm (p1, p2) }
+  | p=binop_pattern COLONGT t=prod_mlty                      { Patt_MLAscribe (p, t) }
   | p1=binop_pattern EQEQ  p2=binop_pattern                  { Patt_EqType (p1, p2) }
   | p1=binop_pattern EQEQ  p2=binop_pattern COLON p3=pattern { Patt_EqTerm (p1, p2, p3) }
   | QUESTIONMARK COLON p=binop_pattern                       { Patt_BoundaryIsTerm p }

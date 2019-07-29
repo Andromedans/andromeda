@@ -31,6 +31,7 @@ type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
   | Patt_Var of Name.t
+  | Patt_MLAscribe of pattern * ml_ty
   | Patt_As of pattern * pattern
   | Patt_TTConstructor of Path.t * pattern list
   | Patt_GenAtom of pattern

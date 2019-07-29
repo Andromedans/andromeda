@@ -46,6 +46,7 @@ type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
   | Patt_Path of Name.path
+  | Patt_MLAscribe of pattern * ml_ty
   | Patt_As of pattern * pattern
   | Patt_GenAtom of pattern
   | Patt_IsType of pattern
