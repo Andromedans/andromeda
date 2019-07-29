@@ -61,6 +61,7 @@ val boundary : t
 
 (** A judgement [ctx |- e : t] *)
 val jdg : t
+val jdg_left : t
 
 (** ML product type *)
 val ml_prod : t

@@ -43,6 +43,7 @@ let binder = abstraction
 let boundary = abstraction_body
 
 let jdg = highest
+let jdg_left = jdg - 1
 
 let ml_app = constructor
 let ml_app_arg = ml_app - 1

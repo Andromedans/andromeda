@@ -51,6 +51,9 @@ type set
 (** The empty set of nonces *)
 val set_empty : set
 
+(** Is the set empty? *)
+val set_is_empty : set -> bool
+
 (** Create a set from a list *)
 val set_of_list : t list -> set
 
