@@ -193,7 +193,7 @@ let transitivity_type (EqType (asmp1, t1, t2)) (EqType (asmp2, u1, u2)) =
 
 let form_is_type_boundary = BoundaryIsType ()
 
-let form_is_term_bondary t = BoundaryIsTerm t
+let form_is_term_boundary t = BoundaryIsTerm t
 
 let form_eq_type_boundary t1 t2 = BoundaryEqType (t1, t2)
 
@@ -204,3 +204,11 @@ let form_eq_term_boundary sgn e1 e2 =
     BoundaryEqTerm (e1, e2, t1)
   else
     Error.raise (AlphaEqualTypeMismatch (t1, t2))
+
+let rec form_is_term_boundary_abstraction = function
+
+  | NotAbstract t ->
+     NotAbstract (form_is_term_boundary t)
+
+  | Abstract (atm, abstr) ->
+     Abstract (atm, form_is_term_boundary_abstraction abstr)

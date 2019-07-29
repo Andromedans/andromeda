@@ -157,6 +157,7 @@ val form_is_type_boundary : boundary
 val form_is_term_boundary : is_type -> boundary
 val form_eq_type_boundary : is_type -> is_type -> boundary
 val form_eq_term_boundary : signature -> is_term -> is_term -> boundary
+val form_is_term_boundary_abstraction : is_type_abstraction -> boundary_abstraction
 
 (** Form a non-abstracted abstraction *)
 val abstract_not_abstract : 'a -> 'a abstraction

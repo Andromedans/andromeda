@@ -66,7 +66,14 @@ and boundary_eq_type ?max_level ~penv (t1, t2) ppf =
 (** Print a type equality judgement. *)
 and thesis_eq_type ?max_level ~penv (EqType (_asmp, t1, t2)) ppf =
   (* TODO: print _asmp? *)
-  boundary_eq_type ?max_level ~penv (t1, t2) ppf
+  Print.print
+    ?max_level
+    ~at_level:Level.boundary
+    ppf
+    "%t@ %s@ %t"
+    (thesis_ty ~penv t1)
+    (Print.char_equal ())
+    (thesis_ty ~penv t2)
 
 (** Print the boundary of a term equality judgement. *)
 and boundary_eq_term ?max_level ~penv (e1, e2, t) ppf =
@@ -84,7 +91,15 @@ and boundary_eq_term ?max_level ~penv (e1, e2, t) ppf =
 (** Print a term equality judgement. *)
 and thesis_eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
   (* TODO: print _asmp? *)
-  boundary_eq_term ?max_level ~penv (e1, e2, t) ppf
+  Print.print
+    ?max_level
+    ~at_level:Level.eq
+    ppf
+    "%t@ %s@ %t@ :@ %t"
+    (thesis_term ~penv e1)
+    (Print.char_equal ())
+    (thesis_term ~penv e2)
+    (thesis_ty ~penv t)
 
 (** Print a meta-variable *)
 and meta :

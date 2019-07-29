@@ -32,7 +32,7 @@ rule Σ_β₂ (⊢ A type) (x : A ⊢ B type) (⊢ a : A) (⊢ b : B{a})
     let eq_π₁_a = Σ_β₁ A B a b in
     let ξ = eq_subst.eq_subst A B (π₁ A B (pair A B a b)) a eq_π₁_a in
     with H ξ handle
-    (π₂ A B (pair A B a b)) : (? : B{a}) )
+    (π₂ A B (pair A B a b)) : B{a} )
   ==
   b
   : B{a}
