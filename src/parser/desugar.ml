@@ -615,96 +615,12 @@ let mk_abstract ~loc ys c =
     (fun c (y,u) -> locate (Dsyntax.Abstract (y,u,c)) loc)
     c ys
 
-let rec tt_pattern ctx {Location.thing=p';loc} =
-  match p' with
-  | Input.Patt_TT_Anonymous ->
-     ctx, locate Dsyntax.Patt_TT_Anonymous loc
-
-  | Input.Patt_TT_Name x ->
-     (* NB: a pattern variable always shadows whatever it can *)
-     let ctx = Ctx.add_bound x ctx in
-     ctx, (locate (Dsyntax.Patt_TT_Var x) loc)
-
-  | Input.Patt_TT_As (p1, p2) ->
-     let ctx, p1 = tt_pattern ctx p1 in
-     let ctx, p2 = tt_pattern ctx p2 in
-     ctx, locate (Dsyntax.Patt_TT_As (p1, p2)) loc
-
-  | Input.Patt_TT_Constructor (c, ps) ->
-     begin match Ctx.get_name ~loc c ctx with
-     | TTConstructor (pth, arity) ->
-        check_arity ~loc c (List.length ps) arity ;
-        pattern_tt_constructor ~loc ctx pth ps
-     | (MLConstructor _ | Operation _ | Value _ | Bound _) as info ->
-        error ~loc (InvalidPatternName (c, info))
-     end
-
-  | Input.Patt_TT_GenAtom p ->
-     let ctx, p = tt_pattern ctx p in
-     ctx, locate (Dsyntax.Patt_TT_GenAtom p) loc
-
-  | Input.Patt_TT_IsType p ->
-     let ctx, p = tt_pattern ctx p in
-     ctx, locate (Dsyntax.Patt_TT_IsType p) loc
-
-  | Input.Patt_TT_IsTerm (p1, p2) ->
-     let ctx, p1 = tt_pattern ctx p1 in
-     let ctx, p2 = tt_pattern ctx p2 in
-     ctx, locate (Dsyntax.Patt_TT_IsTerm (p1, p2)) loc
-
-  | Input.Patt_TT_EqType (p1, p2) ->
-     let ctx, p1 = tt_pattern ctx p1 in
-     let ctx, p2 = tt_pattern ctx p2 in
-     ctx, locate (Dsyntax.Patt_TT_EqType (p1, p2)) loc
-
-  | Input.Patt_TT_EqTerm (p1, p2, p3) ->
-     let ctx, p1 = tt_pattern ctx p1 in
-     let ctx, p2 = tt_pattern ctx p2 in
-     let ctx, p3 = tt_pattern ctx p3 in
-     ctx, locate (Dsyntax.Patt_TT_EqTerm (p1, p2, p3)) loc
-
-  | Input.Patt_TT_Abstraction (abstr, p0) ->
-     let rec fold ctx = function
-       | [] -> tt_pattern ctx p0
-       | (xopt, popt) :: abstr ->
-          let ctx, popt =
-            match popt with
-            | None -> ctx, locate Dsyntax.Patt_TT_Anonymous loc
-            | Some p ->
-               let ctx, p = tt_pattern ctx p in
-               ctx, p
-          in
-          let ctx, xopt =
-            begin
-              match xopt with
-              | Some x ->
-                 let ctx = Ctx.add_bound x ctx in
-                 ctx, Some x
-              | None -> ctx, None
-            end
-          in
-          let ctx, p = fold ctx abstr in
-          ctx, locate (Dsyntax.Patt_TT_Abstraction (xopt, popt,p)) loc
-     in
-     fold ctx abstr
-
-and pattern_tt_constructor ~loc ctx pth ps =
-  let rec fold ctx ps = function
-    | [] ->
-       let ps = List.rev ps in
-       ctx, locate (Dsyntax.Patt_TT_Constructor (pth, ps)) loc
-    | q :: qs ->
-       let ctx, p = tt_pattern ctx q in
-       fold ctx (p :: ps) qs
-  in
-  fold ctx [] ps
-
 let rec pattern ~toplevel ctx {Location.thing=p; loc} =
   match p with
   | Input.Patt_Anonymous ->
      ctx, locate Dsyntax.Patt_Anonymous loc
 
-  | Input.Patt_Name pth ->
+  | Input.Patt_Path pth ->
      begin match pth with
 
      | Name.PName x ->
@@ -718,9 +634,13 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
 
         | Some (MLConstructor (pth, arity)) ->
            check_arity ~loc (Name.PName x) 0 arity ;
-           ctx, locate (Dsyntax.Patt_Constructor (pth, [])) loc
+           ctx, locate (Dsyntax.Patt_MLConstructor (pth, [])) loc
 
-        | Some ((TTConstructor _ | Operation _) as info) ->
+        | Some (TTConstructor (pth, arity)) ->
+           check_arity ~loc (Name.PName x) 0 arity ;
+           ctx, locate (Dsyntax.Patt_TTConstructor (pth, [])) loc
+
+        | Some (Operation _ as info) ->
            error ~loc (InvalidPatternName (pth, info))
         end
 
@@ -729,66 +649,115 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
 
         | MLConstructor (c_pth, arity) ->
            check_arity ~loc pth 0 arity ;
-           ctx, locate (Dsyntax.Patt_Constructor (c_pth, [])) loc
+           ctx, locate (Dsyntax.Patt_MLConstructor (c_pth, [])) loc
 
-        | (Value _ | TTConstructor _ | Operation _) as info ->
+        | TTConstructor (c_pth, arity) ->
+           check_arity ~loc pth 0 arity ;
+           ctx, locate (Dsyntax.Patt_TTConstructor (c_pth, [])) loc
+
+        | (Value _ | Operation _) as info ->
            error ~loc (InvalidPatternName (pth, info))
 
         | Bound _ -> assert false
 
         end
      end
+
   | Input.Patt_As (p1, p2) ->
      let ctx, p1 = pattern ~toplevel ctx p1 in
      let ctx, p2 = pattern ~toplevel ctx p2 in
      ctx, locate (Dsyntax.Patt_As (p1, p2)) loc
 
-  | Input.Patt_Judgement p ->
-     let ctx, p = tt_pattern ctx p in
-     ctx, locate (Dsyntax.Patt_Judgement p) loc
-
   | Input.Patt_Constructor (c, ps) ->
      begin match Ctx.get_name ~loc c ctx with
      | MLConstructor (pth, arity) ->
         check_arity ~loc c (List.length ps) arity ;
-        let rec fold ctx ps = function
-          | [] ->
-             let ps = List.rev ps in
-             ctx, locate (Dsyntax.Patt_Constructor (pth, ps)) loc
-          | p::rem ->
-             let ctx, p = pattern ~toplevel ctx p in
-             fold ctx (p::ps) rem
-        in
-        fold ctx [] ps
+        let ctx, ps = patterns ~loc ~toplevel ctx ps in
+        ctx, locate (Dsyntax.Patt_MLConstructor (pth, ps)) loc
 
-     | (Bound _ | Value _ | TTConstructor _ | Operation _) as info ->
+     | TTConstructor (pth, arity) ->
+        check_arity ~loc c (List.length ps) arity ;
+        let ctx, ps = patterns ~loc ~toplevel ctx ps in
+        ctx, locate (Dsyntax.Patt_TTConstructor (pth, ps)) loc
+
+     | (Bound _ | Value _ | Operation _) as info ->
         error ~loc (InvalidAppliedPatternName (c, info))
      end
+
+  | Input.Patt_GenAtom p ->
+     let ctx, p = pattern ~toplevel ctx p in
+     ctx, locate (Dsyntax.Patt_GenAtom p) loc
+
+  | Input.Patt_IsType p ->
+     let ctx, p = pattern ~toplevel ctx p in
+     ctx, locate (Dsyntax.Patt_IsType p) loc
+
+  | Input.Patt_IsTerm (p1, p2) ->
+     let ctx, p1 = pattern ~toplevel ctx p1 in
+     let ctx, p2 = pattern ~toplevel ctx p2 in
+     ctx, locate (Dsyntax.Patt_IsTerm (p1, p2)) loc
+
+  | Input.Patt_EqType (p1, p2) ->
+     let ctx, p1 = pattern ~toplevel ctx p1 in
+     let ctx, p2 = pattern ~toplevel ctx p2 in
+     ctx, locate (Dsyntax.Patt_EqType (p1, p2)) loc
+
+  | Input.Patt_EqTerm (p1, p2, p3) ->
+     let ctx, p1 = pattern ~toplevel ctx p1 in
+     let ctx, p2 = pattern ~toplevel ctx p2 in
+     let ctx, p3 = pattern ~toplevel ctx p3 in
+     ctx, locate (Dsyntax.Patt_EqTerm (p1, p2, p3)) loc
+
+  | Input.Patt_Abstraction (abstr, p0) ->
+     let rec fold ctx = function
+       | [] -> pattern ~toplevel ctx p0
+       | (xopt, popt) :: abstr ->
+          let ctx, popt =
+            match popt with
+            | None -> ctx, locate Dsyntax.Patt_Anonymous loc
+            | Some p ->
+               let ctx, p = pattern ~toplevel ctx p in
+               ctx, p
+          in
+          let ctx, xopt =
+            begin
+              match xopt with
+              | Some x ->
+                 let ctx = Ctx.add_bound x ctx in
+                 ctx, Some x
+              | None -> ctx, None
+            end
+          in
+          let ctx, p = fold ctx abstr in
+          ctx, locate (Dsyntax.Patt_Abstraction (xopt, popt, p)) loc
+     in
+     fold ctx abstr
 
   | Input.Patt_List ps ->
      let nil_path, _ = Ctx.get_path_nil ctx
      and cons_path, _ = Ctx.get_path_cons ctx in
      let rec fold ~loc ctx = function
-       | [] -> ctx, locate (Dsyntax.Patt_Constructor (nil_path, [])) loc
+       | [] -> ctx, locate (Dsyntax.Patt_MLConstructor (nil_path, [])) loc
        | p :: ps ->
           let ctx, p = pattern ~toplevel ctx  p in
           let ctx, ps = fold ~loc:(p.Location.loc) ctx ps in
-          ctx, locate (Dsyntax.Patt_Constructor (cons_path, [p ; ps])) loc
+          ctx, locate (Dsyntax.Patt_MLConstructor (cons_path, [p ; ps])) loc
      in
      fold ~loc ctx ps
 
   | Input.Patt_Tuple ps ->
-     let rec fold ctx ps = function
-       | [] ->
-          let ps = List.rev ps in
-          ctx, locate (Dsyntax.Patt_Tuple ps) loc
-       | p::rem ->
-          let ctx, p = pattern ~toplevel ctx p in
-          fold ctx (p::ps) rem
-     in
-     fold ctx [] ps
+     let ctx, ps = patterns ~loc ~toplevel ctx ps in
+     ctx, locate (Dsyntax.Patt_Tuple ps) loc
 
-
+and patterns ~loc ~toplevel ctx ps =
+  let rec fold ctx ps_out = function
+    | [] ->
+       ctx, List.rev ps_out
+    | p :: ps ->
+       let ctx, p_out = pattern ~toplevel ctx p in
+       fold ctx (p_out :: ps_out) ps
+  in
+  fold ctx [] ps
 
 (** Verify that a pattern is linear and that it does not bind anything
     in the given set of forbidden names. Return the set of forbidden names
@@ -800,37 +769,52 @@ let check_linear_pattern_variable ~loc ~forbidden x =
      else
        Name.set_add x forbidden
 
-let rec check_linear_tt ?(forbidden=Name.set_empty) {Location.thing=p';loc} =
+let rec check_linear ?(forbidden=Name.set_empty) {Location.thing=p';loc} =
   match p' with
 
-  | Input.Patt_TT_Anonymous -> forbidden
+  | Input.Patt_Anonymous | Input.Patt_Path (Name.PModule _) ->
+     forbidden
 
-  | Input.Patt_TT_Name x ->
+  | Input.Patt_Path (Name.PName x) ->
      check_linear_pattern_variable ~loc ~forbidden x
 
-  | Input.Patt_TT_As (p1, p2)
-  | Input.Patt_TT_IsTerm (p1, p2)
-  | Input.Patt_TT_EqType (p1, p2) ->
-     let forbidden = check_linear_tt ~forbidden p1 in
-     check_linear_tt ~forbidden p2
+  | Input.Patt_As (p1, p2) ->
+     let forbidden = check_linear ~forbidden p1 in
+     check_linear ~forbidden p2
 
-  | Input.Patt_TT_Constructor (_, ps) ->
-     List.fold_left (fun forbidden -> check_linear_tt ~forbidden) forbidden ps
+  | Input.Patt_GenAtom p ->
+     check_linear ~forbidden p
 
-  | Input.Patt_TT_GenAtom p ->
-     check_linear_tt ~forbidden p
+  | Input.Patt_IsType p ->
+     check_linear ~forbidden p
 
-  | Input.Patt_TT_IsType p ->
-     check_linear_tt ~forbidden p
+  | Input.Patt_IsTerm (p1, p2) ->
+     let forbidden = check_linear ~forbidden p1 in
+     check_linear ~forbidden p2
 
-  | Input.Patt_TT_EqTerm (p1, p2, p3) ->
-     let forbidden = check_linear_tt ~forbidden p1 in
-     let forbidden = check_linear_tt ~forbidden p2 in
-     check_linear_tt ~forbidden p3
+  | Input.Patt_EqType (p1, p2) ->
+     let forbidden = check_linear ~forbidden p1 in
+     check_linear ~forbidden p2
 
-  | Input.Patt_TT_Abstraction (args, p) ->
+  | Input.Patt_EqTerm (p1, p2, p3) ->
+     let forbidden = check_linear ~forbidden p1 in
+     let forbidden = check_linear ~forbidden p2 in
+     check_linear ~forbidden p3
+
+  | Input.Patt_Abstraction (args, p) ->
      let forbidden = check_linear_abstraction ~loc ~forbidden args in
-     check_linear_tt ~forbidden p
+     check_linear ~forbidden p
+
+  | Input.Patt_Constructor (_, ps)
+  | Input.Patt_List ps
+  | Input.Patt_Tuple ps ->
+     check_linear_list ~forbidden ps
+
+and check_linear_list ~forbidden = function
+  | [] -> forbidden
+  | p :: ps ->
+     let forbidden = check_linear ~forbidden p in
+     check_linear_list ~forbidden ps
 
 and check_linear_abstraction ~loc ~forbidden = function
   | [] -> forbidden
@@ -843,37 +827,10 @@ and check_linear_abstraction ~loc ~forbidden = function
      let forbidden =
        match popt with
        | None -> forbidden
-       | Some p -> check_linear_tt ~forbidden p
+       | Some p -> check_linear ~forbidden p
      in
      check_linear_abstraction ~loc ~forbidden args
 
-
-let rec check_linear ?(forbidden=Name.set_empty) {Location.thing=p';loc} =
-  match p' with
-
-  | Input.Patt_Anonymous | Input.Patt_Name (Name.PModule _) ->
-     forbidden
-
-  | Input.Patt_Name (Name.PName x) ->
-     check_linear_pattern_variable ~loc ~forbidden x
-
-  | Input.Patt_As (p1, p2) ->
-     let forbidden = check_linear ~forbidden p1 in
-     check_linear ~forbidden p2
-
-  | Input.Patt_Judgement pt ->
-     check_linear_tt ~forbidden pt
-
-  | Input.Patt_Constructor (_, ps)
-  | Input.Patt_List ps
-  | Input.Patt_Tuple ps ->
-     check_linear_list ~forbidden ps
-
-and check_linear_list ~forbidden = function
-  | [] -> forbidden
-  | p :: ps ->
-     let forbidden = check_linear ~forbidden p in
-     check_linear_list ~forbidden ps
 
 let rec comp ctx {Location.thing=c';loc} =
   match c' with
@@ -1323,8 +1280,8 @@ and match_op_case ctx (ps, pt, c) =
          begin match pt with
          | None -> ctx, None
          | Some p ->
-            ignore (check_linear_tt p) ;
-            let ctx, p = tt_pattern ctx p in
+            ignore (check_linear p) ;
+            let ctx, p = pattern ~toplevel:false ctx p in
             ctx, Some p
          end
        in

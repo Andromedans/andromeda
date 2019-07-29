@@ -12,39 +12,20 @@ type tt_constructor = Ident.t
     from, so that we can print informative runtime error messages. *)
 type 'a located = 'a Location.located
 
-module Pattern :
-sig
-(** Judgement pattern. *)
-  type judgement = judgement' located
-  and judgement' =
-    | TTAnonymous
-    | TTVar
-    | TTAs of judgement * judgement
-    | TTConstructor of tt_constructor * argument list
-    | TTGenAtom of is_term
-    | TTIsType of is_type
-    | TTIsTerm of is_term * is_type
-    | TTEqType of is_type * is_type
-    | TTEqTerm of is_term * is_term * is_type
-    | TTAbstract of Name.t option * is_type * judgement
-
-  and is_type = judgement
-  and is_term = judgement
-  and argument = judgement
-
-  (** Boundary pattern *)
-  type boundary = Boundary_Pattern_Not_Implemented
-
-  (** ML pattern *)
-  type aml = aml' located
-  and aml' =
-    | Anonymous
-    | Var
-    | As of aml * aml
-    | Judgement of judgement
-    | MLConstructor of ml_constructor * aml list
-    | Tuple of aml list
-end
+type pattern = pattern' located
+and pattern' =
+  | Patt_Anonymous
+  | Patt_Var
+  | Patt_As of pattern * pattern
+  | Patt_TTConstructor of tt_constructor * pattern list
+  | Patt_GenAtom of pattern
+  | Patt_IsType of pattern
+  | Patt_IsTerm of pattern * pattern
+  | Patt_EqType of pattern * pattern
+  | Patt_EqTerm of pattern * pattern * pattern
+  | Patt_Abstract of Name.t option * pattern * pattern
+  | Patt_MLConstructor of ml_constructor * pattern list
+  | Patt_Tuple of pattern list
 
 (** Computations *)
 type comp = comp' located
@@ -94,7 +75,7 @@ and boundary =
 
    The names and types are used only for printing during runtime. *)
 and let_clause =
-  | Let_clause of Pattern.aml * comp
+  | Let_clause of pattern * comp
 
 and letrec_clause =
   | Letrec_clause of comp
@@ -105,10 +86,10 @@ and handler = {
   handler_finally : match_case list;
 }
 
-and match_case = Pattern.aml * comp option * comp
+and match_case = pattern * comp option * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
-and match_op_case = Pattern.aml list * Pattern.boundary option * comp
+and match_op_case = pattern list * pattern option * comp
 
 (** Type definitions are needed during runtime so that we can print them
     at the toplevel. *)

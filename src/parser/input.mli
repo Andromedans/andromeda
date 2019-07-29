@@ -41,26 +41,18 @@ type let_annotation =
 (* An argument of a function or a let-clause *)
 type ml_arg = Name.t * arg_annotation
 
-(** Sugared term patterns *)
-type tt_pattern = tt_pattern' located
-and tt_pattern' =
-  | Patt_TT_Anonymous
-  | Patt_TT_Name of Name.t (* pattern variable *)
-  | Patt_TT_As of tt_pattern * tt_pattern
-  | Patt_TT_Constructor of path * tt_pattern list
-  | Patt_TT_GenAtom of tt_pattern
-  | Patt_TT_IsType of tt_pattern
-  | Patt_TT_IsTerm of tt_pattern * tt_pattern
-  | Patt_TT_EqType of tt_pattern * tt_pattern
-  | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern
-  | Patt_TT_Abstraction of (Name.t option * tt_pattern option) list * tt_pattern
-
+(** Sugared patterns *)
 type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
-  | Patt_Name of Name.path
+  | Patt_Path of Name.path
   | Patt_As of pattern * pattern
-  | Patt_Judgement of tt_pattern
+  | Patt_GenAtom of pattern
+  | Patt_IsType of pattern
+  | Patt_IsTerm of pattern * pattern
+  | Patt_EqType of pattern * pattern
+  | Patt_EqTerm of pattern * pattern * pattern
+  | Patt_Abstraction of (Name.t option * pattern option) list * pattern
   | Patt_Constructor of path * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
@@ -121,7 +113,7 @@ and handle_case =
 
 and match_case = pattern * comp option * comp
 
-and match_op_case = pattern list * tt_pattern option * comp
+and match_op_case = pattern list * pattern option * comp
 
 type ml_tydef =
   | ML_Sum of (Name.t * ml_ty list) list
