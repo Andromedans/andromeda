@@ -73,10 +73,14 @@ and abstraction
 and term_arguments ~lvl k args =
   List.map (is_term ~lvl k) args
 
-and arguments ~lvl k args =
-  List.map (abstraction argument ~lvl k) args
-
 and argument ~lvl k = function
+  | Arg_NotAbstract jdg -> Arg_NotAbstract (judgement ~lvl k jdg)
+  | Arg_Abstract (x, arg) -> Arg_Abstract (x, argument ~lvl:(lvl+1) k arg)
+
+and arguments ~lvl k args =
+  List.map (argument ~lvl k) args
+
+and judgement ~lvl k = function
    | JudgementIsType t -> JudgementIsType (is_type ~lvl k t)
 
    | JudgementIsTerm e -> JudgementIsTerm (is_term ~lvl k e)

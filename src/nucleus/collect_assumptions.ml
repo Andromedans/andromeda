@@ -65,6 +65,10 @@ and abstraction
          (is_type ~lvl atm.atom_type)
          (abstraction asmp_v ~lvl:(lvl+1) abstr)
 
+and argument ?(lvl=0) = function
+  | Arg_NotAbstract jdg -> judgement ~lvl jdg
+  | Arg_Abstract (_, arg) -> argument ~lvl:(lvl+1) arg
+
 and term_arguments ~lvl ts =
   List.fold_left
     (fun acc arg -> Assumption.union acc (is_term ~lvl arg))
@@ -74,7 +78,7 @@ and term_arguments ~lvl ts =
 and arguments' ~lvl args =
   let rec fold asmp = function
     | [] -> asmp
-    | arg :: args -> Assumption.union (abstraction judgement ~lvl arg) (fold asmp args)
+    | arg :: args -> Assumption.union (argument ~lvl arg) (fold asmp args)
   in
   fold Assumption.empty args
 

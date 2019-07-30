@@ -30,11 +30,12 @@ let type_of_term sgn = function
      Instantiate_meta.is_type ~lvl:0 inds t_schema
 
   | TermMeta ({meta_type;_}, args) ->
-     Instantiate_meta.fully_apply_abstraction_no_typechecks
-       (Instantiate_bound.is_type_fully ?lvl:None) meta_type args
+     begin match Judgement.as_is_type (Instantiate_meta.fully_apply_argument meta_type args) with
+     | Some t -> t
+     | None ->
+     end
 
   | TermConvert (e, _, t) -> t
-
 
 let type_at_abstraction = function
   | NotAbstract _ -> None

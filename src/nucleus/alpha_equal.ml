@@ -65,14 +65,25 @@ and term_arguments args args' =
   | (_::_), []
   | [], (_::_) -> assert false
 
+and argument arg arg' =
+  match arg, arg' with
+  | Arg_NotAbstract jdg, Arg_NotAbstract jdg' ->
+     judgement jdg jdg'
+
+  | Arg_Abstract (_, arg), Arg_Abstract (_, arg') ->
+     argument arg arg'
+
+  | Arg_NotAbstract _, Arg_Abstract _
+  | Arg_Abstract _, Arg_NotAbstract _ -> false
+
 and arguments args args' =
   args == args' ||
   match args, args' with
 
   | [], [] -> true
 
-  | abstr :: args, abstr' :: args' ->
-     abstraction judgement abstr abstr' && arguments args args'
+  | arg :: args, arg' :: args' ->
+     argument arg arg' && arguments args args'
 
   | (_::_), []
 

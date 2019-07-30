@@ -6,17 +6,19 @@ type meta = int
 type bound = int
 
 type ty =
-  | TypeConstructor of Ident.t * judgement_abstraction list
+  | TypeConstructor of Ident.t * argument list
   | TypeMeta of meta * term list
 
 and term =
   | TermBound of bound
-  | TermConstructor of Ident.t * judgement_abstraction list
+  | TermConstructor of Ident.t * argument list
   | TermMeta of meta * term list
 
 and eq_type = EqType of ty * ty
 
 and eq_term = EqTerm of term * term * ty
+
+and argument = judgement abstraction
 
 and judgement =
   | JudgementIsType of ty

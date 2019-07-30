@@ -6,25 +6,17 @@ open Nucleus_types
     match the types of the variables that [abstr] abstracts over are
     performed, because we expect that this function is only used in situations
     where such a verification has already happened. *)
-let fully_apply_abstraction_no_typechecks inst_u abstr args =
-  let rec fold es abstr args =
-    match abstr, args with
-    | NotAbstract u, [] -> inst_u es u
-    | Abstract (_, abstr), e :: args -> fold (e :: es) abstr args
-    | Abstract _, [] -> Error.raise TooFewArguments
-    | NotAbstract _, _::_ -> Error.raise TooManyArguments
+let fully_apply_argument arg args =
+  let rec fold es arg args =
+    match arg, args with
+    | Arg_NotAbstract u, [] -> Instantiate_bound.judgement_fully es u
+    | Arg_Abstract (_, arg), e :: args -> fold (e :: es) arg args
+    | Arg_Abstract _, [] -> Error.raise TooFewArguments
+    | Arg_NotAbstract _, _::_ -> Error.raise TooManyArguments
   in
-  fold [] abstr args
+  fold [] arg args
 
-let lookup_term_meta k metas =
-  match Judgement.as_is_term_abstraction (Indices.nth metas k) with
-  | Some abstr -> abstr
-  | None -> Error.raise IsTermExpected
-
-let lookup_type_meta k metas =
-  match Judgement.as_is_type_abstraction (Indices.nth metas k) with
-  | Some abstr -> abstr
-  | None -> Error.raise IsTypeExpected
+let lookup_meta k (metas : argument indices) = Indices.nth metas k
 
 (** [instantiate ~lvl metas] instantiates  *)
 
@@ -34,11 +26,14 @@ let rec is_type ~lvl metas = function
      in Mk.type_constructor c args
 
   | Rule.TypeMeta (k, es_schema) ->
-     let t_abstr = lookup_type_meta k metas in
+     let abstr = lookup_meta k metas in
      let es = List.map (fun e_schema -> is_term ~lvl metas e_schema) es_schema in
-     fully_apply_abstraction_no_typechecks (Instantiate_bound.is_type_fully ?lvl:None) t_abstr es
+     begin match Judgement.as_is_type (fully_apply_argument abstr es) with
+     | Some t -> t
+     | None -> Error.raise IsTypeExpected
+     end
 
-and is_term ~lvl metas = function
+and is_term ~lvl (metas : argument list) = function
   | Rule.TermBound k -> Mk.bound k
 
   | Rule.TermConstructor (c, args) ->
@@ -46,9 +41,12 @@ and is_term ~lvl metas = function
      in Mk.term_constructor c args
 
   | Rule.TermMeta (k, es_schema) ->
-     let e_abstr = lookup_term_meta k metas in
+     let abstr = lookup_meta k metas in
      let es = List.map (fun e_schema -> is_term ~lvl metas e_schema) es_schema in
-     fully_apply_abstraction_no_typechecks (Instantiate_bound.is_term_fully ?lvl:None) e_abstr es
+     begin match Judgement.as_is_term (fully_apply_argument abstr es) with
+     | Some e -> e
+     | None -> Error.raise IsTermExpected
+     end
 
 and eq_type ~lvl metas (Rule.EqType (t1, t2)) =
   let t1 = is_type ~lvl metas t1
@@ -62,9 +60,16 @@ and eq_term ~lvl metas (Rule.EqTerm (e1, e2, t)) =
   Mk.eq_term Assumption.empty e1 e2 t
 
 and arguments ~lvl metas args =
-  List.map (abstraction argument ~lvl metas) args
+  List.map (argument ~lvl metas) args
 
 and argument ~lvl metas = function
+  | Rule.NotAbstract jdg ->
+     Arg_NotAbstract (judgement ~lvl metas jdg)
+
+  | Rule.Abstract (x, _, abstr) ->
+     Arg_Abstract (x, argument ~lvl:(lvl+1) metas abstr)
+
+and judgement ~lvl metas = function
   | Rule.JudgementIsType t ->
      Mk.arg_is_type (is_type ~lvl metas t)
 
@@ -81,8 +86,8 @@ and argument ~lvl metas = function
      Mk.arg_eq_term (eq_term ~lvl metas eq)
 
 and abstraction
-  : 'a 'b . (lvl:int -> judgement_abstraction indices -> 'a -> 'b) ->
-    lvl:int -> judgement_abstraction indices -> 'a Rule.abstraction -> 'b abstraction
+  : 'a 'b . (lvl:int -> argument indices -> 'a -> 'b) ->
+    lvl:int -> argument indices -> 'a Rule.abstraction -> 'b abstraction
   = fun inst_u ~lvl metas -> function
 
     | Rule.NotAbstract u ->
