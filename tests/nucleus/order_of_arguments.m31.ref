@@ -5,6 +5,6 @@ Rule b is postulated.
 Rule P is postulated.
 Rule p is postulated.
 Rule Q is postulated.
-- : judgement = P a b
-- : judgement = p
-- : judgement = Q p a b
+- : judgement = ⊢ P a b type
+- : judgement = ⊢ p
+- : judgement = ⊢ Q p a b type

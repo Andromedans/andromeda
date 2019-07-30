@@ -1,7 +1,7 @@
 Processing module A
 Rule A.X is postulated.
 ML type A.cow declared.
-- : judgement = A.X
+- : judgement = ⊢ A.X type
 - : A.cow = A.Cow
-- : judgement = X
+- : judgement = ⊢ X type
 - : A.cow = Cow
