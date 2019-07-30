@@ -40,10 +40,13 @@ let abstraction = 800
 let abstraction_body = abstraction
 let binder = abstraction
 
-let boundary = abstraction_body
+let judgement = 850
+let judgement_thesis = judgement - 1
 
-let jdg = highest
-let jdg_left = jdg - 1
+let boundary = judgement
+let boundary_thesis = judgement_thesis
+
+let assumptions = judgement - 1
 
 let ml_app = constructor
 let ml_app_arg = ml_app - 1
@@ -53,6 +56,9 @@ let ml_tag_arg = ml_tag - 1
 
 let ml_operation = constructor
 let ml_operation_arg = ml_operation - 1
+
+let ml_tuple = highest
+let ml_tuple_arg = 800
 
 let ml_prod = 400
 let ml_prod_arg = ml_prod - 1
