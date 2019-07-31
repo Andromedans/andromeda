@@ -13,10 +13,10 @@ let rec abstraction inst_u abstr_v converter u eq =
   | Some (Stumps_NotAbstract (u, eq)) ->
      Mk.not_abstract (converter u eq)
 
-  | Some (Stumps_Abstract (a, u, eq)) ->
+  | Some (Stumps_Abstract ({atom_nonce=n; atom_type=t}, u, eq)) ->
      let v = abstraction inst_u abstr_v converter u eq in
-     let v = Abstract.abstraction abstr_v a.atom_nonce v in
-     Mk.abstract a v
+     let v = Abstract.abstraction abstr_v n v in
+     Mk.abstract (Nonce.name n) t v
 
 let term sgn e eq = opt_fail (Form.form_is_term_convert_opt sgn e eq)
 

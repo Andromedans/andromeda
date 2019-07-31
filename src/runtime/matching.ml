@@ -189,7 +189,7 @@ and collect_abstraction :
 
 and collect_constructor sgn xvs c ps = function
   | Nucleus.JudgementIsType t ->
-     begin match Nucleus.invert_is_type t with
+     begin match Nucleus.invert_is_type sgn t with
      | Nucleus.Stump_TypeConstructor (c', args) ->
         if Ident.equal c c' then
           let args = List.map Runtime.mk_judgement args in

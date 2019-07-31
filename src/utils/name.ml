@@ -39,7 +39,7 @@ let greek k =
 let print ?(parentheses=true) {name;fixity} ppf =
   match fixity with
   | Word -> Format.fprintf ppf "%s" name
-  | Anonymous k -> Format.fprintf ppf "_"
+  | Anonymous _ -> Format.fprintf ppf "_"
   | (Prefix|Infix _) ->
      if parentheses then
        Format.fprintf ppf "( %s )" name
@@ -203,14 +203,31 @@ let set_add = NameSet.add
 
 let set_mem = NameSet.mem
 
-let refresh xs ({name; fixity} as x) =
-  if not (set_mem x xs) then
-     x
-  else
-    let (s, k) = extract_suffix name in
-    let k = ref (match k with Some k -> k | None -> 0) in
-    while set_mem {name = s ^ subscript !k; fixity} xs do incr k done;
+let prefer x y =
+  match x.fixity with
+  | Word | Prefix | Infix _ ->
+Format.printf "Preferring %t to %t@" (print x) (print y) ;
+x
+  | Anonymous _ ->
+Format.printf "Preferring %t to %t@" (print y) (print x) ;
+y
+
+let refresh forbidden ({name; fixity} as x) =
+  let search fixity ?(k=0) s =
+    let k = ref k in
+    while set_mem {name = s ^ subscript !k; fixity} forbidden do incr k done;
     { name = s ^ subscript !k ; fixity }
+  in
+  match fixity with
+  | Anonymous _ ->
+     search Word ~k:0 "x"
+
+  | (Word | Prefix | Infix _) ->
+     if not (set_mem x forbidden) then
+       x
+     else
+       let (s, k) = extract_suffix name in
+       search fixity ?k s
 
 module NameMap = Map.Make (
   struct

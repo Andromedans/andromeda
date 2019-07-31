@@ -37,13 +37,14 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
      | None -> None
      | Some eq -> Some (Mk.not_abstract eq)
      end
-  | Abstract (x1, t1, abstr1), Abstract (_, t2, abstr2) ->
+  | Abstract (x1, t1, abstr1), Abstract (x2, t2, abstr2) ->
+     let x = Name.prefer x1 x2 in
      begin match Alpha_equal.is_type t1 t2 with
      | false -> None
      | true ->
         begin match form_alpha_equal_abstraction equal_u abstr1 abstr2 with
         | None -> None
-        | Some eq -> Some (Mk.abstract x1 t1 eq)
+        | Some eq -> Some (Mk.abstract x t1 eq)
         end
      end
   | (NotAbstract _, Abstract _)

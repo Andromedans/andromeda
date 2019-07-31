@@ -18,7 +18,9 @@ and eq_type = EqType of ty * ty
 
 and eq_term = EqTerm of term * term * ty
 
-and argument = judgement abstraction
+and argument =
+  | Arg_NotAbstract of judgement
+  | Arg_Abstract of Name.t * argument
 
 and judgement =
   | JudgementIsType of ty
@@ -40,4 +42,6 @@ type boundary =
 
 and boundary_abstraction = boundary abstraction
 
-type rule = boundary_abstraction list * boundary
+and premise = boundary_abstraction
+
+type rule = premise list * boundary

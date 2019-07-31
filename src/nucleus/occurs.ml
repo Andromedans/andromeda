@@ -26,12 +26,16 @@ and abstraction
   = fun occurs_v k ->
   function
   | NotAbstract v -> occurs_v k v
-  | Abstract ({atom_type=u;_}, abstr) ->
+  | Abstract (_, u, abstr) ->
      is_type k u || abstraction occurs_v (k+1) abstr
+
+and argument k = function
+  | Arg_NotAbstract v -> judgement k v
+  | Arg_Abstract (_, arg) -> argument (k+1) arg
 
 and arguments k = function
   | [] -> false
-  | arg :: args -> abstraction judgement k arg || arguments k args
+  | arg :: args -> argument k arg || arguments k args
 
 and term_arguments k = function
   | [] -> false

@@ -43,7 +43,16 @@ and is_type t =
        Json.tag "TypeMeta" (Nonce.Json.nonce meta_nonce :: (List.map is_term lst))
   in Json.tag "IsType" [t]
 
-and arguments lst = List.map (fun abstr -> Json.tuple (abstraction judgement [] abstr)) lst
+and argument arg =
+  let rec fold xs = function
+  | Arg_Abstract (x, arg) -> fold (x :: xs) arg
+  | Arg_NotAbstract jdg ->
+     let xs = List.map Name.Json.name (List.rev xs) in
+     Json.tag "Argument" [Json.tuple xs ; judgement jdg]
+  in
+  fold [] arg
+
+and arguments lst = List.map argument lst
 
 and judgement = function
   | JudgementIsType t -> Json.tag "JudgementIsType" [is_type t]
@@ -51,11 +60,10 @@ and judgement = function
   | JudgementEqType _ -> Json.tag "JudgementEqType" []
   | JudgementEqTerm _ -> Json.tag "JudgementEqTerm" []
 
-and abstraction : 'a . ('a -> Json.t) -> (Name.t * is_type) list -> 'a abstraction -> Json.t list =
-  fun json_u xts ->
+let rec abstraction json_u xts =
     function
-    | Abstract ({atom_nonce=x; atom_type=t}, abstr) ->
-       abstraction json_u ((Nonce.name x, t) :: xts) abstr
+    | Abstract (x, t, abstr) ->
+       abstraction json_u ((x, t) :: xts) abstr
     | NotAbstract u ->
        let xts = List.map (fun (x, t) -> Json.List [Name.Json.name x; is_type t]) (List.rev xts) in
        [Json.tuple xts ; json_u u]

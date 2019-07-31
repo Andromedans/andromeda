@@ -58,10 +58,10 @@ and arguments ~lvl metas args =
   List.map (argument ~lvl metas) args
 
 and argument ~lvl metas = function
-  | Rule.NotAbstract jdg ->
+  | Rule.Arg_NotAbstract jdg ->
      Arg_NotAbstract (judgement ~lvl metas jdg)
 
-  | Rule.Abstract (x, _, abstr) ->
+  | Rule.Arg_Abstract (x, abstr) ->
      Arg_Abstract (x, argument ~lvl:(lvl+1) metas abstr)
 
 and judgement ~lvl metas = function
@@ -90,12 +90,3 @@ let rec abstraction inst_u ~lvl metas = function
        let t = is_type ~lvl metas t
        and abstr = abstraction inst_u ~lvl:(lvl+1) metas abstr
        in Mk.abstract x t abstr
-
-(* let annotate_arguments argument prems args =
- *   let rec fold argument prems args =
- *     match argument, prems, args with
- *     | Arg_NotAbstract jdg, [], [] -> jdg
- *     | Arg_Abstract (x, argument), prem::prems, arg::args ->
- *
- *   in
- *   fold *)

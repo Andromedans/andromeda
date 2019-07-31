@@ -103,26 +103,31 @@ and judgement x ?(lvl=0) = function
 
 let not_abstract u = Mk.not_abstract u
 
-let is_type_abstraction {atom_nonce=n; atom_type=t} abstr =
+let is_type_abstraction ?name {atom_nonce=n; atom_type=t} abstr =
   (* XXX occurs check?! *)
   let abstr = abstraction is_type n abstr in
-  Mk.abstract (Nonce.name n) t abstr
+  let x = match name with Some x -> x | None -> Nonce.name n in
+  Mk.abstract x t abstr
 
-let is_term_abstraction {atom_nonce=n; atom_type=t} abstr =
+let is_term_abstraction ?name {atom_nonce=n; atom_type=t} abstr =
   let abstr = abstraction is_term n abstr in
-  Mk.abstract (Nonce.name n) t abstr
+  let x = match name with Some x -> x | None -> Nonce.name n in
+  Mk.abstract x t abstr
 
-let eq_type_abstraction {atom_nonce=n; atom_type=t} abstr =
+let eq_type_abstraction ?name {atom_nonce=n; atom_type=t} abstr =
   let abstr = abstraction eq_type n abstr in
-  Mk.abstract (Nonce.name n) t abstr
+  let x = match name with Some x -> x | None -> Nonce.name n in
+  Mk.abstract x t abstr
 
-let eq_term_abstraction {atom_nonce=n; atom_type=t} abstr =
+let eq_term_abstraction ?name {atom_nonce=n; atom_type=t} abstr =
   let abstr = abstraction eq_term n abstr in
-  Mk.abstract (Nonce.name n) t abstr
+  let x = match name with Some x -> x | None -> Nonce.name n in
+  Mk.abstract x t abstr
 
-let judgement_abstraction {atom_nonce=n; atom_type=t} abstr =
+let judgement_abstraction ?name {atom_nonce=n; atom_type=t} abstr =
   let abstr = abstraction judgement n abstr in
-  Mk.abstract (Nonce.name n) t abstr
+  let x = match name with Some x -> x | None -> Nonce.name n in
+  Mk.abstract x t abstr
 
 let boundary_is_type _atm ?lvl () = ()
 

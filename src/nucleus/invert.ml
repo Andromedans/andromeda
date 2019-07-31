@@ -4,15 +4,16 @@ let atom_name {atom_nonce=x;_} = Nonce.name x
 
 (** Destructors *)
 
-let rec invert_argument es prem arg =
+let rec invert_argument ~lvl es prem arg =
   match prem, arg with
 
   | Rule.NotAbstract _, Arg_NotAbstract jdg ->
      NotAbstract jdg
 
-  | Rule.Abstract (_, t_schema, prem), Arg_Abstract (y, arg) ->
-     let t = Instantiate_meta.is_type es t_schema in
-     let abstr = invert_argument es prem arg in
+  | Rule.Abstract (x, t_schema, prem), Arg_Abstract (y, arg) ->
+     let y = Name.prefer y x in
+     let t = Instantiate_meta.is_type ~lvl es t_schema in
+     let abstr = invert_argument ~lvl:(lvl+1) es prem arg in
      Mk.abstract y t abstr
 
   | (Rule.NotAbstract _, Arg_Abstract _ | Rule.Abstract _, Arg_NotAbstract _) ->
@@ -24,7 +25,7 @@ let invert_arguments prems args =
     | [], [] -> List.rev abstrs
 
     | prem :: prems, arg :: args ->
-       let abstr = invert_argument es prem arg in
+       let abstr = invert_argument ~lvl:0 es prem arg in
        fold (arg :: es) (abstr :: abstrs) prems args
 
     | _, _::_ | _::_, _ -> assert false
@@ -50,9 +51,11 @@ let invert_is_term sgn = function
      let eq = Mk.eq_type asmp t' t in
      Stump_TermConvert (e, eq)
 
-let invert_is_type = function
+let invert_is_type sgn = function
   | TypeConstructor (c, args) ->
-     Stump_TypeConstructor (c, args)
+     let (prems, _concl) = Signature.lookup_rule c sgn in
+     let abstrs = invert_arguments prems args in
+     Stump_TypeConstructor (c, abstrs)
 
   | TypeMeta (mv, args) -> Stump_TypeMeta (mv, args)
 
@@ -64,13 +67,14 @@ let as_not_abstract = function
   | Abstract _ -> None
   | NotAbstract v -> Some v
 
-let as_abstract = function
-  | Abstract (atm, abstr) -> Some (atm, abstr)
-  | NotAbstract _ -> None
+(* XXX Too dangerous to exist *)
+(* let as_abstract = function *)
+(*   | Abstract (atm, abstr) -> Some (atm, abstr) *)
+(*   | NotAbstract _ -> None *)
 
 let invert_abstraction ?name inst_v = function
-  | Abstract ({atom_nonce=x; atom_type=t}, abstr) ->
-     let x = (match name with None -> Nonce.name x | Some y -> y) in
+  | Abstract (x, t, abstr) ->
+     let x = (match name with None -> x | Some y -> y) in
      let a = Mk.fresh_atom x t in
      let abstr = Instantiate_bound.abstraction inst_v (Mk.atom a) abstr in
      Stump_Abstract (a, abstr)
@@ -85,12 +89,12 @@ let invert_abstractions ?name inst_u inst_v abstr_u abstr_v =
 
   | NotAbstract u, NotAbstract v -> Some (Stumps_NotAbstract (u, v))
 
-  | Abstract ({atom_nonce=x_u; atom_type=t_u}, abstr_u),
-    Abstract ({atom_nonce=x_v; atom_type=t_v}, abstr_v) ->
+  | Abstract (x_u, t_u, abstr_u),
+    Abstract (x_v, t_v, abstr_v) ->
      if not (Alpha_equal.is_type t_u t_v) then
        None
      else
-       let x = (match name with None -> Nonce.name x_u | Some y -> y) in
+       let x = (match name with None -> x_u | Some y -> y) in
        let a = Mk.fresh_atom x t_u in
        let a' = Mk.atom a in
        let abstr_u = Instantiate_bound.abstraction inst_u a' abstr_u
