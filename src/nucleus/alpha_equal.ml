@@ -48,7 +48,7 @@ and abstraction
   = fun equal_v e e' ->
     match e, e' with
 
-    | Abstract ({atom_type=u;_}, abstr), Abstract({atom_type=u';_}, abstr') ->
+    | Abstract (_, u, abstr), Abstract(_, u', abstr') ->
        is_type u u' &&
        abstraction equal_v abstr abstr'
 

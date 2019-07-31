@@ -4,6 +4,33 @@ let atom_name {atom_nonce=x;_} = Nonce.name x
 
 (** Destructors *)
 
+let rec invert_argument es prem arg =
+  match prem, arg with
+
+  | Rule.NotAbstract _, Arg_NotAbstract jdg ->
+     NotAbstract jdg
+
+  | Rule.Abstract (_, t_schema, prem), Arg_Abstract (y, arg) ->
+     let t = Instantiate_meta.is_type es t_schema in
+     let abstr = invert_argument es prem arg in
+     Mk.abstract y t abstr
+
+  | (Rule.NotAbstract _, Arg_Abstract _ | Rule.Abstract _, Arg_NotAbstract _) ->
+     assert false
+
+let invert_arguments prems args =
+  let rec fold es abstrs prems args =
+    match prems, args with
+    | [], [] -> List.rev abstrs
+
+    | prem :: prems, arg :: args ->
+       let abstr = invert_argument es prem arg in
+       fold (arg :: es) (abstr :: abstrs) prems args
+
+    | _, _::_ | _::_, _ -> assert false
+  in
+  fold [] [] prems args
+
 let invert_is_term sgn = function
 
   | TermAtom a -> Stump_TermAtom a
@@ -11,7 +38,9 @@ let invert_is_term sgn = function
   | TermBound _ -> assert false
 
   | TermConstructor (c, args) ->
-     Stump_TermConstructor (c, args)
+     let (prems, _concl) = Signature.lookup_rule c sgn in
+     let abstrs = invert_arguments prems args in
+     Stump_TermConstructor (c, abstrs)
 
   | TermMeta (mv, args) ->
      Stump_TermMeta (mv, args)

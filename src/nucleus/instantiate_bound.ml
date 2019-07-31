@@ -69,11 +69,11 @@ and abstraction
      let v = inst_v e0 ~lvl v in
      NotAbstract v
 
-  | Abstract ({atom_nonce=x; atom_type=u}, abstr) ->
+  | Abstract (x, u, abstr) ->
      let u = is_type e0 ~lvl u
      and abstr = abstraction inst_v e0 ~lvl:(lvl+1) abstr
      in
-     Abstract ({atom_nonce=x; atom_type=u}, abstr)
+     Abstract (x, u, abstr)
 
 and argument e0 ~lvl = function
   | Arg_NotAbstract jdg -> Arg_NotAbstract (judgement e0 ~lvl jdg)
@@ -170,10 +170,10 @@ and abstraction_fully
      let u = inst_u ~lvl es u in
      NotAbstract u
 
-  | Abstract ({atom_nonce=x; atom_type=t}, abstr) ->
+  | Abstract (x, t, abstr) ->
      let t = is_type_fully ~lvl es t
      and abstr = abstraction_fully inst_u ~lvl:(lvl+1) es abstr
-     in Abstract ({atom_nonce=x; atom_type=t}, abstr)
+     in Abstract (x, t, abstr)
 
 and argument_fully ?(lvl=0) es = function
   | Arg_NotAbstract jdg -> Arg_NotAbstract (judgement_fully ~lvl es jdg)

@@ -79,10 +79,10 @@ and abstraction
        let v = abstr_v x ~lvl v in
        NotAbstract v
 
-    | Abstract ({atom_nonce=y; atom_type=u}, abstr) ->
+    | Abstract (y, u, abstr) ->
        let u = is_type x ~lvl u in
        let abstr = abstraction abstr_v x ~lvl:(lvl+1) abstr in
-       Abstract ({atom_nonce=y; atom_type=u}, abstr)
+       Abstract (y, u, abstr)
 
 and term_arguments x ?(lvl=0) args = List.map (is_term x ~lvl) args
 
@@ -103,26 +103,26 @@ and judgement x ?(lvl=0) = function
 
 let not_abstract u = Mk.not_abstract u
 
-let is_type_abstraction atm abstr =
+let is_type_abstraction {atom_nonce=n; atom_type=t} abstr =
   (* XXX occurs check?! *)
-  let abstr = abstraction is_type atm.atom_nonce abstr in
-  Mk.abstract atm abstr
+  let abstr = abstraction is_type n abstr in
+  Mk.abstract (Nonce.name n) t abstr
 
-let is_term_abstraction atm abstr =
-  let abstr = abstraction is_term atm.atom_nonce abstr in
-  Mk.abstract atm abstr
+let is_term_abstraction {atom_nonce=n; atom_type=t} abstr =
+  let abstr = abstraction is_term n abstr in
+  Mk.abstract (Nonce.name n) t abstr
 
-let eq_type_abstraction atm abstr =
-  let abstr = abstraction eq_type atm.atom_nonce abstr in
-  Mk.abstract atm abstr
+let eq_type_abstraction {atom_nonce=n; atom_type=t} abstr =
+  let abstr = abstraction eq_type n abstr in
+  Mk.abstract (Nonce.name n) t abstr
 
-let eq_term_abstraction atm abstr =
-  let abstr = abstraction eq_term atm.atom_nonce abstr in
-  Mk.abstract atm abstr
+let eq_term_abstraction {atom_nonce=n; atom_type=t} abstr =
+  let abstr = abstraction eq_term n abstr in
+  Mk.abstract (Nonce.name n) t abstr
 
-let judgement_abstraction atm abstr =
-  let abstr = abstraction judgement atm.atom_nonce abstr in
-  Mk.abstract atm abstr
+let judgement_abstraction {atom_nonce=n; atom_type=t} abstr =
+  let abstr = abstraction judgement n abstr in
+  Mk.abstract (Nonce.name n) t abstr
 
 let boundary_is_type _atm ?lvl () = ()
 
@@ -145,22 +145,22 @@ let boundary atm ?lvl = function
   | BoundaryEqType bdry -> BoundaryEqType (boundary_eq_type atm ?lvl bdry)
   | BoundaryEqTerm bdry -> BoundaryEqTerm (boundary_eq_term atm ?lvl bdry)
 
-let boundary_is_type_abstraction atm abstr =
-  let abstr = abstraction boundary_is_type atm.atom_nonce abstr in
-  Mk.abstract atm abstr
+let boundary_is_type_abstraction {atom_nonce=n; atom_type=t} abstr =
+  let abstr = abstraction boundary_is_type n abstr in
+  Mk.abstract (Nonce.name n) t abstr
 
-let boundary_is_term_abstraction atm abstr =
-  let abstr = abstraction boundary_is_term atm.atom_nonce abstr in
-  Mk.abstract atm abstr
+let boundary_is_term_abstraction {atom_nonce=n; atom_type=t} abstr =
+  let abstr = abstraction boundary_is_term n abstr in
+  Mk.abstract (Nonce.name n) t abstr
 
-let boundary_eq_type_abstraction atm abstr =
-  let abstr = abstraction boundary_eq_type atm.atom_nonce abstr in
-  Mk.abstract atm abstr
+let boundary_eq_type_abstraction {atom_nonce=n; atom_type=t} abstr =
+  let abstr = abstraction boundary_eq_type n abstr in
+  Mk.abstract (Nonce.name n) t abstr
 
-let boundary_eq_term_abstraction atm abstr =
-  let abstr = abstraction boundary_eq_term atm.atom_nonce abstr in
-  Mk.abstract atm abstr
+let boundary_eq_term_abstraction {atom_nonce=n; atom_type=t} abstr =
+  let abstr = abstraction boundary_eq_term n abstr in
+  Mk.abstract (Nonce.name n) t abstr
 
-let boundary_abstraction atm abstr =
-  let abstr = abstraction boundary atm.atom_nonce abstr in
-  Mk.abstract atm abstr
+let boundary_abstraction {atom_nonce=n; atom_type=t} abstr =
+  let abstr = abstraction boundary n abstr in
+  Mk.abstract (Nonce.name n) t abstr

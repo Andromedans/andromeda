@@ -60,9 +60,9 @@ and abstraction
     ?lvl:bound -> 'a abstraction -> assumption
   = fun asmp_v ?(lvl=0) -> function
     | NotAbstract v -> asmp_v ~lvl v
-    | Abstract (atm, abstr) ->
+    | Abstract (_, t, abstr) ->
        Assumption.union
-         (is_type ~lvl atm.atom_type)
+         (is_type ~lvl t)
          (abstraction asmp_v ~lvl:(lvl+1) abstr)
 
 and argument ?(lvl=0) = function

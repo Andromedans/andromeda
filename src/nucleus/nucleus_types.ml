@@ -38,7 +38,7 @@ and assumption =
 
 and 'a abstraction =
   | NotAbstract of 'a
-  | Abstract of is_atom * 'a abstraction (* XXX change is_atom to Name.t * is_type *)
+  | Abstract of Name.t * is_type * 'a abstraction
 
 and judgement =
   | JudgementIsType of is_type
@@ -62,10 +62,10 @@ and boundary =
 and boundary_abstraction = boundary abstraction
 
 type rule_application_status =
-  { rap_arguments : judgement_abstraction list (* the arguments collected so far *)
+  { rap_arguments : argument list (* the arguments collected so far *)
   ; rap_boundary : boundary_abstraction (* the boundary of the next argument *)
   ; rap_premises : Rule.boundary_abstraction list (* the remaining premises to be applied *)
-  ; rap_constructor : judgement_abstraction list -> judgement (* the function which makes the final result *)
+  ; rap_constructor : argument list -> judgement (* the function which makes the final result *)
   }
 
 (* A partial rule application *)

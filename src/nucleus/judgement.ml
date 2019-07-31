@@ -6,7 +6,7 @@ exception ConversionError
 
 let rec convert f = function
   | NotAbstract a -> NotAbstract (f a)
-  | Abstract (atm, abstr) -> Abstract (atm, convert f abstr)
+  | Abstract (x, t, abstr) -> Abstract (x, t, convert f abstr)
 
 let as_is_type = function
   | JudgementIsType t -> Some t
@@ -79,3 +79,8 @@ let from_eq_type_abstraction abstr =
 
 let from_eq_term_abstraction abstr =
   convert (fun t -> JudgementEqTerm t) abstr
+
+(** Conversion to an argument *)
+let rec to_argument = function
+  | NotAbstract jdg -> Arg_NotAbstract jdg
+  | Abstract (x, _, abstr) -> Arg_Abstract (x, to_argument abstr)

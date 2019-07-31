@@ -65,10 +65,10 @@ and abstraction
      let u = shift_u ~lvl k u
      in NotAbstract u
 
-  | Abstract ({atom_nonce=x; atom_type=t}, abstr) ->
+  | Abstract (x, t, abstr) ->
      let t = is_type ~lvl k t
      and abstr = abstraction shift_u ~lvl:(lvl+1) k abstr
-     in Abstract ({atom_nonce=x; atom_type=t}, abstr)
+     in Abstract (x, t, abstr)
 
 and term_arguments ~lvl k args =
   List.map (is_term ~lvl k) args
