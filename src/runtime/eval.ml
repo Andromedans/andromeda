@@ -75,7 +75,7 @@ let rec comp {Location.thing=c'; loc} =
 
     | Rsyntax.TTConstructor (c, cs) ->
        Runtime.lookup_signature >>= fun sgn ->
-       let rap = Nucleus.form_rap sgn c in
+       let rap = Nucleus.form_constructor_rap sgn c in
        check_arguments rap cs
 
     | Rsyntax.Tuple cs ->
@@ -306,11 +306,10 @@ let rec comp {Location.thing=c'; loc} =
 and check_arguments rap cs =
   match rap, cs with
   | Nucleus.RapDone jdg, [] -> Runtime.return_judgement (Nucleus.abstract_not_abstract jdg)
-  | Nucleus.RapMore rap, c :: cs ->
-     let bdry = Nucleus.rap_boundary rap in
+  | Nucleus.RapMore (bdry, rap_apply), c :: cs ->
      Runtime.lookup_signature >>= fun sgn ->
      check_judgement c bdry >>= fun arg ->
-     let rap = Nucleus.rap_apply sgn rap arg in
+     let rap = rap_apply arg in
      check_arguments rap cs
   | Nucleus.RapDone _, _::_ ->
      assert false (* cannot happen, desugaring prevents this by checking arities of constructors *)

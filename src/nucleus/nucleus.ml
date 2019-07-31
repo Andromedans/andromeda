@@ -38,9 +38,7 @@ let alpha_equal_boundary = Alpha_equal.boundary
 let form_alpha_equal_term = Form.form_alpha_equal_term
 let form_alpha_equal_type = Form.form_alpha_equal_type
 let form_alpha_equal_abstraction = Form.form_alpha_equal_abstraction
-let form_rap = Form.form_rap
-let rap_apply = Form.rap_apply
-let rap_boundary = Form.rap_boundary
+let form_constructor_rap = Form.form_constructor_rap
 
 let form_is_term_atom = Form.form_is_term_atom
 let form_eq_term_convert = Form.form_eq_term_convert
@@ -134,9 +132,6 @@ let occurs_judgement_abstraction = occurs_abstraction Collect_assumptions.judgem
 let convert_term_abstraction = Convert.term_abstraction
 let convert_eq_term_abstraction = Convert.eq_term_abstraction
 let convert_judgement_abstraction = Convert.judgement_abstraction
-
-let congruence_term_constructor = Congruence.congruence_term_constructor
-let congruence_type_constructor = Congruence.congruence_type_constructor
 
 let print_is_term = Nucleus_print.is_term
 let print_is_type = Nucleus_print.is_type

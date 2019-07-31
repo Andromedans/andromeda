@@ -118,29 +118,16 @@ end
 
 val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> Rule.rule
 
-(** A partially applied rule is a rule with an initial part of the premises
-   applied already. We need to represent such partial applications in order to
-   be able to compute the boundary of the next argument from the already given
-   ones _before_ the next argument is known. We call such a partially applied
-   rule a (partial) _rule application_. *)
-type rule_application_status
-
 (** When we apply a rule application to one more argument two things may happen.
    Either we are done and we get a result, or more arguments are needed, in
    which case we get the rap with one more argument applied, and the boundary of
    the next argument. *)
 type rule_application = private
   | RapDone of judgement
-  | RapMore of rule_application_status
+  | RapMore of boundary_abstraction * (judgement_abstraction -> rule_application)
 
 (** Form a fully non-applied rule application for a given constructor *)
-val form_rap : signature -> Ident.t -> rule_application
-
-(** Apply a rap to one more argument *)
-val rap_apply : signature -> rule_application_status -> judgement_abstraction -> rule_application
-
-(** Give the boundary of a rap status, i.e., the boundary of the next argument. *)
-val rap_boundary : rule_application_status -> boundary_abstraction
+val form_constructor_rap : signature -> Ident.t -> rule_application
 
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
@@ -345,14 +332,6 @@ val transitivity_type : eq_type -> eq_type -> eq_type
 
 (** Given [e : A], compute the natural type of [e] as [B], return [B == A] *)
 val natural_type_eq : signature -> is_term -> eq_type
-
-(** Congruence rules *)
-
-val congruence_type_constructor :
-  signature -> Ident.t -> congruence_argument list -> eq_type
-
-val congruence_term_constructor :
-  signature -> Ident.t -> congruence_argument list -> eq_term
 
 (** Give human names to things *)
 
