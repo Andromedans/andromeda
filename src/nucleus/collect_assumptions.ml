@@ -9,7 +9,7 @@ let rec is_type ?(lvl=0) = function
      and mv = is_type_meta ~lvl mv in
      Assumption.union mv args
 
-  | TypeConstructor (_, args) -> arguments ~lvl args
+  | TypeConstructor (_, args) -> arguments' ~lvl args
 
 and is_term ?(lvl=0) = function
 
@@ -28,7 +28,7 @@ and is_term ?(lvl=0) = function
      Assumption.union mv args
 
   | TermConstructor (_, args) ->
-     arguments ~lvl args
+     arguments' ~lvl args
 
   | TermConvert (e, asmp', t) ->
      Assumption.union
@@ -71,7 +71,7 @@ and term_arguments ~lvl ts =
     Assumption.empty
     ts
 
-and arguments ~lvl args =
+and arguments' ~lvl args =
   let rec fold asmp = function
     | [] -> asmp
     | arg :: args -> Assumption.union (abstraction judgement ~lvl arg) (fold asmp args)
@@ -86,8 +86,25 @@ and judgement ?(lvl=0) = function
 
 and assumptions ?(lvl=0) asmp = Assumption.at_level ~lvl asmp
 
-let arguments = arguments ~lvl:0
+let is_type_boundary = Assumption.empty
 
+let is_term_boundary = is_type
+
+and eq_type_boundary ?(lvl=0) (t1, t2) =
+  Assumption.union (is_type ~lvl t1) (is_type ~lvl t2)
+
+and eq_term_boundary ?(lvl=0) (e1, e2, t) =
+  Assumption.union
+    (is_type ~lvl t)
+    (Assumption.union (is_term ~lvl e1) (is_term ~lvl e2))
+
+let boundary ?(lvl=0) = function
+  | BoundaryIsType () -> is_type_boundary
+  | BoundaryIsTerm t -> is_term_boundary ~lvl t
+  | BoundaryEqType eq -> eq_type_boundary ~lvl eq
+  | BoundaryEqTerm eq -> eq_term_boundary ~lvl eq
+
+let arguments = arguments' ~lvl:0
 
 let context_u assumptions_u t =
   let asmp = assumptions_u t in

@@ -55,6 +55,8 @@ type set = NonceSet.t
 
 let set_empty = NonceSet.empty
 
+let set_is_empty = NonceSet.is_empty
+
 let set_of_list = NonceSet.of_list
 
 let set_add = NonceSet.add

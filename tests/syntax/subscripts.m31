@@ -1,6 +1,6 @@
 (* Test generation of indices when fresh bound names are made *)
 rule A type ;;
-rule f (⊢ x : A) (⊢ y : A) : A ;;
+rule f (x : A) (y : A) : A ;;
 {a₀: A} {a : A} f a₀ a ;;
 rule a : A ;;
 {a₀: A} {a : A} f a₀ a ;;

@@ -9,32 +9,39 @@ Rule A is postulated.
 Rule a is postulated.
 Rule P is postulated.
 val test_judgement :> judgement → list judgement * mlstring = <function>
-- : list judgement * mlstring = (a :: A :: [], "isterm")
-- : list judgement * mlstring = (A :: [], "istype")
-- : list judgement * mlstring = (P a :: [], "istype")
+- : list judgement * mlstring = ((⊢ a) :: (⊢ A type) :: [], "isterm")
+- : list judgement * mlstring = ((⊢ A type) :: [], "istype")
+- : list judgement * mlstring = ((⊢ P a type) :: [], "istype")
 Rule B is postulated.
 Rule ξ is postulated.
-- : list judgement * mlstring = (A :: B :: [], "eqtype")
+- : list judgement * mlstring =
+  ((⊢ A type) :: (⊢ B type) :: [], "eqtype")
 Rule b is postulated.
 Rule ζ is postulated.
-- : list judgement * mlstring = (a :: b :: A :: [], "eqterm")
-- : list judgement * mlstring = (a :: B :: [], "isterm")
-- : list judgement * mlstring = (?z₀ :: A :: P ?z₀ :: [], "abstraction")
+- : list judgement * mlstring =
+  ((⊢ a) :: (⊢ b) :: (⊢ A type) :: [], "eqterm")
+- : list judgement * mlstring = ((⊢ a) :: (⊢ B type) :: [], "isterm")
+- : list judgement * mlstring =
+  ((?z₀ : A ⊢ ?z₀) :: (⊢ A type) :: (?z₀ : A ⊢ P ?z₀ type) ::
+   [], "abstraction")
 val test_boundary :> boundary → list judgement * list boundary * mlstring =
   <function>
 - : list judgement * list boundary * mlstring = ([], [], "istype boundary")
 - : list judgement * list boundary * mlstring =
-  (A :: [], [], "isterm boundary")
+  ((⊢ A type) :: [], [], "isterm boundary")
 - : list judgement * list boundary * mlstring =
-  (P a :: [], [], "isterm boundary")
+  ((⊢ P a type) :: [], [], "isterm boundary")
 - : list judgement * list boundary * mlstring =
-  (A :: P a :: [], (A ≡ P a as ?) :: [], "eqtype boundary")
+  ((⊢ A type) :: (⊢ P a type) :: [], (⊢ (A ≡ P a as ?)) :: [],
+   "eqtype boundary")
 - : list judgement * list boundary * mlstring =
-  (a :: b :: A :: [], [], "eqterm boundary")
+  ((⊢ a) :: (⊢ b) :: (⊢ A type) :: [], [], "eqterm boundary")
 - : list judgement * list boundary * mlstring =
-  (a :: b :: B :: [], [], "eqterm boundary")
+  ((⊢ a) :: (⊢ b) :: (⊢ B type) :: [], [], "eqterm boundary")
 - : list judgement * list boundary * mlstring =
-  (?z₁ :: A :: [], (? : P ?z₁) :: [], "abstraction boundary")
+  ((?z₁ : A ⊢ ?z₁) :: (⊢ A type) :: [], (?z₁ : A ⊢ (? : P ?z₁))
+   :: [], "abstraction boundary")
 Rule θ is postulated.
 - : list judgement * list boundary * mlstring =
-  (?z₂ :: B :: [], (? : P ?z₂) :: [], "abstraction boundary")
+  ((?z₂ : B ⊢ ?z₂) :: (⊢ B type) :: [], (?z₂ : B ⊢ (? : P ?z₂))
+   :: [], "abstraction boundary")

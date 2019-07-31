@@ -34,7 +34,7 @@
 %token OPERATION
 %token MATCH WHEN END
 %token AS TYPE
-%token VDASH EQEQ
+%token EQEQ
 
 %token HANDLE WITH HANDLER BAR VAL FINALLY YIELD
 %token SEMI
@@ -199,16 +199,16 @@ premises:
 
 premise: mark_location(premise_) { $1 }
 premise_:
-  | lctx=local_context VDASH mv=opt_name(tt_name) TYPE
+  | lctx=local_context mv=opt_name(tt_name) TYPE
     { PremiseIsType (mv, lctx) }
 
-  | lctx=local_context VDASH mv=opt_name(tt_name) COLON ty=term
+  | lctx=local_context mv=opt_name(tt_name) COLON ty=term
     { PremiseIsTerm (mv, lctx, ty) }
 
-  | lctx=local_context VDASH l=app_term EQEQ r=ty_term mv=equality_premise_name
+  | lctx=local_context l=app_term EQEQ r=ty_term mv=equality_premise_name
     { PremiseEqType (mv, lctx, (l, r)) }
 
-  | lctx=local_context VDASH l=app_term EQEQ r=app_term COLON ty=term mv=equality_premise_name
+  | lctx=local_context l=app_term EQEQ r=app_term COLON ty=term mv=equality_premise_name
     { PremiseEqTerm (mv, lctx, (l, r, ty)) }
 
 
@@ -220,14 +220,8 @@ equality_premise_name:
     { x }
 
 local_context:
-  |
-    { []  }
-
-  | x=anon_name(tt_name) COLON a=term
-    { [(x, a)] }
-
-  | x=anon_name(tt_name) COLON a=term COMMA ctx=local_context
-    { (x, a) :: ctx }
+  | lst=list(typed_binder)
+    { List.concat lst }
 
 
 (* Main syntax tree *)
@@ -550,6 +544,10 @@ maybe_typed_binder:
 
   | LBRACE xs=anon_name(tt_name)+ COLON t=ty_term RBRACE
     { List.map (fun x -> (x, Some t)) xs }
+
+typed_binder:
+  | LBRACE xs=anon_name(tt_name)+ COLON t=ty_term RBRACE
+    { List.map (fun x -> (x, t)) xs }
 
 abstraction:
   | lst=nonempty_list(maybe_typed_binder)

@@ -1,12 +1,12 @@
-rule Π (⊢ A type) (x : A ⊢ B type) type
+rule Π (A type) ({x : A} B type) type
 
-rule λ (⊢ A type) (x : A ⊢ B type) (x : A ⊢ e : B{x}) : Π A B
+rule λ (A type) ({x : A} B type) ({x : A} e : B{x}) : Π A B
 
-rule app (⊢ A type) (x : A ⊢ B type) (⊢ s : Π A B) (⊢ a : A)
+rule app (A type) ({x : A} B type) (s : Π A B) (a : A)
   : B{a}
 
-rule Π_β (⊢ A type) (x : A ⊢ B type) (x : A ⊢ s : B{x}) (⊢ a : A)
+rule Π_β (A type) ({x : A} B type) ({x : A} s : B{x}) (a : A)
   : app A B (λ A B s) a == s{a} : B{a}
 
-rule Π_η (⊢ A type) (x : A ⊢ B type) (⊢ s : Π A B)
+rule Π_η (A type) ({x : A} B type) (s : Π A B)
   : s == λ A B ({x:A} app A B s x) : Π A B

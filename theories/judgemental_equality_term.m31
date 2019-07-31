@@ -1,7 +1,7 @@
-rule eq_term_refl (⊢ A type) (⊢ a : A) : a ≡ a : A
+rule eq_term_refl (A type) (a : A) : a ≡ a : A
 
-rule eq_term_sym (⊢ A type) (⊢ a : A) (⊢ b : A) (⊢ a ≡ b : A) : b ≡ a : A
+rule eq_term_sym (A type) (a : A) (b : A) (a ≡ b : A) : b ≡ a : A
 
-rule eq_term_trans (⊢ A type) (⊢ a : A) (⊢ b : A) (⊢ c : A)
-                   (⊢ a ≡ b : A) (⊢ b ≡ c : A)
+rule eq_term_trans (A type) (a : A) (b : A) (c : A)
+                   (a ≡ b : A) (b ≡ c : A)
                    : a ≡ c : A

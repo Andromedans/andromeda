@@ -676,8 +676,8 @@ let rec print_value ?max_level ~penv v ppf =
      (*   | None ->  print_tag ?max_level ~names t lst ppf *)
      (* end *)
 
-  | Tuple lst -> Format.fprintf ppf "@[<hov 1>(%t)@]"
-                  (Print.sequence (print_value ~max_level:Level.highest ~penv) "," lst)
+  | Tuple lst -> Print.print ?max_level ~at_level:Level.ml_tuple ppf "@[<hov 1>(%t)@]"
+                  (Print.sequence (print_value ~max_level:Level.ml_tuple_arg ~penv) "," lst)
 
   | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref<%t>"
                   (Store.Ref.print_key v)

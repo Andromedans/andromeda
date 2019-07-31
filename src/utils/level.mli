@@ -58,9 +58,18 @@ val binder : t (* The type inside a binder *)
 
 (** A judgement boundary *)
 val boundary : t
+val boundary_thesis : t
 
 (** A judgement [ctx |- e : t] *)
-val jdg : t
+val judgement : t
+val judgement_thesis : t
+
+(** The assumptions of a judgement or a boundary *)
+val assumptions : t
+
+(** ML tuple *)
+val ml_tuple : t
+val ml_tuple_arg : t
 
 (** ML product type *)
 val ml_prod : t

@@ -1,27 +1,27 @@
 Rule A is postulated.
 Rule f is postulated.
-- : judgement = {a₀ : A} {a : A} f a₀ a
+- : judgement = ⊢ {a₀ : A} {a : A} f a₀ a
 Rule a is postulated.
-- : judgement = {a₀ : A} {a₁ : A} f a₀ a₁
+- : judgement = ⊢ {a₀ : A} {a₁ : A} f a₀ a₁
 Rule a₁ is postulated.
-- : judgement = {a₀ : A} {a₂ : A} f a₀ a₂
+- : judgement = ⊢ {a₀ : A} {a₂ : A} f a₀ a₂
 Rule a₂ is postulated.
 Rule a₃ is postulated.
-- : judgement = {a₀ : A} {a₄ : A} f a₀ a₄
-- : judgement = {a₀ : A} {a₄ : A} {a₅ : A} f (f a₀ a₄) a₅
-- : judgement = {a₀ : A} {a4 : A} {a₄ : A} f (f a₀ a4) a₄
+- : judgement = ⊢ {a₀ : A} {a₄ : A} f a₀ a₄
+- : judgement = ⊢ {a₀ : A} {a₄ : A} {a₅ : A} f (f a₀ a₄) a₅
+- : judgement = ⊢ {a₀ : A} {a4 : A} {a₄ : A} f (f a₀ a4) a₄
 Rule a₄ is postulated.
 Rule a₅ is postulated.
 Rule a₆ is postulated.
 Rule a₇ is postulated.
 Rule a₈ is postulated.
 Rule a₉ is postulated.
-- : judgement = {a₀ : A} {a₁₀ : A} f a₀ a₁₀
+- : judgement = ⊢ {a₀ : A} {a₁₀ : A} f a₀ a₁₀
 Rule a₁₀ is postulated.
-- : judgement = {a₀ : A} {a₁₁ : A} f a₀ a₁₁
+- : judgement = ⊢ {a₀ : A} {a₁₁ : A} f a₀ a₁₁
 Rule a₁1 is postulated.
-- : judgement = {a₀ : A} {a₁₁ : A} f (f a₁1 a₀) a₁₁
-- : judgement = {a₀ : A} {a₁₁ : A} f (f a₁1 a₀) a₁₁
+- : judgement = ⊢ {a₀ : A} {a₁₁ : A} f (f a₁1 a₀) a₁₁
+- : judgement = ⊢ {a₀ : A} {a₁₁ : A} f (f a₁1 a₀) a₁₁
 Rule a₁₁ is postulated.
-- : judgement = {a₀ : A} {a₁₂ : A} f (f a₁1 a₀) a₁₂
-- : judgement = {a₀ : A} {a₁₂ : A} f (f a₁₂ a₀) a₁₂
+- : judgement = ⊢ {a₀ : A} {a₁₂ : A} f (f a₁1 a₀) a₁₂
+- : judgement = ⊢ {a₀ : A} {a₁₂ : A} f (f a₁₂ a₀) a₁₂

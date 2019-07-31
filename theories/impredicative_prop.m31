@@ -1,20 +1,20 @@
 (** An impredicative universe of propositions. *)
 
 rule Prop type
-rule Prf (⊢ P : Prop) type
+rule Prf (P : Prop) type
 
 (* Closure under impredicative universal quantification *)
-rule ∀ (⊢ A type) (x : A ⊢ B : Prop) : Prop
+rule ∀ (A type) ({x : A} B : Prop) : Prop
 
-rule λ_prop (⊢ A type) (x : A ⊢ B : Prop) (x : A ⊢ e : (Prf (B{x}))) : Prf (∀ A B)
+rule λ_prop (A type) ({x : A} B : Prop) ({x : A} e : (Prf (B{x}))) : Prf (∀ A B)
 
-rule app_prop (⊢ A type) (x : A ⊢ B : Prop) (⊢ s : Prf (∀ A B)) (⊢ a : A)
+rule app_prop (A type) ({x : A} B : Prop) (s : Prf (∀ A B)) (a : A)
   : Prf (B{a})
 
-rule Prop_forall_β (⊢ A type) (x : A ⊢ B : Prop) (x : A ⊢ s : Prf (B{x})) (⊢ a : A)
+rule Prop_forall_β (A type) ({x : A} B : Prop) ({x : A} s : Prf (B{x})) (a : A)
   : app_prop A B (λ_prop A B s) a == s{a} : Prf (B{a})
 
-rule Prop_forall_η (⊢ A type) (x : A ⊢ B : Prop) (⊢ s : Prf (∀ A B))
+rule Prop_forall_η (A type) ({x : A} B : Prop) (s : Prf (∀ A B))
   : s == λ_prop A B ({x:A} app_prop A B s x) : Prf (∀ A B)
 
 (* Currently, nothing forces this impredicative universe to be propositional.
