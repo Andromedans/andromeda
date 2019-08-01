@@ -2,8 +2,11 @@
 
 type error
 
-(** The arity of a constructor or an operation *)
-type arity = int
+(** Arity of a TT constructor *)
+type tt_arity = { arity : int ; relevant : int }
+
+(** Arity of an ML constructor or opertation *)
+type ml_arity = int
 
 val print_error : error -> Format.formatter -> unit
 

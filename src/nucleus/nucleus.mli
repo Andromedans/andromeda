@@ -99,16 +99,6 @@ and 'a stump_abstraction =
   | Stump_NotAbstract of 'a
   | Stump_Abstract of is_atom * 'a abstraction
 
-
-(** An auxiliary type for providing arguments to a congruence rule. Each arguments is like
-   two endpoints with a path between them, except that no paths between equalities are
-   needed. *)
-type congruence_argument =
-  | CongrIsType of is_type_abstraction * is_type_abstraction * eq_type_abstraction
-  | CongrIsTerm of is_term_abstraction * is_term_abstraction * eq_term_abstraction
-  | CongrEqType of eq_type_abstraction * eq_type_abstraction
-  | CongrEqTerm of eq_term_abstraction * eq_term_abstraction
-
 module Signature : sig
 
   val empty : signature
@@ -332,6 +322,14 @@ val transitivity_type : eq_type -> eq_type -> eq_type
 
 (** Given [e : A], compute the natural type of [e] as [B], return [B == A] *)
 val natural_type_eq : signature -> is_term -> eq_type
+
+(** Congruence rules *)
+
+(** Create the congruence rule application for the given constructor and
+    judgements, or raise [InvalidCongruence] if the judgements are not
+    of the correct form. *)
+val congruence_rap :
+  signature -> Ident.t -> judgement -> judgement -> rule_application
 
 (** Give human names to things *)
 

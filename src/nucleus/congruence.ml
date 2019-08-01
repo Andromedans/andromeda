@@ -95,3 +95,15 @@ let form_is_term_rap sgn c args1 args2 =
           RapMore (bdry, rap_apply (args, bdry, bdrys))
      in
      RapMore (bdry, rap_apply ([], bdry, bdrys))
+
+let form_rap sgn c jdg1 jdg2 = failwith "Congruence.form_rap not implemented"
+  (* let rec extract_args = function *)
+  (*   | TermConstructor (c', args) -> *)
+  (*      if Ident.equal c c' then args else Error.raise InvalidCongruence *)
+  (*   | TermConvert (e, _, _) -> extract_args e *)
+  (*   | TermAtom _ | TermMeta _ -> Error.raise InvalidCongruence *)
+  (*   | TermBound _ -> assert false *)
+  (* in *)
+  (* let args1 = extract_args e1 *)
+  (* and args2 = extract_args e2 in *)
+  (* form_is_term_rap sgn c args1 args2 *)

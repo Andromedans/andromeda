@@ -133,6 +133,8 @@ let convert_term_abstraction = Convert.term_abstraction
 let convert_eq_term_abstraction = Convert.eq_term_abstraction
 let convert_judgement_abstraction = Convert.judgement_abstraction
 
+let congruence_rap = Congruence.form_rap
+
 let print_is_term = Nucleus_print.is_term
 let print_is_type = Nucleus_print.is_type
 let print_eq_term = Nucleus_print.eq_term

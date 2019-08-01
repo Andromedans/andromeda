@@ -273,6 +273,16 @@ let rec comp {Location.thing=c'; loc} =
         return (Reflect.mk_option None)
      end
 
+  | Rsyntax.Congruence (cnstr, c1, c2, cs) ->
+     comp_as_judgement_abstraction c1 >>= fun abstr1 ->
+     let jdg1 = Runtime.as_not_abstract ~loc abstr1 in
+     comp_as_judgement_abstraction c2 >>= fun abstr2 ->
+     let jdg2 = Runtime.as_not_abstract ~loc abstr2 in
+     Runtime.get_env >>= fun env ->
+     let sgn = Runtime.get_signature env in
+     let rap = Nucleus.congruence_rap sgn cnstr jdg1 jdg2 in
+     check_arguments rap cs
+
   | Rsyntax.Convert (c1, c2) ->
      comp_as_judgement_abstraction c1 >>= fun jdg ->
      comp_as_eq_type_abstraction c2 >>= fun eq ->
@@ -349,6 +359,7 @@ and check_judgement ({Location.thing=c';loc} as c) bdry =
   | Rsyntax.Current _
   | Rsyntax.String _
   | Rsyntax.Occurs _
+  | Rsyntax.Congruence _
   | Rsyntax.Convert _
   | Rsyntax.Substitute _
   | Rsyntax.Context _
