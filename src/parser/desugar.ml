@@ -110,6 +110,7 @@ type error =
   | UnknownPath of Name.path
   | UnknownType of Name.path
   | UnknownModule of Name.path
+  | UnknownTTConstructor of Name.path
   | NameAlreadyDeclared of Name.t * info
   | MLTypeAlreadyDeclared of Name.t
   | MLModuleAlreadyDeclared of Name.t
@@ -137,6 +138,10 @@ let print_error err ppf = match err with
 
   | UnknownModule pth ->
      Format.fprintf ppf "unknown ML module %t"
+       (Name.print_path pth)
+
+  | UnknownTTConstructor pth ->
+     Format.fprintf ppf "unknown rule %t"
        (Name.print_path pth)
 
   | NameAlreadyDeclared (x, info) ->
@@ -359,11 +364,11 @@ module Ctx = struct
        assert false
 
   (* Get information about the given TT constructor. *)
-  let get_tt_constructor pth ctx =
+  let get_tt_constructor ~loc pth ctx =
     match find_name pth ctx with
     | Some (TTConstructor (pth, arity)) -> pth, arity
     | None |Some (Bound _ | Value _ | MLConstructor _ | Operation _) ->
-       assert false
+       error ~loc (UnknownTTConstructor pth)
 
   (* Get information about the given ML operation. *)
   let get_ml_operation op ctx =
@@ -1082,7 +1087,7 @@ let rec comp ctx {Location.thing=c';loc} =
      locate (Dsyntax.String s)
 
   | Input.Congruence (pth, c1, c2, cs) ->
-     let c_pth, arity = Ctx.get_tt_constructor pth ctx in
+     let c_pth, arity = Ctx.get_tt_constructor ~loc pth ctx in
      check_tt_congruence_arity ~loc pth (List.length cs) arity ;
      let c1 = comp ctx c1
      and c2 = comp ctx c2

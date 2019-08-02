@@ -61,24 +61,8 @@ let congruence_boundaries prems args1 args2 =
   fold [] [] prems args1 args2
 
 
-(* Form a rule application for a congruence of two applications of the same constructor.
-   We assume that [args1] and [args2] have originated from previous valid applications
-   of [c] to them. *)
-let form_is_term_rap sgn c args1 args2 =
-  let c_prems, concl = Signature.lookup_rule c sgn in
-  let t_schema =
-    match concl with
-      | Rule.BoundaryIsTerm t_schema -> t_schema
-      | Rule.BoundaryIsType _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ -> Error.raise InvalidCongruence
-  in
-  let constr eq_args =
-    let asmp = Collect_assumptions.arguments eq_args
-    and e1 = Mk.term_constructor c args1
-    and e2 = Mk.term_constructor c args2
-    and t = Instantiate_meta.is_type ~lvl:0 args1 t_schema in
-    JudgementEqTerm (Mk.eq_term asmp e1 e2 t)
-  in
-  match congruence_boundaries c_prems args1 args2 with
+let form_rap' sgn prems constr args1 args2 =
+  match congruence_boundaries prems args1 args2 with
   | [] -> RapDone (constr [])
 
   | bdry :: bdrys ->
@@ -96,14 +80,65 @@ let form_is_term_rap sgn c args1 args2 =
      in
      RapMore (bdry, rap_apply ([], bdry, bdrys))
 
-let form_rap sgn c jdg1 jdg2 = failwith "Congruence.form_rap not implemented"
-  (* let rec extract_args = function *)
-  (*   | TermConstructor (c', args) -> *)
-  (*      if Ident.equal c c' then args else Error.raise InvalidCongruence *)
-  (*   | TermConvert (e, _, _) -> extract_args e *)
-  (*   | TermAtom _ | TermMeta _ -> Error.raise InvalidCongruence *)
-  (*   | TermBound _ -> assert false *)
-  (* in *)
-  (* let args1 = extract_args e1 *)
-  (* and args2 = extract_args e2 in *)
-  (* form_is_term_rap sgn c args1 args2 *)
+(* Form a rule application for a congruence of two applications of the same constructor.
+   We assume that [args1] and [args2] have originated from previous valid applications
+   of [c] to them. *)
+let form_is_term_rap sgn c args1 args2 =
+  let c_prems, concl = Signature.lookup_rule c sgn in
+  let t_schema =
+    match concl with
+      | Rule.BoundaryIsTerm t_schema -> t_schema
+      | Rule.BoundaryIsType _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ -> Error.raise InvalidCongruence
+  in
+  let constr eq_args =
+    let asmp = Collect_assumptions.arguments eq_args
+    and e1 = Mk.term_constructor c args1
+    and e2 = Mk.term_constructor c args2
+    and t = Instantiate_meta.is_type ~lvl:0 args1 t_schema in
+    JudgementEqTerm (Mk.eq_term asmp e1 e2 t)
+  in
+  form_rap' sgn c_prems constr args1 args2
+
+let form_is_type_rap sgn c args1 args2 =
+  let c_prems, concl = Signature.lookup_rule c sgn in
+  match concl with
+  | Rule.BoundaryIsTerm _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ -> Error.raise InvalidCongruence
+  | Rule.BoundaryIsType () ->
+     let constr eq_args =
+       let asmp = Collect_assumptions.arguments eq_args
+       and t1 = Mk.type_constructor c args1
+       and t2 = Mk.type_constructor c args2 in
+       JudgementEqType (Mk.eq_type asmp t1 t2)
+     in
+     form_rap' sgn c_prems constr args1 args2
+
+let form_rap sgn c jdg1 jdg2 =
+  match jdg1, jdg2 with
+
+  | JudgementIsTerm e1, JudgementIsTerm e2 ->
+     let rec extract_args = function
+       | TermConstructor (c', args) ->
+          if Ident.equal c c' then args else Error.raise InvalidCongruence
+       | TermConvert (e, _, _) -> extract_args e
+       | TermAtom _ | TermMeta _ -> Error.raise InvalidCongruence
+       | TermBound _ -> assert false
+     in
+     let args1 = extract_args e1
+     and args2 = extract_args e2 in
+     form_is_term_rap sgn c args1 args2
+
+  | JudgementIsType t1, JudgementIsType t2 ->
+     let extract_args = function
+       | TypeConstructor (c', args) ->
+          if Ident.equal c c' then args else Error.raise InvalidCongruence
+       | TypeMeta _ -> Error.raise InvalidCongruence
+     in
+     let args1 = extract_args t1
+     and args2 = extract_args t2 in
+     form_is_type_rap sgn c args1 args2
+
+  | ((JudgementEqType _ | JudgementEqTerm _), _ |
+     _, (JudgementEqType _ | JudgementEqTerm _) |
+     JudgementIsType _, JudgementIsTerm _ |
+     JudgementIsTerm _, JudgementIsType _) ->
+     Error.raise InvalidCongruence
