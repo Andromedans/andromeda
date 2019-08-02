@@ -34,7 +34,7 @@ let rec generalizable c =
   | Rsyntax.Lookup _
   | Rsyntax.Update _
   | Rsyntax.Ref _
-  | Rsyntax.Assume _
+  | Rsyntax.Fresh _
   | Rsyntax.Match _
   | Rsyntax.BoundaryAscribe _
   | Rsyntax.TypeAscribe _
@@ -407,18 +407,9 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
     infer_comp c2 >>= fun (c2, t) ->
     return (locate ~loc (Rsyntax.Sequence (c1, c2)), t)
 
-  | Dsyntax.Assume ((None, c1), c2) ->
-     check_comp c1 Mlty.Judgement >>= fun c1 ->
-     infer_comp c2 >>= fun (c2, u) ->
-     return (locate ~loc (Rsyntax.Assume ((None, c1), c2)), u)
-
-  | Dsyntax.Assume ((Some x, c1), c2) ->
-     check_comp c1 Mlty.Judgement >>= fun c1 ->
-     Tyenv.add_bound_mono x Mlty.Judgement
-     begin
-       infer_comp c2 >>= fun (c2, u) ->
-       return (locate ~loc (Rsyntax.Assume ((Some x, c1), c2)), u)
-     end
+  | Dsyntax.Fresh (xopt, c) ->
+     check_comp c Mlty.Judgement >>= fun c ->
+     return (locate ~loc (Rsyntax.Fresh (xopt, c)), Mlty.Judgement)
 
   | Dsyntax.Match (c, cases) ->
     infer_comp c >>= fun (c, tc) ->

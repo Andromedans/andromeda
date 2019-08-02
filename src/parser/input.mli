@@ -82,7 +82,7 @@ and comp' =
   | Update of comp * comp
   | Ref of comp
   | Sequence of comp * comp
-  | Assume of (Name.t option * comp) * comp
+  | Fresh of Name.t option * comp
   | BoundaryAscribe of comp * comp
   | TypeAscribe of comp * comp
   | Abstract of (Name.t * comp option) list * comp

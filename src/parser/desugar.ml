@@ -977,11 +977,9 @@ let rec comp ctx {Location.thing=c';loc} =
      locate (Dsyntax.Sequence (c1, c2))
 
 
-  | Input.Assume ((xopt, t), c) ->
-     let t = comp ctx t in
-     let ctx = (match xopt with None -> ctx | Some x -> Ctx.add_bound x ctx) in
+  | Input.Fresh (xopt, c) ->
      let c = comp ctx c in
-     locate (Dsyntax.Assume ((xopt, t), c))
+     locate (Dsyntax.Fresh (xopt, c))
 
   | Input.Match (c, cases) ->
      let c = comp ctx c

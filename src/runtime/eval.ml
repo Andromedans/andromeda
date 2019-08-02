@@ -163,13 +163,12 @@ let rec comp {Location.thing=c'; loc} =
      sequence ~loc v >>= fun () ->
      comp c2
 
-  | Rsyntax.Assume ((None, c1), c2) ->
-     comp_as_is_type c1 >>= fun _ ->
-     comp c2
-
-  | Rsyntax.Assume ((Some x, c1), c2) ->
-     comp_as_is_type c1 >>= fun t ->
-     Runtime.add_free x t (fun _ -> comp c2)
+  | Rsyntax.Fresh (xopt, c) ->
+     comp_as_is_type c >>= fun t ->
+     let x = match xopt with Some x -> x | None -> Name.mk_name "x" in
+     let atm = Nucleus.fresh_atom x t in
+     let v = Runtime.Judgement Nucleus.(abstract_not_abstract (JudgementIsTerm (form_is_term_atom atm))) in
+     return v
 
   | Rsyntax.Match (c, cases) ->
      comp c >>=
@@ -356,6 +355,7 @@ and check_judgement ({Location.thing=c';loc} as c) bdry =
   | Rsyntax.Ref _
   | Rsyntax.Lookup _
   | Rsyntax.Update _
+  | Rsyntax.Fresh _
   | Rsyntax.Current _
   | Rsyntax.String _
   | Rsyntax.Occurs _
@@ -398,15 +398,6 @@ and check_judgement ({Location.thing=c';loc} as c) bdry =
      comp x >>= as_dyn ~loc:xloc >>= fun x ->
      comp c1 >>= fun v ->
      Runtime.now x v (check_judgement c2 bdry)
-
-  | Rsyntax.Assume ((Some x, t), c) ->
-     comp_as_is_type t >>= fun t ->
-     Runtime.add_free x t (fun _ ->
-     check_judgement c bdry)
-
-  | Rsyntax.Assume ((None, t), c) ->
-     comp_as_is_type t >>= fun _ ->
-     check_judgement c bdry
 
   | Rsyntax.Match (c, cases) ->
      comp c >>=
