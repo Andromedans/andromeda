@@ -18,18 +18,18 @@ exception Error of error
 let print_error state err ppf =
   match err with
 
-  | ParserError {Location.thing=err; loc} ->
-     Format.fprintf ppf "%t:@.@[<hov 2>Parsing error:@ %t@]" (Location.print loc) (Ulexbuf.print_error err)
+  | ParserError {Location.it=err; at} ->
+     Format.fprintf ppf "%t:@.@[<hov 2>Parsing error:@ %t@]" (Location.print at) (Ulexbuf.print_error err)
 
-  | DesugarError {Location.thing=err; loc} ->
-     Format.fprintf ppf "%t:@.@[<hov 2>Type error:@ %t@]" (Location.print loc) (Desugar.print_error err)
+  | DesugarError {Location.it=err; at} ->
+     Format.fprintf ppf "%t:@.@[<hov 2>Type error:@ %t@]" (Location.print at) (Desugar.print_error err)
 
-  | TypingError {Location.thing=err; loc} ->
-     Format.fprintf ppf "%t:@.@[<hov 2>Type error:@ %t@]" (Location.print loc) (Mlty.print_error err)
+  | TypingError {Location.it=err; at} ->
+     Format.fprintf ppf "%t:@.@[<hov 2>Type error:@ %t@]" (Location.print at) (Mlty.print_error err)
 
-  | RuntimeError {Location.thing=err; loc} ->
+  | RuntimeError {Location.it=err; at} ->
      let penv = Runtime.get_penv state.runtime in
-     Format.fprintf ppf "%t:@.@[<hov 2>Runtime error:@ %t@]" (Location.print loc) (Runtime.print_error ~penv err)
+     Format.fprintf ppf "%t:@.@[<hov 2>Runtime error:@ %t@]" (Location.print at) (Runtime.print_error ~penv err)
 
   | NucleusError err ->
      let penv = Runtime.get_nucleus_penv state.runtime in

@@ -18,7 +18,7 @@ val print_error : error -> Format.formatter -> unit
 
 exception Error of error Location.located
 
-val error : loc:Location.t -> error -> 'a
+val error : at:Location.t -> error -> 'a
 
 (** Update the start and end positions from the stream. *)
 val update_pos : t -> unit

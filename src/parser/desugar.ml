@@ -212,7 +212,7 @@ let print_error err ppf = match err with
 
 exception Error of error Location.located
 
-let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
+let error ~at err = Pervasives.raise (Error (Location.mark ~at err))
 
 module Ctx = struct
 
@@ -339,22 +339,22 @@ module Ctx = struct
   let find_ml_type pth ctx = find_path ~find:find_type_in_module pth ctx
 
   (* Check that the name is not bound already *)
-  let check_is_fresh_name ~loc x ctx =
+  let check_is_fresh_name ~at x ctx =
     match find_name_in_module x (current_module ctx) with
     | None -> ()
-    | Some info -> error ~loc (NameAlreadyDeclared (x, info))
+    | Some info -> error ~at (NameAlreadyDeclared (x, info))
 
   (* Check that the type is not bound already *)
-  let check_is_fresh_type ~loc t ctx =
+  let check_is_fresh_type ~at t ctx =
     match find_type_in_module t (current_module ctx) with
     | None -> ()
-    | Some info -> error ~loc (MLTypeAlreadyDeclared t)
+    | Some info -> error ~at (MLTypeAlreadyDeclared t)
 
   (* Check that the module is not bound already *)
-  let check_is_fresh_module ~loc m ctx =
+  let check_is_fresh_module ~at m ctx =
     match find_module_in_module m (current_module ctx) with
     | None -> ()
-    | Some _ -> error ~loc (MLModuleAlreadyDeclared m)
+    | Some _ -> error ~at (MLModuleAlreadyDeclared m)
 
   (* Get information about the given ML constructor. *)
   let get_ml_constructor pth ctx =
@@ -364,11 +364,11 @@ module Ctx = struct
        assert false
 
   (* Get information about the given TT constructor. *)
-  let get_tt_constructor ~loc pth ctx =
+  let get_tt_constructor ~at pth ctx =
     match find_name pth ctx with
     | Some (TTConstructor (pth, arity)) -> pth, arity
     | None |Some (Bound _ | Value _ | MLConstructor _ | Operation _) ->
-       error ~loc (UnknownTTConstructor pth)
+       error ~at (UnknownTTConstructor pth)
 
   (* Get information about the given ML operation. *)
   let get_ml_operation op ctx =
@@ -384,13 +384,13 @@ module Ctx = struct
        assert false
 
   (* Get information about the given ML module. *)
-  let get_ml_module ~loc pth ctx =
+  let get_ml_module ~at pth ctx =
     match find_ml_module pth ctx with
     | Some (pth, mdl) -> pth, mdl
-    | None -> error ~loc (UnknownModule pth)
+    | None -> error ~at (UnknownModule pth)
 
   (* Get the info about a path, or fail *)
-  let get_name ~loc pth ctx =
+  let get_name ~at pth ctx =
     match pth with
 
     | Name.PName x ->
@@ -407,14 +407,14 @@ module Ctx = struct
        | None ->
           begin match find_name pth ctx with
           | Some info -> info
-          | None -> error ~loc (UnknownPath pth)
+          | None -> error ~at (UnknownPath pth)
           end
        end
 
     | Name.PModule _ ->
        begin match find_name pth ctx with
        | Some info -> info
-       | None -> error ~loc (UnknownPath pth)
+       | None -> error ~at (UnknownPath pth)
        end
 
   (* Get information about the list empty list constructor *)
@@ -425,9 +425,9 @@ module Ctx = struct
     get_ml_constructor Name.Builtin.cons ctx
 
   (* Get the path and the arity of type named [t] *)
-  let get_ml_type ~loc pth ctx =
+  let get_ml_type ~at pth ctx =
     match find_ml_type pth ctx with
-    | None -> error ~loc (UnknownType pth)
+    | None -> error ~at (UnknownType pth)
     | Some info ->
        info
 
@@ -435,12 +435,12 @@ module Ctx = struct
   let set_yield ctx = { ctx with ml_yield = true }
 
   (* Is yield allowed? *)
-  let check_yield ~loc ctx =
-    if not ctx.ml_yield then error ~loc UnboundYield
+  let check_yield ~at ctx =
+    if not ctx.ml_yield then error ~at UnboundYield
 
   (* Add a module to the current module. *)
-  let add_ml_module ~loc m mdl ctx =
-    check_is_fresh_module ~loc m ctx ;
+  let add_ml_module ~at m mdl ctx =
+    check_is_fresh_module ~at m ctx ;
     let (), ctx =
       update_current ctx
         (fun mk_path current ->
@@ -450,37 +450,37 @@ module Ctx = struct
     in
     ctx
 
-  let include_ml_module ~loc mdl ctx =
+  let include_ml_module ~at mdl ctx =
     let (), ctx =
       update_current ctx
         (fun _ {ml_modules; ml_types; ml_constructors; ml_operations; tt_constructors; ml_values} ->
-        (), { ml_modules = Assoc.include' (fun m -> check_is_fresh_module ~loc m ctx) ml_modules mdl.ml_modules;
-              ml_types = Assoc.include' (fun t -> check_is_fresh_type ~loc t ctx) ml_types mdl.ml_types;
-              ml_constructors = Assoc.include' (fun x -> check_is_fresh_name ~loc x ctx) ml_constructors mdl.ml_constructors;
-              ml_operations = Assoc.include' (fun x -> check_is_fresh_name ~loc x ctx) ml_operations mdl.ml_operations;
-              tt_constructors = Assoc.include' (fun x -> check_is_fresh_name ~loc x ctx) tt_constructors mdl.tt_constructors;
-              ml_values = Assoc.include' (fun x -> check_is_fresh_name ~loc x ctx) ml_values mdl.ml_values;
+        (), { ml_modules = Assoc.include' (fun m -> check_is_fresh_module ~at m ctx) ml_modules mdl.ml_modules;
+              ml_types = Assoc.include' (fun t -> check_is_fresh_type ~at t ctx) ml_types mdl.ml_types;
+              ml_constructors = Assoc.include' (fun x -> check_is_fresh_name ~at x ctx) ml_constructors mdl.ml_constructors;
+              ml_operations = Assoc.include' (fun x -> check_is_fresh_name ~at x ctx) ml_operations mdl.ml_operations;
+              tt_constructors = Assoc.include' (fun x -> check_is_fresh_name ~at x ctx) tt_constructors mdl.tt_constructors;
+              ml_values = Assoc.include' (fun x -> check_is_fresh_name ~at x ctx) ml_values mdl.ml_values;
         })
     in
     ctx
 
-  let open_ml_module ~loc mdl ctx =
+  let open_ml_module ~at mdl ctx =
     let (), ctx =
       update_current ctx
         (fun _ {ml_modules; ml_types; ml_constructors; ml_operations; tt_constructors; ml_values} ->
-        (), { ml_modules = Assoc.open' (fun m -> check_is_fresh_module ~loc m ctx) ml_modules mdl.ml_modules;
-              ml_types = Assoc.open' (fun t -> check_is_fresh_type ~loc t ctx) ml_types mdl.ml_types;
-              ml_constructors = Assoc.open' (fun x -> check_is_fresh_name ~loc x ctx) ml_constructors mdl.ml_constructors;
-              ml_operations = Assoc.open' (fun x -> check_is_fresh_name ~loc x ctx) ml_operations mdl.ml_operations;
-              tt_constructors = Assoc.open' (fun x -> check_is_fresh_name ~loc x ctx) tt_constructors mdl.tt_constructors;
-              ml_values = Assoc.open' (fun x -> check_is_fresh_name ~loc x ctx) ml_values mdl.ml_values;
+        (), { ml_modules = Assoc.open' (fun m -> check_is_fresh_module ~at m ctx) ml_modules mdl.ml_modules;
+              ml_types = Assoc.open' (fun t -> check_is_fresh_type ~at t ctx) ml_types mdl.ml_types;
+              ml_constructors = Assoc.open' (fun x -> check_is_fresh_name ~at x ctx) ml_constructors mdl.ml_constructors;
+              ml_operations = Assoc.open' (fun x -> check_is_fresh_name ~at x ctx) ml_operations mdl.ml_operations;
+              tt_constructors = Assoc.open' (fun x -> check_is_fresh_name ~at x ctx) tt_constructors mdl.tt_constructors;
+              ml_values = Assoc.open' (fun x -> check_is_fresh_name ~at x ctx) ml_values mdl.ml_values;
         })
     in
     ctx
 
   (* Add an ML values to the current module. *)
-  let add_ml_value ~loc x ctx =
-    check_is_fresh_name ~loc x ctx ;
+  let add_ml_value ~at x ctx =
+    check_is_fresh_name ~at x ctx ;
     let (), ctx =
       update_current ctx
         (fun mk_path current ->
@@ -495,8 +495,8 @@ module Ctx = struct
     { ctx with ml_bound = x :: ctx.ml_bound }
 
   (* Add a TT constructor of given arity *)
-  let add_tt_constructor ~loc c arity ctx =
-    check_is_fresh_name ~loc c ctx ;
+  let add_tt_constructor ~at c arity ctx =
+    check_is_fresh_name ~at c ctx ;
     update_current ctx
       (fun mk_path current ->
         let lvl = Assoc.last current.tt_constructors in
@@ -504,8 +504,8 @@ module Ctx = struct
         pth, { current with tt_constructors = Assoc.add c (pth, arity) current.tt_constructors } )
 
   (* Add an operation of given arity *)
-  let add_operation ~loc op arity ctx =
-    check_is_fresh_name ~loc op ctx ;
+  let add_operation ~at op arity ctx =
+    check_is_fresh_name ~at op ctx ;
     update_current ctx
       (fun mk_path current ->
         let lvl = Assoc.last current.ml_operations in
@@ -513,8 +513,8 @@ module Ctx = struct
         pth, { current with ml_operations = Assoc.add op (pth, arity) current.ml_operations } )
 
   (* Add a ML constructor of given arity *)
-  let add_ml_constructor ~loc c info ctx =
-    check_is_fresh_name ~loc c ctx ;
+  let add_ml_constructor ~at c info ctx =
+    check_is_fresh_name ~at c ctx ;
     let (), ctx =
       update_current ctx
         (fun mk_path current ->
@@ -523,8 +523,8 @@ module Ctx = struct
     ctx
 
   (* Add to the context the fact that [t] is a type constructor with given constructors and arities. *)
-  let add_ml_type ~loc t (arity, cs_opt) ctx  =
-    check_is_fresh_type ~loc t ctx ;
+  let add_ml_type ~at t (arity, cs_opt) ctx  =
+    check_is_fresh_type ~at t ctx ;
     let t_pth, ctx =
       update_current ctx
         (fun mk_path current ->
@@ -541,7 +541,7 @@ module Ctx = struct
           let _, ctx =
             List.fold_left
               (fun (lvl, ctx) (c, arity) ->
-                let ctx = add_ml_constructor ~loc c ((t_pth, Path.Level (c, lvl)), arity) ctx in
+                let ctx = add_ml_constructor ~at c ((t_pth, Path.Level (c, lvl)), arity) ctx in
                 (lvl+1, ctx))
               (0, ctx)
               cs
@@ -552,16 +552,16 @@ module Ctx = struct
 end (* module Ctx *)
 
 (* Check that the arity is the expected one. *)
-let check_ml_arity ~loc pth used expected =
+let check_ml_arity ~at pth used expected =
   if used <> expected then
-    error ~loc (ArityMismatch (pth, used, expected))
+    error ~at (ArityMismatch (pth, used, expected))
 
 (* Compute the arity of a TT constructor, given the premises of its rule. *)
 let tt_arity prems =
   let rec count n m = function
     | [] -> {arity=n; relevant=m}
-    | {Location.thing=Sugared.(PremiseIsType _ | PremiseIsTerm _); _} :: prems -> count (n+1) (m+1) prems
-    | {Location.thing=Sugared.(PremiseEqType _ | PremiseEqTerm _); _} :: prems -> count (n+1) m prems
+    | {Location.it=Sugared.(PremiseIsType _ | PremiseIsTerm _); _} :: prems -> count (n+1) (m+1) prems
+    | {Location.it=Sugared.(PremiseEqType _ | PremiseEqTerm _); _} :: prems -> count (n+1) m prems
   in
   count 0 0 prems
 
@@ -569,18 +569,18 @@ let tt_arity prems =
 let ml_arity = List.length
 
 (* Check that the arity is the expected one. *)
-let check_tt_arity ~loc pth used {arity=expected;_} =
+let check_tt_arity ~at pth used {arity=expected;_} =
   if used <> expected then
-    error ~loc (ArityMismatch (pth, used, expected))
+    error ~at (ArityMismatch (pth, used, expected))
 
 (* Check that the arity for a congruence rule is the expected one. *)
-let check_tt_congruence_arity ~loc pth used {relevant=expected;_} =
+let check_tt_congruence_arity ~at pth used {relevant=expected;_} =
   if used <> expected then
-    error ~loc (CongruenceArityMismatch (pth, 2 + used, 2 + expected))
+    error ~at (CongruenceArityMismatch (pth, 2 + used, 2 + expected))
 
 (* Desugar an ML type, with the given list of known type parameters *)
 let mlty ctx params ty =
-  let rec mlty ({Location.thing=ty';loc}) =
+  let rec mlty ({Location.it=ty';at}) =
     let ty' =
       begin match ty' with
 
@@ -610,8 +610,8 @@ let mlty ctx params ty =
          begin match pth with
 
          | Name.PModule _ ->
-            let (t_pth, expected)  = Ctx.get_ml_type ~loc pth ctx in
-            check_ml_arity ~loc pth (List.length args) expected ;
+            let (t_pth, expected)  = Ctx.get_ml_type ~at pth ctx in
+            check_ml_arity ~at pth (List.length args) expected ;
             let args = List.map mlty args in
             Desugared.ML_Apply (t_pth, args)
 
@@ -621,8 +621,8 @@ let mlty ctx params ty =
               | [] ->
               (* It's a type name *)
               begin
-                let (t_pth, expected) = Ctx.get_ml_type ~loc pth ctx in
-                check_ml_arity ~loc pth (List.length args) expected ;
+                let (t_pth, expected) = Ctx.get_ml_type ~at pth ctx in
+                check_ml_arity ~at pth (List.length args) expected ;
                 let args = List.map mlty args in
                 Desugared.ML_Apply (t_pth, args)
               end
@@ -632,7 +632,7 @@ let mlty ctx params ty =
                    (* It's a type parameter *)
                    begin match args with
                    | [] -> Desugared.ML_Bound (Path.Index (x, k))
-                   | _::_ -> error ~loc AppliedTyParam
+                   | _::_ -> error ~at AppliedTyParam
                    end
                  else search (k+1) params
             in
@@ -651,18 +651,18 @@ let mlty ctx params ty =
       | Sugared.ML_String -> Desugared.ML_String
       end
     in
-    Location.locate ty' loc
+    Location.mark ~at ty'
   in
   mlty ty
 
 (* TODO improve locs *)
-let mk_abstract ~loc ys c =
+let mk_abstract ~at ys c =
   List.fold_left
-    (fun c (y,u) -> Location.locate (Desugared.Abstract (y,u,c)) loc)
+    (fun c (y,u) -> Location.mark ~at (Desugared.Abstract (y,u,c)))
     c ys
 
-let rec pattern ~toplevel ctx {Location.thing=p; loc} =
-  let locate x = Location.locate x loc in
+let rec pattern ~toplevel ctx {Location.it=p; at} =
+  let locate x = Location.mark ~at x in
   match p with
   | Sugared.Patt_Anonymous ->
      ctx, locate Desugared.Patt_Anonymous
@@ -675,35 +675,35 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
 
         | Some (Bound _ | Value _) (* we allow shadowing of named values *)
         | None ->
-           let add = if toplevel then Ctx.add_ml_value ~loc else Ctx.add_bound in
+           let add = if toplevel then Ctx.add_ml_value ~at else Ctx.add_bound in
            let ctx = add x ctx in
            ctx, locate (Desugared.Patt_Var x)
 
         | Some (MLConstructor (pth, arity)) ->
-           check_ml_arity ~loc (Name.PName x) 0 arity ;
+           check_ml_arity ~at (Name.PName x) 0 arity ;
            ctx, locate (Desugared.Patt_MLConstructor (pth, []))
 
         | Some (TTConstructor (pth, arity)) ->
-           check_tt_arity ~loc (Name.PName x) 0 arity ;
+           check_tt_arity ~at (Name.PName x) 0 arity ;
            ctx, locate (Desugared.Patt_TTConstructor (pth, []))
 
         | Some (Operation _ as info) ->
-           error ~loc (InvalidPatternName (pth, info))
+           error ~at (InvalidPatternName (pth, info))
         end
 
      | Name.PModule _ ->
-        begin match Ctx.get_name ~loc pth ctx with
+        begin match Ctx.get_name ~at pth ctx with
 
         | MLConstructor (c_pth, arity) ->
-           check_ml_arity ~loc pth 0 arity ;
+           check_ml_arity ~at pth 0 arity ;
            ctx, locate (Desugared.Patt_MLConstructor (c_pth, []))
 
         | TTConstructor (c_pth, arity) ->
-           check_tt_arity ~loc pth 0 arity ;
+           check_tt_arity ~at pth 0 arity ;
            ctx, locate (Desugared.Patt_TTConstructor (c_pth, []))
 
         | (Value _ | Operation _) as info ->
-           error ~loc (InvalidPatternName (pth, info))
+           error ~at (InvalidPatternName (pth, info))
 
         | Bound _ -> assert false
 
@@ -721,19 +721,19 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
      ctx, locate (Desugared.Patt_As (p1, p2))
 
   | Sugared.Patt_Constructor (c, ps) ->
-     begin match Ctx.get_name ~loc c ctx with
+     begin match Ctx.get_name ~at c ctx with
      | MLConstructor (pth, arity) ->
-        check_ml_arity ~loc c (List.length ps) arity ;
-        let ctx, ps = patterns ~loc ~toplevel ctx ps in
+        check_ml_arity ~at c (List.length ps) arity ;
+        let ctx, ps = patterns ~at ~toplevel ctx ps in
         ctx, locate (Desugared.Patt_MLConstructor (pth, ps))
 
      | TTConstructor (pth, arity) ->
-        check_tt_arity ~loc c (List.length ps) arity ;
-        let ctx, ps = patterns ~loc ~toplevel ctx ps in
+        check_tt_arity ~at c (List.length ps) arity ;
+        let ctx, ps = patterns ~at ~toplevel ctx ps in
         ctx, locate (Desugared.Patt_TTConstructor (pth, ps))
 
      | (Bound _ | Value _ | Operation _) as info ->
-        error ~loc (InvalidAppliedPatternName (c, info))
+        error ~at (InvalidAppliedPatternName (c, info))
      end
 
   | Sugared.Patt_GenAtom p ->
@@ -806,20 +806,20 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
   | Sugared.Patt_List ps ->
      let nil_path, _ = Ctx.get_path_nil ctx
      and cons_path, _ = Ctx.get_path_cons ctx in
-     let rec fold ~loc ctx = function
+     let rec fold ~at ctx = function
        | [] -> ctx, locate (Desugared.Patt_MLConstructor (nil_path, []))
        | p :: ps ->
           let ctx, p = pattern ~toplevel ctx  p in
-          let ctx, ps = fold ~loc:(p.Location.loc) ctx ps in
+          let ctx, ps = fold ~at:(p.Location.at) ctx ps in
           ctx, locate (Desugared.Patt_MLConstructor (cons_path, [p ; ps]))
      in
-     fold ~loc ctx ps
+     fold ~at ctx ps
 
   | Sugared.Patt_Tuple ps ->
-     let ctx, ps = patterns ~loc ~toplevel ctx ps in
+     let ctx, ps = patterns ~at ~toplevel ctx ps in
      ctx, locate (Desugared.Patt_Tuple ps)
 
-and patterns ~loc ~toplevel ctx ps =
+and patterns ~at ~toplevel ctx ps =
   let rec fold ctx ps_out = function
     | [] ->
        ctx, List.rev ps_out
@@ -833,20 +833,20 @@ and patterns ~loc ~toplevel ctx ps =
     in the given set of forbidden names. Return the set of forbidden names
     extended with the names that this pattern binds. *)
 
-let check_linear_pattern_variable ~loc ~forbidden x =
+let check_linear_pattern_variable ~at ~forbidden x =
      if Name.set_mem x forbidden then
-       error ~loc (NonlinearPattern x)
+       error ~at (NonlinearPattern x)
      else
        Name.set_add x forbidden
 
-let rec check_linear ?(forbidden=Name.set_empty) {Location.thing=p';loc} =
+let rec check_linear ?(forbidden=Name.set_empty) {Location.it=p';at} =
   match p' with
 
   | Sugared.Patt_Anonymous | Sugared.Patt_Path (Name.PModule _) ->
      forbidden
 
   | Sugared.Patt_Path (Name.PName x) ->
-     check_linear_pattern_variable ~loc ~forbidden x
+     check_linear_pattern_variable ~at ~forbidden x
 
   | Sugared.Patt_MLAscribe (p, _) ->
      check_linear ~forbidden p
@@ -890,7 +890,7 @@ let rec check_linear ?(forbidden=Name.set_empty) {Location.thing=p';loc} =
      check_linear ~forbidden p3
 
   | Sugared.Patt_Abstraction (args, p) ->
-     let forbidden = check_linear_abstraction ~loc ~forbidden args in
+     let forbidden = check_linear_abstraction ~at ~forbidden args in
      check_linear ~forbidden p
 
   | Sugared.Patt_Constructor (_, ps)
@@ -904,28 +904,28 @@ and check_linear_list ~forbidden = function
      let forbidden = check_linear ~forbidden p in
      check_linear_list ~forbidden ps
 
-and check_linear_abstraction ~loc ~forbidden = function
+and check_linear_abstraction ~at ~forbidden = function
   | [] -> forbidden
   | (xopt, popt) :: args ->
      let forbidden =
        match xopt with
        | None -> forbidden
-       | Some x -> check_linear_pattern_variable ~loc ~forbidden x
+       | Some x -> check_linear_pattern_variable ~at ~forbidden x
      in
      let forbidden =
        match popt with
        | None -> forbidden
        | Some p -> check_linear ~forbidden p
      in
-     check_linear_abstraction ~loc ~forbidden args
+     check_linear_abstraction ~at ~forbidden args
 
 
-let rec comp ctx {Location.thing=c';loc} =
-  let locate x = Location.locate x loc in
+let rec comp ctx {Location.it=c';at} =
+  let locate x = Location.mark ~at x in
   match c' with
   | Sugared.Handle (c, hcs) ->
      let c = comp ctx c
-     and h = handler ~loc ctx hcs in
+     and h = handler ~at ctx hcs in
      locate (Desugared.With (h, c))
 
   | Sugared.With (c1, c2) ->
@@ -934,12 +934,12 @@ let rec comp ctx {Location.thing=c';loc} =
      locate (Desugared.With (c1, c2))
 
   | Sugared.Let (lst, c) ->
-     let ctx, lst = let_clauses ~loc ~toplevel:false ctx lst in
+     let ctx, lst = let_clauses ~at ~toplevel:false ctx lst in
      let c = comp ctx c in
      locate (Desugared.Let (lst, c))
 
   | Sugared.LetRec (lst, c) ->
-     let ctx, lst = letrec_clauses ~loc ~toplevel:false ctx lst in
+     let ctx, lst = letrec_clauses ~at ~toplevel:false ctx lst in
      let c = comp ctx c in
      locate (Desugared.LetRec (lst, c))
 
@@ -1000,7 +1000,7 @@ let rec comp ctx {Location.thing=c';loc} =
      let rec fold ctx ys = function
        | [] ->
           let c = comp ctx c in
-          mk_abstract ~loc ys c
+          mk_abstract ~at ys c
        | (x, None) :: xs ->
           let ctx = Ctx.add_bound x ctx
           and ys = (x, None) :: ys in
@@ -1017,8 +1017,8 @@ let rec comp ctx {Location.thing=c';loc} =
      List.fold_left
        (fun e c ->
           let c = comp ctx c
-          and loc = Location.from_to loc c.Location.loc in
-          Location.locate (Desugared.Substitute (e, c)) loc)
+          and at = Location.from_to at c.Location.at in
+          Location.mark ~at (Desugared.Substitute (e, c)))
        e cs
 
   | Sugared.Spine (e, cs) ->
@@ -1026,28 +1026,28 @@ let rec comp ctx {Location.thing=c';loc} =
 
   | Sugared.Name x ->
 
-     begin match Ctx.get_name ~loc x ctx with
+     begin match Ctx.get_name ~at x ctx with
 
      | Bound i -> locate (Desugared.Bound i)
 
      | Value pth -> locate (Desugared.Value pth)
 
      | TTConstructor (pth, arity) ->
-        check_tt_arity ~loc x 0 arity ;
+        check_tt_arity ~at x 0 arity ;
         locate (Desugared.TTConstructor (pth, []))
 
      | MLConstructor (pth, arity) ->
-        check_ml_arity ~loc x 0 arity ;
+        check_ml_arity ~at x 0 arity ;
         locate (Desugared.MLConstructor (pth, []))
 
      | Operation (pth, arity) ->
-        check_ml_arity ~loc x 0 arity ;
+        check_ml_arity ~at x 0 arity ;
         locate (Desugared.Operation (pth, []))
 
      end
 
   | Sugared.Yield c ->
-     Ctx.check_yield ~loc ctx ;
+     Ctx.check_yield ~at ctx ;
      let c = comp ctx c in
      locate (Desugared.Yield c)
 
@@ -1063,19 +1063,19 @@ let rec comp ctx {Location.thing=c';loc} =
      fold ctx xs
 
   | Sugared.Handler hcs ->
-     handler ~loc ctx hcs
+     handler ~at ctx hcs
 
   | Sugared.List cs ->
      let nil_path, _ = Ctx.get_path_nil ctx
      and cons_path, _ = Ctx.get_path_cons ctx in
-     let rec fold ~loc = function
+     let rec fold ~at = function
        | [] -> locate (Desugared.MLConstructor (nil_path, []))
        | c :: cs ->
           let c = comp ctx c in
-          let cs = fold ~loc:(c.Location.loc) cs in
+          let cs = fold ~at:(c.Location.at) cs in
           locate (Desugared.MLConstructor (cons_path, [c ; cs]))
      in
-     fold ~loc cs
+     fold ~at cs
 
   | Sugared.Tuple cs ->
      let lst = List.map (comp ctx) cs in
@@ -1085,8 +1085,8 @@ let rec comp ctx {Location.thing=c';loc} =
      locate (Desugared.String s)
 
   | Sugared.Congruence (pth, c1, c2, cs) ->
-     let c_pth, arity = Ctx.get_tt_constructor ~loc pth ctx in
-     check_tt_congruence_arity ~loc pth (List.length cs) arity ;
+     let c_pth, arity = Ctx.get_tt_constructor ~at pth ctx in
+     check_tt_congruence_arity ~at pth (List.length cs) arity ;
      let c1 = comp ctx c1
      and c2 = comp ctx c2
      and cs = List.map (comp ctx) cs in
@@ -1128,9 +1128,9 @@ let rec comp ctx {Location.thing=c';loc} =
      and c3 = comp ctx c3 in
      locate Desugared.(MLBoundary (BoundaryEqTerm (c1, c2, c3)))
 
-and let_clauses ~loc ~toplevel ctx lst =
-  let locate x = Location.locate x loc in
-  let add = if toplevel then Ctx.add_ml_value ~loc else Ctx.add_bound in
+and let_clauses ~at ~toplevel ctx lst =
+  let locate x = Location.mark ~at x in
+  let add = if toplevel then Ctx.add_ml_value ~at else Ctx.add_bound in
   let rec fold ctx' lst' = function
     | [] ->
        let lst' = List.rev lst' in
@@ -1138,7 +1138,7 @@ and let_clauses ~loc ~toplevel ctx lst =
 
     | Sugared.Let_clause_ML (xys_opt, sch, c) :: clauses ->
        let ys = (match xys_opt with None -> [] | Some (_, ys) -> ys) in
-       let c = let_clause ~loc ctx ys c in
+       let c = let_clause ~at ctx ys c in
        let sch = let_annotation ctx sch in
        let x, ctx' =
          begin match xys_opt with
@@ -1176,7 +1176,7 @@ and let_clauses ~loc ~toplevel ctx lst =
     | Sugared.Let_clause_ML (Some (x, _), _, _) :: lst
     | Sugared.Let_clause_tt (Some x, _, _) :: lst ->
        if Name.set_mem x forbidden
-       then error ~loc (ParallelShadowing x)
+       then error ~at (ParallelShadowing x)
        else check_unique (Name.set_add x forbidden) lst
     | Sugared.Let_clause_ML (None, _, _) :: lst
     | Sugared.Let_clause_tt (None, _, _) :: lst ->
@@ -1188,8 +1188,8 @@ and let_clauses ~loc ~toplevel ctx lst =
   check_unique Name.set_empty lst ;
   fold ctx [] lst
 
-and letrec_clauses ~loc ~toplevel ctx lst =
-  let add = if toplevel then Ctx.add_ml_value ~loc else Ctx.add_bound in
+and letrec_clauses ~at ~toplevel ctx lst =
+  let add = if toplevel then Ctx.add_ml_value ~at else Ctx.add_bound in
   let ctx =
     List.fold_left (fun ctx (f, _, _, _, _) -> add f ctx) ctx lst
   in
@@ -1200,16 +1200,16 @@ and letrec_clauses ~loc ~toplevel ctx lst =
     | (f, yt, ys, sch, c) :: xcs ->
        if List.exists (fun (g, _, _, _, _) -> Name.equal f g) xcs
        then
-         error ~loc (ParallelShadowing f)
+         error ~at (ParallelShadowing f)
        else
-         let yt, c = letrec_clause ~loc ctx yt ys c in
+         let yt, c = letrec_clause ~at ctx yt ys c in
          let sch = let_annotation ctx sch in
          let lst' = Desugared.Letrec_clause (f, yt, sch, c) :: lst' in
          fold lst' xcs
   in
   fold [] lst
 
-and let_clause ~loc ctx ys c =
+and let_clause ~at ctx ys c =
   let rec fold ctx = function
     | [] ->
        comp ctx c
@@ -1217,24 +1217,24 @@ and let_clause ~loc ctx ys c =
        let ctx = Ctx.add_bound y ctx in
        let c = fold ctx ys in
        let t = arg_annotation ctx t in
-       Location.locate  (Desugared.Function (y, t, c)) c.Location.loc (* XXX improve location *)
+       Location.mark  ~at:c.Location.at (Desugared.Function (y, t, c)) (* XXX improve location *)
   in
   fold ctx ys
 
 and let_clause_tt ctx c t =
   let c = comp ctx c
   and t = comp ctx t in
-  Location.locate (Desugared.BoundaryAscribe (c, t)) c.Location.loc
+  Location.mark ~at:c.Location.at (Desugared.BoundaryAscribe (c, t))
 
-and letrec_clause ~loc ctx (y, t) ys c =
+and letrec_clause ~at ctx (y, t) ys c =
   let t = arg_annotation ctx t in
   let ctx = Ctx.add_bound y ctx in
-  let c = let_clause ~loc ctx ys c in
+  let c = let_clause ~at ctx ys c in
   (y, t), c
 
 
-and ml_schema ctx {Location.thing=Sugared.ML_Forall (params, t); loc} =
-  Location.locate (Desugared.ML_Forall (params, mlty ctx params t)) loc
+and ml_schema ctx {Location.it=Sugared.ML_Forall (params, t); at} =
+  Location.mark ~at (Desugared.ML_Forall (params, mlty ctx params t))
 
 
 and arg_annotation ctx = function
@@ -1255,8 +1255,8 @@ and let_annotation ctx = function
 
 (* To desugar a spine [c1 c2 ... cN], we check if c1 is an identifier, in which
    case we break the spine according to the arity of c1. *)
-and spine ctx ({Location.thing=c';loc} as c) cs =
-  let locate x = Location.locate x loc in
+and spine ctx ({Location.it=c';at} as c) cs =
+  let locate x = Location.mark ~at x in
 
   (* Auxiliary function which splits a list into two parts with k
      elements in the first part. *)
@@ -1266,7 +1266,7 @@ and spine ctx ({Location.thing=c';loc} as c) cs =
         List.rev acc, lst
       else
         match lst with
-        | [] -> error ~loc (ArityMismatch (constr, List.length acc, arity))
+        | [] -> error ~at (ArityMismatch (constr, List.length acc, arity))
         | x :: lst -> split (x :: acc) (m - 1) lst
     in
     split [] arity lst
@@ -1277,7 +1277,7 @@ and spine ctx ({Location.thing=c';loc} as c) cs =
     match c' with
 
     | Sugared.Name x ->
-       begin match Ctx.get_name ~loc x ctx with
+       begin match Ctx.get_name ~at x ctx with
 
        | Bound i ->
           locate (Desugared.Bound i), cs
@@ -1286,19 +1286,19 @@ and spine ctx ({Location.thing=c';loc} as c) cs =
           locate (Desugared.Value pth), cs
 
        | TTConstructor (pth, arity) ->
-          check_tt_arity ~loc x (List.length cs) arity ;
+          check_tt_arity ~at x (List.length cs) arity ;
           let cs', cs = split_at x arity.arity cs in
-          tt_constructor ~loc ctx pth cs', cs
+          tt_constructor ~at ctx pth cs', cs
 
        | MLConstructor (pth, arity) ->
-          check_ml_arity ~loc x (List.length cs) arity ;
+          check_ml_arity ~at x (List.length cs) arity ;
           let cs', cs = split_at x arity cs in
-          ml_constructor ~loc ctx pth cs', cs
+          ml_constructor ~at ctx pth cs', cs
 
        | Operation (pth, arity) ->
           (* We allow more arguments than the arity of the operation. *)
           let cs', cs = split_at x arity cs in
-          operation ~loc ctx pth cs', cs
+          operation ~at ctx pth cs', cs
 
        end
 
@@ -1309,14 +1309,14 @@ and spine ctx ({Location.thing=c';loc} as c) cs =
   List.fold_left
     (fun head arg ->
        let arg = comp ctx arg
-       and loc = Location.union loc arg.Location.loc in
+       and at = Location.union at arg.Location.at in
        let head = Desugared.Apply (head, arg) in
-       Location.locate head loc)
+       Location.mark ~at head)
     head
     cs
 
 (* Desugar handler cases. *)
-and handler ~loc ctx hcs =
+and handler ~at ctx hcs =
   (* for every case | op p => c we do op binder => match binder with | p => c end *)
   let rec fold val_cases op_cases finally_cases = function
     | [] ->
@@ -1332,17 +1332,17 @@ and handler ~loc ctx hcs =
 
     | Sugared.CaseOp (op, ((ps,_,_) as c)) :: hcs ->
 
-       begin match Ctx.get_name ~loc op ctx with
+       begin match Ctx.get_name ~at op ctx with
 
        | Operation (pth, arity) ->
-          check_ml_arity ~loc op (List.length ps) arity ;
+          check_ml_arity ~at op (List.length ps) arity ;
           let case = match_op_case (Ctx.set_yield ctx) c in
           let my_cases = try List.assoc pth op_cases with Not_found -> [] in
           let my_cases = case::my_cases in
           fold val_cases ((pth, my_cases) :: op_cases) finally_cases hcs
 
        | (Bound _ | Value _ | TTConstructor _ | MLConstructor _) as info ->
-          error ~loc (OperationExpected (op, info))
+          error ~at (OperationExpected (op, info))
 
        end
 
@@ -1352,7 +1352,7 @@ and handler ~loc ctx hcs =
 
   in
   let handler_val, handler_ops, handler_finally = fold [] [] [] hcs in
-  Location.locate (Desugared.Handler (Desugared.{ handler_val ; handler_ops ; handler_finally })) loc
+  Location.mark ~at (Desugared.Handler (Desugared.{ handler_val ; handler_ops ; handler_finally }))
 
 (* Desugar a match case *)
 and match_case ctx (p, g, c) =
@@ -1390,34 +1390,34 @@ and match_op_case ctx (ps, pt, c) =
   in
   fold ctx [] ps
 
-and ml_constructor ~loc ctx x cs =
+and ml_constructor ~at ctx x cs =
   let cs = List.map (comp ctx) cs in
-  Location.locate (Desugared.MLConstructor (x, cs)) loc
+  Location.mark ~at (Desugared.MLConstructor (x, cs))
 
-and tt_constructor ~loc ctx pth cs =
+and tt_constructor ~at ctx pth cs =
   let cs = List.map (comp ctx) cs in
-  Location.locate (Desugared.TTConstructor (pth, cs)) loc
+  Location.mark ~at (Desugared.TTConstructor (pth, cs))
 
-and operation ~loc ctx x cs =
+and operation ~at ctx x cs =
   let cs = List.map (comp ctx) cs in
-  Location.locate (Desugared.Operation (x, cs)) loc
+  Location.mark ~at (Desugared.Operation (x, cs))
 
-let decl_operation ~loc ctx args res =
+let decl_operation ~at ctx args res =
   let args = List.map (mlty ctx []) args
   and res = mlty ctx [] res in
   args, res
 
-let mlty_constructor ~loc ctx params (c, args) =
+let mlty_constructor ~at ctx params (c, args) =
   (c, List.map (mlty ctx params) args)
 
-let mlty_def ~loc ctx params = function
+let mlty_def ~at ctx params = function
 
   | Sugared.ML_Alias ty ->
      let ty = mlty ctx params ty in
      Desugared.ML_Alias ty
 
   | Sugared.ML_Sum lst ->
-     let lst = List.map (mlty_constructor ~loc ctx params) lst in
+     let lst = List.map (mlty_constructor ~at ctx params) lst in
      Desugared.ML_Sum lst
 
 let mlty_info params = function
@@ -1429,22 +1429,22 @@ let mlty_info params = function
      (ml_arity params),
      Some cs
 
-let mlty_defs ~loc ctx defs =
+let mlty_defs ~at ctx defs =
   let rec fold defs_out ctx = function
     | [] -> ctx, List.rev defs_out
     | (t, (params, def)) :: defs_in ->
-       let def_out = mlty_def ~loc ctx params def in
-       let t_pth, ctx = Ctx.add_ml_type ~loc t (mlty_info params def) ctx in
+       let def_out = mlty_def ~at ctx params def in
+       let t_pth, ctx = Ctx.add_ml_type ~at t (mlty_info params def) ctx in
        fold ((t_pth, (params, def_out)) :: defs_out) ctx defs_in
   in
   fold [] ctx defs
 
-let mlty_rec_defs ~loc ctx defs =
+let mlty_rec_defs ~at ctx defs =
   (* first change the context  *)
   let defs_out, ctx =
     List.fold_left
       (fun (defs_out, ctx) (t, (params, def)) ->
-        let t_pth, ctx = Ctx.add_ml_type ~loc t (mlty_info params def) ctx in
+        let t_pth, ctx = Ctx.add_ml_type ~at t (mlty_info params def) ctx in
         ((t_pth, (params, def)) :: defs_out, ctx))
       ([], ctx) defs
   in
@@ -1454,11 +1454,11 @@ let mlty_rec_defs ~loc ctx defs =
     | [] -> ()
     | (t, _) :: defs ->
        if List.exists (fun (t', _) -> Name.equal t t') defs then
-         error ~loc (ParallelShadowing t)
+         error ~at (ParallelShadowing t)
   in
   check_shadow defs ;
   let defs_out =
-    List.map (fun (t, (params, def)) -> (t, (params, mlty_def ~loc ctx params def))) defs_out in
+    List.map (fun (t, (params, def)) -> (t, (params, mlty_def ~at ctx params def))) defs_out in
   ctx, defs_out
 
 let local_context ctx xcs m =
@@ -1474,8 +1474,8 @@ let local_context ctx xcs m =
   in
   fold ctx [] xcs
 
-let premise ctx {Location.thing=prem;loc} =
-  let locate x = Location.locate x loc in
+let premise ctx {Location.it=prem;at} =
+  let locate x = Location.mark ~at x in
   match prem with
   | Sugared.PremiseIsType (mvar, local_ctx) ->
      let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
@@ -1534,15 +1534,15 @@ let premises ctx prems m =
   in
   fold ctx [] prems
 
-let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
-  let locate1 cmd = [Location.locate cmd loc] in
+let rec toplevel' ~loading ~basedir ctx {Location.it=cmd; at} =
+  let locate1 cmd = [Location.mark ~at cmd] in
 
   match cmd with
 
   | Sugared.RuleIsType (rname, prems) ->
      let arity = tt_arity prems in
      let (), prems = premises ctx prems (fun _ -> ()) in
-     let pth, ctx = Ctx.add_tt_constructor ~loc rname arity ctx in
+     let pth, ctx = Ctx.add_tt_constructor ~at rname arity ctx in
      let bdry = Desugared.BoundaryIsType in
      (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
 
@@ -1553,7 +1553,7 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
          ctx prems
          (fun ctx -> comp ctx c)
      in
-     let pth, ctx = Ctx.add_tt_constructor ~loc rname arity ctx in
+     let pth, ctx = Ctx.add_tt_constructor ~at rname arity ctx in
      let bdry = Desugared.BoundaryIsTerm c in
      (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
 
@@ -1566,7 +1566,7 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
            comp ctx c1,
            comp ctx c2)
      in
-     let pth, ctx = Ctx.add_tt_constructor ~loc rname arity ctx in
+     let pth, ctx = Ctx.add_tt_constructor ~at rname arity ctx in
      let bdry = Desugared.BoundaryEqType (c1, c2) in
      (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
 
@@ -1580,34 +1580,34 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
           comp ctx c2,
           comp ctx c3)
      in
-     let pth, ctx = Ctx.add_tt_constructor ~loc rname arity ctx in
+     let pth, ctx = Ctx.add_tt_constructor ~at rname arity ctx in
      let bdry = Desugared.BoundaryEqTerm (c1, c2, c3) in
      (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
 
   | Sugared.DeclOperation (op, (args, res)) ->
-     let args, res = decl_operation ~loc ctx args res in
-     let pth, ctx = Ctx.add_operation ~loc op (ml_arity args) ctx in
+     let args, res = decl_operation ~at ctx args res in
+     let pth, ctx = Ctx.add_operation ~at op (ml_arity args) ctx in
      (ctx, locate1 (Desugared.DeclOperation (pth, (args, res))))
 
   | Sugared.DefMLType defs ->
-     let ctx, defs = mlty_defs ~loc ctx defs in
+     let ctx, defs = mlty_defs ~at ctx defs in
      (ctx, locate1 (Desugared.DefMLType defs))
 
   | Sugared.DefMLTypeRec defs ->
-     let ctx, defs = mlty_rec_defs ~loc ctx defs in
+     let ctx, defs = mlty_rec_defs ~at ctx defs in
      (ctx, locate1 (Desugared.DefMLTypeRec defs))
 
   | Sugared.DeclExternal (x, sch, s) ->
      let sch = ml_schema ctx sch in
-     let ctx = Ctx.add_ml_value ~loc x ctx in
+     let ctx = Ctx.add_ml_value ~at x ctx in
      (ctx, locate1 (Desugared.DeclExternal (x, sch, s)))
 
   | Sugared.TopLet lst ->
-     let ctx, lst = let_clauses ~loc ~toplevel:true ctx lst in
+     let ctx, lst = let_clauses ~at ~toplevel:true ctx lst in
      (ctx, locate1 (Desugared.TopLet lst))
 
   | Sugared.TopLetRec lst ->
-     let ctx, lst = letrec_clauses ~loc ~toplevel:true ctx lst in
+     let ctx, lst = letrec_clauses ~at ~toplevel:true ctx lst in
      (ctx, locate1 (Desugared.TopLetRec lst))
 
   | Sugared.TopComputation c ->
@@ -1616,7 +1616,7 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
 
   | Sugared.TopDynamic (x, annot, c) ->
      let c = comp ctx c in
-     let ctx = Ctx.add_ml_value ~loc x ctx in
+     let ctx = Ctx.add_ml_value ~at x ctx in
      let annot = arg_annotation ctx annot in
      (ctx, locate1 (Desugared.TopDynamic (x, annot, c)))
 
@@ -1629,37 +1629,37 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
      (ctx, locate1 (Desugared.Verbosity n))
 
   | Sugared.Require mdl_names ->
-     requires ~loc ~loading ~basedir ctx mdl_names
+     requires ~at ~loading ~basedir ctx mdl_names
 
   | Sugared.Include mdl_path ->
-     let _, mdl = Ctx.get_ml_module ~loc mdl_path ctx in
-     let ctx = Ctx.include_ml_module ~loc mdl ctx in
+     let _, mdl = Ctx.get_ml_module ~at mdl_path ctx in
+     let ctx = Ctx.include_ml_module ~at mdl ctx in
      (ctx, [])
 
   | Sugared.Open mdl_path ->
-     let pth, mdl = Ctx.get_ml_module ~loc mdl_path ctx in
-     let ctx = Ctx.open_ml_module ~loc mdl ctx in
+     let pth, mdl = Ctx.get_ml_module ~at mdl_path ctx in
+     let ctx = Ctx.open_ml_module ~at mdl ctx in
      (ctx, locate1 (Desugared.Open pth))
 
   | Sugared.TopModule (x, cmds) ->
-     let ctx, cmd = ml_module ~loc ~loading ~basedir ctx x cmds in
+     let ctx, cmd = ml_module ~at ~loading ~basedir ctx x cmds in
      (ctx, [cmd])
 
-and requires ~loc ~loading ~basedir ctx mdl_names =
+and requires ~at ~loading ~basedir ctx mdl_names =
   let rec fold ctx mdls = function
     | [] -> ctx, List.rev mdls
     | mdl_name :: mdl_names ->
-       let ctx, mdl = require ~loc ~loading ~basedir ctx mdl_name in
+       let ctx, mdl = require ~at ~loading ~basedir ctx mdl_name in
        fold ctx (mdl :: mdls) mdl_names
   in
   fold ctx [] mdl_names
 
-and require ~loc ~loading ~basedir ctx mdl_name =
+and require ~at ~loading ~basedir ctx mdl_name =
   (* TODO keep a list of already required modules and avoid reloading
      the same module several times? *)
   if List.exists (Name.equal mdl_name) loading then
     (* We are in the process of loading this module, circular dependency *)
-    error ~loc (CircularRequire (List.rev (mdl_name :: loading)))
+    error ~at (CircularRequire (List.rev (mdl_name :: loading)))
   else
     let rec unique xs = function
       | [] -> List.rev xs
@@ -1677,12 +1677,12 @@ and require ~loc ~loading ~basedir ctx mdl_name =
     match List.find_opt Sys.file_exists fns with
 
     | None ->
-       error ~loc (RequiredModuleMissing (mdl_name, fns))
+       error ~at (RequiredModuleMissing (mdl_name, fns))
 
     | Some fn ->
        let loading = mdl_name :: loading in
        let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
-       let ctx, cmd = ml_module ~loc ~loading ~basedir ctx mdl_name cmds in
+       let ctx, cmd = ml_module ~at ~loading ~basedir ctx mdl_name cmds in
        ctx, cmd
 
 and toplevels ~loading ~basedir ctx cmds =
@@ -1696,12 +1696,12 @@ and toplevels ~loading ~basedir ctx cmds =
   in
   ctx, List.rev cmds
 
-and ml_module ~loc ~loading ~basedir ctx m cmds =
+and ml_module ~at ~loading ~basedir ctx m cmds =
   let ctx = Ctx.push_module m ctx in
   let ctx, cmds = toplevels ~loading ~basedir ctx cmds in
   let ctx, mdl = Ctx.pop_module ctx in
-  let ctx = Ctx.add_ml_module ~loc m mdl ctx in
-  ctx, Location.locate (Desugared.MLModule (m, cmds)) loc
+  let ctx = Ctx.add_ml_module ~at m mdl ctx in
+  ctx, Location.mark ~at (Desugared.MLModule (m, cmds))
 
 let toplevel ~basedir ctx cmd = toplevel' ~loading:[] ~basedir ctx cmd
 
@@ -1716,7 +1716,7 @@ let load_ml_module ctx fn =
   let mdl_name = Name.mk_name (Filename.remove_extension basename) in
   let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
   ml_module
-    ~loc:Location.unknown
+    ~at:Location.unknown
     ~loading:[mdl_name]
     ~basedir:dirname
     ctx mdl_name cmds
@@ -1725,21 +1725,21 @@ let initial_context, initial_commands =
   try
     toplevels ~loading:[] ~basedir:Filename.current_dir_name Ctx.empty Builtin.initial
   with
-  | Error {Location.thing=err;_} ->
+  | Error {Location.it=err;_} ->
     Print.error "Error in built-in code:@ %t.@." (print_error err) ;
     Pervasives.exit 1
 
 module Builtin =
 struct
-  let bool = fst (Ctx.get_ml_type ~loc:Location.unknown Name.Builtin.bool initial_context)
+  let bool = fst (Ctx.get_ml_type ~at:Location.unknown Name.Builtin.bool initial_context)
   let mlfalse = fst (Ctx.get_ml_constructor Name.Builtin.mlfalse initial_context)
   let mltrue = fst (Ctx.get_ml_constructor Name.Builtin.mltrue initial_context)
 
-  let list = fst (Ctx.get_ml_type ~loc:Location.unknown Name.Builtin.list initial_context)
+  let list = fst (Ctx.get_ml_type ~at:Location.unknown Name.Builtin.list initial_context)
   let nil = fst (Ctx.get_ml_constructor Name.Builtin.nil initial_context)
   let cons = fst (Ctx.get_ml_constructor Name.Builtin.cons initial_context)
 
-  let option = fst (Ctx.get_ml_type ~loc:Location.unknown Name.Builtin.option initial_context)
+  let option = fst (Ctx.get_ml_type ~at:Location.unknown Name.Builtin.option initial_context)
   let none = fst (Ctx.get_ml_constructor Name.Builtin.none initial_context)
   let some = fst (Ctx.get_ml_constructor Name.Builtin.some initial_context)
 

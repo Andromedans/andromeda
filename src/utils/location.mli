@@ -22,7 +22,7 @@
 type t
 
 (** Type of located things. *)
-type 'a located = private {thing: 'a; loc: t}
+type 'a located = private {it: 'a; at: t}
 
 (** Print a location. *)
 val print : t -> Format.formatter -> unit
@@ -34,7 +34,7 @@ val unknown : t
 val make : Lexing.position -> Lexing.position -> t
 
 (** Create a located thing. *)
-val locate : 'a -> t -> 'a located
+val mark : at:t -> 'a -> 'a located
 
 (** [union l1 l2] combines l1 and l2 to span from (min l1.beg l2.beg) to the
     end of (max l1.end l2.end). l1 and l2 have to come from the same file.
@@ -54,4 +54,3 @@ sig
   (** Convert a located thing to JSON *)
   val located : ('a -> Json.t) -> 'a located -> Json.t
 end
-

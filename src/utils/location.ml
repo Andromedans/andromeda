@@ -13,7 +13,7 @@ type t =
   | Known of known
 
 (** Type of located things. *)
-type 'a located = { thing: 'a; loc: t}
+type 'a located = { it: 'a; at: t}
 
 let print loc ppf =
   match loc with
@@ -44,7 +44,7 @@ let make start_lexpos end_lexpos =
   assert (start_filename = end_filename);
   Known {filename = start_filename; start_line; start_col; end_line; end_col}
 
-let locate x loc = { thing = x; loc }
+let mark ~at x = { it = x; at }
 
 let union l1 l2 =
   match l1, l2 with
@@ -88,8 +88,8 @@ struct
                    Json.Int end_line;
                    Json.Int end_col ]
 
-  let located to_json {thing; loc} =
+  let located to_json {it; at} =
     if !Config.json_location
-    then Json.tuple [to_json thing; location loc]
-    else to_json thing
+    then Json.tuple [to_json it; location at]
+    else to_json it
 end

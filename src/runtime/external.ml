@@ -33,7 +33,7 @@ let externals =
                   else Reflect.mlequal)
              with
              | Invalid_argument _ ->
-                Runtime.(error ~loc:Location.unknown InvalidComparison)
+                Runtime.(error ~at:Location.unknown InvalidComparison)
            )
     ));
 
@@ -49,7 +49,7 @@ let externals =
 
     ("config", (* mlstring -> mlunit *)
      Runtime.mk_closure (fun v ->
-         let s = Runtime.as_string ~loc:Location.unknown v in
+         let s = Runtime.as_string ~at:Location.unknown v in
          match s with
          | "ascii" ->
             Config.ascii := true;
@@ -67,7 +67,7 @@ let externals =
             Config.json_location := false;
             Runtime.return_unit
 
-         | _ -> Runtime.(error ~loc:Location.unknown (UnknownConfig s))
+         | _ -> Runtime.(error ~at:Location.unknown (UnknownConfig s))
     ));
 
     ("exit", (* forall a, mlunit -> a *)

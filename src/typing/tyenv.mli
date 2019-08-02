@@ -50,19 +50,19 @@ val add_tt_constructor : Ident.t -> unit tyenvM
 
 (** [add_equation ~loc t1 t2] try to unify the actual type [t1] with the expected type
     [t2]. If successful, retry to solve the current unsolved constraints. *)
-val add_equation : loc:Location.t -> Mlty.ty -> Mlty.ty -> unit tyenvM
+val add_equation : at:Location.t -> Mlty.ty -> Mlty.ty -> unit tyenvM
 
 (** Express the given type either as a judgement or a boundary type. *)
-val as_judgement_or_boundary : loc:Location.t -> Mlty.ty -> judgement_or_boundary tyenvM
+val as_judgement_or_boundary : at:Location.t -> Mlty.ty -> judgement_or_boundary tyenvM
 
 (** Express the given type as a handler type. *)
-val as_handler : loc:Location.t -> Mlty.ty -> (Mlty.ty * Mlty.ty) tyenvM
+val as_handler : at:Location.t -> Mlty.ty -> (Mlty.ty * Mlty.ty) tyenvM
 
 (** Express the given type as a reference type. *)
-val as_ref : loc:Location.t -> Mlty.ty -> Mlty.ty tyenvM
+val as_ref : at:Location.t -> Mlty.ty -> Mlty.ty tyenvM
 
 (** Express the given type as a dynamic variable type. *)
-val as_dynamic : loc:Location.t -> Mlty.ty -> Mlty.ty tyenvM
+val as_dynamic : at:Location.t -> Mlty.ty -> Mlty.ty tyenvM
 
 (** [op_cases op output m] runs [m] with the expected types of the arguments of [op] and
    the continuation having the appropriate type. *)
@@ -76,7 +76,7 @@ val generalize : Mlty.ty -> Mlty.ty_schema tyenvM
 
 (** Check that the given type can be generalized to the given schema in the current
    environment, possibly solving unification problems. *)
-val generalizes_to : loc:Location.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
+val generalizes_to : at:Location.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
 
 (** Return the given type as a schema without generalizing anything. *)
 val ungeneralize : Mlty.ty -> Mlty.ty_schema tyenvM

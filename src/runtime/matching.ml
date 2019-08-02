@@ -13,7 +13,7 @@ let as_is_term jdg =
   | Some (Nucleus.JudgementIsTerm e) -> e
   | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) -> raise Match_fail
 
-let rec collect_pattern sgn xvs {Location.thing=p';loc} v =
+let rec collect_pattern sgn xvs {Location.it=p'; at} v =
   match p', v with
   | Syntax.Patt_Anonymous, _ -> xvs
 
@@ -60,7 +60,7 @@ let rec collect_pattern sgn xvs {Location.thing=p';loc} v =
      let e = as_is_term abstr in
      let xvs = collect_pattern sgn xvs p1 v  in
      begin match p2 with
-     | {Location.thing=Syntax.Patt_Anonymous;_} -> xvs
+     | {Location.it=Syntax.Patt_Anonymous;_} -> xvs
      | _ ->
         let t = Nucleus.type_of_term sgn e in
         let t_abstr = Nucleus.(abstract_not_abstract (JudgementIsType t)) in
@@ -164,7 +164,7 @@ let rec collect_pattern sgn xvs {Location.thing=p';loc} v =
 
   | Syntax.Patt_Tuple _,
     Runtime.(Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _) ->
-     Runtime.(error ~loc (InvalidPatternMatch v))
+     Runtime.(error ~at (InvalidPatternMatch v))
 
 and collect_judgement sgn xvs p abstr =
   collect_pattern sgn xvs p (Runtime.mk_judgement abstr)
@@ -260,7 +260,7 @@ let match_pattern p v =
 let collect_boundary_pattern sgn xvs pttrn bdry =
   failwith "pattern matching of boundaries not implemented"
 
-let match_op_pattern ~loc ps p_bdry vs bdry =
+let match_op_pattern ps p_bdry vs bdry =
   Runtime.get_env >>= fun env ->
   let sgn = Runtime.get_signature env in
   let r =

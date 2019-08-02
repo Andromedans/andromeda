@@ -3,7 +3,7 @@
 
 let name_alpha = Name.mk_name (Name.greek 0)
 
-let unloc x = Location.locate x Location.unknown
+let unloc x = Location.mark ~at:Location.unknown x
 
 let builtin_ml_types =
   let ty_alpha = unloc (Sugared.ML_TyApply (Name.PName name_alpha, [])) in

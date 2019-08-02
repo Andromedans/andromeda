@@ -76,7 +76,7 @@ val eq_meta : meta -> meta -> bool
 val eq_param : param -> param -> bool
 
 (** Convenience function to raise an error. *)
-val error : loc:Location.t -> error -> 'a
+val error : at:Location.t -> error -> 'a
 
 (** The type of printing environments, which ensure readable printing of metavariables and type parameters. Mutable. *)
 type print_env

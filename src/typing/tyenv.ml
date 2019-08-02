@@ -204,18 +204,18 @@ let add_tt_constructor c env =
   let context = Context.add_tt_constructor c env.context in
   (), {env with context}
 
-let add_equation ~loc t t' env =
+let add_equation ~at t t' env =
   match unifiable env.context env.substitution t t' with
 
   | Some s ->
      return () {env with substitution=s}
 
   | None ->
-     Mlty.(error ~loc
+     Mlty.(error ~at
                 (TypeMismatch (Substitution.apply env.substitution t,
                                Substitution.apply env.substitution t')))
 
-let as_judgement_or_boundary ~loc t env =
+let as_judgement_or_boundary ~at t env =
   let t = whnf env.context env.substitution t in
   match t with
 
@@ -224,12 +224,12 @@ let as_judgement_or_boundary ~loc t env =
   | Mlty.Boundary -> return Is_boundary env
 
   | Mlty.Meta _ ->
-     Mlty.error ~loc Mlty.UninferrableExpression
+     Mlty.error ~at Mlty.UninferrableExpression
 
   | Mlty.(String | Ref _ | Dynamic _ |  Param _ | Handler _ | Prod _ | Arrow _ | Apply _) ->
-     Mlty.(error ~loc (JudgementOrBoundaryExpected t))
+     Mlty.(error ~at (JudgementOrBoundaryExpected t))
 
-let as_handler ~loc t env =
+let as_handler ~at t env =
   let t = whnf env.context env.substitution t in
   match t with
 
@@ -245,9 +245,9 @@ let as_handler ~loc t env =
 
   | Mlty.(Judgement | Boundary | String | Ref _ | Dynamic _ |  Param _ |
      Prod _ | Arrow _ | Apply _) ->
-     Mlty.(error ~loc (HandlerExpected t))
+     Mlty.(error ~at (HandlerExpected t))
 
-let as_ref ~loc t env =
+let as_ref ~at t env =
   let t = whnf env.context env.substitution t in
   match t with
 
@@ -262,9 +262,9 @@ let as_ref ~loc t env =
 
   | Mlty.(Judgement | Boundary | String | Param _ | Prod _ | Handler _ |
      Arrow _ | Apply _ | Dynamic _) ->
-     Mlty.(error ~loc (RefExpected t))
+     Mlty.(error ~at (RefExpected t))
 
-let as_dynamic ~loc t env =
+let as_dynamic ~at t env =
   let t = whnf env.context env.substitution t in
   match t with
 
@@ -278,14 +278,14 @@ let as_dynamic ~loc t env =
      end
 
   | Mlty.(Judgement | Boundary | String | Param _ | Prod _ | Handler _ | Arrow _ | Apply _ | Ref _) ->
-     Mlty.(error ~loc (DynamicExpected t))
+     Mlty.(error ~at (DynamicExpected t))
 
 let op_cases op ~output m env =
   let oid, argts, context = Context.op_cases op ~output env.context in
   m oid argts {env with context}
 
-let generalizes_to ~loc t (ps, u) env =
-  let (), env = add_equation ~loc t u env in
+let generalizes_to ~at t (ps, u) env =
+  let (), env = add_equation ~at t u env in
   (* NB: [s1] is the one that has [ps] appearing in the image *)
   let s1, s2 = Substitution.partition
             (fun _ t -> Mlty.params_occur ps t)
@@ -309,7 +309,7 @@ let generalizes_to ~loc t (ps, u) env =
            ms)
         ps
     in
-    Mlty.error ~loc (Mlty.Ungeneralizable (ps, u))
+    Mlty.error ~at (Mlty.Ungeneralizable (ps, u))
 
 (* let normalize_schema (ps, t) env = *)
 (*   let t = Substitution.apply env.substitution t in *)

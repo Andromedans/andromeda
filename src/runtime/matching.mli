@@ -10,7 +10,6 @@ val top_match_pattern : Syntax.pattern -> Runtime.value -> Runtime.value list op
 (** [match_op_pattern ps p_out vs t_out] matches patterns [ps] against values [vs] and
     the optional pattern [p_out] against the optional type [t_out]. *)
 val match_op_pattern :
-  loc:Location.t ->
   Syntax.pattern list -> Syntax.pattern option ->
   Runtime.value list -> Nucleus.boundary_abstraction option ->
   Runtime.value list option Runtime.comp

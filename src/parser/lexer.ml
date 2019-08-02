@@ -80,12 +80,12 @@ let update_eoi ({ Ulexbuf.pos_end; line_limit;_ } as lexbuf) =
     if pos_end.Lexing.pos_lnum >= line_limit
     then Ulexbuf.reached_end_of_input lexbuf
 
-let loc_of lex = Location.make lex.Ulexbuf.pos_start lex.Ulexbuf.pos_end
+let at_of lex = Location.make lex.Ulexbuf.pos_start lex.Ulexbuf.pos_end
 
 let safe_int_of_string lexbuf =
   let s = Ulexbuf.lexeme lexbuf in
   try int_of_string s
-  with Failure _ -> Ulexbuf.error ~loc:(loc_of lexbuf) (Ulexbuf.BadNumeral s)
+  with Failure _ -> Ulexbuf.error ~at:(at_of lexbuf) (Ulexbuf.BadNumeral s)
 
 let rec token ({ Ulexbuf.end_of_input;_ } as lexbuf) =
   if end_of_input then EOF else token_aux lexbuf
@@ -124,26 +124,26 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ';'                      -> f (); SEMI
   (* We record the location of operators here because menhir cannot handle %infix and
      mark_location simultaneously, it seems. *)
-  | '?'                      -> f (); QUESTIONMARK (Name.mk_name ~fixity:Name.Prefix "?", loc_of lexbuf)
+  | '?'                      -> f (); QUESTIONMARK (Name.mk_name ~fixity:Name.Prefix "?", at_of lexbuf)
   | prefixop                 -> f (); PREFIXOP (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.mk_name ~fixity:Name.Prefix s, loc_of lexbuf)
+                                                Name.mk_name ~fixity:Name.Prefix s, at_of lexbuf)
   (* Comes before infixop0 because it also matches infixop0. *)
-  | '='                      -> f (); EQ (Name.mk_name ~fixity:(Name.Infix Level.Infix0) "=", loc_of lexbuf)
+  | '='                      -> f (); EQ (Name.mk_name ~fixity:(Name.Infix Level.Infix0) "=", at_of lexbuf)
   | infixop0                 -> f (); INFIXOP0 (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.mk_name ~fixity:(Name.Infix Level.Infix0) s, loc_of lexbuf)
+                                                Name.mk_name ~fixity:(Name.Infix Level.Infix0) s, at_of lexbuf)
   | infixop1                 -> f (); INFIXOP1 (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.mk_name ~fixity:(Name.Infix Level.Infix1) s, loc_of lexbuf)
+                                                Name.mk_name ~fixity:(Name.Infix Level.Infix1) s, at_of lexbuf)
   | infixcons                -> f (); INFIXCONS(let s = Ulexbuf.lexeme lexbuf in
-                                                Name.mk_name ~fixity:(Name.Infix Level.InfixCons) s, loc_of lexbuf)
+                                                Name.mk_name ~fixity:(Name.Infix Level.InfixCons) s, at_of lexbuf)
   | infixop2                 -> f (); INFIXOP2 (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.mk_name ~fixity:(Name.Infix Level.Infix2) s, loc_of lexbuf)
+                                                Name.mk_name ~fixity:(Name.Infix Level.Infix2) s, at_of lexbuf)
   (* Comes before infixop3 because ** matches the infixop3 pattern too *)
   | infixop4                 -> f (); INFIXOP4 (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.mk_name ~fixity:(Name.Infix Level.Infix4) s, loc_of lexbuf)
+                                                Name.mk_name ~fixity:(Name.Infix Level.Infix4) s, at_of lexbuf)
   (* Comes before infixop3 because * matches the infixop3 pattern too *)
-  | '*'                      -> f (); STAR (Name.mk_name ~fixity:(Name.Infix Level.Infix3) "*", loc_of lexbuf)
+  | '*'                      -> f (); STAR (Name.mk_name ~fixity:(Name.Infix Level.Infix3) "*", at_of lexbuf)
   | infixop3                 -> f (); INFIXOP3 (let s = Ulexbuf.lexeme lexbuf in
-                                                Name.mk_name ~fixity:(Name.Infix Level.Infix3) s, loc_of lexbuf)
+                                                Name.mk_name ~fixity:(Name.Infix Level.Infix3) s, at_of lexbuf)
 
   | eof                      -> f (); EOF
 
@@ -157,8 +157,8 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
 
   | any -> f ();
      let w = Ulexbuf.lexeme lexbuf in
-     let loc = loc_of lexbuf in
-     Ulexbuf.error ~loc (Ulexbuf.Unexpected w)
+     let at = at_of lexbuf in
+     Ulexbuf.error ~at (Ulexbuf.Unexpected w)
   | _ -> assert false
 
 and comments level ({ Ulexbuf.stream;_ } as lexbuf) =
@@ -171,7 +171,7 @@ and comments level ({ Ulexbuf.stream;_ } as lexbuf) =
 
   | start_longcomment -> comments (level+1) lexbuf
   | '\n'        -> Ulexbuf.new_line lexbuf; comments level lexbuf
-  | eof         -> Ulexbuf.error ~loc:(loc_of lexbuf) Ulexbuf.UnclosedComment
+  | eof         -> Ulexbuf.error ~at:(at_of lexbuf) Ulexbuf.UnclosedComment
   | any         -> comments level lexbuf
   | _           -> assert false
 
@@ -194,11 +194,11 @@ let run
   with
   | Parser.Error ->
      let w = Ulexbuf.lexeme lexbuf in
-     let loc = loc_of lexbuf in
-     Ulexbuf.error ~loc (Ulexbuf.Unexpected w)
+     let at = at_of lexbuf in
+     Ulexbuf.error ~at (Ulexbuf.Unexpected w)
   | Sedlexing.MalFormed ->
-     let loc = loc_of lexbuf in
-     Ulexbuf.error ~loc Ulexbuf.MalformedUTF8
+     let at = at_of lexbuf in
+     Ulexbuf.error ~at Ulexbuf.MalformedUTF8
   (* | Sedlexing.InvalidCodepoint _ -> *)
   (*    assert false (\* Shouldn't happen with UTF8 *\) *)
 
@@ -216,7 +216,7 @@ let read_file ?line_limit parse fn =
       Ulexbuf.Error err -> close_in fh; raise (Ulexbuf.Error err)
   with
   (* Any errors when opening or closing a file are fatal. *)
-    Sys_error msg -> raise (Ulexbuf.error ~loc:Location.unknown (Ulexbuf.SysError msg))
+    Sys_error msg -> raise (Ulexbuf.error ~at:Location.unknown (Ulexbuf.SysError msg))
 
 
 let read_toplevel parse () =

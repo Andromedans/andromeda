@@ -67,55 +67,55 @@ val mk_string : string -> value
 (** {b Value extraction} *)
 
 (** Convert to a non-abstracted value, or fail with [UnexpectedAbstraction] *)
-val as_not_abstract : loc:Location.t -> 'a Nucleus.abstraction -> 'a
+val as_not_abstract : at:Location.t -> 'a Nucleus.abstraction -> 'a
 
 (** Convert, or fail with [IsTermExpected] *)
-val as_is_term : loc:Location.t -> value -> Nucleus.is_term
+val as_is_term : at:Location.t -> value -> Nucleus.is_term
 
 (** Convert, or fail with [IsTypeExpected] *)
-val as_is_type : loc:Location.t -> value -> Nucleus.is_type
+val as_is_type : at:Location.t -> value -> Nucleus.is_type
 
 (** Convert, or fail with [EqTermExpected] *)
-val as_eq_term : loc:Location.t -> value -> Nucleus.eq_term
+val as_eq_term : at:Location.t -> value -> Nucleus.eq_term
 
 (** Convert, or fail with [EqTypeExpected] *)
-val as_eq_type : loc:Location.t -> value -> Nucleus.eq_type
+val as_eq_type : at:Location.t -> value -> Nucleus.eq_type
 
 (** Convert, or fail with [JudgementExpected] *)
-val as_judgement : loc:Location.t -> value -> Nucleus.judgement
+val as_judgement : at:Location.t -> value -> Nucleus.judgement
 
 (** Convert, or fail with [IsTermAbstractionExpected] *)
-val as_is_term_abstraction : loc:Location.t -> value -> Nucleus.is_term_abstraction
+val as_is_term_abstraction : at:Location.t -> value -> Nucleus.is_term_abstraction
 
 (** Convert, or fail with [IsTypeAbstractionExpected] *)
-val as_is_type_abstraction : loc:Location.t -> value -> Nucleus.is_type_abstraction
+val as_is_type_abstraction : at:Location.t -> value -> Nucleus.is_type_abstraction
 
 (** Convert, or fail with [EqTermAbstractionExpected] *)
-val as_eq_term_abstraction : loc:Location.t -> value -> Nucleus.eq_term_abstraction
+val as_eq_term_abstraction : at:Location.t -> value -> Nucleus.eq_term_abstraction
 
 (** Convert, or fail with [EqTypeAbstractionExpected] *)
-val as_eq_type_abstraction : loc:Location.t -> value -> Nucleus.eq_type_abstraction
+val as_eq_type_abstraction : at:Location.t -> value -> Nucleus.eq_type_abstraction
 
 (** Convert, or fail with [JudgementAbstractionExpected] *)
-val as_judgement_abstraction : loc:Location.t -> value -> Nucleus.judgement_abstraction
+val as_judgement_abstraction : at:Location.t -> value -> Nucleus.judgement_abstraction
 
 (** Convert, or fail with [BoundaryAbstractionExpected] *)
-val as_boundary_abstraction : loc:Location.t -> value -> Nucleus.boundary_abstraction
+val as_boundary_abstraction : at:Location.t -> value -> Nucleus.boundary_abstraction
 
 (** Convert, or fail with [ClosureExpected] *)
-val as_closure : loc:Location.t -> value -> (value,value) closure
+val as_closure : at:Location.t -> value -> (value,value) closure
 
 (** Convert, or fail with [HandlerExpected] *)
-val as_handler : loc:Location.t -> value -> handler
+val as_handler : at:Location.t -> value -> handler
 
 (** Convert, or fail with [RefExpected] *)
-val as_ref : loc:Location.t -> value -> ml_ref
+val as_ref : at:Location.t -> value -> ml_ref
 
 (** Convert, or fail with [DynExpected] *)
-val as_dyn : loc:Location.t -> value -> ml_dyn
+val as_dyn : at:Location.t -> value -> ml_dyn
 
 (** Convert, or fail with [StringExpected] *)
-val as_string : loc:Location.t -> value -> string
+val as_string : at:Location.t -> value -> string
 
 
 (** {b Other operations} *)
@@ -184,7 +184,7 @@ exception Error of error Location.located
 val print_error : penv:penv -> error -> Format.formatter -> unit
 
 (** Report a runtime error (raises an Error exception) *)
-val error : loc:Location.t -> error -> 'a
+val error : at:Location.t -> error -> 'a
 
 
 (** {6 Computation} *)
@@ -306,7 +306,7 @@ val top_now : ml_dyn -> value -> unit toplevel
 val add_rule : Ident.t -> Rule.rule -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
-val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
+val top_handle : at:Location.t -> 'a comp -> 'a toplevel
 
 (** Lookup the current printing environment *)
 val top_lookup_penv : penv toplevel
