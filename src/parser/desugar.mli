@@ -23,7 +23,7 @@ end
 
 (** [toplevel basedir ctx c] desugars a toplevel command [c] with
     [ctx] information about bound names and [basedir] the directory used for relative inclusion paths. *)
-val toplevel : basedir:string -> Ctx.t -> Input.toplevel -> Ctx.t * Dsyntax.toplevel list
+val toplevel : basedir:string -> Ctx.t -> Sugared.toplevel -> Ctx.t * Dsyntax.toplevel list
 
 (** [use_file ctx fn] desugars commands in the given filename *)
 val use_file : Ctx.t -> string -> Ctx.t * Dsyntax.toplevel list

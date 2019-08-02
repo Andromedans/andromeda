@@ -8,4 +8,4 @@
        - operations [equal], [coerce]
        - the dynamic variable [hypotheses]
  *)
-val initial : Input.toplevel list
+val initial : Sugared.toplevel list

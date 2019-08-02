@@ -1,7 +1,3 @@
-%{
-  open Input
-%}
-
 (* Infix operations *)
 %token <Name.t * Location.t> QUESTIONMARK PREFIXOP EQ INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
 
@@ -77,8 +73,8 @@
 %left     STAR INFIXOP3
 %right    INFIXOP4
 
-%start <Input.toplevel list> file
-%start <Input.toplevel> commandline
+%start <Sugared.toplevel list> file
+%start <Sugared.toplevel> commandline
 
 %%
 
@@ -125,52 +121,52 @@ commandline:
 top_term: mark_location(top_term_) { $1 }
 top_term_:
   | t=term
-    { TopComputation t }
+    { Sugared.TopComputation t }
 
 (* Toplevel commands that need not be preceeded by double semicolon. *)
 top_command: mark_location(top_command_) { $1 }
 top_command_:
   | REQUIRE mdls=separated_nonempty_list(COMMA, module_name)
-    { Require mdls }
+    { Sugared.Require mdls }
 
   | INCLUDE mdl=long(module_name)
-    { Include mdl }
+    { Sugared.Include mdl }
 
   | OPEN mdl=long(module_name)
-    { Open mdl }
+    { Sugared.Open mdl }
 
   | MODULE mdl=module_name EQ STRUCT cmds=ml_module END
-    { TopModule (mdl, cmds) }
+    { Sugared.TopModule (mdl, cmds) }
 
   | LET lst=separated_nonempty_list(AND, let_clause)
-    { TopLet lst }
+    { Sugared.TopLet lst }
 
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
-    { TopLetRec lst }
+    { Sugared.TopLetRec lst }
 
   | DYNAMIC x=ml_name u=dyn_annotation EQ c=term
-    { TopDynamic (x, u, c) }
+    { Sugared.TopDynamic (x, u, c) }
 
   | NOW x=app_term EQ c=term
-    { TopNow (x,c) }
+    { Sugared.TopNow (x,c) }
 
   (* | HANDLE lst=top_handler_cases END *)
-  (*   { TopHandle lst } *)
+  (*   { Sugared.TopHandle lst } *)
 
   | MLTYPE lst=mlty_defs
-    { DefMLType lst }
+    { Sugared.DefMLType lst }
 
   | MLTYPE REC lst=mlty_defs
-    { DefMLTypeRec lst }
+    { Sugared.DefMLTypeRec lst }
 
   | OPERATION op=op_name COLON opsig=op_mlsig
-    { DeclOperation (op, opsig) }
+    { Sugared.DeclOperation (op, opsig) }
 
   | VERBOSITY n=NUMERAL
-    { Verbosity n }
+    { Sugared.Verbosity n }
 
   | EXTERNAL n=ml_name COLON sch=ml_schema EQ s=QUOTED_STRING
-    { DeclExternal (n, sch, s) }
+    { Sugared.DeclExternal (n, sch, s) }
 
   | RULE r=rule_
     { r }
@@ -178,16 +174,16 @@ top_command_:
 
 rule_:
   | c=tt_name ps=premises TYPE
-    { RuleIsType (c, ps) }
+    { Sugared.RuleIsType (c, ps) }
 
   | c=tt_name ps=premises COLON ty=term
-    { RuleIsTerm (c, ps, ty) }
+    { Sugared.RuleIsTerm (c, ps, ty) }
 
   | c=tt_name ps=premises COLON l=app_term EQEQ r=ty_term
-    { RuleEqType (c, ps, (l, r)) }
+    { Sugared.RuleEqType (c, ps, (l, r)) }
 
   | c=tt_name ps=premises COLON l=app_term EQEQ r=app_term COLON ty=term
-    { RuleEqTerm (c, ps, (l, r, ty)) }
+    { Sugared.RuleEqTerm (c, ps, (l, r, ty)) }
 
 premises:
   |
@@ -200,16 +196,16 @@ premises:
 premise: mark_location(premise_) { $1 }
 premise_:
   | lctx=local_context mv=opt_name(tt_name) TYPE
-    { PremiseIsType (mv, lctx) }
+    { Sugared.PremiseIsType (mv, lctx) }
 
   | lctx=local_context mv=opt_name(tt_name) COLON ty=term
-    { PremiseIsTerm (mv, lctx, ty) }
+    { Sugared.PremiseIsTerm (mv, lctx, ty) }
 
   | lctx=local_context l=app_term EQEQ r=ty_term mv=equality_premise_name
-    { PremiseEqType (mv, lctx, (l, r)) }
+    { Sugared.PremiseEqType (mv, lctx, (l, r)) }
 
   | lctx=local_context l=app_term EQEQ r=app_term COLON ty=term mv=equality_premise_name
-    { PremiseEqTerm (mv, lctx, (l, r, ty)) }
+    { Sugared.PremiseEqTerm (mv, lctx, (l, r, ty)) }
 
 
 equality_premise_name:
@@ -232,40 +228,40 @@ term_:
     { e }
 
   | LET a=separated_nonempty_list(AND,let_clause) IN c=term
-    { Let (a, c) }
+    { Sugared.Let (a, c) }
 
   | LET REC lst=separated_nonempty_list(AND, recursive_clause) IN c=term
-    { LetRec (lst, c) }
+    { Sugared.LetRec (lst, c) }
 
   | NOW x=app_term EQ c1=term IN c2=term
-    { Now (x,c1,c2) }
+    { Sugared.Now (x,c1,c2) }
 
   | MATCH e=term WITH lst=match_cases END
-    { Match (e, lst) }
+    { Sugared.Match (e, lst) }
 
   | HANDLE c=term WITH hcs=handler_cases END
-    { Handle (c, hcs) }
+    { Sugared.Handle (c, hcs) }
 
   | FUNCTION xs=ml_arg+ DARROW e=term
-    { Function (xs, e) }
+    { Sugared.Function (xs, e) }
 
   | WITH h=term HANDLE c=term
-    { With (h, c) }
+    { Sugared.With (h, c) }
 
   | HANDLER hcs=handler_cases END
-    { Handler (hcs) }
+    { Sugared.Handler (hcs) }
 
   | FRESH x=opt_name(ml_name) COLON t=ty_term
-    { Fresh (x, t) }
+    { Sugared.Fresh (x, t) }
 
   | e=app_term COLONQT bdry=ty_term
-    { BoundaryAscribe (e, bdry) }
+    { Sugared.BoundaryAscribe (e, bdry) }
 
   | e=app_term COLON ty=ty_term
-    { TypeAscribe (e, ty) }
+    { Sugared.TypeAscribe (e, ty) }
 
   | e1=binop_term SEMI e2=term
-    { Sequence (e1, e2) }
+    { Sugared.Sequence (e1, e2) }
 
 ty_term: mark_location(ty_term_) { $1 }
 ty_term_:
@@ -273,7 +269,7 @@ ty_term_:
     { e }
 
   | a=abstraction e=binop_term
-    { Abstract (a, e) }
+    { Sugared.Abstract (a, e) }
 
 
 binop_term: mark_location(binop_term_) { $1 }
@@ -282,24 +278,24 @@ binop_term_:
     { e }
 
   | e1=app_term COLONEQ e2=binop_term
-    { Update (e1, e2) }
+    { Sugared.Update (e1, e2) }
 
   | QUESTIONMARK TYPE
-    { MLBoundaryIsType }
+    { Sugared.MLBoundaryIsType }
 
   | QUESTIONMARK COLON t=app_term
-    { MLBoundaryIsTerm t }
+    { Sugared.MLBoundaryIsTerm t }
 
   | l=app_term EQEQ r=app_term AS QUESTIONMARK
-    { MLBoundaryEqType (l, r) }
+    { Sugared.MLBoundaryEqType (l, r) }
 
   | l=app_term EQEQ r=app_term COLON ty=term AS QUESTIONMARK
-    { MLBoundaryEqTerm (l, r, ty) }
+    { Sugared.MLBoundaryEqTerm (l, r, ty) }
 
   | e1=binop_term oploc=infix e2=binop_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Name (Name.PName op)) loc in
-      Spine (op, [e1; e2])
+      let op = Location.locate (Sugared.Name (Name.PName op)) loc in
+      Sugared.Spine (op, [e1; e2])
     }
 
 app_term: mark_location(app_term_) { $1 }
@@ -308,25 +304,25 @@ app_term_:
     { e }
 
   | CURRENT c=prefix_term
-    { Current c }
+    { Sugared.Current c }
 
   | CONGRUENCE c=long(tt_name) e1=prefix_term e2=prefix_term es=list(prefix_term)
-    { Congruence (c, e1, e2, es) }
+    { Sugared.Congruence (c, e1, e2, es) }
 
   | CONTEXT c=prefix_term
-    { Context c }
+    { Sugared.Context c }
 
   | CONVERT c1=prefix_term c2=prefix_term
-    { Convert (c1, c2) }
+    { Sugared.Convert (c1, c2) }
 
   | OCCURS c1=prefix_term c2=prefix_term
-    { Occurs (c1, c2) }
+    { Sugared.Occurs (c1, c2) }
 
   | e=prefix_term s=substitution
-    { Substitute (e, s) }
+    { Sugared.Substitute (e, s) }
 
   | e=prefix_term es=nonempty_list(prefix_term)
-    { Spine (e, es) }
+    { Sugared.Spine (e, es) }
 
 prefix_term: mark_location(prefix_term_) { $1 }
 prefix_term_:
@@ -334,44 +330,44 @@ prefix_term_:
     { e }
 
   | REF e=prefix_term
-    { Ref e }
+    { Sugared.Ref e }
 
   | BANG e=prefix_term
-    { Lookup e }
+    { Sugared.Lookup e }
 
   | oploc=prefix e2=prefix_term
     { let (op, loc) = oploc in
-      let op = Location.locate (Name (Name.PName op)) loc in
-      Spine (op, [e2])
+      let op = Location.locate (Sugared.Name (Name.PName op)) loc in
+      Sugared.Spine (op, [e2])
     }
 
   | NATURAL t=prefix_term
-    { Natural t }
+    { Sugared.Natural t }
 
   | YIELD e=prefix_term
-    { Yield e }
+    { Sugared.Yield e }
 
 (* simple_term: mark_location(simple_term_) { $1 } *)
 simple_term_:
   | x=long(any_name)
-    { Name x }
+    { Sugared.Name x }
 
   | s=QUOTED_STRING
-    { String s }
+    { Sugared.String s }
 
   | LBRACK lst=list_contents RBRACK
-    { List lst }
+    { Sugared.List lst }
 
   | LBRACK RBRACK
-    { List [] }
+    { Sugared.List [] }
 
   | LPAREN c=term COLONGT t=ml_schema RPAREN
-    { MLAscribe (c, t) }
+    { Sugared.MLAscribe (c, t) }
 
   | LPAREN lst=separated_list(COMMA, term) RPAREN
     { match lst with
       | [{Location.thing=e;loc=_}] -> e
-      | _ -> Tuple lst }
+      | _ -> Sugared.Tuple lst }
 
 list_contents:
   | t=binop_term SEMI?
@@ -503,42 +499,42 @@ recursive_clause:
 
 let_clause:
   | x=ml_name ys=ml_arg* u=let_annotation EQ c=term
-    { Let_clause_ML (Some (x, ys), u, c) }
+    { Sugared.Let_clause_ML (Some (x, ys), u, c) }
 
   | UNDERSCORE u=let_annotation EQ c=term
-    { Let_clause_ML (None, u, c) }
+    { Sugared.Let_clause_ML (None, u, c) }
 
   | x=ml_name COLON t=app_term EQ c=term
-    { Let_clause_tt (Some x, t, c) }
+    { Sugared.Let_clause_tt (Some x, t, c) }
 
   | UNDERSCORE COLON t=app_term EQ c=term
-    { Let_clause_tt (None, t, c) }
+    { Sugared.Let_clause_tt (None, t, c) }
 
   | pt=let_pattern u=let_annotation EQ c=term
-    { Let_clause_patt (pt, u, c) }
+    { Sugared.Let_clause_patt (pt, u, c) }
 
 
 (* A possibly annotated argument of an ML function *)
 ml_arg:
   | x=ml_name
-    { (x, Arg_annot_none) }
+    { (x, Sugared.Arg_annot_none) }
 
   | LPAREN x=ml_name COLONGT t=mlty RPAREN
-    { (x, Arg_annot_ty t) }
+    { (x, Sugared.Arg_annot_ty t) }
 
 let_annotation:
   |
-    { Let_annot_none }
+    { Sugared.Let_annot_none }
 
   | COLONGT sch=ml_schema
-    { Let_annot_schema sch }
+    { Sugared.Let_annot_schema sch }
 
 dyn_annotation:
   |
-    { Arg_annot_none }
+    { Sugared.Arg_annot_none }
 
   | COLONGT t=mlty
-    { Arg_annot_ty t }
+    { Sugared.Arg_annot_ty t }
 
 maybe_typed_binder:
   | LBRACE xs=anon_name(tt_name)+ RBRACE
@@ -568,13 +564,13 @@ handler_cases:
 
 handler_case:
   | VAL c=match_case DARROW t=term
-    { CaseVal c }
+    { Sugared.CaseVal c }
 
   | op=long(op_name) ps=prefix_pattern* pt=handler_checking DARROW t=term
-    { CaseOp (op, (ps, pt, t)) }
+    { Sugared.CaseOp (op, (ps, pt, t)) }
 
   | FINALLY c=match_case
-    { CaseFinally c }
+    { Sugared.CaseFinally c }
 
 handler_checking:
   |
@@ -610,34 +606,34 @@ pattern_:
     { p }
 
   | p1=binop_pattern AS p2=binop_pattern
-    { Patt_As (p1, p2) }
+    { Sugared.Patt_As (p1, p2) }
 
   | p=binop_pattern TYPE
-    { Patt_IsType p }
+    { Sugared.Patt_IsType p }
 
   | p1=binop_pattern COLON p2=binop_pattern
-    { Patt_IsTerm (p1, p2) }
+    { Sugared.Patt_IsTerm (p1, p2) }
 
   | p=binop_pattern COLONGT t=prod_mlty
-    { Patt_MLAscribe (p, t) }
+    { Sugared.Patt_MLAscribe (p, t) }
 
   | p1=binop_pattern EQEQ  p2=binop_pattern
-    { Patt_EqType (p1, p2) }
+    { Sugared.Patt_EqType (p1, p2) }
 
   | p1=binop_pattern EQEQ  p2=binop_pattern COLON p3=pattern
-    { Patt_EqTerm (p1, p2, p3) }
+    { Sugared.Patt_EqTerm (p1, p2, p3) }
 
   | QUESTIONMARK COLON p=binop_pattern
-    { Patt_BoundaryIsTerm p }
+    { Sugared.Patt_BoundaryIsTerm p }
 
   | p1=binop_pattern EQEQ p2=binop_pattern AS QUESTIONMARK
-    { Patt_BoundaryEqType (p1, p2) }
+    { Sugared.Patt_BoundaryEqType (p1, p2) }
 
   | p1=binop_pattern EQEQ p2=binop_pattern COLON p3=binop_pattern AS QUESTIONMARK
-    { Patt_BoundaryEqTerm (p1, p2, p3) }
+    { Sugared.Patt_BoundaryEqTerm (p1, p2, p3) }
 
   | abstr=tt_maybe_typed_binder p=pattern
-    { Patt_Abstraction (abstr, p) }
+    { Sugared.Patt_Abstraction (abstr, p) }
 
 binop_pattern: mark_location(binop_pattern_) { $1 }
 binop_pattern_:
@@ -646,7 +642,7 @@ binop_pattern_:
 
   | e1=binop_pattern oploc=infix e2=binop_pattern
     { let (op, _) = oploc in
-      Patt_Constructor (Name.PName op, [e1; e2])
+      Sugared.Patt_Constructor (Name.PName op, [e1; e2])
     }
 
 (* app_pattern: mark_location(app_pattern_) { $1 } *)
@@ -655,7 +651,7 @@ app_pattern_:
     { e }
 
   | t=long(any_name) ps=prefix_pattern+
-    { Patt_Constructor (t, ps) }
+    { Sugared.Patt_Constructor (t, ps) }
 
 prefix_pattern: mark_location(prefix_pattern_) { $1 }
 prefix_pattern_:
@@ -663,43 +659,43 @@ prefix_pattern_:
     { e }
 
   | UATOM p=prefix_pattern
-    { Patt_GenAtom p }
+    { Sugared.Patt_GenAtom p }
 
   | oploc=prefix e=prefix_pattern
     { let (op, _) = oploc in
-      Patt_Constructor (Name.PName op, [e])
+      Sugared.Patt_Constructor (Name.PName op, [e])
     }
 
 (* simple_pattern: mark_location(simple_pattern_) { $1 } *)
 simple_pattern_:
   | UNDERSCORE
-    { Patt_Anonymous }
+    { Sugared.Patt_Anonymous }
 
   | QUESTIONMARK TYPE
-    { Patt_BoundaryIsType }
+    { Sugared.Patt_BoundaryIsType }
 
   | x=long(ml_name)
-    { Patt_Path x }
+    { Sugared.Patt_Path x }
 
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
       | [{Location.thing=p;loc=_}] -> p
-      | _ -> Patt_Tuple ps
+      | _ -> Sugared.Patt_Tuple ps
     }
 
   | LBRACK ps=separated_list(SEMI, pattern) RBRACK
-    { Patt_List ps }
+    { Sugared.Patt_List ps }
 
 let_pattern: mark_location(let_pattern_) { $1 }
 let_pattern_:
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
       | [{Location.thing=p;_}] -> p
-      | _ -> Patt_Tuple ps
+      | _ -> Sugared.Patt_Tuple ps
     }
 
   | LBRACK ps=separated_list(SEMI, pattern) RBRACK
-    { Patt_List ps }
+    { Sugared.Patt_List ps }
 
 tt_maybe_typed_binder:
   | LBRACE xs=opt_name(tt_name)+ RBRACE
@@ -720,10 +716,10 @@ op_mlsig:
 ml_schema: mark_location(ml_schema_)  { $1 }
 ml_schema_:
   | MLFORALL params=opt_name(ml_name)+ COMMA t=mlty
-    { ML_Forall (params, t) }
+    { Sugared.ML_Forall (params, t) }
 
   | t=mlty
-    { ML_Forall ([], t) }
+    { Sugared.ML_Forall ([], t) }
 
 mlty: mark_location(mlty_) { $1 }
 mlty_:
@@ -731,10 +727,10 @@ mlty_:
     { $1 }
 
   | t1=prod_mlty ARROW t2=mlty
-    { ML_Arrow (t1, t2) }
+    { Sugared.ML_Arrow (t1, t2) }
 
   | t1=prod_mlty DARROW t2=mlty
-    { ML_Handler (t1, t2) }
+    { Sugared.ML_Handler (t1, t2) }
 
 prod_mlty: mark_location(prod_mlty_) { $1 }
 prod_mlty_:
@@ -742,7 +738,7 @@ prod_mlty_:
     { match ts with
       | [] -> assert false
       | [{Location.thing=t;loc=_}] -> t
-      | _::_::_ -> ML_Prod ts
+      | _::_::_ -> Sugared.ML_Prod ts
     }
 
 app_mlty: mark_location(app_mlty_) { $1 }
@@ -751,13 +747,13 @@ app_mlty_:
     { $1 }
 
   | REF t=simple_mlty
-    { ML_Ref t }
+    { Sugared.ML_Ref t }
 
   | DYNAMIC t=simple_mlty
-    { ML_Dynamic t }
+    { Sugared.ML_Dynamic t }
 
   | c=long(ml_name) args=nonempty_list(simple_mlty)
-    { ML_TyApply (c, args) }
+    { Sugared.ML_TyApply (c, args) }
 
 simple_mlty: mark_location(simple_mlty_) { $1 }
 simple_mlty_:
@@ -765,22 +761,22 @@ simple_mlty_:
     { t }
 
   | c=long(ml_name)
-    { ML_TyApply (c, []) }
+    { Sugared.ML_TyApply (c, []) }
 
   | MLJUDGEMENT
-    { ML_Judgement }
+    { Sugared.ML_Judgement }
 
   | MLBOUNDARY
-    { ML_Boundary }
+    { Sugared.ML_Boundary }
 
   | MLUNIT
-    { ML_Prod [] }
+    { Sugared.ML_Prod [] }
 
   | MLSTRING
-    { ML_String }
+    { Sugared.ML_String }
 
   | UNDERSCORE
-    { ML_Anonymous }
+    { Sugared.ML_Anonymous }
 
 mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def)
@@ -792,13 +788,13 @@ mlty_def:
 
 mlty_def_body:
   | t=mlty
-    { ML_Alias t }
+    { Sugared.ML_Alias t }
 
   | c=mlty_constructor BAR lst=separated_list(BAR, mlty_constructor)
-    { ML_Sum (c :: lst) }
+    { Sugared.ML_Sum (c :: lst) }
 
   | BAR lst=separated_list(BAR, mlty_constructor)
-    { ML_Sum lst }
+    { Sugared.ML_Sum lst }
 
 mlty_constructor:
   | c=constr_name OF lst=separated_nonempty_list(WITH, mlty)
