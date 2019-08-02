@@ -587,24 +587,24 @@ let mlty ctx params ty =
       | Sugared.ML_Arrow (ty1, ty2) ->
          let ty1 = mlty ty1
          and ty2 = mlty ty2 in
-         Dsyntax.ML_Arrow (ty1, ty2)
+         Desugared.ML_Arrow (ty1, ty2)
 
       | Sugared.ML_Handler (ty1, ty2) ->
          let ty1 = mlty ty1
          and ty2 = mlty ty2 in
-         Dsyntax.ML_Handler (ty1, ty2)
+         Desugared.ML_Handler (ty1, ty2)
 
       | Sugared.ML_Ref t ->
          let t = mlty t in
-         Dsyntax.ML_Ref t
+         Desugared.ML_Ref t
 
       | Sugared.ML_Dynamic t ->
          let t = mlty t in
-         Dsyntax.ML_Dynamic t
+         Desugared.ML_Dynamic t
 
       | Sugared.ML_Prod tys ->
          let tys = List.map mlty tys in
-         Dsyntax.ML_Prod tys
+         Desugared.ML_Prod tys
 
       | Sugared.ML_TyApply (pth, args) ->
          begin match pth with
@@ -613,7 +613,7 @@ let mlty ctx params ty =
             let (t_pth, expected)  = Ctx.get_ml_type ~loc pth ctx in
             check_ml_arity ~loc pth (List.length args) expected ;
             let args = List.map mlty args in
-            Dsyntax.ML_Apply (t_pth, args)
+            Desugared.ML_Apply (t_pth, args)
 
          | Name.PName x ->
             (* It could be one of the bound type parameters *)
@@ -624,14 +624,14 @@ let mlty ctx params ty =
                 let (t_pth, expected) = Ctx.get_ml_type ~loc pth ctx in
                 check_ml_arity ~loc pth (List.length args) expected ;
                 let args = List.map mlty args in
-                Dsyntax.ML_Apply (t_pth, args)
+                Desugared.ML_Apply (t_pth, args)
               end
               | None :: params -> search k params
               | Some y :: params ->
                  if Name.equal x y then
                    (* It's a type parameter *)
                    begin match args with
-                   | [] -> Dsyntax.ML_Bound (Path.Index (x, k))
+                   | [] -> Desugared.ML_Bound (Path.Index (x, k))
                    | _::_ -> error ~loc AppliedTyParam
                    end
                  else search (k+1) params
@@ -640,15 +640,15 @@ let mlty ctx params ty =
          end
 
       | Sugared.ML_Anonymous ->
-         Dsyntax.ML_Anonymous
+         Desugared.ML_Anonymous
 
       | Sugared.ML_Judgement ->
-         Dsyntax.ML_Judgement
+         Desugared.ML_Judgement
 
       | Sugared.ML_Boundary ->
-         Dsyntax.ML_Boundary
+         Desugared.ML_Boundary
 
-      | Sugared.ML_String -> Dsyntax.ML_String
+      | Sugared.ML_String -> Desugared.ML_String
       end
     in
     Location.locate ty' loc
@@ -658,14 +658,14 @@ let mlty ctx params ty =
 (* TODO improve locs *)
 let mk_abstract ~loc ys c =
   List.fold_left
-    (fun c (y,u) -> Location.locate (Dsyntax.Abstract (y,u,c)) loc)
+    (fun c (y,u) -> Location.locate (Desugared.Abstract (y,u,c)) loc)
     c ys
 
 let rec pattern ~toplevel ctx {Location.thing=p; loc} =
   let locate x = Location.locate x loc in
   match p with
   | Sugared.Patt_Anonymous ->
-     ctx, locate Dsyntax.Patt_Anonymous
+     ctx, locate Desugared.Patt_Anonymous
 
   | Sugared.Patt_Path pth ->
      begin match pth with
@@ -677,15 +677,15 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
         | None ->
            let add = if toplevel then Ctx.add_ml_value ~loc else Ctx.add_bound in
            let ctx = add x ctx in
-           ctx, locate (Dsyntax.Patt_Var x)
+           ctx, locate (Desugared.Patt_Var x)
 
         | Some (MLConstructor (pth, arity)) ->
            check_ml_arity ~loc (Name.PName x) 0 arity ;
-           ctx, locate (Dsyntax.Patt_MLConstructor (pth, []))
+           ctx, locate (Desugared.Patt_MLConstructor (pth, []))
 
         | Some (TTConstructor (pth, arity)) ->
            check_tt_arity ~loc (Name.PName x) 0 arity ;
-           ctx, locate (Dsyntax.Patt_TTConstructor (pth, []))
+           ctx, locate (Desugared.Patt_TTConstructor (pth, []))
 
         | Some (Operation _ as info) ->
            error ~loc (InvalidPatternName (pth, info))
@@ -696,11 +696,11 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
 
         | MLConstructor (c_pth, arity) ->
            check_ml_arity ~loc pth 0 arity ;
-           ctx, locate (Dsyntax.Patt_MLConstructor (c_pth, []))
+           ctx, locate (Desugared.Patt_MLConstructor (c_pth, []))
 
         | TTConstructor (c_pth, arity) ->
            check_tt_arity ~loc pth 0 arity ;
-           ctx, locate (Dsyntax.Patt_TTConstructor (c_pth, []))
+           ctx, locate (Desugared.Patt_TTConstructor (c_pth, []))
 
         | (Value _ | Operation _) as info ->
            error ~loc (InvalidPatternName (pth, info))
@@ -713,24 +713,24 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
   | Sugared.Patt_MLAscribe (p, t) ->
      let ctx, p = pattern ~toplevel ctx p in
      let t = mlty ctx [] t in
-     ctx, locate (Dsyntax.Patt_MLAscribe (p, t))
+     ctx, locate (Desugared.Patt_MLAscribe (p, t))
 
   | Sugared.Patt_As (p1, p2) ->
      let ctx, p1 = pattern ~toplevel ctx p1 in
      let ctx, p2 = pattern ~toplevel ctx p2 in
-     ctx, locate (Dsyntax.Patt_As (p1, p2))
+     ctx, locate (Desugared.Patt_As (p1, p2))
 
   | Sugared.Patt_Constructor (c, ps) ->
      begin match Ctx.get_name ~loc c ctx with
      | MLConstructor (pth, arity) ->
         check_ml_arity ~loc c (List.length ps) arity ;
         let ctx, ps = patterns ~loc ~toplevel ctx ps in
-        ctx, locate (Dsyntax.Patt_MLConstructor (pth, ps))
+        ctx, locate (Desugared.Patt_MLConstructor (pth, ps))
 
      | TTConstructor (pth, arity) ->
         check_tt_arity ~loc c (List.length ps) arity ;
         let ctx, ps = patterns ~loc ~toplevel ctx ps in
-        ctx, locate (Dsyntax.Patt_TTConstructor (pth, ps))
+        ctx, locate (Desugared.Patt_TTConstructor (pth, ps))
 
      | (Bound _ | Value _ | Operation _) as info ->
         error ~loc (InvalidAppliedPatternName (c, info))
@@ -738,45 +738,45 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
 
   | Sugared.Patt_GenAtom p ->
      let ctx, p = pattern ~toplevel ctx p in
-     ctx, locate (Dsyntax.Patt_GenAtom p)
+     ctx, locate (Desugared.Patt_GenAtom p)
 
   | Sugared.Patt_IsType p ->
      let ctx, p = pattern ~toplevel ctx p in
-     ctx, locate (Dsyntax.Patt_IsType p)
+     ctx, locate (Desugared.Patt_IsType p)
 
   | Sugared.Patt_IsTerm (p1, p2) ->
      let ctx, p1 = pattern ~toplevel ctx p1 in
      let ctx, p2 = pattern ~toplevel ctx p2 in
-     ctx, locate (Dsyntax.Patt_IsTerm (p1, p2))
+     ctx, locate (Desugared.Patt_IsTerm (p1, p2))
 
   | Sugared.Patt_EqType (p1, p2) ->
      let ctx, p1 = pattern ~toplevel ctx p1 in
      let ctx, p2 = pattern ~toplevel ctx p2 in
-     ctx, locate (Dsyntax.Patt_EqType (p1, p2))
+     ctx, locate (Desugared.Patt_EqType (p1, p2))
 
   | Sugared.Patt_EqTerm (p1, p2, p3) ->
      let ctx, p1 = pattern ~toplevel ctx p1 in
      let ctx, p2 = pattern ~toplevel ctx p2 in
      let ctx, p3 = pattern ~toplevel ctx p3 in
-     ctx, locate (Dsyntax.Patt_EqTerm (p1, p2, p3))
+     ctx, locate (Desugared.Patt_EqTerm (p1, p2, p3))
 
   | Sugared.Patt_BoundaryIsType ->
-     ctx, locate (Dsyntax.Patt_BoundaryIsType)
+     ctx, locate (Desugared.Patt_BoundaryIsType)
 
   | Sugared.Patt_BoundaryIsTerm p ->
      let ctx, p = pattern ~toplevel ctx p in
-     ctx, locate (Dsyntax.Patt_BoundaryIsTerm p)
+     ctx, locate (Desugared.Patt_BoundaryIsTerm p)
 
   | Sugared.Patt_BoundaryEqType (p1, p2) ->
      let ctx, p1 = pattern ~toplevel ctx p1 in
      let ctx, p2 = pattern ~toplevel ctx p2 in
-     ctx, locate (Dsyntax.Patt_BoundaryEqType (p1, p2))
+     ctx, locate (Desugared.Patt_BoundaryEqType (p1, p2))
 
   | Sugared.Patt_BoundaryEqTerm (p1, p2, p3) ->
      let ctx, p1 = pattern ~toplevel ctx p1 in
      let ctx, p2 = pattern ~toplevel ctx p2 in
      let ctx, p3 = pattern ~toplevel ctx p3 in
-     ctx, locate (Dsyntax.Patt_BoundaryEqTerm (p1, p2, p3))
+     ctx, locate (Desugared.Patt_BoundaryEqTerm (p1, p2, p3))
 
   | Sugared.Patt_Abstraction (abstr, p0) ->
      let rec fold ctx = function
@@ -784,7 +784,7 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
        | (xopt, popt) :: abstr ->
           let ctx, popt =
             match popt with
-            | None -> ctx, locate Dsyntax.Patt_Anonymous
+            | None -> ctx, locate Desugared.Patt_Anonymous
             | Some p ->
                let ctx, p = pattern ~toplevel ctx p in
                ctx, p
@@ -799,7 +799,7 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
             end
           in
           let ctx, p = fold ctx abstr in
-          ctx, locate (Dsyntax.Patt_Abstraction (xopt, popt, p))
+          ctx, locate (Desugared.Patt_Abstraction (xopt, popt, p))
      in
      fold ctx abstr
 
@@ -807,17 +807,17 @@ let rec pattern ~toplevel ctx {Location.thing=p; loc} =
      let nil_path, _ = Ctx.get_path_nil ctx
      and cons_path, _ = Ctx.get_path_cons ctx in
      let rec fold ~loc ctx = function
-       | [] -> ctx, locate (Dsyntax.Patt_MLConstructor (nil_path, []))
+       | [] -> ctx, locate (Desugared.Patt_MLConstructor (nil_path, []))
        | p :: ps ->
           let ctx, p = pattern ~toplevel ctx  p in
           let ctx, ps = fold ~loc:(p.Location.loc) ctx ps in
-          ctx, locate (Dsyntax.Patt_MLConstructor (cons_path, [p ; ps]))
+          ctx, locate (Desugared.Patt_MLConstructor (cons_path, [p ; ps]))
      in
      fold ~loc ctx ps
 
   | Sugared.Patt_Tuple ps ->
      let ctx, ps = patterns ~loc ~toplevel ctx ps in
-     ctx, locate (Dsyntax.Patt_Tuple ps)
+     ctx, locate (Desugared.Patt_Tuple ps)
 
 and patterns ~loc ~toplevel ctx ps =
   let rec fold ctx ps_out = function
@@ -926,75 +926,75 @@ let rec comp ctx {Location.thing=c';loc} =
   | Sugared.Handle (c, hcs) ->
      let c = comp ctx c
      and h = handler ~loc ctx hcs in
-     locate (Dsyntax.With (h, c))
+     locate (Desugared.With (h, c))
 
   | Sugared.With (c1, c2) ->
      let c1 = comp ctx c1
      and c2 = comp ctx c2 in
-     locate (Dsyntax.With (c1, c2))
+     locate (Desugared.With (c1, c2))
 
   | Sugared.Let (lst, c) ->
      let ctx, lst = let_clauses ~loc ~toplevel:false ctx lst in
      let c = comp ctx c in
-     locate (Dsyntax.Let (lst, c))
+     locate (Desugared.Let (lst, c))
 
   | Sugared.LetRec (lst, c) ->
      let ctx, lst = letrec_clauses ~loc ~toplevel:false ctx lst in
      let c = comp ctx c in
-     locate (Dsyntax.LetRec (lst, c))
+     locate (Desugared.LetRec (lst, c))
 
   | Sugared.MLAscribe (c, sch) ->
      let c = comp ctx c in
      let sch = ml_schema ctx sch in
-     locate (Dsyntax.MLAscribe (c, sch))
+     locate (Desugared.MLAscribe (c, sch))
 
   | Sugared.Now (x,c1,c2) ->
      let x = comp ctx x
      and c1 = comp ctx c1
      and c2 = comp ctx c2 in
-     locate (Dsyntax.Now (x,c1,c2))
+     locate (Desugared.Now (x,c1,c2))
 
   | Sugared.Current c ->
      let c = comp ctx c in
-     locate (Dsyntax.Current c)
+     locate (Desugared.Current c)
 
   | Sugared.Lookup c ->
      let c = comp ctx c in
-     locate (Dsyntax.Lookup c)
+     locate (Desugared.Lookup c)
 
   | Sugared.Ref c ->
      let c = comp ctx c in
-     locate (Dsyntax.Ref c)
+     locate (Desugared.Ref c)
 
   | Sugared.Update (c1, c2) ->
      let c1 = comp ctx c1
      and c2 = comp ctx c2 in
-     locate (Dsyntax.Update (c1, c2))
+     locate (Desugared.Update (c1, c2))
 
   | Sugared.Sequence (c1, c2) ->
      let c1 = comp ctx c1
      and c2 = comp ctx c2 in
-     locate (Dsyntax.Sequence (c1, c2))
+     locate (Desugared.Sequence (c1, c2))
 
 
   | Sugared.Fresh (xopt, c) ->
      let c = comp ctx c in
-     locate (Dsyntax.Fresh (xopt, c))
+     locate (Desugared.Fresh (xopt, c))
 
   | Sugared.Match (c, cases) ->
      let c = comp ctx c
      and cases = List.map (match_case ctx) cases in
-     locate (Dsyntax.Match (c, cases))
+     locate (Desugared.Match (c, cases))
 
   | Sugared.BoundaryAscribe (c, bdry) ->
      let bdry = comp ctx bdry
      and c = comp ctx c in
-     locate (Dsyntax.BoundaryAscribe (c, bdry))
+     locate (Desugared.BoundaryAscribe (c, bdry))
 
   | Sugared.TypeAscribe (c, t) ->
      let t = comp ctx t
      and c = comp ctx c in
-     locate (Dsyntax.TypeAscribe (c, t))
+     locate (Desugared.TypeAscribe (c, t))
 
   | Sugared.Abstract (xs, c) ->
      let rec fold ctx ys = function
@@ -1018,7 +1018,7 @@ let rec comp ctx {Location.thing=c';loc} =
        (fun e c ->
           let c = comp ctx c
           and loc = Location.from_to loc c.Location.loc in
-          Location.locate (Dsyntax.Substitute (e, c)) loc)
+          Location.locate (Desugared.Substitute (e, c)) loc)
        e cs
 
   | Sugared.Spine (e, cs) ->
@@ -1028,28 +1028,28 @@ let rec comp ctx {Location.thing=c';loc} =
 
      begin match Ctx.get_name ~loc x ctx with
 
-     | Bound i -> locate (Dsyntax.Bound i)
+     | Bound i -> locate (Desugared.Bound i)
 
-     | Value pth -> locate (Dsyntax.Value pth)
+     | Value pth -> locate (Desugared.Value pth)
 
      | TTConstructor (pth, arity) ->
         check_tt_arity ~loc x 0 arity ;
-        locate (Dsyntax.TTConstructor (pth, []))
+        locate (Desugared.TTConstructor (pth, []))
 
      | MLConstructor (pth, arity) ->
         check_ml_arity ~loc x 0 arity ;
-        locate (Dsyntax.MLConstructor (pth, []))
+        locate (Desugared.MLConstructor (pth, []))
 
      | Operation (pth, arity) ->
         check_ml_arity ~loc x 0 arity ;
-        locate (Dsyntax.Operation (pth, []))
+        locate (Desugared.Operation (pth, []))
 
      end
 
   | Sugared.Yield c ->
      Ctx.check_yield ~loc ctx ;
      let c = comp ctx c in
-     locate (Dsyntax.Yield c)
+     locate (Desugared.Yield c)
 
   | Sugared.Function (xs, c) ->
      let rec fold ctx = function
@@ -1058,7 +1058,7 @@ let rec comp ctx {Location.thing=c';loc} =
           let ctx = Ctx.add_bound x ctx in
           let c = fold ctx xs in
           let t = arg_annotation ctx t in
-          locate (Dsyntax.Function (x, t, c))
+          locate (Desugared.Function (x, t, c))
      in
      fold ctx xs
 
@@ -1069,20 +1069,20 @@ let rec comp ctx {Location.thing=c';loc} =
      let nil_path, _ = Ctx.get_path_nil ctx
      and cons_path, _ = Ctx.get_path_cons ctx in
      let rec fold ~loc = function
-       | [] -> locate (Dsyntax.MLConstructor (nil_path, []))
+       | [] -> locate (Desugared.MLConstructor (nil_path, []))
        | c :: cs ->
           let c = comp ctx c in
           let cs = fold ~loc:(c.Location.loc) cs in
-          locate (Dsyntax.MLConstructor (cons_path, [c ; cs]))
+          locate (Desugared.MLConstructor (cons_path, [c ; cs]))
      in
      fold ~loc cs
 
   | Sugared.Tuple cs ->
      let lst = List.map (comp ctx) cs in
-     locate (Dsyntax.Tuple lst)
+     locate (Desugared.Tuple lst)
 
   | Sugared.String s ->
-     locate (Dsyntax.String s)
+     locate (Desugared.String s)
 
   | Sugared.Congruence (pth, c1, c2, cs) ->
      let c_pth, arity = Ctx.get_tt_constructor ~loc pth ctx in
@@ -1090,43 +1090,43 @@ let rec comp ctx {Location.thing=c';loc} =
      let c1 = comp ctx c1
      and c2 = comp ctx c2
      and cs = List.map (comp ctx) cs in
-     locate (Dsyntax.Congruence (c_pth, c1, c2, cs))
+     locate (Desugared.Congruence (c_pth, c1, c2, cs))
 
   | Sugared.Context c ->
      let c = comp ctx c in
-     locate (Dsyntax.Context c)
+     locate (Desugared.Context c)
 
   | Sugared.Occurs (c1,c2) ->
      let c1 = comp ctx c1
      and c2 = comp ctx c2 in
-     locate (Dsyntax.Occurs (c1,c2))
+     locate (Desugared.Occurs (c1,c2))
 
   | Sugared.Convert (c1,c2) ->
      let c1 = comp ctx c1
      and c2 = comp ctx c2 in
-     locate (Dsyntax.Convert (c1,c2))
+     locate (Desugared.Convert (c1,c2))
 
   | Sugared.Natural c ->
      let c = comp ctx c in
-     locate (Dsyntax.Natural c)
+     locate (Desugared.Natural c)
 
   | Sugared.MLBoundaryIsType ->
-     locate Dsyntax.(MLBoundary BoundaryIsType)
+     locate Desugared.(MLBoundary BoundaryIsType)
 
   | Sugared.MLBoundaryIsTerm c ->
      let c = comp ctx c in
-     locate Dsyntax.(MLBoundary (BoundaryIsTerm c))
+     locate Desugared.(MLBoundary (BoundaryIsTerm c))
 
   | Sugared.MLBoundaryEqType (c1, c2) ->
      let c1 = comp ctx c1
      and c2 = comp ctx c2 in
-     locate Dsyntax.(MLBoundary (BoundaryEqType (c1, c2)))
+     locate Desugared.(MLBoundary (BoundaryEqType (c1, c2)))
 
   | Sugared.MLBoundaryEqTerm (c1, c2, c3) ->
      let c1 = comp ctx c1
      and c2 = comp ctx c2
      and c3 = comp ctx c3 in
-     locate Dsyntax.(MLBoundary (BoundaryEqTerm (c1, c2, c3)))
+     locate Desugared.(MLBoundary (BoundaryEqTerm (c1, c2, c3)))
 
 and let_clauses ~loc ~toplevel ctx lst =
   let locate x = Location.locate x loc in
@@ -1142,32 +1142,32 @@ and let_clauses ~loc ~toplevel ctx lst =
        let sch = let_annotation ctx sch in
        let x, ctx' =
          begin match xys_opt with
-         | None -> locate Dsyntax.Patt_Anonymous, ctx'
+         | None -> locate Desugared.Patt_Anonymous, ctx'
          (* XXX if x carried its location, we would use it here *)
-         | Some (x, _) -> locate (Dsyntax.Patt_Var x), add x ctx'
+         | Some (x, _) -> locate (Desugared.Patt_Var x), add x ctx'
          end
        in
-       let lst' = Dsyntax.Let_clause (x, sch, c) :: lst' in
+       let lst' = Desugared.Let_clause (x, sch, c) :: lst' in
        fold ctx' lst' clauses
 
     | Sugared.Let_clause_tt (xopt, t, c) :: clauses ->
        let c = let_clause_tt ctx c t in
-       let sch = Dsyntax.Let_annot_none in
+       let sch = Desugared.Let_annot_none in
        let x, ctx' =
          begin match xopt with
-         | None -> locate Dsyntax.Patt_Anonymous, ctx'
+         | None -> locate Desugared.Patt_Anonymous, ctx'
          (* XXX if x carried its location, we would use it here *)
-         | Some x -> locate (Dsyntax.Patt_Var x), add x ctx'
+         | Some x -> locate (Desugared.Patt_Var x), add x ctx'
          end
        in
-       let lst' = Dsyntax.Let_clause (x, sch, c) :: lst' in
+       let lst' = Desugared.Let_clause (x, sch, c) :: lst' in
        fold ctx' lst' clauses
 
     | Sugared.Let_clause_patt (pt, sch, c) :: clauses ->
        let c = comp ctx c in
        let sch = let_annotation ctx sch in
        let ctx', pt = pattern ~toplevel ctx' pt in
-       let lst' = Dsyntax.Let_clause (pt, sch, c) :: lst' in
+       let lst' = Desugared.Let_clause (pt, sch, c) :: lst' in
 
      fold ctx' lst' clauses
   in
@@ -1204,7 +1204,7 @@ and letrec_clauses ~loc ~toplevel ctx lst =
        else
          let yt, c = letrec_clause ~loc ctx yt ys c in
          let sch = let_annotation ctx sch in
-         let lst' = Dsyntax.Letrec_clause (f, yt, sch, c) :: lst' in
+         let lst' = Desugared.Letrec_clause (f, yt, sch, c) :: lst' in
          fold lst' xcs
   in
   fold [] lst
@@ -1217,14 +1217,14 @@ and let_clause ~loc ctx ys c =
        let ctx = Ctx.add_bound y ctx in
        let c = fold ctx ys in
        let t = arg_annotation ctx t in
-       Location.locate  (Dsyntax.Function (y, t, c)) c.Location.loc (* XXX improve location *)
+       Location.locate  (Desugared.Function (y, t, c)) c.Location.loc (* XXX improve location *)
   in
   fold ctx ys
 
 and let_clause_tt ctx c t =
   let c = comp ctx c
   and t = comp ctx t in
-  Location.locate (Dsyntax.BoundaryAscribe (c, t)) c.Location.loc
+  Location.locate (Desugared.BoundaryAscribe (c, t)) c.Location.loc
 
 and letrec_clause ~loc ctx (y, t) ys c =
   let t = arg_annotation ctx t in
@@ -1234,24 +1234,24 @@ and letrec_clause ~loc ctx (y, t) ys c =
 
 
 and ml_schema ctx {Location.thing=Sugared.ML_Forall (params, t); loc} =
-  Location.locate (Dsyntax.ML_Forall (params, mlty ctx params t)) loc
+  Location.locate (Desugared.ML_Forall (params, mlty ctx params t)) loc
 
 
 and arg_annotation ctx = function
-  | Sugared.Arg_annot_none -> Dsyntax.Arg_annot_none
+  | Sugared.Arg_annot_none -> Desugared.Arg_annot_none
   | Sugared.Arg_annot_ty t ->
      let t = mlty ctx [] t in
-     Dsyntax.Arg_annot_ty t
+     Desugared.Arg_annot_ty t
 
 
 and let_annotation ctx = function
 
   | Sugared.Let_annot_none ->
-     Dsyntax.Let_annot_none
+     Desugared.Let_annot_none
 
   | Sugared.Let_annot_schema sch ->
      let sch = ml_schema ctx sch in
-     Dsyntax.Let_annot_schema sch
+     Desugared.Let_annot_schema sch
 
 (* To desugar a spine [c1 c2 ... cN], we check if c1 is an identifier, in which
    case we break the spine according to the arity of c1. *)
@@ -1280,10 +1280,10 @@ and spine ctx ({Location.thing=c';loc} as c) cs =
        begin match Ctx.get_name ~loc x ctx with
 
        | Bound i ->
-          locate (Dsyntax.Bound i), cs
+          locate (Desugared.Bound i), cs
 
        | Value pth ->
-          locate (Dsyntax.Value pth), cs
+          locate (Desugared.Value pth), cs
 
        | TTConstructor (pth, arity) ->
           check_tt_arity ~loc x (List.length cs) arity ;
@@ -1310,7 +1310,7 @@ and spine ctx ({Location.thing=c';loc} as c) cs =
     (fun head arg ->
        let arg = comp ctx arg
        and loc = Location.union loc arg.Location.loc in
-       let head = Dsyntax.Apply (head, arg) in
+       let head = Desugared.Apply (head, arg) in
        Location.locate head loc)
     head
     cs
@@ -1352,7 +1352,7 @@ and handler ~loc ctx hcs =
 
   in
   let handler_val, handler_ops, handler_finally = fold [] [] [] hcs in
-  Location.locate (Dsyntax.Handler (Dsyntax.{ handler_val ; handler_ops ; handler_finally })) loc
+  Location.locate (Desugared.Handler (Desugared.{ handler_val ; handler_ops ; handler_finally })) loc
 
 (* Desugar a match case *)
 and match_case ctx (p, g, c) =
@@ -1392,15 +1392,15 @@ and match_op_case ctx (ps, pt, c) =
 
 and ml_constructor ~loc ctx x cs =
   let cs = List.map (comp ctx) cs in
-  Location.locate (Dsyntax.MLConstructor (x, cs)) loc
+  Location.locate (Desugared.MLConstructor (x, cs)) loc
 
 and tt_constructor ~loc ctx pth cs =
   let cs = List.map (comp ctx) cs in
-  Location.locate (Dsyntax.TTConstructor (pth, cs)) loc
+  Location.locate (Desugared.TTConstructor (pth, cs)) loc
 
 and operation ~loc ctx x cs =
   let cs = List.map (comp ctx) cs in
-  Location.locate (Dsyntax.Operation (x, cs)) loc
+  Location.locate (Desugared.Operation (x, cs)) loc
 
 let decl_operation ~loc ctx args res =
   let args = List.map (mlty ctx []) args
@@ -1414,11 +1414,11 @@ let mlty_def ~loc ctx params = function
 
   | Sugared.ML_Alias ty ->
      let ty = mlty ctx params ty in
-     Dsyntax.ML_Alias ty
+     Desugared.ML_Alias ty
 
   | Sugared.ML_Sum lst ->
      let lst = List.map (mlty_constructor ~loc ctx params) lst in
-     Dsyntax.ML_Sum lst
+     Desugared.ML_Sum lst
 
 let mlty_info params = function
 
@@ -1481,8 +1481,8 @@ let premise ctx {Location.thing=prem;loc} =
      let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
      let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
      let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Dsyntax.BoundaryIsType in
-     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry))
+     let bdry = Desugared.BoundaryIsType in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
 
   | Sugared.PremiseIsTerm (mvar, local_ctx, c) ->
      let c, local_ctx =
@@ -1492,8 +1492,8 @@ let premise ctx {Location.thing=prem;loc} =
      in
      let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
      let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Dsyntax.BoundaryIsTerm c in
-     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry))
+     let bdry = Desugared.BoundaryIsTerm c in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
 
   | Sugared.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
      let (c1, c2), local_ctx =
@@ -1505,8 +1505,8 @@ let premise ctx {Location.thing=prem;loc} =
      in
      let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
      let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Dsyntax.BoundaryEqType (c1, c2) in
-     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry))
+     let bdry = Desugared.BoundaryEqType (c1, c2) in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
 
   | Sugared.PremiseEqTerm (mvar, local_ctx, (c1, c2, c3)) ->
      let (c1, c2, c3), local_ctx =
@@ -1518,8 +1518,8 @@ let premise ctx {Location.thing=prem;loc} =
      in
      let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
      let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Dsyntax.BoundaryEqTerm (c1, c2, c3) in
-     ctx, locate (Dsyntax.Premise (mvar, local_ctx, bdry))
+     let bdry = Desugared.BoundaryEqTerm (c1, c2, c3) in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
 
 let premises ctx prems m =
   let rec fold ctx prems_out = function
@@ -1543,8 +1543,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
      let arity = tt_arity prems in
      let (), prems = premises ctx prems (fun _ -> ()) in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname arity ctx in
-     let bdry = Dsyntax.BoundaryIsType in
-     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
+     let bdry = Desugared.BoundaryIsType in
+     (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
 
   | Sugared.RuleIsTerm (rname, prems, c) ->
      let arity = tt_arity prems in
@@ -1554,8 +1554,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
          (fun ctx -> comp ctx c)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname arity ctx in
-     let bdry = Dsyntax.BoundaryIsTerm c in
-     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
+     let bdry = Desugared.BoundaryIsTerm c in
+     (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
 
   | Sugared.RuleEqType (rname, prems, (c1, c2)) ->
      let arity = tt_arity prems in
@@ -1567,8 +1567,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
            comp ctx c2)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname arity ctx in
-     let bdry = Dsyntax.BoundaryEqType (c1, c2) in
-     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
+     let bdry = Desugared.BoundaryEqType (c1, c2) in
+     (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
 
   | Sugared.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
      let arity = tt_arity prems in
@@ -1581,52 +1581,52 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
           comp ctx c3)
      in
      let pth, ctx = Ctx.add_tt_constructor ~loc rname arity ctx in
-     let bdry = Dsyntax.BoundaryEqTerm (c1, c2, c3) in
-     (ctx, locate1 (Dsyntax.Rule (pth, prems, bdry)))
+     let bdry = Desugared.BoundaryEqTerm (c1, c2, c3) in
+     (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
 
   | Sugared.DeclOperation (op, (args, res)) ->
      let args, res = decl_operation ~loc ctx args res in
      let pth, ctx = Ctx.add_operation ~loc op (ml_arity args) ctx in
-     (ctx, locate1 (Dsyntax.DeclOperation (pth, (args, res))))
+     (ctx, locate1 (Desugared.DeclOperation (pth, (args, res))))
 
   | Sugared.DefMLType defs ->
      let ctx, defs = mlty_defs ~loc ctx defs in
-     (ctx, locate1 (Dsyntax.DefMLType defs))
+     (ctx, locate1 (Desugared.DefMLType defs))
 
   | Sugared.DefMLTypeRec defs ->
      let ctx, defs = mlty_rec_defs ~loc ctx defs in
-     (ctx, locate1 (Dsyntax.DefMLTypeRec defs))
+     (ctx, locate1 (Desugared.DefMLTypeRec defs))
 
   | Sugared.DeclExternal (x, sch, s) ->
      let sch = ml_schema ctx sch in
      let ctx = Ctx.add_ml_value ~loc x ctx in
-     (ctx, locate1 (Dsyntax.DeclExternal (x, sch, s)))
+     (ctx, locate1 (Desugared.DeclExternal (x, sch, s)))
 
   | Sugared.TopLet lst ->
      let ctx, lst = let_clauses ~loc ~toplevel:true ctx lst in
-     (ctx, locate1 (Dsyntax.TopLet lst))
+     (ctx, locate1 (Desugared.TopLet lst))
 
   | Sugared.TopLetRec lst ->
      let ctx, lst = letrec_clauses ~loc ~toplevel:true ctx lst in
-     (ctx, locate1 (Dsyntax.TopLetRec lst))
+     (ctx, locate1 (Desugared.TopLetRec lst))
 
   | Sugared.TopComputation c ->
      let c = comp ctx c in
-     (ctx, locate1 (Dsyntax.TopComputation c))
+     (ctx, locate1 (Desugared.TopComputation c))
 
   | Sugared.TopDynamic (x, annot, c) ->
      let c = comp ctx c in
      let ctx = Ctx.add_ml_value ~loc x ctx in
      let annot = arg_annotation ctx annot in
-     (ctx, locate1 (Dsyntax.TopDynamic (x, annot, c)))
+     (ctx, locate1 (Desugared.TopDynamic (x, annot, c)))
 
   | Sugared.TopNow (x, c) ->
      let x = comp ctx x in
      let c = comp ctx c in
-     (ctx, locate1 (Dsyntax.TopNow (x, c)))
+     (ctx, locate1 (Desugared.TopNow (x, c)))
 
   | Sugared.Verbosity n ->
-     (ctx, locate1 (Dsyntax.Verbosity n))
+     (ctx, locate1 (Desugared.Verbosity n))
 
   | Sugared.Require mdl_names ->
      requires ~loc ~loading ~basedir ctx mdl_names
@@ -1639,7 +1639,7 @@ let rec toplevel' ~loading ~basedir ctx {Location.thing=cmd; loc} =
   | Sugared.Open mdl_path ->
      let pth, mdl = Ctx.get_ml_module ~loc mdl_path ctx in
      let ctx = Ctx.open_ml_module ~loc mdl ctx in
-     (ctx, locate1 (Dsyntax.Open pth))
+     (ctx, locate1 (Desugared.Open pth))
 
   | Sugared.TopModule (x, cmds) ->
      let ctx, cmd = ml_module ~loc ~loading ~basedir ctx x cmds in
@@ -1701,7 +1701,7 @@ and ml_module ~loc ~loading ~basedir ctx m cmds =
   let ctx, cmds = toplevels ~loading ~basedir ctx cmds in
   let ctx, mdl = Ctx.pop_module ctx in
   let ctx = Ctx.add_ml_module ~loc m mdl ctx in
-  ctx, Location.locate (Dsyntax.MLModule (m, cmds)) loc
+  ctx, Location.locate (Desugared.MLModule (m, cmds)) loc
 
 let toplevel ~basedir ctx cmd = toplevel' ~loading:[] ~basedir ctx cmd
 
