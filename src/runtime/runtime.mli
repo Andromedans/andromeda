@@ -303,7 +303,7 @@ val add_dynamic : Name.t -> value -> unit toplevel
 val top_now : ml_dyn -> value -> unit toplevel
 
 (** Extend the signature with a new rule *)
-val add_rule : Ident.t -> Rule.rule -> unit toplevel
+val add_rule : Ident.t -> Nucleus.Rule.t -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
 val top_handle : at:Location.t -> 'a comp -> 'a toplevel

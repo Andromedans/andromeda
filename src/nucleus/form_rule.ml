@@ -219,7 +219,7 @@ let form_rule prems concl =
             Rule.BoundaryEqTerm (e1, e2, t)
        in
        let prems_out = List.rev prems_out in
-       prems_out, concl
+       Rule.Rule (prems_out, concl)
 
     | (mv, prem) :: prems ->
        let prem = mk_rule_abstraction mk_rule_premise metas prem in

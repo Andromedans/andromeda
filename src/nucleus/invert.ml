@@ -39,7 +39,7 @@ let invert_is_term sgn = function
   | TermBound _ -> assert false
 
   | TermConstructor (c, args) ->
-     let (prems, _concl) = Signature.lookup_rule c sgn in
+     let Rule.Rule (prems, _concl) = Signature.lookup_rule c sgn in
      let abstrs = invert_arguments prems args in
      Stump_TermConstructor (c, abstrs)
 
@@ -53,7 +53,7 @@ let invert_is_term sgn = function
 
 let invert_is_type sgn = function
   | TypeConstructor (c, args) ->
-     let (prems, _concl) = Signature.lookup_rule c sgn in
+     let Rule.Rule (prems, _concl) = Signature.lookup_rule c sgn in
      let abstrs = invert_arguments prems args in
      Stump_TypeConstructor (c, abstrs)
 

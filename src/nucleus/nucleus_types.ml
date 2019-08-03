@@ -66,7 +66,7 @@ type rule_application =
   | RapDone of judgement
   | RapMore of boundary_abstraction * (judgement_abstraction -> rule_application)
 
-type signature = Rule.rule Ident.map
+type signature = Rule.t Ident.map
 
 type is_term_abstraction = is_term abstraction
 type is_type_abstraction = is_type abstraction

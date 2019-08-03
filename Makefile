@@ -140,4 +140,4 @@ clean:
 	menhir-explain \
 	src/build.ml \
 	uninstall \
-	version \
+	version

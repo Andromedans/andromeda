@@ -99,14 +99,66 @@ and 'a stump_abstraction =
   | Stump_NotAbstract of 'a
   | Stump_Abstract of is_atom * 'a abstraction
 
+(** User-definable type theory rules *)
+module Rule :
+sig
+  (** Meta-variables appearing in rules are referred to by their de Bruijn _indices_. *)
+  type meta = int
+
+  type bound = int
+
+  type ty = private
+    | TypeConstructor of Ident.t * argument list
+    | TypeMeta of meta * term list
+
+  and term = private
+    | TermBound of bound
+    | TermConstructor of Ident.t * argument list
+    | TermMeta of meta * term list
+
+  and eq_type = private EqType of ty * ty
+
+  and eq_term = private EqTerm of term * term * ty
+
+  and argument = private
+    | Arg_NotAbstract of judgement
+    | Arg_Abstract of Name.t * argument
+
+  and judgement = private
+    | JudgementIsType of ty
+    | JudgementIsTerm of term
+    | JudgementEqType of eq_type
+    | JudgementEqTerm of eq_term
+
+  and judgement_abstraction = judgement abstraction
+
+  and 'a abstraction = private
+    | NotAbstract of 'a
+    | Abstract of Name.t * ty * 'a abstraction
+
+  type boundary = private
+    | BoundaryIsType of unit
+    | BoundaryIsTerm of ty
+    | BoundaryEqType of ty * ty
+    | BoundaryEqTerm of term * term * ty
+
+  and boundary_abstraction = boundary abstraction
+
+  and premise = boundary_abstraction
+
+  type t = private Rule of premise list * boundary
+end
+
+
+(** Type theory signature. *)
 module Signature : sig
 
   val empty : signature
 
-  val add_rule : Ident.t -> Rule.rule -> signature -> signature
+  val add_rule : Ident.t -> Rule.t -> signature -> signature
 end
 
-val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> Rule.rule
+val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> Rule.t
 
 (** When we apply a rule application to one more argument two things may happen.
    Either we are done and we get a result, or more arguments are needed, in

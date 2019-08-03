@@ -84,7 +84,7 @@ let form_rap' sgn prems constr args1 args2 =
    We assume that [args1] and [args2] have originated from previous valid applications
    of [c] to them. *)
 let form_is_term_rap sgn c args1 args2 =
-  let c_prems, concl = Signature.lookup_rule c sgn in
+  let Rule.Rule (c_prems, concl) = Signature.lookup_rule c sgn in
   let t_schema =
     match concl with
       | Rule.BoundaryIsTerm t_schema -> t_schema
@@ -100,7 +100,7 @@ let form_is_term_rap sgn c args1 args2 =
   form_rap' sgn c_prems constr args1 args2
 
 let form_is_type_rap sgn c args1 args2 =
-  let c_prems, concl = Signature.lookup_rule c sgn in
+  let Rule.Rule (c_prems, concl) = Signature.lookup_rule c sgn in
   match concl with
   | Rule.BoundaryIsTerm _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ -> Error.raise InvalidCongruence
   | Rule.BoundaryIsType () ->
