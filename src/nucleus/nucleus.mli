@@ -8,6 +8,11 @@ type print_environment = {
 (** The description of a user-defined type theory *)
 type signature
 
+(** The datatypes for judgements are abstract. Their deconstruction is
+   controlled through the various inversion functions which make sure that the
+   user cannot get their hands on an invalid judgement (in particular, one that
+   has a freely handing bound variable. *)
+
 (** Judgements can be abstracted *)
 type 'a abstraction
 
@@ -107,17 +112,35 @@ sig
 
   type bound = int
 
-  type is_type
+  (** The datatypes for rules are not absract because there is no danger of extracting
+      an invalid entity from them. *)
 
-  type is_term
+  type is_type =
+    private
+    | TypeConstructor of Ident.t * argument list
+    | TypeMeta of meta * is_term list
 
-  type eq_type
+  and is_term =
+    private
+    | TermBound of bound
+    | TermConstructor of Ident.t * argument list
+    | TermMeta of meta * is_term list
 
-  type eq_term
+  and eq_type =
+    private
+    EqType of is_type * is_type
 
-  type argument
+  and eq_term =
+    private
+    EqTerm of is_term * is_term * is_type
 
-  type judgement =
+  and argument =
+    private
+    | Arg_NotAbstract of judgement
+    | Arg_Abstract of Name.t * argument
+
+  and judgement =
+    private
     | JudgementIsType of is_type
     | JudgementIsTerm of is_term
     | JudgementEqType of eq_type
@@ -133,9 +156,10 @@ sig
 
   type eq_type_boundary = is_type * is_type
 
-  type eq_term_boundary
+  type eq_term_boundary = is_term * is_term * is_type
 
-  type boundary = private
+  type boundary =
+    private
     | BoundaryIsType of is_type_boundary
     | BoundaryIsTerm of is_term_boundary
     | BoundaryEqType of eq_type_boundary
