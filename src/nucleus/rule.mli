@@ -34,11 +34,19 @@ and 'a abstraction =
   | NotAbstract of 'a
   | Abstract of Name.t * is_type * 'a abstraction
 
+type is_type_boundary = unit
+
+type is_term_boundary = is_type
+
+type eq_type_boundary = is_type * is_type
+
+type eq_term_boundary = is_term * is_term * is_type
+
 type boundary =
-  | BoundaryIsType of unit
-  | BoundaryIsTerm of is_type
-  | BoundaryEqType of is_type * is_type
-  | BoundaryEqTerm of is_term * is_term * is_type
+  | BoundaryIsType of is_type_boundary
+  | BoundaryIsTerm of is_term_boundary
+  | BoundaryEqType of eq_type_boundary
+  | BoundaryEqTerm of eq_term_boundary
 
 and boundary_abstraction = boundary abstraction
 

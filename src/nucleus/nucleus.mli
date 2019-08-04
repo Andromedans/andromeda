@@ -107,24 +107,17 @@ sig
 
   type bound = int
 
-  type is_type = private
-    | TypeConstructor of Ident.t * argument list
-    | TypeMeta of meta * is_term list
+  type is_type
 
-  and is_term = private
-    | TermBound of bound
-    | TermConstructor of Ident.t * argument list
-    | TermMeta of meta * is_term list
+  type is_term
 
-  and eq_type = private EqType of is_type * is_type
+  type eq_type
 
-  and eq_term = private EqTerm of is_term * is_term * is_type
+  type eq_term
 
-  and argument = private
-    | Arg_NotAbstract of judgement
-    | Arg_Abstract of Name.t * argument
+  type argument
 
-  and judgement = private
+  type judgement =
     | JudgementIsType of is_type
     | JudgementIsTerm of is_term
     | JudgementEqType of eq_type
@@ -132,15 +125,21 @@ sig
 
   and judgement_abstraction = judgement abstraction
 
-  and 'a abstraction = private
-    | NotAbstract of 'a
-    | Abstract of Name.t * is_type * 'a abstraction
+  and 'a abstraction
+
+  type is_type_boundary = unit
+
+  type is_term_boundary = is_type
+
+  type eq_type_boundary = is_type * is_type
+
+  type eq_term_boundary
 
   type boundary = private
-    | BoundaryIsType of unit
-    | BoundaryIsTerm of is_type
-    | BoundaryEqType of is_type * is_type
-    | BoundaryEqTerm of is_term * is_term * is_type
+    | BoundaryIsType of is_type_boundary
+    | BoundaryIsTerm of is_term_boundary
+    | BoundaryEqType of eq_type_boundary
+    | BoundaryEqTerm of eq_term_boundary
 
   and boundary_abstraction = boundary abstraction
 

@@ -13,9 +13,9 @@ let instantiate_premise ~lvl metas prem =
   | Rule.BoundaryEqType (t1, t2) ->
      BoundaryEqType (Instantiate_meta.is_type ~lvl metas t1, Instantiate_meta.is_type ~lvl metas t2)
 
-  | Rule.BoundaryEqTerm (a, b, t) ->
-     BoundaryEqTerm (Instantiate_meta.is_term ~lvl metas a,
-                     Instantiate_meta.is_term ~lvl metas b,
+  | Rule.BoundaryEqTerm (e1, e2, t) ->
+     BoundaryEqTerm (Instantiate_meta.is_term ~lvl metas e1,
+                     Instantiate_meta.is_term ~lvl metas e2,
                      Instantiate_meta.is_type ~lvl metas t)
 
 (* Check that the argument [arg] matches the premise [prem], given [metas] *)
