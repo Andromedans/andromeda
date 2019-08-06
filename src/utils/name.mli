@@ -52,6 +52,9 @@ val set_add : t -> set -> set
 (** Is the given name an element of the set? *)
 val set_mem : t -> set -> bool
 
+(** [prefer x y] returns [x] if [x] is not anonymous, otherwise [y]. *)
+val prefer : t -> t -> t
+
 (** [refresh xs x] finds a nice variant of [x] that does not occur in [xs]. *)
 val refresh : set -> t -> t
 

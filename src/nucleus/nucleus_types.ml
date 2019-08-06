@@ -4,13 +4,13 @@ type bound = int
 
 type is_type =
   | TypeMeta of is_type_meta * is_term list
-  | TypeConstructor of Ident.t * judgement_abstraction list
+  | TypeConstructor of Ident.t * argument list
 
 and is_term =
   | TermBound of bound
   | TermAtom of is_atom
   | TermMeta of is_term_meta * is_term list
-  | TermConstructor of Ident.t * judgement_abstraction list
+  | TermConstructor of Ident.t * argument list
   | TermConvert of is_term * assumption * is_type
 
 and eq_type = EqType of assumption * is_type * is_type
@@ -18,6 +18,10 @@ and eq_type = EqType of assumption * is_type * is_type
 and eq_term = EqTerm of assumption * is_term * is_term * is_type
 
 and is_atom = { atom_nonce : Nonce.t ; atom_type : is_type }
+
+and argument =
+  | Arg_NotAbstract of judgement
+  | Arg_Abstract of Name.t * argument
 
 and 't meta = { meta_nonce : Nonce.t ; meta_type : 't }
 
@@ -34,7 +38,7 @@ and assumption =
 
 and 'a abstraction =
   | NotAbstract of 'a
-  | Abstract of is_atom * 'a abstraction
+  | Abstract of Name.t * is_type * 'a abstraction
 
 and judgement =
   | JudgementIsType of is_type
@@ -58,10 +62,10 @@ and boundary =
 and boundary_abstraction = boundary abstraction
 
 type rule_application_status =
-  { rap_arguments : judgement_abstraction list (* the arguments collected so far *)
+  { rap_arguments : argument list (* the arguments collected so far *)
   ; rap_boundary : boundary_abstraction (* the boundary of the next argument *)
   ; rap_premises : Rule.boundary_abstraction list (* the remaining premises to be applied *)
-  ; rap_constructor : judgement_abstraction list -> judgement (* the function which makes the final result *)
+  ; rap_constructor : argument list -> judgement (* the function which makes the final result *)
   }
 
 (* A partial rule application *)

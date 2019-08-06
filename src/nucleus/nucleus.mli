@@ -169,10 +169,10 @@ val abstract_not_abstract : 'a -> 'a abstraction
 
 (** Abstract a judgement abstraction *)
 (* val abstract_is_type : is_atom -> is_type_abstraction -> is_type_abstraction *)
-val abstract_is_term : is_atom -> is_term_abstraction -> is_term_abstraction
+val abstract_is_term : ?name:Name.t -> is_atom -> is_term_abstraction -> is_term_abstraction
 (* val abstract_eq_type : is_atom -> eq_type_abstraction -> eq_type_abstraction *)
 (* val abstract_eq_term : is_atom -> eq_term_abstraction -> eq_term_abstraction *)
-val abstract_judgement : is_atom -> judgement_abstraction -> judgement_abstraction
+val abstract_judgement : ?name:Name.t -> is_atom -> judgement_abstraction -> judgement_abstraction
 
 (** Abstract a boundary abstraction *)
 val abstract_boundary : is_atom -> boundary_abstraction -> boundary_abstraction
@@ -212,7 +212,7 @@ val convert_judgement_abstraction : signature -> judgement_abstraction -> eq_typ
 
 (** Inversion principles *)
 
-val invert_is_type : is_type -> stump_is_type
+val invert_is_type : signature -> is_type -> stump_is_type
 
 val invert_is_term : signature -> is_term -> stump_is_term
 

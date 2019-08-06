@@ -12,7 +12,7 @@ let rec check_term_arguments sgn abstr args =
   | NotAbstract u, [] -> ()
   | Abstract _, [] -> Error.raise TooFewArguments
   | NotAbstract _, _::_ -> Error.raise TooManyArguments
-  | Abstract ({atom_nonce=x; atom_type=t}, abstr), arg :: args ->
+  | Abstract (x, t, abstr), arg :: args ->
      let t_arg = Sanity.type_of_term sgn arg in
      if Alpha_equal.is_type t t_arg
      then
@@ -104,12 +104,11 @@ let meta_eta_expanded' instantiate_meta form_meta abstract_meta mv =
     | NotAbstract u ->
        Mk.not_abstract (form_meta mv (List.rev args))
 
-    | Abstract (atm, abstr) ->
-       let a, abstr =
-         Unabstract.abstraction instantiate_meta (Nonce.name atm.atom_nonce) atm.atom_type abstr in
+    | Abstract (x, t, abstr) ->
+       let a, abstr = Unabstract.abstraction instantiate_meta x t abstr in
        let abstr = fold ((Form.form_is_term_atom a) :: args) abstr in
        let abstr = Abstract.abstraction abstract_meta a.atom_nonce abstr in
-       Mk.abstract atm abstr
+       Mk.abstract x t abstr
 
   in fold [] mv.meta_type
 

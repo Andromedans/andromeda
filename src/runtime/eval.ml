@@ -421,7 +421,7 @@ and check_abstract ~loc bdry x uopt c =
           (Runtime.Judgement Nucleus.(abstract_not_abstract (JudgementIsTerm (form_is_term_atom a))))
           begin
             check_judgement c bdry >>= fun jdg ->
-            let jdg = Nucleus.abstract_judgement a jdg in
+            let jdg = Nucleus.abstract_judgement ~name:x a jdg in
             return jdg
           end
 

@@ -6,7 +6,7 @@ exception ConversionError
 
 let rec convert f = function
   | NotAbstract a -> NotAbstract (f a)
-  | Abstract (atm, abstr) -> Abstract (atm, convert f abstr)
+  | Abstract (x, t, abstr) -> Abstract (x, t, convert f abstr)
 
 let as_is_type_abstraction abstr =
   try

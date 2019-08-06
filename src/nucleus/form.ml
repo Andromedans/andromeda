@@ -37,13 +37,14 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
      | None -> None
      | Some eq -> Some (Mk.not_abstract eq)
      end
-  | Abstract (atm1, abstr1), Abstract (atm2, abstr2) ->
-     begin match Alpha_equal.is_type atm1.atom_type atm2.atom_type with
+  | Abstract (x1, t1, abstr1), Abstract (x2, t2, abstr2) ->
+     let x = Name.prefer x1 x2 in
+     begin match Alpha_equal.is_type t1 t2 with
      | false -> None
      | true ->
         begin match form_alpha_equal_abstraction equal_u abstr1 abstr2 with
         | None -> None
-        | Some eq -> Some (Mk.abstract atm1 eq)
+        | Some eq -> Some (Mk.abstract x t1 eq)
         end
      end
   | (NotAbstract _, Abstract _)
@@ -97,9 +98,10 @@ let rap_boundary {rap_boundary;_} = rap_boundary
 
 (* Apply the given partially applied rule instance to the given argument. The result
    is again a partially applied rule (a special case of which is a fully applied rule). *)
-let rap_apply sgn {rap_arguments; rap_boundary; rap_premises; rap_constructor} arg =
-  if not (Check.judgement_boundary_abstraction sgn arg rap_boundary)
+let rap_apply sgn {rap_arguments; rap_boundary; rap_premises; rap_constructor} abstr =
+  if not (Check.judgement_boundary_abstraction sgn abstr rap_boundary)
   then Error.raise InvalidArgument ;
+  let arg = Judgement.to_argument abstr in
   let rap_arguments = arg :: rap_arguments in
   match rap_premises with
   | [] ->
@@ -210,5 +212,5 @@ let rec form_is_term_boundary_abstraction = function
   | NotAbstract t ->
      NotAbstract (form_is_term_boundary t)
 
-  | Abstract (atm, abstr) ->
-     Abstract (atm, form_is_term_boundary_abstraction abstr)
+  | Abstract (x, t, abstr) ->
+     Abstract (x, t, form_is_term_boundary_abstraction abstr)

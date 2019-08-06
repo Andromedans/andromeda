@@ -114,6 +114,30 @@ and meta :
     (Nonce.print ~parentheses:true meta_nonce)
     (Print.sequence (thesis_is_term ~max_level:Level.meta_arg ~penv) "" args) ;
 
+and argument ?max_level ~penv arg ppf =
+  let rec fold xs penv arg ppf =
+    match arg with
+
+    | Arg_NotAbstract jdg ->
+       Print.print ?max_level ppf "{%t}@ %t"
+          (Print.sequence (Name.print ~parentheses:true) "" xs)
+          (judgement_as_argument ~max_level:Level.abstraction_body ~penv jdg)
+
+    | Arg_Abstract (x, arg) ->
+       let x =
+         (if Occurs.argument 0 arg then
+            Name.refresh penv.forbidden x
+          else
+            Name.anonymous ())
+       in
+       let penv = debruijn x penv in
+       fold (x::xs) penv arg ppf
+  in
+  match arg with
+  | Arg_NotAbstract jdg -> judgement_as_argument ?max_level ~penv jdg ppf
+  | Arg_Abstract _ -> Print.print ~at_level:Level.abstraction ?max_level ppf "%t" (fold [] penv arg)
+
+
 and constructor ?max_level ~penv c args ppf =
   match args with
   | [] ->
@@ -121,7 +145,7 @@ and constructor ?max_level ~penv c args ppf =
   | _::_ ->
      Print.print ~at_level:Level.constructor ?max_level ppf "%t@ %t"
        (Ident.print ~opens:penv.opens ~parentheses:true c)
-       (Print.sequence (abstraction Occurs.judgement thesis_judgement ~penv ~max_level:Level.constructor_arg) "" args) ;
+       (Print.sequence (argument ~max_level:Level.constructor_arg ~penv) "" args) ;
 
 and print_assumptions ?max_level ~penv {free; meta; bound} ppf =
   let empty_free = Nonce.map_is_empty free
@@ -157,10 +181,10 @@ and abstraction
     | NotAbstract v ->
           print_v ~max_level:Level.abstraction_body ~penv v ppf
 
-    | Abstract ({atom_nonce=x; atom_type=u}, abstr) ->
+    | Abstract (x, u, abstr) ->
        let x =
          (if Occurs.abstraction occurs_v 0 abstr then
-            Name.refresh penv.forbidden (Nonce.name x)
+            Name.refresh penv.forbidden x
           else
             Name.anonymous ())
        in
@@ -176,6 +200,13 @@ and thesis_judgement ?max_level ~penv arg ppf =
   match arg with
   | JudgementIsType t -> Print.print ?max_level ppf "%t@ type" (thesis_is_type ?max_level ~penv t)
   | JudgementIsTerm e -> thesis_is_term ?max_level ~penv e ppf (* also print the type of [e] *)
+  | JudgementEqType eq -> thesis_eq_type ?max_level ~penv eq ppf
+  | JudgementEqTerm eq -> thesis_eq_term ?max_level ~penv eq ppf
+
+and judgement_as_argument ?max_level ~penv arg ppf =
+  match arg with
+  | JudgementIsType t -> thesis_is_type ?max_level ~penv t ppf
+  | JudgementIsTerm e -> thesis_is_term ?max_level ~penv e ppf
   | JudgementEqType eq -> thesis_eq_type ?max_level ~penv eq ppf
   | JudgementEqTerm eq -> thesis_eq_term ?max_level ~penv eq ppf
 
@@ -303,7 +334,7 @@ let error ~penv err ppf =
 
 (* Naming things *)
 let rec strip_abstraction = function
-  | Abstract (_, abstr) -> strip_abstraction abstr
+  | Abstract (_, _, abstr) -> strip_abstraction abstr
   | NotAbstract x -> x
 
 let name_of_judgement abstr =

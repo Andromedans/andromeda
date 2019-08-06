@@ -41,4 +41,4 @@ let eq_term asmp e1 e2 t = EqTerm (asmp, e1, e2, t)
 
 let not_abstract e = NotAbstract e
 
-let abstract a abstr = Abstract (a, abstr)
+let abstract x t abstr = Abstract (x, t, abstr)

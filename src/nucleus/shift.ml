@@ -65,18 +65,22 @@ and abstraction
      let u = shift_u ~lvl k u
      in NotAbstract u
 
-  | Abstract ({atom_nonce=x; atom_type=t}, abstr) ->
+  | Abstract (x, t, abstr) ->
      let t = is_type ~lvl k t
      and abstr = abstraction shift_u ~lvl:(lvl+1) k abstr
-     in Abstract ({atom_nonce=x; atom_type=t}, abstr)
+     in Abstract (x, t, abstr)
 
 and term_arguments ~lvl k args =
   List.map (is_term ~lvl k) args
 
-and arguments ~lvl k args =
-  List.map (abstraction argument ~lvl k) args
-
 and argument ~lvl k = function
+  | Arg_NotAbstract jdg -> Arg_NotAbstract (judgement ~lvl k jdg)
+  | Arg_Abstract (x, arg) -> Arg_Abstract (x, argument ~lvl:(lvl+1) k arg)
+
+and arguments ~lvl k args =
+  List.map (argument ~lvl k) args
+
+and judgement ~lvl k = function
    | JudgementIsType t -> JudgementIsType (is_type ~lvl k t)
 
    | JudgementIsTerm e -> JudgementIsTerm (is_term ~lvl k e)

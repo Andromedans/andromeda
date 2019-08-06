@@ -86,7 +86,7 @@ let lookup_meta_index x mvs =
 
 let rec mk_rule_is_type metas = function
   | TypeConstructor (c, args) ->
-     let args = mk_rule_args metas args in
+     let args = mk_rule_arguments metas args in
      Rule.TypeConstructor (c, args)
 
   | TypeMeta ({meta_nonce=x;_}, args) ->
@@ -105,7 +105,7 @@ and mk_rule_is_term metas = function
      Rule.TermMeta (k, args)
 
   | TermConstructor (c, args) ->
-     let args = mk_rule_args metas args in
+     let args = mk_rule_arguments metas args in
      Rule.TermConstructor (c, args)
 
   | TermBound k ->
@@ -142,7 +142,7 @@ and mk_rule_assumptions metas asmp =
   Print.error "should check that asmp is a subset of metas or some such@." ;
   ()
 
-and mk_rule_arg metas = function
+and mk_rule_judgement metas = function
 
   | JudgementIsType t ->
      Rule.JudgementIsType (mk_rule_is_type metas t)
@@ -156,8 +156,18 @@ and mk_rule_arg metas = function
   | JudgementEqTerm eq ->
      Rule.JudgementEqTerm (mk_rule_eq_term metas eq)
 
-and mk_rule_args metas args =
-  List.map (mk_rule_abstraction mk_rule_arg metas) args
+and mk_rule_argument metas = function
+
+  | Arg_NotAbstract jdg ->
+     let jdg = mk_rule_judgement metas jdg in
+     Rule.Arg_NotAbstract jdg
+
+  | Arg_Abstract (x, arg) ->
+     let arg = mk_rule_argument metas arg in
+     Rule.Arg_Abstract (x, arg)
+
+and mk_rule_arguments metas args =
+  List.map (mk_rule_argument metas) args
 
 and mk_rule_abstraction
   : 'a 'b 'c . (Nonce.t list -> 'a -> 'b) -> Nonce.t list -> 'a abstraction -> 'b Rule.abstraction
@@ -167,10 +177,10 @@ and mk_rule_abstraction
        let u = form_u metas u in
        Rule.NotAbstract u
 
-    | Abstract ({atom_nonce=x; atom_type=t}, abstr) ->
+    | Abstract (x, t, abstr) ->
        let t = mk_rule_is_type metas t in
        let abstr = mk_rule_abstraction form_u metas abstr in
-       Rule.Abstract (Nonce.name x, t, abstr)
+       Rule.Abstract (x, t, abstr)
 
 let mk_rule_premise metas = function
 
