@@ -55,7 +55,7 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
 
 (* Form a rule application for the given constructor [c] *)
 let form_constructor_rap sgn c =
-  let prems, concl = Signature.lookup_rule c sgn in
+  let Rule.Rule (prems, concl) = Signature.lookup_rule c sgn in
   let constr =
     match concl with
     | Rule.BoundaryIsType _ ->

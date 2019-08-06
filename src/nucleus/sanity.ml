@@ -30,7 +30,7 @@ let type_of_term sgn = function
      assert false
 
   | TermConstructor (c, args) ->
-     let (_premises, concl) = Signature.lookup_rule c sgn in
+     let Rule.Rule (_premises, concl) = Signature.lookup_rule c sgn in
      let t_schema =
        match concl with
        | Rule.BoundaryIsTerm t_schema -> t_schema

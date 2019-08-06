@@ -257,8 +257,7 @@ let match_pattern p v =
   let r = match_pattern' sgn p v in
   return r
 
-let collect_boundary_pattern sgn xvs pttrn bdry =
-  failwith "pattern matching of boundaries not implemented"
+let collect_boundary_pattern = collect_pattern
 
 let match_op_pattern ps p_bdry vs bdry =
   Runtime.get_env >>= fun env ->
@@ -271,10 +270,8 @@ let match_op_pattern ps p_bdry vs bdry =
           match p_bdry with
           | None -> xvs
           | Some p ->
-             begin match bdry with
-             | Some t -> collect_boundary_pattern sgn xvs p t
-             | None -> xvs
-             end
+             let v = match bdry with | None -> None | Some t -> Some (Runtime.mk_boundary t) in
+             collect_boundary_pattern sgn xvs p (Reflect.mk_option v)
         in
         Some xvs
       with Match_fail -> None
