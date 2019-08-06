@@ -1,0 +1,7 @@
+Rule A is postulated.
+Rule B is postulated.
+val a :> judgement = ?a₀ : A ⊢ ?a₀
+val b :> judgement = ?x₁ : A ⊢ ?x₁
+val c :> judgement = ?a₀ : A, ?x₁ : A, ?b₂ : B ?a₀ ?x₁ ⊢ ?b₂
+val d :> judgement = ?x₁ : A, ?α₃ : A, ?x₄ : B ?x₁ ?α₃ ⊢ ?x₄
+val e :> judgement = ( ++₅ ) : A ⊢ ( ++₅ )

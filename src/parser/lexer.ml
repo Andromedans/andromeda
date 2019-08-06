@@ -6,7 +6,6 @@ let reserved = [
   ("_atom", UATOM) ;
   ("and", AND) ;
   ("as", AS) ;
-  ("assume", ASSUME) ;
   ("boundary", MLBOUNDARY) ;
   ("congruence", CONGRUENCE) ;
   ("context", CONTEXT) ;
@@ -16,6 +15,7 @@ let reserved = [
   ("end", END) ;
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
+  ("fresh", FRESH) ;
   ("fun", FUNCTION) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;

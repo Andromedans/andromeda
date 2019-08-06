@@ -58,8 +58,8 @@
 (* Functions *)
 %token FUNCTION
 
-(* Assumptions *)
-%token ASSUME CONVERT CONGRUENCE CONTEXT OCCURS
+(* TT commands *)
+%token FRESH CONVERT CONGRUENCE CONTEXT OCCURS
 
 (* Toplevel directives *)
 %token VERBOSITY
@@ -240,12 +240,6 @@ term_:
   | NOW x=app_term EQ c1=term IN c2=term
     { Now (x,c1,c2) }
 
-  | CURRENT c=term
-    { Current c }
-
-  | ASSUME x=opt_name(ml_name) COLON t=ty_term IN c=term
-    { Assume ((x, t), c) }
-
   | MATCH e=term WITH lst=match_cases END
     { Match (e, lst) }
 
@@ -260,6 +254,9 @@ term_:
 
   | HANDLER hcs=handler_cases END
     { Handler (hcs) }
+
+  | FRESH x=opt_name(ml_name) COLON t=ty_term
+    { Fresh (x, t) }
 
   | e=app_term COLONQT bdry=ty_term
     { BoundaryAscribe (e, bdry) }
@@ -309,6 +306,9 @@ app_term: mark_location(app_term_) { $1 }
 app_term_:
   | e=prefix_term_
     { e }
+
+  | CURRENT c=prefix_term
+    { Current c }
 
   | CONGRUENCE c=long(tt_name) e1=prefix_term e2=prefix_term es=list(prefix_term)
     { Congruence (c, e1, e2, es) }
