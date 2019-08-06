@@ -61,17 +61,10 @@ and boundary =
 
 and boundary_abstraction = boundary abstraction
 
-type rule_application_status =
-  { rap_arguments : argument list (* the arguments collected so far *)
-  ; rap_boundary : boundary_abstraction (* the boundary of the next argument *)
-  ; rap_premises : Rule.boundary_abstraction list (* the remaining premises to be applied *)
-  ; rap_constructor : argument list -> judgement (* the function which makes the final result *)
-  }
-
 (* A partial rule application *)
 type rule_application =
   | RapDone of judgement
-  | RapMore of rule_application_status
+  | RapMore of boundary_abstraction * (judgement_abstraction -> rule_application)
 
 type signature = Rule.rule Ident.map
 

@@ -44,6 +44,7 @@ let rec generalizable c =
   | Rsyntax.Yield _
   | Rsyntax.Apply _
   | Rsyntax.Occurs _
+  | Rsyntax.Congruence _
   | Rsyntax.Convert _
   | Rsyntax.Context _
   | Rsyntax.Natural _
@@ -478,6 +479,20 @@ let rec infer_comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Ml
      check_comp c1 Mlty.Judgement >>= fun c1 ->
      check_comp c2 Mlty.Judgement >>= fun c2 ->
      return (locate ~loc (Rsyntax.Occurs (c1, c2)), Mlty.Judgement)
+
+  | Dsyntax.Congruence (cnstr, c1, c2, cs) ->
+     Tyenv.lookup_tt_constructor cnstr >>= fun cnstr ->
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
+     check_comp c2 Mlty.Judgement >>= fun c2 ->
+     let rec fold cs_out = function
+       | [] ->
+          let cs_out = List.rev cs_out in
+          return (locate ~loc (Rsyntax.Congruence (cnstr, c1, c2, cs_out)), Mlty.Judgement)
+       | c :: cs ->
+          check_comp c Mlty.Judgement >>= fun c ->
+          fold (c :: cs_out) cs
+     in
+     fold [] cs
 
   | Dsyntax.Convert (c1, c2) ->
      check_comp c1 Mlty.Judgement >>= fun c1 ->

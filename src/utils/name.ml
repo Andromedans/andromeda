@@ -205,12 +205,8 @@ let set_mem = NameSet.mem
 
 let prefer x y =
   match x.fixity with
-  | Word | Prefix | Infix _ ->
-Format.printf "Preferring %t to %t@" (print x) (print y) ;
-x
-  | Anonymous _ ->
-Format.printf "Preferring %t to %t@" (print y) (print x) ;
-y
+  | Word | Prefix | Infix _ -> x
+  | Anonymous _ -> y
 
 let refresh forbidden ({name; fixity} as x) =
   let search fixity ?(k=0) s =

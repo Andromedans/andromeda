@@ -53,7 +53,8 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
 
 (** Partial rule applications *)
 
-let form_rap sgn c =
+(* Form a rule application for the given constructor [c] *)
+let form_constructor_rap sgn c =
   let prems, concl = Signature.lookup_rule c sgn in
   let constr =
     match concl with
@@ -86,32 +87,23 @@ let form_rap sgn c =
   in
   match prems with
   | [] -> RapDone (constr [])
-  | p :: ps ->
-     RapMore
-       { rap_arguments = []
-       ; rap_boundary = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 [] p
-       ; rap_premises = ps
-       ; rap_constructor = constr
-       }
+  | prem :: prems ->
 
-let rap_boundary {rap_boundary;_} = rap_boundary
+     let rec rap_apply (args, bdry, prems) abstr =
+       if not (Check.judgement_boundary_abstraction sgn abstr bdry)
+       then Error.raise InvalidArgument ;
+       let arg = Judgement.to_argument abstr in
+       let args = arg :: args in
+       match prems with
+       | [] ->
+          RapDone (constr args)
+       | prem :: prems ->
+          let bdry = (Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem) in
+          RapMore (bdry, rap_apply (args, bdry, prems))
+     in
+     let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 [] prem in
+     RapMore (bdry, rap_apply ([], bdry, prems))
 
-(* Apply the given partially applied rule instance to the given argument. The result
-   is again a partially applied rule (a special case of which is a fully applied rule). *)
-let rap_apply sgn {rap_arguments; rap_boundary; rap_premises; rap_constructor} abstr =
-  if not (Check.judgement_boundary_abstraction sgn abstr rap_boundary)
-  then Error.raise InvalidArgument ;
-  let arg = Judgement.to_argument abstr in
-  let rap_arguments = arg :: rap_arguments in
-  match rap_premises with
-  | [] ->
-     RapDone (rap_constructor rap_arguments)
-  | p :: rap_premises ->
-     let rap_boundary = (Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 rap_arguments p) in
-       RapMore { rap_arguments
-             ; rap_boundary
-             ; rap_premises
-             ; rap_constructor }
 
 let form_is_term_atom = Mk.atom
 

@@ -78,6 +78,7 @@ and comp' =
   | Yield of comp
   | String of string
   | Occurs of comp * comp
+  | Congruence of Path.t * comp * comp * comp list
   | Convert of comp * comp
   | Context of comp
   | Natural of comp

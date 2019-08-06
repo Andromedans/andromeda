@@ -92,6 +92,7 @@ and comp' =
   | Spine of comp * comp list
   | Yield of comp
   | String of string
+  | Congruence of Name.path * comp * comp * comp list
   | Context of comp
   | Convert of comp * comp
   | Occurs of comp * comp

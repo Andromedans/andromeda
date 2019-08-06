@@ -59,7 +59,7 @@
 %token FUNCTION
 
 (* Assumptions *)
-%token ASSUME CONVERT CONTEXT OCCURS
+%token ASSUME CONVERT CONGRUENCE CONTEXT OCCURS
 
 (* Toplevel directives *)
 %token VERBOSITY
@@ -270,16 +270,6 @@ term_:
   | e1=binop_term SEMI e2=term
     { Sequence (e1, e2) }
 
-  | CONTEXT c=prefix_term
-    { Context c }
-
-  | CONVERT c1=prefix_term c2=prefix_term
-    { Convert (c1, c2) }
-
-  | OCCURS c1=prefix_term c2=prefix_term
-    { Occurs (c1, c2) }
-
-
 ty_term: mark_location(ty_term_) { $1 }
 ty_term_:
   | e=binop_term_
@@ -319,6 +309,18 @@ app_term: mark_location(app_term_) { $1 }
 app_term_:
   | e=prefix_term_
     { e }
+
+  | CONGRUENCE c=long(tt_name) e1=prefix_term e2=prefix_term es=list(prefix_term)
+    { Congruence (c, e1, e2, es) }
+
+  | CONTEXT c=prefix_term
+    { Context c }
+
+  | CONVERT c1=prefix_term c2=prefix_term
+    { Convert (c1, c2) }
+
+  | OCCURS c1=prefix_term c2=prefix_term
+    { Occurs (c1, c2) }
 
   | e=prefix_term s=substitution
     { Substitute (e, s) }
