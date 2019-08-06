@@ -102,9 +102,6 @@ let ml_schema {Location.it=(Desugared.ML_Forall (params, t)); _} =
   let t = ml_ty params t in
   (params, t)
 
-let check_boundary_pattern {Location.it=p'; at} =
-  failwith "type-checking of boundary patterns not implemented"
-
 (** Infer the type of a pattern *)
 let rec infer_pattern {Location.it=p; at} =
   match p with
@@ -205,7 +202,6 @@ let rec infer_pattern {Location.it=p; at} =
          fold (q :: qs) (t :: ts) (xts @ p_xts) ps
     in
     fold [] [] [] ps
-
 
 and check_pattern ({Location.it=p'; at} as p) t =
   match p' with
@@ -581,7 +577,8 @@ and match_op_cases op cases t_out =
                 begin match popt with
                 | None -> return (None, xts)
                 | Some p ->
-                   check_boundary_pattern p >>= fun (p, xts_p) ->
+                   let t = Mlty.Apply (Desugar.Builtin.option, [Mlty.Boundary]) in
+                   check_pattern p t >>= fun (p, xts_p) ->
                    return (Some p, xts @ xts_p)
                 end >>= fun (popt, xts) ->
                 Tyenv.add_bounds_mono xts
