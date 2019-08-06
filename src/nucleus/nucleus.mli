@@ -169,7 +169,10 @@ sig
 
   and premise = boundary_abstraction
 
-  type t = private Rule of premise list * boundary
+  type t =
+    private
+    | RuleConclusion of boundary
+    | RulePremise of premise * t
 end
 
 

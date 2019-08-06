@@ -30,18 +30,24 @@ let type_of_term sgn = function
      assert false
 
   | TermConstructor (c, args) ->
-     let Rule.Rule (_premises, concl) = Signature.lookup_rule c sgn in
-     let t_schema =
-       match concl with
-       | Rule.BoundaryIsTerm t_schema -> t_schema
-       | Rule.BoundaryIsType _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ ->
-          assert false
-     in
      (* we need not re-check that the premises match the arguments because
         we are computing the type of a term that was previously determined
         to be valid. *)
-     let inds = Indices.of_list args in
-     Instantiate_meta.is_type ~lvl:0 inds t_schema
+     let rec fold inds rl args =
+       match rl, args with
+
+       | Rule.RulePremise (_, rl), arg :: args -> fold (arg :: inds) rl args
+
+       | Rule.RuleConclusion (Rule.BoundaryIsTerm t_schema), [] ->
+          Instantiate_meta.is_type ~lvl:0 inds t_schema
+
+       | Rule.RuleConclusion (Rule.BoundaryIsType _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _), []
+       | Rule.RulePremise _, []
+       | Rule.RuleConclusion _, _::_ ->
+          assert false
+     in
+     let rl = Signature.lookup_rule c sgn in
+     fold [] rl args
 
   | TermMeta ({meta_type;_}, args) ->
      fully_apply_abstraction_no_checks (Instantiate_bound.is_type_fully ?lvl:None) meta_type args

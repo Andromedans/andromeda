@@ -52,4 +52,6 @@ and boundary_abstraction = boundary abstraction
 
 and premise = boundary_abstraction
 
-type t = Rule of premise list * boundary
+type t =
+  | RuleConclusion of boundary
+  | RulePremise of premise * t

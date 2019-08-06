@@ -197,7 +197,7 @@ let mk_rule_premise metas = function
      Rule.BoundaryEqTerm (mk_rule_is_term metas e1, mk_rule_is_term metas e2, mk_rule_is_type metas t)
 
 let form_rule prems concl =
-  let rec fold metas prems_out = function
+  let rec fold metas = function
     | [] ->
        let concl =
          match concl with
@@ -218,11 +218,11 @@ let form_rule prems concl =
             and t = mk_rule_is_type metas t in
             Rule.BoundaryEqTerm (e1, e2, t)
        in
-       let prems_out = List.rev prems_out in
-       Rule.Rule (prems_out, concl)
+       Rule.RuleConclusion concl
 
     | (mv, prem) :: prems ->
        let prem = mk_rule_abstraction mk_rule_premise metas prem in
-       fold (mv :: metas) (prem :: prems_out) prems
+       let rl = fold (mv :: metas) prems in
+       Rule.RulePremise (prem, rl)
   in
-  fold [] [] prems
+  fold [] prems

@@ -19,18 +19,20 @@ let rec invert_argument ~lvl es prem arg =
   | (Rule.NotAbstract _, Arg_Abstract _ | Rule.Abstract _, Arg_NotAbstract _) ->
      assert false
 
-let invert_arguments prems args =
-  let rec fold es abstrs prems args =
-    match prems, args with
-    | [], [] -> List.rev abstrs
+let invert_arguments rl args =
+  let rec fold es abstrs rl args =
+    match rl, args with
+    | Rule.RuleConclusion _, [] -> List.rev abstrs
 
-    | prem :: prems, arg :: args ->
+    | Rule.RulePremise (prem, rl), arg :: args ->
        let abstr = invert_argument ~lvl:0 es prem arg in
-       fold (arg :: es) (abstr :: abstrs) prems args
+       fold (arg :: es) (abstr :: abstrs) rl args
 
-    | _, _::_ | _::_, _ -> assert false
+    | Rule.RuleConclusion _, _::_
+    | Rule.RulePremise _, [] ->
+       assert false
   in
-  fold [] [] prems args
+  fold [] [] rl args
 
 let invert_is_term sgn = function
 
@@ -39,8 +41,8 @@ let invert_is_term sgn = function
   | TermBound _ -> assert false
 
   | TermConstructor (c, args) ->
-     let Rule.Rule (prems, _concl) = Signature.lookup_rule c sgn in
-     let abstrs = invert_arguments prems args in
+     let rl = Signature.lookup_rule c sgn in
+     let abstrs = invert_arguments rl args in
      Stump_TermConstructor (c, abstrs)
 
   | TermMeta (mv, args) ->
@@ -53,8 +55,8 @@ let invert_is_term sgn = function
 
 let invert_is_type sgn = function
   | TypeConstructor (c, args) ->
-     let Rule.Rule (prems, _concl) = Signature.lookup_rule c sgn in
-     let abstrs = invert_arguments prems args in
+     let rl = Signature.lookup_rule c sgn in
+     let abstrs = invert_arguments rl args in
      Stump_TypeConstructor (c, abstrs)
 
   | TypeMeta (mv, args) -> Stump_TypeMeta (mv, args)
