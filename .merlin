@@ -1,10 +1,12 @@
 S src
+S src/syntax
 S src/parser
 S src/nucleus
 S src/utils
 S src/runtime
 S src/typing
 B _build/src
+B _build/src/syntax
 B _build/src/parser
 B _build/src/nucleus
 B _build/src/utils
