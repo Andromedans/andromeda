@@ -2,7 +2,7 @@
 OCAML_VERSION=$(shell ocamlc --version)
 
 # Set up correct incantation for sedlex
-SEDLEX=$(shell if [ "$(OCAML_VERSION)" \< "4.07" ] ; then echo "sedlex" ; else echo "sedlex.ppx"; fi)
+SEDLEX=$(shell if [ "$(OCAML_VERSION)" \< "4.06.1" ] ; then echo "sedlex" ; else echo "sedlex.ppx"; fi)
 
 #warnings disabled:
 # 4: fragile pattern matching (we try to stick to it but don't always)

@@ -373,9 +373,11 @@ val alpha_equal_term : is_term -> is_term -> bool
 (** Test whether types are alpha-equal. They may have different contexts. *)
 val alpha_equal_type : is_type -> is_type -> bool
 
+(** Test whether atoms are alpha-equal. *)
+val alpha_equal_atom : is_atom -> is_atom -> bool
+
 (** Test whether two abstractions are alpha-equal. *)
-val alpha_equal_abstraction
-  : ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
+val alpha_equal_abstraction : ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
 
 (** Test whether two judgements are alpha-equal. *)
 val alpha_equal_judgement : judgement -> judgement -> bool

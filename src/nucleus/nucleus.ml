@@ -29,6 +29,7 @@ let fresh_judgement_meta = Mk.fresh_judgement_meta
 
 let alpha_equal_term = Alpha_equal.is_term
 let alpha_equal_type = Alpha_equal.is_type
+let alpha_equal_atom = Alpha_equal.is_atom
 let alpha_equal_abstraction = Alpha_equal.abstraction
 
 let alpha_equal_judgement = Alpha_equal.judgement
