@@ -293,8 +293,8 @@ binop_term_:
     { Sugared.MLBoundaryEqTerm (l, r, ty) }
 
   | e1=binop_term oploc=infix e2=binop_term
-    { let (op, loc) = oploc in
-      let op = Location.locate (Sugared.Name (Name.PName op)) loc in
+    { let (op, at) = oploc in
+      let op = Location.mark ~at (Sugared.Name (Name.PName op)) in
       Sugared.Spine (op, [e1; e2])
     }
 
@@ -336,8 +336,8 @@ prefix_term_:
     { Sugared.Lookup e }
 
   | oploc=prefix e2=prefix_term
-    { let (op, loc) = oploc in
-      let op = Location.locate (Sugared.Name (Name.PName op)) loc in
+    { let (op, at) = oploc in
+      let op = Location.mark ~at (Sugared.Name (Name.PName op)) in
       Sugared.Spine (op, [e2])
     }
 
@@ -366,7 +366,7 @@ simple_term_:
 
   | LPAREN lst=separated_list(COMMA, term) RPAREN
     { match lst with
-      | [{Location.thing=e;loc=_}] -> e
+      | [{Location.it=e;_}] -> e
       | _ -> Sugared.Tuple lst }
 
 list_contents:
@@ -679,7 +679,7 @@ simple_pattern_:
 
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
-      | [{Location.thing=p;loc=_}] -> p
+      | [{Location.it=p;_}] -> p
       | _ -> Sugared.Patt_Tuple ps
     }
 
@@ -690,7 +690,7 @@ let_pattern: mark_location(let_pattern_) { $1 }
 let_pattern_:
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
-      | [{Location.thing=p;_}] -> p
+      | [{Location.it=p;_}] -> p
       | _ -> Sugared.Patt_Tuple ps
     }
 
@@ -737,7 +737,7 @@ prod_mlty_:
   | ts=separated_nonempty_list(STAR, app_mlty)
     { match ts with
       | [] -> assert false
-      | [{Location.thing=t;loc=_}] -> t
+      | [{Location.it=t;_}] -> t
       | _::_::_ -> Sugared.ML_Prod ts
     }
 
@@ -805,5 +805,5 @@ mlty_constructor:
 
 mark_location(X):
   x=X
-  { Location.locate x (Location.make $startpos $endpos) }
+  { Location.mark ~at:(Location.make $startpos $endpos) x }
 %%

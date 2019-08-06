@@ -28,10 +28,10 @@ let rec mk_list = function
   | []      -> list_nil
   | x :: xs -> list_cons x (mk_list xs)
 
-(* let as_list ~loc v = *)
+(* let as_list ~at v = *)
 (*   match Runtime.as_list_opt v with *)
 (*   | Some lst -> lst *)
-(*   | None -> Runtime.(error ~loc (ListExpected v)) *)
+(*   | None -> Runtime.(error ~at (ListExpected v)) *)
 
 (** Conversion between Ocaml option and ML option *)
 
@@ -39,38 +39,38 @@ let mk_option = function
   | Some v -> Runtime.mk_tag tag_some [v]
   | None -> Runtime.mk_tag tag_none []
 
-let as_option ~loc = function
+let as_option ~at = function
   | Runtime.Tag (t, []) when (Runtime.equal_tag t tag_none)  -> None
   | Runtime.Tag (t, [x]) when (Runtime.equal_tag t tag_some) -> Some x
   | Runtime.(Judgement _ | Boundary _ | Closure _ | Handler _ |
              Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-     Runtime.(error ~loc (OptionExpected v))
+     Runtime.(error ~at (OptionExpected v))
 
-let as_judgement_option ~loc v =
-  match as_option ~loc v with
+let as_judgement_option ~at v =
+  match as_option ~at v with
   | None -> None
   | Some (Runtime.Judgement jdg) -> Some jdg
   | Some (Runtime.(Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v) ->
-     Runtime.(error ~loc (JudgementExpected v))
+     Runtime.(error ~at (JudgementExpected v))
 
 (** Conversion between OCaml coercible and ML coercible *)
 
-(* let as_coercible ~loc = function
+(* let as_coercible ~at = function
  *
  *   | Runtime.Tag (t, []) when Runtime.equal_tag t tag_notcoercible ->
  *     Runtime.NotCoercible
  *
  *   | Runtime.Tag (t, [v]) when Runtime.equal_tag t tag_convertible ->
- *     let eq = Runtime.as_eq_type_abstraction ~loc v in
+ *     let eq = Runtime.as_eq_type_abstraction ~at v in
  *     Runtime.Convertible eq
  *
  *   | Runtime.Tag (t, [v]) when Runtime.equal_tag t tag_coercible_constructor ->
- *     let e = Runtime.as_is_term_abstraction ~loc v in
+ *     let e = Runtime.as_is_term_abstraction ~at v in
  *     Runtime.Coercible e
  *
  *   | Runtime.(Judgement _ | Boundary _  | Closure _ | Handler _ | Tag _ | Tuple _ |
  *              Ref _ | Dyn _ | String _) as v ->
- *      Runtime.(error ~loc (CoercibleExpected v)) *)
+ *      Runtime.(error ~at (CoercibleExpected v)) *)
 
 (** Conversion from OCaml [Runtime.order] to  [ML.order]. *)
 let mlless = Runtime.mk_tag tag_mlless []
@@ -82,36 +82,36 @@ let mlgreater = Runtime.mk_tag tag_mlgreater []
 (* Map ML-value-to-(term)-judgment across an option. Fail if given Some value
    that is not a judgment. *)
 
-let as_eq_term_option ~loc v =
-  match as_option ~loc v with
-    | Some v -> Some (Runtime.as_eq_term ~loc v)
+let as_eq_term_option ~at v =
+  match as_option ~at v with
+    | Some v -> Some (Runtime.as_eq_term ~at v)
     | None -> None
 
-let as_eq_type_option ~loc v =
-  match as_option ~loc v with
-    | Some v -> Some (Runtime.as_eq_type ~loc v)
+let as_eq_type_option ~at v =
+  match as_option ~at v with
+    | Some v -> Some (Runtime.as_eq_type ~at v)
     | None -> None
 
 let (>>=) = Runtime.bind
 let return = Runtime.return
 
-let operation_equal_term ~loc e1 e2 =
+let operation_equal_term ~at e1 e2 =
   let v1 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsTerm e1)))
   and v2 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsTerm e2))) in
   Runtime.operation equal_term [v1;v2] >>= fun v ->
-  return (as_eq_term_option ~loc v)
+  return (as_eq_term_option ~at v)
 
-let operation_equal_type ~loc t1 t2 =
+let operation_equal_type ~at t1 t2 =
   let v1 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsType t1)))
   and v2 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsType t2))) in
   Runtime.operation equal_type [v1;v2] >>= fun v ->
-  return (as_eq_type_option ~loc v)
+  return (as_eq_type_option ~at v)
 
-let operation_coerce ~loc jdg bdry =
+let operation_coerce ~at jdg bdry =
   let v1 = Runtime.Judgement jdg
   and v2 = Runtime.Boundary bdry in
   Runtime.operation coerce [v1;v2] >>= fun v ->
-  return (as_judgement_option ~loc v)
+  return (as_judgement_option ~at v)
 
 let add_abstracting e m =
   (* The given variable as an ML value *)

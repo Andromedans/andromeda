@@ -6,18 +6,18 @@ let (>>=) = Runtime.bind
 let return = Runtime.return
 
 (** Conversion of runtime values to more specific values *)
-let as_atom ~loc v =
+let as_atom ~at v =
   Runtime.lookup_signature >>= fun sgn ->
-  let j = Runtime.as_is_term ~loc v in
+  let j = Runtime.as_is_term ~at v in
   match Nucleus.invert_is_term sgn j with
     | Nucleus.Stump_TermAtom x -> return x
     | Nucleus.(Stump_TermConstructor _ | Stump_TermMeta _ | Stump_TermConvert _) ->
-       Runtime.(error ~loc (ExpectedAtom j))
+       Runtime.(error ~at (ExpectedAtom j))
 
 let mlfalse, _, _ = Typecheck.Builtin.mlfalse
 let mltrue, _, _ = Typecheck.Builtin.mltrue
 
-let as_bool ~loc v =
+let as_bool ~at v =
   match v with
   | Runtime.Tag (l, []) ->
      if Runtime.equal_tag l mlfalse then
@@ -25,27 +25,27 @@ let as_bool ~loc v =
      else if Runtime.equal_tag l mltrue then
        return true
      else
-     Runtime.(error ~loc (BoolExpected v))
+     Runtime.(error ~at (BoolExpected v))
 
   | Runtime.(Tag (_, _::_) | Judgement _ | Boundary _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _) ->
-     Runtime.(error ~loc (BoolExpected v))
+     Runtime.(error ~at (BoolExpected v))
 
-let as_handler ~loc v =
-  let e = Runtime.as_handler ~loc v in
+let as_handler ~at v =
+  let e = Runtime.as_handler ~at v in
   return e
 
-let as_ref ~loc v =
-  let e = Runtime.as_ref ~loc v in
+let as_ref ~at v =
+  let e = Runtime.as_ref ~at v in
   return e
 
-let as_dyn ~loc v =
-  let e = Runtime.as_dyn ~loc v in
+let as_dyn ~at v =
+  let e = Runtime.as_dyn ~at v in
   return e
 
 (** Main evaluation loop. *)
 
 (** Evaluate a computation. *)
-let rec comp {Location.thing=c'; loc} =
+let rec comp {Location.it=c'; at} =
   match c' with
     | Syntax.Bound i ->
        Runtime.lookup_bound i
@@ -91,13 +91,13 @@ let rec comp {Location.thing=c'; loc} =
           | [] -> None
           | _ :: _ ->
             let f v =
-              match_cases ~loc handler_val comp v
+              match_cases ~at handler_val comp v
             in
             Some f
           end
         and handler_ops = Ident.mapi (fun op cases ->
             let f {Runtime.args=vs;checking} =
-              match_op_cases ~loc op cases vs checking
+              match_op_cases ~at op cases vs checking
             in
             f)
           handler_ops
@@ -106,7 +106,7 @@ let rec comp {Location.thing=c'; loc} =
           | [] -> None
           | _ :: _ ->
             let f v =
-              match_cases ~loc handler_finally comp v
+              match_cases ~at handler_finally comp v
             in
             Some f
           end
@@ -125,23 +125,23 @@ let rec comp {Location.thing=c'; loc} =
      fold [] cs
 
   | Syntax.With (c1, c2) ->
-     comp c1 >>= as_handler ~loc >>= fun h ->
+     comp c1 >>= as_handler ~at >>= fun h ->
      Runtime.handle_comp h (comp c2)
 
   | Syntax.Let (xcs, c) ->
-     let_bind ~loc xcs (comp c)
+     let_bind ~at xcs (comp c)
 
   | Syntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (comp c)
 
   | Syntax.Now (x,c1,c2) ->
-     let xloc = x.Location.loc in
-     comp x >>= as_dyn ~loc:xloc >>= fun x ->
+     let xloc = x.Location.at in
+     comp x >>= as_dyn ~at:xloc >>= fun x ->
      comp c1 >>= fun v ->
      Runtime.now x v (comp c2)
 
   | Syntax.Current c ->
-     comp c >>= as_dyn ~loc:(c.Location.loc) >>= fun x ->
+     comp c >>= as_dyn ~at:(c.Location.at) >>= fun x ->
      Runtime.lookup_dyn x
 
   | Syntax.Ref c ->
@@ -149,18 +149,18 @@ let rec comp {Location.thing=c'; loc} =
      Runtime.mk_ref v
 
   | Syntax.Lookup c ->
-     comp c >>= as_ref ~loc >>= fun x ->
+     comp c >>= as_ref ~at >>= fun x ->
      Runtime.lookup_ref x
 
   | Syntax.Update (c1, c2) ->
-     comp c1 >>= as_ref ~loc >>= fun x ->
+     comp c1 >>= as_ref ~at >>= fun x ->
      comp c2 >>= fun v ->
      Runtime.update_ref x v >>= fun () ->
      Runtime.return_unit
 
   | Syntax.Sequence (c1, c2) ->
      comp c1 >>= fun v ->
-     sequence ~loc v >>= fun () ->
+     sequence ~at v >>= fun () ->
      comp c2
 
   | Syntax.Fresh (xopt, c) ->
@@ -172,7 +172,7 @@ let rec comp {Location.thing=c'; loc} =
 
   | Syntax.Match (c, cases) ->
      comp c >>=
-     match_cases ~loc cases comp
+     match_cases ~at cases comp
 
   | Syntax.BoundaryAscribe (c1, c2) ->
      comp_as_boundary_abstraction c2 >>= fun bdry ->
@@ -186,7 +186,7 @@ let rec comp {Location.thing=c'; loc} =
      Runtime.return_judgement
 
   | Syntax.Abstract (x, None, _) ->
-    Runtime.(error ~loc (UnannotatedAbstract x))
+    Runtime.(error ~at (UnannotatedAbstract x))
 
   | Syntax.Abstract (x, Some u, c) ->
      comp_as_is_type u >>= fun u ->
@@ -201,7 +201,7 @@ let rec comp {Location.thing=c'; loc} =
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
              | Runtime.(Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-                Runtime.(error ~loc (JudgementExpected v))
+                Runtime.(error ~at (JudgementExpected v))
            end)
 
   | Syntax.Substitute (c1, c2) ->
@@ -231,7 +231,7 @@ let rec comp {Location.thing=c'; loc} =
  *)
      comp_as_judgement_abstraction c1 >>= fun abstr ->
      begin match Nucleus.type_at_abstraction abstr with
-       | None -> Runtime.(error ~loc AbstractionExpected)
+       | None -> Runtime.(error ~at AbstractionExpected)
        | Some t ->
           check_judgement c2 (Nucleus.abstract_not_abstract (Nucleus.form_is_term_boundary t)) >>= fun jdg ->
           begin match Nucleus.as_not_abstract jdg with
@@ -241,7 +241,7 @@ let rec comp {Location.thing=c'; loc} =
                Runtime.return_judgement abstr
           | None
           | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
-             Runtime.(error ~loc (IsTermExpected (Runtime.Judgement jdg)))
+             Runtime.(error ~at (IsTermExpected (Runtime.Judgement jdg)))
           end
      end
 
@@ -255,7 +255,7 @@ let rec comp {Location.thing=c'; loc} =
         comp c2 >>= fun v ->
         Runtime.apply_closure f v
       | Runtime.(Judgement _ | Boundary _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as h ->
-        Runtime.(error ~loc (Inapplicable h))
+        Runtime.(error ~at (Inapplicable h))
     end
 
   | Syntax.String s ->
@@ -274,9 +274,9 @@ let rec comp {Location.thing=c'; loc} =
 
   | Syntax.Congruence (cnstr, c1, c2, cs) ->
      comp_as_judgement_abstraction c1 >>= fun abstr1 ->
-     let jdg1 = Runtime.as_not_abstract ~loc abstr1 in
+     let jdg1 = Runtime.as_not_abstract ~at abstr1 in
      comp_as_judgement_abstraction c2 >>= fun abstr2 ->
-     let jdg2 = Runtime.as_not_abstract ~loc abstr2 in
+     let jdg2 = Runtime.as_not_abstract ~at abstr2 in
      Runtime.get_env >>= fun env ->
      let sgn = Runtime.get_signature env in
      let rap = Nucleus.congruence_rap sgn cnstr jdg1 jdg2 in
@@ -288,7 +288,7 @@ let rec comp {Location.thing=c'; loc} =
      Runtime.get_env >>= fun env ->
      let sgn = Runtime.get_signature env in
      begin match Nucleus.convert_judgement_abstraction sgn jdg eq with
-     | None -> Runtime.(error ~loc (InvalidConvert (jdg, eq)))
+     | None -> Runtime.(error ~at (InvalidConvert (jdg, eq)))
      | Some jdg -> Runtime.return_judgement jdg
      end
 
@@ -309,7 +309,7 @@ let rec comp {Location.thing=c'; loc} =
     Runtime.return_judgement Nucleus.(abstract_not_abstract (JudgementEqType eq))
 
   | Syntax.MLBoundary bdry ->
-     eval_boundary ~loc bdry >>= fun bdry ->
+     eval_boundary ~at bdry >>= fun bdry ->
      Runtime.return_boundary Nucleus.(abstract_not_abstract bdry)
 
 and check_arguments rap cs =
@@ -326,17 +326,17 @@ and check_arguments rap cs =
      assert false (* cannot happen, desugaring prevetns this by checking arities of constructors  *)
 
 (** Coerce the value [v] to the given judgement boundary [bdry] *)
-and coerce ~loc v (bdry : Nucleus.boundary_abstraction) =
-  let abstr = Runtime.as_judgement_abstraction ~loc v in
+and coerce ~at v (bdry : Nucleus.boundary_abstraction) =
+  let abstr = Runtime.as_judgement_abstraction ~at v in
   Runtime.lookup_signature >>= fun sgn ->
-  Equal.coerce ~loc sgn abstr bdry >>=
+  Equal.coerce ~at sgn abstr bdry >>=
     begin function
-      | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (abstr, bdry)))
+      | None -> Runtime.(error ~at (TypeMismatchCheckingMode (abstr, bdry)))
       | Some e -> return e
     end
 
 (** Compute a judgement with the given abstracted boundary *)
-and check_judgement ({Location.thing=c';loc} as c) bdry =
+and check_judgement ({Location.it=c'; at} as c) bdry =
   match c' with
 
   (* These have no use for the boundary, so we just try to coerce them after they are evaluated *)
@@ -368,14 +368,14 @@ and check_judgement ({Location.thing=c';loc} as c) bdry =
     ->
 
     comp c >>= fun v ->
-    coerce ~loc v bdry
+    coerce ~at v bdry
 
   | Syntax.Operation (op, cs) ->
      let rec fold vs = function
        | [] ->
           let vs = List.rev vs in
           Runtime.operation op ~checking:bdry vs >>= fun v ->
-          coerce ~loc v bdry
+          coerce ~at v bdry
        | c :: cs ->
           comp c >>= fun v ->
           fold (v :: vs) cs
@@ -383,35 +383,35 @@ and check_judgement ({Location.thing=c';loc} as c) bdry =
      fold [] cs
 
   | Syntax.Let (xcs, c) ->
-     let_bind ~loc xcs (check_judgement c bdry)
+     let_bind ~at xcs (check_judgement c bdry)
 
   | Syntax.Sequence (c1,c2) ->
     comp c1 >>= fun v ->
-    sequence ~loc v >>= fun () ->
+    sequence ~at v >>= fun () ->
     check_judgement c2 bdry
 
   | Syntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (check_judgement c bdry)
 
   | Syntax.Now (x,c1,c2) ->
-     let xloc = x.Location.loc in
-     comp x >>= as_dyn ~loc:xloc >>= fun x ->
+     let xloc = x.Location.at in
+     comp x >>= as_dyn ~at:xloc >>= fun x ->
      comp c1 >>= fun v ->
      Runtime.now x v (check_judgement c2 bdry)
 
   | Syntax.Match (c, cases) ->
      comp c >>=
-     match_cases ~loc cases (fun c -> check_judgement c bdry)
+     match_cases ~at cases (fun c -> check_judgement c bdry)
 
   | Syntax.Abstract (xopt, uopt, c) ->
-    check_abstract ~loc bdry xopt uopt c
+    check_abstract ~at bdry xopt uopt c
 
 (** Run the abstraction [Abstract(x, uopt, c)] and check it against the boundary abstraction [bdry]. *)
-and check_abstract ~loc bdry x uopt c =
+and check_abstract ~at bdry x uopt c =
   match Nucleus.invert_boundary_abstraction bdry with
 
   | Nucleus.Stump_NotAbstract _ ->
-     Runtime.(error ~loc AbstractionExpected)
+     Runtime.(error ~at AbstractionExpected)
 
   | Nucleus.Stump_Abstract (a, bdry) ->
      (* NB: [a] is a fresh atom at this point. *)
@@ -426,13 +426,13 @@ and check_abstract ~loc bdry x uopt c =
             return jdg
           end
 
-     | Some ({Location.loc=u_loc;_} as u) ->
+     | Some ({Location.at=u_loc;_} as u) ->
         comp_as_is_type u >>= fun u ->
         let a_type = Nucleus.type_of_atom a in
-        Equal.equal_type ~loc:u_loc a_type u >>=
+        Equal.equal_type ~at:u_loc a_type u >>=
           begin function
             | None ->
-               Runtime.(error ~loc:u_loc (TypeEqualityFail (u, a_type)))
+               Runtime.(error ~at:u_loc (TypeEqualityFail (u, a_type)))
             | Some eq (* : a_type == u *) ->
                Runtime.lookup_signature >>= fun sgn ->
                let a' =
@@ -448,17 +448,17 @@ and check_abstract ~loc bdry x uopt c =
           end
      end
 
-and sequence ~loc v =
+and sequence ~at v =
   match v with
     | Runtime.Tuple [] -> return ()
     | _ ->
       Print.warning "@[<hov 2>%t: this value should be the unit (and why is this a runtime warning?) @]@."
-        (Location.print loc) ;
+        (Location.print at) ;
       return ()
 
 and let_bind
-  : 'a. loc:Location.t -> Syntax.let_clause list -> 'a Runtime.comp -> 'a Runtime.comp
-  = fun ~loc clauses cmp ->
+  : 'a. at:Location.t -> Syntax.let_clause list -> 'a Runtime.comp -> 'a Runtime.comp
+  = fun ~at clauses cmp ->
   let rec fold uss = function
     | [] ->
       (* parallel let: only bind at the end *)
@@ -476,7 +476,7 @@ and let_bind
        comp c >>= fun v ->
        Matching.match_pattern pt v >>= begin function
         | Some us -> fold (us :: uss) clauses
-        | None -> Runtime.(error ~loc (MatchFail v))
+        | None -> Runtime.(error ~at (MatchFail v))
        end
 
   in
@@ -496,14 +496,14 @@ and letrec_bind
    successful continues on the computation using [eval] with the pattern variables bound.
    *)
 and match_cases
-  : 'a . loc:Location.t -> Syntax.match_case list -> (Syntax.comp -> 'a Runtime.comp)
+  : 'a . at:Location.t -> Syntax.match_case list -> (Syntax.comp -> 'a Runtime.comp)
          -> Runtime.value -> 'a Runtime.comp
-  = fun ~loc cases eval v ->
+  = fun ~at cases eval v ->
   let bind_pattern_vars vs cmp =
     List.fold_left (fun cmp v -> Runtime.add_bound v cmp) cmp vs
   in
   let rec fold = function
-    | [] -> Runtime.(error ~loc (MatchFail v))
+    | [] -> Runtime.(error ~at (MatchFail v))
     | (p, g, c) :: cases ->
       Matching.match_pattern p v >>= begin function
         | None -> fold cases
@@ -524,13 +524,13 @@ and match_cases
   in
   fold cases
 
-and match_op_cases ~loc op cases vs checking =
+and match_op_cases ~at op cases vs checking =
   let rec fold = function
     | [] ->
       Runtime.operation op ?checking vs >>= fun v ->
       Runtime.continue v
     | (ps, ptopt, c) :: cases ->
-      Matching.match_op_pattern ~loc ps ptopt vs checking >>=
+      Matching.match_op_pattern ps ptopt vs checking >>=
         begin function
         | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (comp c) vs
         | None -> fold cases
@@ -540,41 +540,41 @@ and match_op_cases ~loc op cases vs checking =
 
 (** Run [c] and convert the result to an type judgement. *)
 and comp_as_is_type c =
-  comp c >>= fun v -> return (Runtime.as_is_type ~loc:c.Location.loc v)
+  comp c >>= fun v -> return (Runtime.as_is_type ~at:c.Location.at v)
 
 (** Run [c] and convert the result to an term judgement. *)
 and comp_as_is_term c =
-  comp c >>= fun v -> return (Runtime.as_is_term ~loc:c.Location.loc v)
+  comp c >>= fun v -> return (Runtime.as_is_term ~at:c.Location.at v)
 
 (** Run [c] and convert the result to a term abstraction. *)
 and comp_as_is_term_abstraction c =
-  comp c >>= fun v -> return (Runtime.as_is_term_abstraction ~loc:c.Location.loc v)
+  comp c >>= fun v -> return (Runtime.as_is_term_abstraction ~at:c.Location.at v)
 
 (** Run [c] and convert the result to a term abstraction. *)
 and comp_as_is_type_abstraction c =
-  comp c >>= fun v -> return (Runtime.as_is_type_abstraction ~loc:c.Location.loc v)
+  comp c >>= fun v -> return (Runtime.as_is_type_abstraction ~at:c.Location.at v)
 
 (** Run [c] and convert the result to a judgement abstraction. *)
 and comp_as_judgement_abstraction c =
   comp c >>= fun v ->
-  return (Runtime.as_judgement_abstraction ~loc:c.Location.loc v)
+  return (Runtime.as_judgement_abstraction ~at:c.Location.at v)
 
 (** Run [c] and convert the result to a boundary abstraction. *)
 and comp_as_boundary_abstraction c =
-  comp c >>= fun v -> return (Runtime.as_boundary_abstraction ~loc:c.Location.loc v)
+  comp c >>= fun v -> return (Runtime.as_boundary_abstraction ~at:c.Location.at v)
 
 (** Run [c] and convert the result to a boundary abstraction. *)
 and comp_as_eq_type_abstraction c =
-  comp c >>= fun v -> return (Runtime.as_eq_type_abstraction ~loc:c.Location.loc v)
+  comp c >>= fun v -> return (Runtime.as_eq_type_abstraction ~at:c.Location.at v)
 
 and comp_as_atom c =
-  comp c >>= fun v -> (as_atom ~loc:c.Location.loc v)
+  comp c >>= fun v -> (as_atom ~at:c.Location.at v)
 
 (** Run [c] and convert it to a boolean. *)
 and comp_as_bool c =
-  comp c >>= fun v -> (as_bool ~loc:c.Location.loc v)
+  comp c >>= fun v -> (as_bool ~at:c.Location.at v)
 
-and eval_boundary ~loc = function
+and eval_boundary ~at = function
   | Syntax.BoundaryIsType ->
      Runtime.return Nucleus.(form_is_type_boundary)
 
@@ -594,13 +594,13 @@ and eval_boundary ~loc = function
      let bdry = Nucleus.(abstract_not_abstract (form_is_term_boundary t)) in
      check_judgement c1 bdry >>= fun e1 ->
      let e1 =
-       match Nucleus.as_is_term (Runtime.as_not_abstract ~loc e1) with
+       match Nucleus.as_is_term (Runtime.as_not_abstract ~at e1) with
        | Some e1 -> e1
        | None -> assert false
      in
      check_judgement c2 bdry >>= fun e2 ->
      let e2 =
-       match Nucleus.as_is_term (Runtime.as_not_abstract ~loc e2) with
+       match Nucleus.as_is_term (Runtime.as_not_abstract ~at e2) with
        | Some e2 -> e2
        | None -> assert false
      in
@@ -610,7 +610,7 @@ and eval_boundary ~loc = function
 
 let comp_value c =
   let r = comp c in
-  Runtime.top_handle ~loc:c.Location.loc r
+  Runtime.top_handle ~at:c.Location.at r
 
 (** Evaluation of rules *)
 
@@ -633,8 +633,8 @@ let local_context lctx cmp =
   in
   fold lctx
 
-let premise {Location.thing=Syntax.Premise(x, lctx, bdry); loc} =
-  local_context lctx (eval_boundary ~loc bdry) >>= fun bdry ->
+let premise {Location.it=Syntax.Premise(x, lctx, bdry); at} =
+  local_context lctx (eval_boundary ~at bdry) >>= fun bdry ->
   Runtime.lookup_signature >>= fun sgn ->
   let mv = Nucleus.fresh_judgement_meta x bdry in
   let v = Runtime.Judgement (Nucleus.judgement_meta_eta_expanded sgn mv) in
@@ -666,7 +666,7 @@ let premises prems cmp =
 let (>>=) = Runtime.top_bind
 let return = Runtime.top_return
 
-let toplet_bind ~loc ~quiet ~print_annot info clauses =
+let toplet_bind ~at ~quiet ~print_annot info clauses =
   let rec fold uss = function
     | [] ->
        (* parallel let: only bind at the end *)
@@ -678,7 +678,7 @@ let toplet_bind ~loc ~quiet ~print_annot info clauses =
     | Syntax.Let_clause (pt, c) :: clauses ->
        comp_value c >>= fun v ->
        Matching.top_match_pattern pt v >>= begin function
-        | None -> Runtime.error ~loc (Runtime.MatchFail v)
+        | None -> Runtime.error ~at (Runtime.MatchFail v)
         | Some us -> fold (us :: uss) clauses
        end
   in
@@ -701,7 +701,7 @@ let toplet_bind ~loc ~quiet ~print_annot info clauses =
        end ;
     return ()
 
-let topletrec_bind ~loc ~quiet ~print_annot info fxcs =
+let topletrec_bind ~at ~quiet ~print_annot info fxcs =
   let gs =
     List.map
       (fun (Syntax.Letrec_clause c) v -> Runtime.add_bound v (comp c))
@@ -717,12 +717,12 @@ let topletrec_bind ~loc ~quiet ~print_annot info fxcs =
       info) ;
   return ()
 
-let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
+let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
   match c with
 
   | Syntax.Rule (x, prems, bdry) ->
      Runtime.top_lookup_opens >>= fun opens ->
-     Runtime.top_handle ~loc (premises prems (eval_boundary ~loc bdry)) >>= fun (premises, head) ->
+     Runtime.top_handle ~at (premises prems (eval_boundary ~at bdry)) >>= fun (premises, head) ->
      let rule = Nucleus.form_rule premises head in
      (if not quiet then
         Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~opens ~parentheses:false x));
@@ -747,7 +747,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   | Syntax.DeclExternal (x, sch, s) ->
      begin
        match External.lookup s with
-       | None -> Runtime.error ~loc (Runtime.UnknownExternal s)
+       | None -> Runtime.error ~at (Runtime.UnknownExternal s)
        | Some v ->
           Runtime.add_ml_value v >>= (fun () ->
            if not quiet then
@@ -760,11 +760,11 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
   | Syntax.TopLet (info, clauses) ->
      let print_annot = print_annot () in
-     toplet_bind ~loc ~quiet ~print_annot info clauses
+     toplet_bind ~at ~quiet ~print_annot info clauses
 
   | Syntax.TopLetRec (info, fxcs) ->
      let print_annot = print_annot () in
-     topletrec_bind ~loc ~quiet ~print_annot info fxcs
+     topletrec_bind ~at ~quiet ~print_annot info fxcs
 
   | Syntax.TopComputation (c, sch) ->
      comp_value c >>= fun v ->
@@ -780,9 +780,9 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
      Runtime.add_dynamic x v
 
   | Syntax.TopNow (x,c) ->
-     let xloc = x.Location.loc in
+     let xloc = x.Location.at in
      comp_value x >>= fun x ->
-     let x = Runtime.as_dyn ~loc:xloc x in
+     let x = Runtime.as_dyn ~at:xloc x in
      comp_value c >>= fun v ->
      Runtime.top_now x v
 

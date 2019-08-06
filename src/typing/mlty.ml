@@ -79,7 +79,7 @@ type error =
 
 exception Error of error Location.located
 
-let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
+let error ~at err = Pervasives.raise (Error (Location.mark ~at err))
 
 (** We expect that most type metavariables are never shown to the user,
     and thus we reindex the ones that are shown to the user. We could

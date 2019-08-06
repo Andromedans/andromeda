@@ -241,7 +241,7 @@ type error =
 
 exception Error of error Location.located
 
-let error ~loc err = raise (Error (Location.locate err loc))
+let error ~at err = raise (Error (Location.mark ~at err))
 
 let equal_tag = Ident.equal
 
@@ -342,141 +342,141 @@ let name_of v =
 
 (** Coerce values *)
 
-let as_not_abstract ~loc abstr =
+let as_not_abstract ~at abstr =
   match Nucleus.as_not_abstract abstr with
   | Some x -> x
-  | None -> error ~loc UnexpectedAbstraction
+  | None -> error ~at UnexpectedAbstraction
 
-let as_is_type ~loc = function
+let as_is_type ~at = function
   | Judgement abstr as v ->
      begin match Nucleus.as_not_abstract abstr with
      | Some (Nucleus.JudgementIsType t) -> t
      | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _)
-     | None -> error ~loc (IsTypeExpected v)
+     | None -> error ~at (IsTypeExpected v)
      end
   | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (IsTypeExpected v)
+    error ~at (IsTypeExpected v)
 
-let as_is_term ~loc = function
+let as_is_term ~at = function
   | Judgement abstr as v ->
      begin match Nucleus.as_not_abstract abstr with
      | Some (Nucleus.JudgementIsTerm e) -> e
      | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _)
-     | None -> error ~loc (IsTermExpected v)
+     | None -> error ~at (IsTermExpected v)
      end
   | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (IsTermExpected v)
+    error ~at (IsTermExpected v)
 
-let as_eq_type ~loc = function
+let as_eq_type ~at = function
   | Judgement abstr as v ->
      begin match Nucleus.as_not_abstract abstr with
      | Some (Nucleus.JudgementEqType eq) -> eq
      | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _)
-     | None -> error ~loc (EqTypeExpected v)
+     | None -> error ~at (EqTypeExpected v)
      end
   | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (EqTypeExpected v)
+    error ~at (EqTypeExpected v)
 
-let as_eq_term ~loc = function
+let as_eq_term ~at = function
   | Judgement abstr as v ->
      begin match Nucleus.as_not_abstract abstr with
      | Some (Nucleus.JudgementEqTerm eq) -> eq
      | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _)
-     | None -> error ~loc (EqTermExpected v)
+     | None -> error ~at (EqTermExpected v)
      end
   | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (EqTermExpected v)
+    error ~at (EqTermExpected v)
 
-let as_judgement ~loc = function
+let as_judgement ~at = function
   | Judgement abstr as v ->
      begin match Nucleus.as_not_abstract abstr with
      | Some jdg -> jdg
-     | None -> error ~loc (JudgementExpected v)
+     | None -> error ~at (JudgementExpected v)
      end
   | (Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (EqTermExpected v)
+    error ~at (EqTermExpected v)
 
-let as_is_type_abstraction ~loc v =
+let as_is_type_abstraction ~at v =
   match v with
   | Judgement abstr ->
      begin match Nucleus.as_is_type_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~loc AbstractionExpected
+     | None -> error ~at AbstractionExpected
      end
   | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
-    error ~loc AbstractionExpected
+    error ~at AbstractionExpected
 
-let as_is_term_abstraction ~loc v =
+let as_is_term_abstraction ~at v =
   match v with
   | Judgement abstr ->
      begin match Nucleus.as_is_term_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~loc AbstractionExpected
+     | None -> error ~at AbstractionExpected
      end
   | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
-    error ~loc AbstractionExpected
+    error ~at AbstractionExpected
 
-let as_eq_type_abstraction ~loc v =
+let as_eq_type_abstraction ~at v =
   match v with
   | Judgement abstr ->
      begin match Nucleus.as_eq_type_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~loc AbstractionExpected
+     | None -> error ~at AbstractionExpected
      end
   | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
-    error ~loc AbstractionExpected
+    error ~at AbstractionExpected
 
-let as_eq_term_abstraction ~loc v =
+let as_eq_term_abstraction ~at v =
   match v with
   | Judgement abstr ->
      begin match Nucleus.as_eq_term_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~loc AbstractionExpected
+     | None -> error ~at AbstractionExpected
      end
   | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
-    error ~loc AbstractionExpected
+    error ~at AbstractionExpected
 
-let as_judgement_abstraction ~loc v =
+let as_judgement_abstraction ~at v =
   match v with
   | Judgement abstr -> abstr
   | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
-    error ~loc AbstractionExpected
+    error ~at AbstractionExpected
 
-let as_boundary_abstraction ~loc v =
+let as_boundary_abstraction ~at v =
   match v with
   | Boundary abstr -> abstr
   | Judgement _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
-    error ~loc AbstractionExpected
+    error ~at AbstractionExpected
 
-let as_closure ~loc = function
+let as_closure ~at = function
   | Closure f -> f
   | (Judgement _ | Boundary _ |
      Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (ClosureExpected v)
+    error ~at (ClosureExpected v)
 
-let as_handler ~loc = function
+let as_handler ~at = function
   | Handler h -> h
   | (Judgement _ | Boundary _ |
      Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (HandlerExpected v)
+    error ~at (HandlerExpected v)
 
-let as_ref ~loc = function
+let as_ref ~at = function
   | Ref v -> v
   | (Judgement _ | Boundary _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | String _) as v ->
-    error ~loc (RefExpected v)
+    error ~at (RefExpected v)
 
-let as_dyn ~loc = function
+let as_dyn ~at = function
   | Dyn v -> v
   | (Judgement _ | Boundary _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
-    error ~loc (DynExpected v)
+    error ~at (DynExpected v)
 
-let as_string ~loc = function
+let as_string ~at = function
   | String v -> v
   | (Judgement _ | Boundary _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | Ref _) as v ->
-    error ~loc (StringExpected v)
+    error ~at (StringExpected v)
 
 (** Operations *)
 
@@ -523,7 +523,7 @@ let lookup_ml_value k env =
 
 let hypotheses env =
   let v = get_ml_value Desugar.Builtin.hypotheses env in
-  let hyps = as_dyn ~loc:Location.unknown v in
+  let hyps = as_dyn ~at:Location.unknown v in
   Return hyps, env.state
 
 let get_dyn dyn env = Store.Dyn.lookup dyn env.dynamic.vars
@@ -929,12 +929,12 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
     | Some f -> apply_closure f v
     | None -> return v
 
-let top_handle ~loc c env =
+let top_handle ~at c env =
   let r = c env in
   match r with
     | Return v, state -> v, { env with state }
     | Operation (op, vs, _, _, _), _ ->
-       error ~loc (UnhandledOperation (op, vs))
+       error ~at (UnhandledOperation (op, vs))
 
 (** Equality *)
 let rec equal_value v1 v2 =
