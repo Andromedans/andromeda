@@ -39,6 +39,7 @@ let rec generalizable c =
   | Syntax.BoundaryAscribe _
   | Syntax.TypeAscribe _
   | Syntax.TTConstructor _
+  | Syntax.TTApply _
   | Syntax.Abstract _
   | Syntax.Substitute _
   | Syntax.Yield _

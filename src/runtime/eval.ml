@@ -27,7 +27,7 @@ let as_bool ~at v =
      else
      Runtime.(error ~at (BoolExpected v))
 
-  | Runtime.(Tag (_, _::_) | Judgement _ | Boundary _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _) ->
+  | Runtime.(Tag (_, _::_) | Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _) ->
      Runtime.(error ~at (BoolExpected v))
 
 let as_handler ~at v =
@@ -73,9 +73,15 @@ let rec comp {Location.it=c'; at} =
        let v = Runtime.mk_tag t vs in
        return v
 
-    | Syntax.TTConstructor (c, cs) ->
+    | Syntax.TTConstructor (cnstr, cs) ->
        Runtime.lookup_signature >>= fun sgn ->
-       let rap = Nucleus.form_constructor_rap sgn c in
+       let rap = Nucleus.form_constructor_rap sgn cnstr in
+       check_arguments rap cs
+
+    | Syntax.TTApply (c, cs) ->
+       comp_as_derivation c >>= fun drv ->
+       Runtime.lookup_signature >>= fun sgn ->
+       let rap = Nucleus.form_derivation_rap sgn drv in
        check_arguments rap cs
 
     | Syntax.Tuple cs ->
@@ -200,7 +206,7 @@ let rec comp {Location.it=c'; at} =
 
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-             | Runtime.(Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+             | Runtime.(Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
                 Runtime.(error ~at (JudgementExpected v))
            end)
 
@@ -254,7 +260,7 @@ let rec comp {Location.it=c'; at} =
       | Runtime.Closure f ->
         comp c2 >>= fun v ->
         Runtime.apply_closure f v
-      | Runtime.(Judgement _ | Boundary _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as h ->
+      | Runtime.(Judgement _ | Boundary _ | Derivation _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as h ->
         Runtime.(error ~at (Inapplicable h))
     end
 
@@ -348,6 +354,7 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.TypeAscribe _
   | Syntax.MLConstructor _
   | Syntax.TTConstructor _
+  | Syntax.TTApply _
   | Syntax.Tuple _
   | Syntax.With _
   | Syntax.Yield _
@@ -537,6 +544,11 @@ and match_op_cases ~at op cases vs checking =
       end
   in
   fold cases
+
+
+(** Run [c] and convert the result to a derivation. *)
+and comp_as_derivation c =
+  comp c >>= fun v -> return (Runtime.as_derivation ~at:c.Location.at v)
 
 (** Run [c] and convert the result to an type judgement. *)
 and comp_as_is_type c =

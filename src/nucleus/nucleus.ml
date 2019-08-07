@@ -40,6 +40,7 @@ let form_alpha_equal_term = Form.form_alpha_equal_term
 let form_alpha_equal_type = Form.form_alpha_equal_type
 let form_alpha_equal_abstraction = Form.form_alpha_equal_abstraction
 let form_constructor_rap = Form.form_constructor_rap
+let form_derivation_rap = Form.form_derivation_rap
 
 let form_is_term_atom = Form.form_is_term_atom
 let form_eq_term_convert = Form.form_eq_term_convert

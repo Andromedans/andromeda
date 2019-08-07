@@ -55,6 +55,7 @@ and comp' =
   | BoundaryAscribe of comp * comp
   | TypeAscribe of comp * comp
   | TTConstructor of tt_constructor * comp list
+  | TTApply of comp * comp list
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp
   | Substitute of comp * comp

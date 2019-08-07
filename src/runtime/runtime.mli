@@ -20,6 +20,7 @@ type ml_constructor = Ident.t
 type value =
   | Judgement of Nucleus.judgement_abstraction (** A judgement *)
   | Boundary of Nucleus.boundary_abstraction   (** A judgement boundary (also known as a goal) *)
+  | Derivation of Nucleus.Rule.derivation      (** A hypothetical derivation *)
   | Closure of (value,value) closure           (** An ML function *)
   | Handler of handler                         (** Handler value *)
   | Tag of ml_constructor * value list         (** Application of a data constructor *)
@@ -65,6 +66,9 @@ val mk_string : string -> value
 
 
 (** {b Value extraction} *)
+
+(** Convert to a derivation, or fail with [DerivationExpected] *)
+val as_derivation : at:Location.t -> value -> Nucleus.Rule.derivation
 
 (** Convert to a non-abstracted value, or fail with [UnexpectedAbstraction] *)
 val as_not_abstract : at:Location.t -> 'a Nucleus.abstraction -> 'a
@@ -165,6 +169,7 @@ type error =
   | EqTermExpected of value
   | AbstractionExpected
   | JudgementExpected of value
+  | DerivationExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
   | RefExpected of value
