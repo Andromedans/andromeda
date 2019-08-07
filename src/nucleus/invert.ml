@@ -22,14 +22,14 @@ let rec invert_argument ~lvl es prem arg =
 let invert_arguments rl args =
   let rec fold es abstrs rl args =
     match rl, args with
-    | Rule.RuleConclusion _, [] -> List.rev abstrs
+    | Rule.Conclusion _, [] -> List.rev abstrs
 
-    | Rule.RulePremise (prem, rl), arg :: args ->
+    | Rule.Premise (prem, rl), arg :: args ->
        let abstr = invert_argument ~lvl:0 es prem arg in
        fold (arg :: es) (abstr :: abstrs) rl args
 
-    | Rule.RuleConclusion _, _::_
-    | Rule.RulePremise _, [] ->
+    | Rule.Conclusion _, _::_
+    | Rule.Premise _, [] ->
        assert false
   in
   fold [] [] rl args

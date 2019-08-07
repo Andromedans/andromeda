@@ -218,11 +218,11 @@ let form_rule prems concl =
             and t = mk_rule_is_type metas t in
             Rule.BoundaryEqTerm (e1, e2, t)
        in
-       Rule.RuleConclusion concl
+       Rule.Conclusion concl
 
     | (mv, prem) :: prems ->
        let prem = mk_rule_abstraction mk_rule_premise metas prem in
        let rl = fold (mv :: metas) prems in
-       Rule.RulePremise (prem, rl)
+       Rule.Premise (prem, rl)
   in
   fold [] prems

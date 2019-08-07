@@ -53,10 +53,10 @@ let form_rap' sgn form rl args1 args2 =
   let rec fold es eq_args rl args1 args2 =
     match rl, args1, args2 with
 
-    | Rule.RuleConclusion concl, [], [] ->
+    | Rule.Conclusion concl, [], [] ->
        RapDone (form eq_args concl)
 
-    | Rule.RulePremise (prem, rl), arg1 :: args1, arg2 :: args2 ->
+    | Rule.Premise (prem, rl), arg1 :: args1, arg2 :: args2 ->
        begin match congruence_boundary es prem arg1 arg2 with
 
        | None ->
@@ -75,10 +75,10 @@ let form_rap' sgn form rl args1 args2 =
           RapMore (bdry, rap_apply)
        end
 
-    | Rule.RuleConclusion _, _::_, _
-    | Rule.RuleConclusion _, [], _::_
-    | Rule.RulePremise _, [], _
-    | Rule.RulePremise _, _::_, [] ->
+    | Rule.Conclusion _, _::_, _
+    | Rule.Conclusion _, [], _::_
+    | Rule.Premise _, [], _
+    | Rule.Premise _, _::_, [] ->
        Error.raise InvalidCongruence
   in
   fold [] [] rl args1 args2

@@ -36,14 +36,14 @@ let type_of_term sgn = function
      let rec fold inds rl args =
        match rl, args with
 
-       | Rule.RulePremise (_, rl), arg :: args -> fold (arg :: inds) rl args
+       | Rule.Premise (_, rl), arg :: args -> fold (arg :: inds) rl args
 
-       | Rule.RuleConclusion (Rule.BoundaryIsTerm t_schema), [] ->
+       | Rule.Conclusion (Rule.BoundaryIsTerm t_schema), [] ->
           Instantiate_meta.is_type ~lvl:0 inds t_schema
 
-       | Rule.RuleConclusion (Rule.BoundaryIsType _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _), []
-       | Rule.RulePremise _, []
-       | Rule.RuleConclusion _, _::_ ->
+       | Rule.Conclusion (Rule.BoundaryIsType _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _), []
+       | Rule.Premise _, []
+       | Rule.Conclusion _, _::_ ->
           assert false
      in
      let rl = Signature.lookup_rule c sgn in

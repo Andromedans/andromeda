@@ -169,10 +169,14 @@ sig
 
   and premise = boundary_abstraction
 
-  type t =
+  and conclusion = boundary
+
+  and 'a hypothetical =
     private
-    | RuleConclusion of boundary
-    | RulePremise of premise * t
+    | Conclusion of 'a
+    | Premise of premise * 'a hypothetical
+
+  type primitive = conclusion hypothetical
 end
 
 
@@ -181,10 +185,10 @@ module Signature : sig
 
   val empty : signature
 
-  val add_rule : Ident.t -> Rule.t -> signature -> signature
+  val add_rule : Ident.t -> Rule.primitive -> signature -> signature
 end
 
-val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> Rule.t
+val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> Rule.primitive
 
 (** When we apply a rule application to one more argument two things may happen.
    Either we are done and we get a result, or more arguments are needed, in

@@ -56,7 +56,7 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
 (* Form a rule application for the given constructor [c] *)
 let form_constructor_rap sgn c =
   let rec fold args = function
-    | Rule.RulePremise (prem, rl) ->
+    | Rule.Premise (prem, rl) ->
        let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
        let rap abstr =
          if not (Check.judgement_boundary_abstraction sgn abstr bdry)
@@ -67,13 +67,13 @@ let form_constructor_rap sgn c =
        in
        RapMore (bdry, rap)
 
-    | Rule.RuleConclusion (Rule.BoundaryIsType ()) ->
+    | Rule.Conclusion (Rule.BoundaryIsType ()) ->
        RapDone (JudgementIsType (Mk.type_constructor c (Indices.to_list args)))
 
-    | Rule.RuleConclusion (Rule.BoundaryIsTerm _) ->
+    | Rule.Conclusion (Rule.BoundaryIsTerm _) ->
        RapDone (JudgementIsTerm (Mk.term_constructor c (Indices.to_list args)))
 
-    | Rule.RuleConclusion (Rule.BoundaryEqType (lhs_schema, rhs_schema)) ->
+    | Rule.Conclusion (Rule.BoundaryEqType (lhs_schema, rhs_schema)) ->
          (* order of arguments not important in [Collect_assumptions.arguments],
             we could try avoiding a list reversal caused by [Indices.to_list]. *)
          let asmp = Collect_assumptions.arguments (Indices.to_list args)
@@ -82,7 +82,7 @@ let form_constructor_rap sgn c =
          in
          RapDone (JudgementEqType (Mk.eq_type asmp lhs rhs))
 
-    | Rule.RuleConclusion (Rule.BoundaryEqTerm (e1_schema, e2_schema, t_schema)) ->
+    | Rule.Conclusion (Rule.BoundaryEqTerm (e1_schema, e2_schema, t_schema)) ->
          (* order of arguments not important in [Collect_assumptions.arguments],
             we could try avoiding a list reversal caused by [Indices.to_list]. *)
          let asmp = Collect_assumptions.arguments (Indices.to_list args)
