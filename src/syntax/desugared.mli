@@ -72,7 +72,7 @@ and comp' =
   | BoundaryAscribe of comp * comp
   | TypeAscribe of comp * comp
   | TTConstructor of Path.t * comp list
-  | Apply of comp * comp
+  | Spine of comp * comp list
   | Abstract of Name.t * comp option * comp
   | Substitute of comp * comp
   | Yield of comp

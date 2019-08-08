@@ -20,6 +20,7 @@ module MetaSet : Set.S with type elt = meta
 type ty =
   | Judgement
   | Boundary
+  | Derivation of int
   | String
   | Meta of meta
   | Param of param
@@ -65,7 +66,9 @@ type error =
   | Ungeneralizable of param list * ty
   | UninferrableExpression
   | JudgementOrBoundaryExpected of ty
+  | DerivationOrFunctionExpected of ty
   | JudgementExpected of ty
+  | DerivationArityMismatch of int * int
 
 exception Error of error Location.located
 

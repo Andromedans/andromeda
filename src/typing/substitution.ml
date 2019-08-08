@@ -19,6 +19,7 @@ let apply (s : t) t =
       let rec app = function
         | Mlty.Judgement
         | Mlty.Boundary
+        | Mlty.Derivation _
         | Mlty.String
         | Mlty.Param _ as t -> t
 

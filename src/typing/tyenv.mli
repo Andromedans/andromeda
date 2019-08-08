@@ -9,6 +9,11 @@ type judgement_or_boundary =
   | Is_judgement
   | Is_boundary
 
+(** A type for signaling whether a thing is a derivation or a function *)
+type derivation_or_function =
+  | Is_derivation of int
+  | Is_function of Mlty.ty * Mlty.ty
+
 (** The empty typing environment. *)
 val empty : t
 
@@ -52,8 +57,13 @@ val add_tt_constructor : Ident.t -> unit tyenvM
     [t2]. If successful, retry to solve the current unsolved constraints. *)
 val add_equation : at:Location.t -> Mlty.ty -> Mlty.ty -> unit tyenvM
 
-(** Express the given type either as a judgement or a boundary type. *)
+(** Express the given type as a judgement or a boundary. Report an error if neither
+    can be determined. *)
 val as_judgement_or_boundary : at:Location.t -> Mlty.ty -> judgement_or_boundary tyenvM
+
+(** Express the given type either as a derivation or a function, preferring the function
+    case when the chocie is not determined yet. *)
+val as_derivation_or_function : at:Location.t -> Mlty.ty -> derivation_or_function tyenvM
 
 (** Express the given type as a handler type. *)
 val as_handler : at:Location.t -> Mlty.ty -> (Mlty.ty * Mlty.ty) tyenvM

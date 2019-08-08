@@ -12,6 +12,12 @@
     The arity of a constructor [C] is a pair of number [(n, m)], where [n] is the
     number of arguments it takes, and [m] is the number of proof-relevant arguments
     (term and type arguments).
+
+    Note that we do not check arities of derivations here because those are first-class
+    and are not bound to specific identifiers. Typechecking performs that operation.
+    We could consider moving arity checking of all entitites to typechecking, but then
+    we need to worry about separate namespaces in which they might leave, and it would
+    just induce some pointless code refactoring.
 *)
 
 (** Association tables with de Bruijn levels. *)
@@ -1271,49 +1277,43 @@ and spine ctx ({Location.it=c';at} as c) cs =
     in
     split [] arity lst
   in
-
-  (* First we calculate the head of the spine, and the remaining arguments. *)
   let head, cs =
-    match c' with
+  match c' with
 
-    | Sugared.Name x ->
-       begin match Ctx.get_name ~at x ctx with
+  | Sugared.Name x ->
+     begin match Ctx.get_name ~at x ctx with
 
-       | Bound i ->
+     | Bound i ->
           locate (Desugared.Bound i), cs
 
-       | Value pth ->
+     | Value pth ->
           locate (Desugared.Value pth), cs
 
-       | TTConstructor (pth, arity) ->
+     | TTConstructor (pth, arity) ->
           check_tt_arity ~at x (List.length cs) arity ;
           let cs', cs = split_at x arity.arity cs in
           tt_constructor ~at ctx pth cs', cs
 
-       | MLConstructor (pth, arity) ->
-          check_ml_arity ~at x (List.length cs) arity ;
-          let cs', cs = split_at x arity cs in
-          ml_constructor ~at ctx pth cs', cs
+     | MLConstructor (pth, arity) ->
+        check_ml_arity ~at x (List.length cs) arity ;
+        let cs', cs = split_at x arity cs in
+        ml_constructor ~at ctx pth cs', cs
 
-       | Operation (pth, arity) ->
-          (* We allow more arguments than the arity of the operation. *)
-          let cs', cs = split_at x arity cs in
-          operation ~at ctx pth cs', cs
+     | Operation (pth, arity) ->
+        (* We allow more arguments than the arity of the operation. *)
+        let cs', cs = split_at x arity cs in
+        operation ~at ctx pth cs', cs
 
-       end
+     end
 
     | _ -> comp ctx c, cs
   in
+  match cs with
+  | [] -> head
+  | _::_ ->
+     let cs = List.map (comp ctx) cs in
+     Location.mark ~at (Desugared.Spine (head, cs))
 
-  (* TODO improve locs *)
-  List.fold_left
-    (fun head arg ->
-       let arg = comp ctx arg
-       and at = Location.union at arg.Location.at in
-       let head = Desugared.Apply (head, arg) in
-       Location.mark ~at head)
-    head
-    cs
 
 (* Desugar handler cases. *)
 and handler ~at ctx hcs =

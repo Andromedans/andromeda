@@ -7,6 +7,10 @@ type judgement_or_boundary =
   | Is_judgement
   | Is_boundary
 
+type derivation_or_function =
+  | Is_derivation of int
+  | Is_function of Mlty.ty * Mlty.ty
+
 type 'a tyenvM = t -> 'a * t
 
 let empty =
@@ -127,7 +131,7 @@ let rec whnf ctx s = function
      | None -> t
      end
 
-  | Mlty.(Judgement | Boundary | String | Param _ | Prod _ | Arrow _ |
+  | Mlty.(Judgement | Boundary | Derivation _ | String | Param _ | Prod _ | Arrow _ |
      Handler _ | Ref _ | Dynamic _) as t -> t
 
 (** Unify types [t] and [t'] under current substitition [s],
@@ -143,6 +147,9 @@ let rec unifiable ctx s t t' =
   | Mlty.(Boundary, Boundary)
   | Mlty.(String, String) ->
      Some s
+
+  | Mlty.(Derivation i, Derivation j) ->
+     if i = j then Some s else None
 
   | Mlty.Meta m, Mlty.Meta m' when Mlty.eq_meta m m' ->
      Some s
@@ -196,7 +203,7 @@ let rec unifiable ctx s t t' =
         fold s ts ts'
      end
 
-  | Mlty.(Judgement | Boundary | String | Ref _ | Dynamic _ | Prod _ |
+  | Mlty.(Judgement | Boundary | Derivation _ | String | Ref _ | Dynamic _ | Prod _ |
      Param _ | Arrow _ | Handler _ | Apply _), _ ->
      None
 
@@ -226,8 +233,24 @@ let as_judgement_or_boundary ~at t env =
   | Mlty.Meta _ ->
      Mlty.error ~at Mlty.UninferrableExpression
 
-  | Mlty.(String | Ref _ | Dynamic _ |  Param _ | Handler _ | Prod _ | Arrow _ | Apply _) ->
+  | Mlty.(Derivation _ | String | Ref _ | Dynamic _ |  Param _ | Handler _ | Prod _ | Arrow _ | Apply _) ->
      Mlty.(error ~at (JudgementOrBoundaryExpected t))
+
+let as_derivation_or_function ~at t env =
+  let t = whnf env.context env.substitution t in
+  match t with
+
+  | Mlty.Derivation i -> return (Is_derivation i) env
+
+  | Mlty.Arrow (t, u) -> return (Is_function (t, u)) env
+
+  | Mlty.Meta _ as t ->
+     let t1 = Mlty.fresh_type ()
+     and t2 = Mlty.fresh_type () in
+     (add_equation ~at t (Mlty.Arrow (t1, t2)) >>= fun () -> return (Is_function (t1, t2))) env
+
+  | Mlty.(Judgement | Boundary | String | Ref _ | Dynamic _ | Param _ | Handler _ | Prod _ | Apply _) ->
+     Mlty.(error ~at (DerivationOrFunctionExpected t))
 
 let as_handler ~at t env =
   let t = whnf env.context env.substitution t in
@@ -243,7 +266,7 @@ let as_handler ~at t env =
            | None -> assert false
      end
 
-  | Mlty.(Judgement | Boundary | String | Ref _ | Dynamic _ |  Param _ |
+  | Mlty.(Judgement | Boundary | Derivation _ | String | Ref _ | Dynamic _ |  Param _ |
      Prod _ | Arrow _ | Apply _) ->
      Mlty.(error ~at (HandlerExpected t))
 
@@ -260,7 +283,7 @@ let as_ref ~at t env =
            | None -> assert false
      end
 
-  | Mlty.(Judgement | Boundary | String | Param _ | Prod _ | Handler _ |
+  | Mlty.(Judgement | Boundary | Derivation _ | String | Param _ | Prod _ | Handler _ |
      Arrow _ | Apply _ | Dynamic _) ->
      Mlty.(error ~at (RefExpected t))
 
@@ -277,7 +300,8 @@ let as_dynamic ~at t env =
            | None -> assert false
      end
 
-  | Mlty.(Judgement | Boundary | String | Param _ | Prod _ | Handler _ | Arrow _ | Apply _ | Ref _) ->
+  | Mlty.(Judgement | Boundary | Derivation _ | String | Param _ |
+          Prod _ | Handler _ | Arrow _ | Apply _ | Ref _) ->
      Mlty.(error ~at (DynamicExpected t))
 
 let op_cases op ~output m env =

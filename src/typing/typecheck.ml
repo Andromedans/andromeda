@@ -229,7 +229,7 @@ and check_pattern ({Location.it=p'; at} as p) t =
         check_patterns ps ts >>= fun (ps, xts) ->
         return (locate ~at (Syntax.Patt_Tuple ps), xts)
 
-     | Mlty.(Prod _ | Judgement | Boundary | String | Meta _ | Param _ |
+     | Mlty.(Prod _ | Judgement | Boundary | Derivation _ | String | Meta _ | Param _ |
              Arrow _ | Handler _ | Apply _ | Ref _ | Dynamic _) ->
         infer_pattern p >>= fun (p, t', xts) ->
         Tyenv.add_equation ~at t' t >>= fun () ->
@@ -284,7 +284,7 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      end
 
   | Desugared.Handler h ->
-     handler ~at h >>= fun (h, t) ->
+     infer_handler ~at h >>= fun (h, t) ->
      return (locate ~at (Syntax.Handler h), t)
 
   | Desugared.TTConstructor (pth, cs) ->
@@ -449,12 +449,8 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      check_comp c2 Mlty.Judgement >>= fun c2 ->
      return (locate ~at (Syntax.Substitute (c1, c2)), Mlty.Judgement)
 
-  | Desugared.Apply (c1, c2) ->
-     infer_comp c1 >>= fun (c1, t1) ->
-     infer_comp c2 >>= fun (c2, t2) ->
-     let out = Mlty.fresh_type () in
-     Tyenv.add_equation ~at t1 (Mlty.Arrow (t2, out)) >>= fun () ->
-     return (locate ~at (Syntax.Apply (c1, c2)), out)
+  | Desugared.Spine (c, cs) ->
+     infer_spine ~at c cs
 
   | Desugared.Yield c ->
     Tyenv.lookup_continuation >>= fun (a, b) ->
@@ -500,12 +496,44 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      boundary bdry >>= fun bdry ->
      return (locate ~at Syntax.(MLBoundary bdry), Mlty.Boundary)
 
-and check_comp c t =
-  infer_comp c >>= fun (c, t') ->
-  Tyenv.add_equation ~at:c.Location.at t' t >>= fun () ->
-  return c
+and infer_spine ~at c_head cs =
+  let rec fold t_head c_head cs =
+    Tyenv.as_derivation_or_function ~at t_head >>= function
 
-and handler ~at {Desugared.handler_val=handler_val;handler_ops;handler_finally} =
+    | Tyenv.Is_derivation expected ->
+       (** It's a derivation *)
+       let used = List.length cs in
+       if expected <> used then
+         Mlty.(error ~at (DerivationArityMismatch (used, expected)))
+       else
+         let rec fold cs_out = function
+           | [] ->
+              let cs_out = List.rev cs_out in
+              return (locate ~at Syntax.(TTApply (c_head, cs_out)), Mlty.Judgement)
+           | c :: cs ->
+              check_comp c Mlty.Judgement >>= fun c_out ->
+              fold (c_out :: cs_out) cs
+         in
+         fold [] cs
+
+    | Tyenv.Is_function (u, v) ->
+       (** It's an ML application *)
+       begin match cs with
+       | [] -> assert false
+       | [c] ->
+          check_comp c u >>= fun c ->
+          return (locate ~at (Syntax.Apply (c_head, c)), v)
+       | c :: cs ->
+          check_comp c u >>= fun c ->
+          let c_head = locate ~at (Syntax.Apply (c_head, c)) in
+          fold v c_head cs
+       end
+  in
+  infer_comp c_head >>= fun (c_head, t_head) ->
+  fold t_head c_head cs
+
+
+and infer_handler ~at {Desugared.handler_val=handler_val;handler_ops;handler_finally} =
   let input = Mlty.fresh_type () in
   begin match handler_val with
     | [] -> return ([], input)
@@ -597,6 +625,11 @@ and match_op_cases op cases t_out =
            fold_cases (case :: cases) rem
       in
       fold_cases [] cases)
+
+and check_comp c t =
+  infer_comp c >>= fun (c, t') ->
+  Tyenv.add_equation ~at:c.Location.at t' t >>= fun () ->
+  return c
 
 
 and let_clauses
