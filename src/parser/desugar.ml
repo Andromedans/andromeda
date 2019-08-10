@@ -1032,7 +1032,7 @@ let rec comp ctx {Location.it=c';at} =
      locate (Desugared.Derive (prems, c))
 
   | Sugared.Spine (e, cs) ->
-     spine ctx e cs
+     spine ~at ctx e cs
 
   | Sugared.Name x ->
 
@@ -1265,8 +1265,7 @@ and let_annotation ctx = function
 
 (* To desugar a spine [c1 c2 ... cN], we check if c1 is an identifier, in which
    case we break the spine according to the arity of c1. *)
-and spine ctx ({Location.it=c';at} as c) cs =
-  let locate x = Location.mark ~at x in
+and spine ~at ctx ({Location.it=c'; at=c_at} as c) cs =
 
   (* Auxiliary function which splits a list into two parts with k
      elements in the first part. *)
@@ -1288,10 +1287,10 @@ and spine ctx ({Location.it=c';at} as c) cs =
      begin match Ctx.get_name ~at x ctx with
 
      | Bound i ->
-          locate (Desugared.Bound i), cs
+          Location.mark ~at:c_at (Desugared.Bound i), cs
 
      | Value pth ->
-          locate (Desugared.Value pth), cs
+          Location.mark ~at:c_at (Desugared.Value pth), cs
 
      | TTConstructor (pth, arity) ->
           check_tt_arity ~at x (List.length cs) arity ;

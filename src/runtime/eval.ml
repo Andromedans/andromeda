@@ -76,13 +76,13 @@ let rec comp {Location.it=c'; at} =
     | Syntax.TTConstructor (cnstr, cs) ->
        Runtime.lookup_signature >>= fun sgn ->
        let rap = Nucleus.form_constructor_rap sgn cnstr in
-       check_arguments rap cs
+       check_arguments ~at rap cs
 
     | Syntax.TTApply (c, cs) ->
        comp_as_derivation c >>= fun drv ->
        Runtime.lookup_signature >>= fun sgn ->
        let rap = Nucleus.form_derivation_rap sgn drv in
-       check_arguments rap cs
+       check_arguments ~at rap cs
 
     | Syntax.Tuple cs ->
       let rec fold vs = function
@@ -293,7 +293,7 @@ let rec comp {Location.it=c'; at} =
      Runtime.get_env >>= fun env ->
      let sgn = Runtime.get_signature env in
      let rap = Nucleus.congruence_rap sgn cnstr jdg1 jdg2 in
-     check_arguments rap cs
+     check_arguments ~at rap cs
 
   | Syntax.Convert (c1, c2) ->
      comp_as_judgement_abstraction c1 >>= fun jdg ->
@@ -325,18 +325,18 @@ let rec comp {Location.it=c'; at} =
      eval_boundary ~at bdry >>= fun bdry ->
      Runtime.return_boundary Nucleus.(abstract_not_abstract bdry)
 
-and check_arguments rap cs =
+and check_arguments ~at rap cs =
   match rap, cs with
   | Nucleus.RapDone jdg, [] -> Runtime.return_judgement (Nucleus.abstract_not_abstract jdg)
   | Nucleus.RapMore (bdry, rap_apply), c :: cs ->
      Runtime.lookup_signature >>= fun sgn ->
      check_judgement c bdry >>= fun arg ->
      let rap = rap_apply arg in
-     check_arguments rap cs
+     check_arguments ~at rap cs
   | Nucleus.RapDone _, _::_ ->
-     assert false (* cannot happen, desugaring prevents this by checking arities of constructors *)
+     Runtime.(error ~at TooManyArguments)
   | Nucleus.RapMore _, [] ->
-     assert false (* cannot happen, desugaring prevetns this by checking arities of constructors  *)
+     Runtime.(error ~at TooFewArguments)
 
 (** Coerce the value [v] to the given judgement boundary [bdry] *)
 and coerce ~at v (bdry : Nucleus.boundary_abstraction) =

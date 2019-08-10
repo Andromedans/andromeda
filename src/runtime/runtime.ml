@@ -204,6 +204,8 @@ type 'a toplevel = env -> 'a * env
 
 (** Error reporting *)
 type error =
+  | TooFewArguments
+  | TooManyArguments
   | ExpectedAtom of Nucleus.is_term
   | UnknownExternal of string
   | UnknownConfig of string
@@ -761,6 +763,12 @@ let print_operation ~penv op vs ppf =
 
 let print_error ~penv err ppf =
   match err with
+
+  | TooFewArguments ->
+     Format.fprintf ppf "too few arguments"
+
+  | TooManyArguments ->
+     Format.fprintf ppf "too many arguments"
 
   | ExpectedAtom j ->
      Format.fprintf ppf "expected an atom but got@ %t"

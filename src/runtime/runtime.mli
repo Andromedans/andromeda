@@ -145,6 +145,8 @@ val print_value :
 
 (** The runtime errors *)
 type error =
+  | TooFewArguments
+  | TooManyArguments
   | ExpectedAtom of Nucleus.is_term
   | UnknownExternal of string
   | UnknownConfig of string
