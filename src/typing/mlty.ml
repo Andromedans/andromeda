@@ -66,7 +66,6 @@ type ty_def =
   | Sum of (Ident.t * ty list) list forall
 
 type error =
-  | InvalidApplication of ty * ty * ty
   | TypeMismatch of ty * ty
   | HandlerExpected of ty
   | RefExpected of ty
@@ -185,12 +184,6 @@ let print_ty_schema ~penv ?max_level (ms, t) ppf =
 let print_error err ppf =
   let penv = fresh_penv () in
   match err with
-
-  | InvalidApplication (h, arg, out) ->
-    Format.fprintf ppf "invalid application of@ @[<hov>%t]@ to@ @[<hov>%t@]@ producing@ @[<hov>%t]"
-      (print_ty ~penv h)
-      (print_ty ~penv arg)
-      (print_ty ~penv out)
 
   | TypeMismatch (t1, t2) ->
     Format.fprintf ppf "expected@ @[%t@] but got@ @[%t@]"

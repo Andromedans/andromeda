@@ -210,14 +210,12 @@ type error =
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | AnnotationMismatch of Nucleus.is_type * Nucleus.is_type_abstraction
   | TypeMismatchCheckingMode of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnexpectedAbstraction
   | TermEqualityFail of Nucleus.is_term * Nucleus.is_term
   | TypeEqualityFail of Nucleus.is_type * Nucleus.is_type
   | UnannotatedAbstract of Name.t
   | MatchFail of value
-  | FailureFail of value
   | InvalidComparison
   | InvalidEqualTerm of Nucleus.is_term * Nucleus.is_term
   | InvalidEqualType of Nucleus.is_type * Nucleus.is_type
@@ -241,7 +239,6 @@ type error =
   | InvalidCoerce of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnhandledOperation of Ident.t * value list
   | InvalidPatternMatch of value
-  | InvalidHandlerMatch
 
 exception Error of error Location.located
 
@@ -783,14 +780,6 @@ let print_error ~penv err ppf =
   | Inapplicable v ->
      Format.fprintf ppf "cannot apply@ %s" (name_of v)
 
-
-  | AnnotationMismatch (t1, t2) ->
-     let penv = mk_nucleus_penv penv in
-     Format.fprintf ppf
-       "the type annotation is@ %t@ but the surroundings imply it should be@ %t"
-                    (Nucleus.print_is_type ~penv t1)
-                    (Nucleus.print_is_type_abstraction ~penv t2)
-
   | TypeMismatchCheckingMode (jdg, bdry) ->
      let penv = mk_nucleus_penv penv in
      Format.fprintf ppf "the term@ %t@ is expected by its surroundings to have type@ %t"
@@ -817,10 +806,6 @@ let print_error ~penv err ppf =
 
   | MatchFail v ->
      Format.fprintf ppf "no matching pattern found for value@ %t"
-                    (print_value ~penv v)
-
-  | FailureFail v ->
-     Format.fprintf ppf "expected to fail but computed@ %t"
                     (print_value ~penv v)
 
   | InvalidComparison ->
@@ -906,10 +891,6 @@ let print_error ~penv err ppf =
   | InvalidPatternMatch v ->
      Format.fprintf ppf "this pattern cannot match@ %t"
                     (print_value ~penv v)
-
-  | InvalidHandlerMatch ->
-     Format.fprintf ppf "wrong number of arguments in handler case"
-
 
 let empty = {
   lexical = {

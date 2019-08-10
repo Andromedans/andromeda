@@ -1,2 +1,6 @@
-File "./runtime/handler.m31", line 9, characters 32-41:
-Type error: unknown name base.print
+Operation auto is declared.
+Rule A is postulated.
+Rule a is postulated.
+Rule B is postulated.
+- : judgement = ⊢ a
+- : judgement = ⊢ B type

@@ -56,7 +56,6 @@ type ty_def =
 
 (** The errors reported by type inference. *)
 type error =
-  | InvalidApplication of ty * ty * ty
   | TypeMismatch of ty * ty
   | HandlerExpected of ty
   | RefExpected of ty
