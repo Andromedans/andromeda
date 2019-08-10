@@ -1027,6 +1027,10 @@ let rec comp ctx {Location.it=c';at} =
           Location.mark ~at (Desugared.Substitute (e, c)))
        e cs
 
+  | Sugared.Derive (prems, c) ->
+     let c, prems = premises ctx prems (fun ctx -> comp ctx c) in
+     locate (Desugared.Derive (prems, c))
+
   | Sugared.Spine (e, cs) ->
      spine ctx e cs
 
@@ -1402,6 +1406,83 @@ and operation ~at ctx x cs =
   let cs = List.map (comp ctx) cs in
   Location.mark ~at (Desugared.Operation (x, cs))
 
+and local_context :
+  'a . Ctx.t -> Sugared.local_context -> (Ctx.t -> 'a) -> 'a * Desugared.local_context
+= fun ctx xcs m ->
+  let rec fold ctx xcs_out = function
+    | [] ->
+       let xcs_out = List.rev xcs_out in
+       let v = m ctx in
+       v, xcs_out
+    | (x, c) :: xcs ->
+       let c = comp ctx c in
+       let ctx = Ctx.add_bound x ctx in
+       fold ctx ((x,c) :: xcs_out) xcs
+  in
+  fold ctx [] xcs
+
+and premise ctx {Location.it=prem;at} =
+  let locate x = Location.mark ~at x in
+  match prem with
+  | Sugared.PremiseIsType (mvar, local_ctx) ->
+     let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Desugared.BoundaryIsType in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
+
+  | Sugared.PremiseIsTerm (mvar, local_ctx, c) ->
+     let c, local_ctx =
+       local_context
+         ctx local_ctx
+         (fun ctx -> comp ctx c)
+     in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Desugared.BoundaryIsTerm c in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
+
+  | Sugared.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
+     let (c1, c2), local_ctx =
+       local_context
+         ctx local_ctx
+         (fun ctx ->
+           comp ctx c1,
+           comp ctx c2)
+     in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Desugared.BoundaryEqType (c1, c2) in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
+
+  | Sugared.PremiseEqTerm (mvar, local_ctx, (c1, c2, c3)) ->
+     let (c1, c2, c3), local_ctx =
+       local_context ctx local_ctx
+       (fun ctx ->
+         comp ctx c1,
+         comp ctx c2,
+         comp ctx c3)
+     in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Desugared.BoundaryEqTerm (c1, c2, c3) in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
+
+and premises :
+  'a . Ctx.t -> Sugared.premise list -> (Ctx.t -> 'a) -> 'a * Desugared.premise list
+= fun ctx prems m ->
+  let rec fold ctx prems_out = function
+    | [] ->
+       let v = m ctx in
+       let prems_out = List.rev prems_out in
+       v, prems_out
+
+    | prem :: prems ->
+       let ctx, prem = premise ctx prem in
+       fold ctx (prem :: prems_out) prems
+  in
+  fold ctx [] prems
+
 let decl_operation ~at ctx args res =
   let args = List.map (mlty ctx []) args
   and res = mlty ctx [] res in
@@ -1460,79 +1541,6 @@ let mlty_rec_defs ~at ctx defs =
   let defs_out =
     List.map (fun (t, (params, def)) -> (t, (params, mlty_def ~at ctx params def))) defs_out in
   ctx, defs_out
-
-let local_context ctx xcs m =
-  let rec fold ctx xcs_out = function
-    | [] ->
-       let xcs_out = List.rev xcs_out in
-       let v = m ctx in
-       v, xcs_out
-    | (x, c) :: xcs ->
-       let c = comp ctx c in
-       let ctx = Ctx.add_bound x ctx in
-       fold ctx ((x,c) :: xcs_out) xcs
-  in
-  fold ctx [] xcs
-
-let premise ctx {Location.it=prem;at} =
-  let locate x = Location.mark ~at x in
-  match prem with
-  | Sugared.PremiseIsType (mvar, local_ctx) ->
-     let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryIsType in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseIsTerm (mvar, local_ctx, c) ->
-     let c, local_ctx =
-       local_context
-         ctx local_ctx
-         (fun ctx -> comp ctx c)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryIsTerm c in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
-     let (c1, c2), local_ctx =
-       local_context
-         ctx local_ctx
-         (fun ctx ->
-           comp ctx c1,
-           comp ctx c2)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryEqType (c1, c2) in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseEqTerm (mvar, local_ctx, (c1, c2, c3)) ->
-     let (c1, c2, c3), local_ctx =
-       local_context ctx local_ctx
-       (fun ctx ->
-         comp ctx c1,
-         comp ctx c2,
-         comp ctx c3)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryEqTerm (c1, c2, c3) in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-let premises ctx prems m =
-  let rec fold ctx prems_out = function
-    | [] ->
-       let v = m ctx in
-       let prems_out = List.rev prems_out in
-       v, prems_out
-
-    | prem :: prems ->
-       let ctx, prem = premise ctx prem in
-       fold ctx (prem :: prems_out) prems
-  in
-  fold ctx [] prems
 
 let rec toplevel' ~loading ~basedir ctx {Location.it=cmd; at} =
   let locate1 cmd = [Location.mark ~at cmd] in

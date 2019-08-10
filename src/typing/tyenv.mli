@@ -11,7 +11,7 @@ type judgement_or_boundary =
 
 (** A type for signaling whether a thing is a derivation or a function *)
 type derivation_or_function =
-  | Is_derivation of int
+  | Is_derivation
   | Is_function of Mlty.ty * Mlty.ty
 
 (** The empty typing environment. *)

@@ -40,7 +40,7 @@ end
 type ty =
   | Judgement
   | Boundary
-  | Derivation of int
+  | Derivation
   | String
   | Meta of meta
   | Param of param
@@ -78,7 +78,6 @@ type error =
   | JudgementOrBoundaryExpected of ty
   | DerivationOrFunctionExpected of ty
   | JudgementExpected of ty
-  | DerivationArityMismatch of int * int
 
 exception Error of error Location.located
 
@@ -133,7 +132,7 @@ let rec print_ty ~penv ?max_level t ppf =
 
   | Boundary -> Format.fprintf ppf "boundary"
 
-  | Derivation _ -> Format.fprintf ppf "derivation"
+  | Derivation -> Format.fprintf ppf "derivation"
 
   | String -> Format.fprintf ppf "mlstring"
 
@@ -236,20 +235,15 @@ let print_error err ppf =
     Format.fprintf ppf "expected a judgement but got@ @[<hov>%t@]"
       (print_ty ~penv ty)
 
-  | DerivationArityMismatch (used, expected) ->
-    Format.fprintf ppf
-      "this derivation expects %d arguments but is used with %d"
-      expected used
-
 let rec occurs m = function
-  | Judgement | Boundary | Derivation _ | String | Param _ -> false
+  | Judgement | Boundary | Derivation | String | Param _ -> false
   | Meta m' -> eq_meta m m'
   | Prod ts  | Apply (_, ts) -> List.exists (occurs m) ts
   | Arrow (t1, t2) | Handler (t1, t2) -> occurs m t1 || occurs m t2
   | Ref t | Dynamic t -> occurs m t
 
 let rec occuring = function
-  | Judgement | Boundary | Derivation _ | String | Param _ -> MetaSet.empty
+  | Judgement | Boundary | Derivation | String | Param _ -> MetaSet.empty
   | Meta m -> MetaSet.singleton m
   | Prod ts  | Apply (_, ts) ->
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
@@ -263,7 +257,7 @@ let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
 let instantiate pus t =
   let rec inst = function
 
-    | Judgement | Boundary | Derivation _ | String | Meta _ as t -> t
+    | Judgement | Boundary | Derivation | String | Meta _ as t -> t
 
     | Param p as t ->
        begin
@@ -303,7 +297,7 @@ let instantiate pus t =
 
 let params_occur ps t =
   let rec occurs = function
-  | Judgement | Boundary | Derivation _ | String | Meta _ -> false
+  | Judgement | Boundary | Derivation | String | Meta _ -> false
   | Param p -> List.mem p ps
   | Prod ts  | Apply (_, ts) ->
     List.exists occurs ts

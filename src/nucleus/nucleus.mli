@@ -190,6 +190,8 @@ end
 
 val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> Rule.primitive
 
+val form_derivation : (Nonce.t * boundary_abstraction) list -> judgement -> Rule.derivation
+
 (** When we apply a rule application to one more argument two things may happen.
    Either we are done and we get a result, or more arguments are needed, in
    which case we get the rap with one more argument applied, and the boundary of

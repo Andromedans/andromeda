@@ -59,18 +59,10 @@ let form_is_term_boundary_abstraction = Form.form_is_term_boundary_abstraction
 
 (** Creation of rules of inference from judgements. *)
 let form_rule = Form_rule.form_rule
-
-(* let abstract_boundary_eq_term = Abstract.boundary_eq_term_abstraction *)
-(* let abstract_boundary_eq_type = Abstract.boundary_eq_type_abstraction *)
-(* let abstract_boundary_is_term = Abstract.boundary_is_term_abstraction *)
-(* let abstract_boundary_is_type = Abstract.boundary_is_type_abstraction *)
+let form_derivation = Form_rule.form_derivation
 
 let abstract_boundary = Abstract.boundary_abstraction
-
-(* let abstract_eq_term = Abstract.eq_term_abstraction *)
-(* let abstract_eq_type = Abstract.eq_type_abstraction *)
 let abstract_is_term = Abstract.is_term_abstraction
-(* let abstract_is_type = Abstract.is_type_abstraction *)
 
 let abstract_judgement = Abstract.judgement_abstraction
 

@@ -59,6 +59,7 @@ and comp' =
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp
   | Substitute of comp * comp
+  | Derive of premise list * comp
   | Yield of comp
   | String of string
   | Occurs of comp * comp
@@ -97,16 +98,16 @@ and match_case = pattern * comp option * comp
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = pattern list * pattern option * comp
 
+and local_context = (Name.t * comp) list
+
+and premise = premise' located
+and premise' = Premise of Name.t * local_context * boundary
+
 (** Type definitions are needed during runtime so that we can print them
     at the toplevel. *)
 type ml_tydef =
   | ML_Sum of (Name.t * Mlty.ty list) list
   | ML_Alias of Mlty.ty
-
-type local_context = (Name.t * comp) list
-
-type premise = premise' located
-and premise' = Premise of Name.t * local_context * boundary
 
 (** Toplevel commands *)
 type toplevel = toplevel' located
