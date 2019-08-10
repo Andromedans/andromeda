@@ -42,7 +42,7 @@ let mk_option = function
 let as_option ~at = function
   | Runtime.Tag (t, []) when (Runtime.equal_tag t tag_none)  -> None
   | Runtime.Tag (t, [x]) when (Runtime.equal_tag t tag_some) -> Some x
-  | Runtime.(Judgement _ | Boundary _ | Closure _ | Handler _ |
+  | Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ |
              Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
      Runtime.(error ~at (OptionExpected v))
 
@@ -50,27 +50,11 @@ let as_judgement_option ~at v =
   match as_option ~at v with
   | None -> None
   | Some (Runtime.Judgement jdg) -> Some jdg
-  | Some (Runtime.(Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v) ->
+  | Some (Runtime.(Boundary _ | Closure _ | Derivation _ |
+          Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v) ->
      Runtime.(error ~at (JudgementExpected v))
 
 (** Conversion between OCaml coercible and ML coercible *)
-
-(* let as_coercible ~at = function
- *
- *   | Runtime.Tag (t, []) when Runtime.equal_tag t tag_notcoercible ->
- *     Runtime.NotCoercible
- *
- *   | Runtime.Tag (t, [v]) when Runtime.equal_tag t tag_convertible ->
- *     let eq = Runtime.as_eq_type_abstraction ~at v in
- *     Runtime.Convertible eq
- *
- *   | Runtime.Tag (t, [v]) when Runtime.equal_tag t tag_coercible_constructor ->
- *     let e = Runtime.as_is_term_abstraction ~at v in
- *     Runtime.Coercible e
- *
- *   | Runtime.(Judgement _ | Boundary _  | Closure _ | Handler _ | Tag _ | Tuple _ |
- *              Ref _ | Dyn _ | String _) as v ->
- *      Runtime.(error ~at (CoercibleExpected v)) *)
 
 (** Conversion from OCaml [Runtime.order] to  [ML.order]. *)
 let mlless = Runtime.mk_tag tag_mlless []

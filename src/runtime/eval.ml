@@ -27,7 +27,7 @@ let as_bool ~at v =
      else
      Runtime.(error ~at (BoolExpected v))
 
-  | Runtime.(Tag (_, _::_) | Judgement _ | Boundary _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _) ->
+  | Runtime.(Tag (_, _::_) | Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _) ->
      Runtime.(error ~at (BoolExpected v))
 
 let as_handler ~at v =
@@ -73,10 +73,16 @@ let rec comp {Location.it=c'; at} =
        let v = Runtime.mk_tag t vs in
        return v
 
-    | Syntax.TTConstructor (c, cs) ->
+    | Syntax.TTConstructor (cnstr, cs) ->
        Runtime.lookup_signature >>= fun sgn ->
-       let rap = Nucleus.form_constructor_rap sgn c in
-       check_arguments rap cs
+       let rap = Nucleus.form_constructor_rap sgn cnstr in
+       check_arguments ~at rap cs
+
+    | Syntax.TTApply (c, cs) ->
+       comp_as_derivation c >>= fun drv ->
+       Runtime.lookup_signature >>= fun sgn ->
+       let rap = Nucleus.form_derivation_rap sgn drv in
+       check_arguments ~at rap cs
 
     | Syntax.Tuple cs ->
       let rec fold vs = function
@@ -200,7 +206,7 @@ let rec comp {Location.it=c'; at} =
 
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-             | Runtime.(Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+             | Runtime.(Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
                 Runtime.(error ~at (JudgementExpected v))
            end)
 
@@ -245,6 +251,13 @@ let rec comp {Location.it=c'; at} =
           end
      end
 
+  | Syntax.Derive (prems, c) ->
+     premises prems
+       (comp c >>= fun v -> let jdg = Runtime.as_judgement ~at v in return jdg)
+     >>= fun (prems, concl) ->
+     let drv = Nucleus.form_derivation prems concl in
+     Runtime.return (Runtime.Derivation drv)
+
   | Syntax.Yield c ->
     comp c >>= fun v ->
     Runtime.continue v
@@ -254,7 +267,7 @@ let rec comp {Location.it=c'; at} =
       | Runtime.Closure f ->
         comp c2 >>= fun v ->
         Runtime.apply_closure f v
-      | Runtime.(Judgement _ | Boundary _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as h ->
+      | Runtime.(Judgement _ | Boundary _ | Derivation _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as h ->
         Runtime.(error ~at (Inapplicable h))
     end
 
@@ -280,7 +293,7 @@ let rec comp {Location.it=c'; at} =
      Runtime.get_env >>= fun env ->
      let sgn = Runtime.get_signature env in
      let rap = Nucleus.congruence_rap sgn cnstr jdg1 jdg2 in
-     check_arguments rap cs
+     check_arguments ~at rap cs
 
   | Syntax.Convert (c1, c2) ->
      comp_as_judgement_abstraction c1 >>= fun jdg ->
@@ -312,18 +325,18 @@ let rec comp {Location.it=c'; at} =
      eval_boundary ~at bdry >>= fun bdry ->
      Runtime.return_boundary Nucleus.(abstract_not_abstract bdry)
 
-and check_arguments rap cs =
+and check_arguments ~at rap cs =
   match rap, cs with
   | Nucleus.RapDone jdg, [] -> Runtime.return_judgement (Nucleus.abstract_not_abstract jdg)
   | Nucleus.RapMore (bdry, rap_apply), c :: cs ->
      Runtime.lookup_signature >>= fun sgn ->
      check_judgement c bdry >>= fun arg ->
      let rap = rap_apply arg in
-     check_arguments rap cs
+     check_arguments ~at rap cs
   | Nucleus.RapDone _, _::_ ->
-     assert false (* cannot happen, desugaring prevents this by checking arities of constructors *)
+     Runtime.(error ~at TooManyArguments)
   | Nucleus.RapMore _, [] ->
-     assert false (* cannot happen, desugaring prevetns this by checking arities of constructors  *)
+     Runtime.(error ~at TooFewArguments)
 
 (** Coerce the value [v] to the given judgement boundary [bdry] *)
 and coerce ~at v (bdry : Nucleus.boundary_abstraction) =
@@ -348,6 +361,7 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.TypeAscribe _
   | Syntax.MLConstructor _
   | Syntax.TTConstructor _
+  | Syntax.TTApply _
   | Syntax.Tuple _
   | Syntax.With _
   | Syntax.Yield _
@@ -362,6 +376,7 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.Congruence _
   | Syntax.Convert _
   | Syntax.Substitute _
+  | Syntax.Derive _
   | Syntax.Context _
   | Syntax.Natural _
   | Syntax.MLBoundary _
@@ -538,6 +553,11 @@ and match_op_cases ~at op cases vs checking =
   in
   fold cases
 
+
+(** Run [c] and convert the result to a derivation. *)
+and comp_as_derivation c =
+  comp c >>= fun v -> return (Runtime.as_derivation ~at:c.Location.at v)
+
 (** Run [c] and convert the result to an type judgement. *)
 and comp_as_is_type c =
   comp c >>= fun v -> return (Runtime.as_is_type ~at:c.Location.at v)
@@ -606,17 +626,11 @@ and eval_boundary ~at = function
      in
      Runtime.return Nucleus.(form_eq_term_boundary sgn e1 e2)
 
-(** Move to toplevel monad *)
-
-let comp_value c =
-  let r = comp c in
-  Runtime.top_handle ~at:c.Location.at r
-
 (** Evaluation of rules *)
 
 (* Evaluate the computation [cmp] in local context [lctx].
    Return the evaluated [lctx] and the result of [cmp]. *)
-let local_context lctx cmp =
+and local_context lctx cmp =
   let rec fold = function
     | [] ->
        cmp >>= fun v ->
@@ -633,7 +647,7 @@ let local_context lctx cmp =
   in
   fold lctx
 
-let premise {Location.it=Syntax.Premise(x, lctx, bdry); at} =
+and premise {Location.it=Syntax.Premise(x, lctx, bdry); at} =
   local_context lctx (eval_boundary ~at bdry) >>= fun bdry ->
   Runtime.lookup_signature >>= fun sgn ->
   let mv = Nucleus.fresh_judgement_meta x bdry in
@@ -641,11 +655,12 @@ let premise {Location.it=Syntax.Premise(x, lctx, bdry); at} =
   return ((Nucleus.meta_nonce mv, bdry), v)
 
 
-(** Evaluate the premises (should we call them arguments?) of a rule,
-    bind them to meta-variables, then evaluate the conclusion [cmp].
-    Return the evaulated premises and conclusion for further processing.
-*)
-let premises prems cmp =
+(** Evaluate the premises of a rule, bind them to meta-variables, then evaluate
+   the conclusion [cmp]. Return the evaulated premises and conclusion for
+   further processing. *)
+and premises :
+  'a . Syntax.premise list -> 'a Runtime.comp -> ((Nonce.t * Nucleus.boundary_abstraction) list * 'a) Runtime.comp
+= fun prems cmp ->
   let rec fold prems_out = function
 
     | [] ->
@@ -655,10 +670,15 @@ let premises prems cmp =
 
     | prem :: prems ->
        premise prem >>= fun (x_boundary, v) ->
-       let cmp = fold (x_boundary :: prems_out) prems in
-       Runtime.add_bound v cmp
+       Runtime.add_bound v (fold (x_boundary :: prems_out) prems)
   in
   fold [] prems
+
+(** Move to toplevel monad *)
+
+let comp_value c =
+  let r = comp c in
+  Runtime.top_handle ~at:c.Location.at r
 
 
 (** Toplevel commands *)

@@ -4,6 +4,9 @@ open Nucleus_types
 
 exception Skip_argument
 
+(** Given the values [es] of previous metas, a premise and two arguments
+    [arg1] and [arg2] for the premise, generate an (abstracted) equation
+    which equates them. If the arguments are proof irrelevant, return [None]. *)
 let congruence_boundary es prem arg1 arg2 =
   let rec fold ~lvl prem arg1 arg2 =
     match prem, arg1, arg2 with
@@ -44,73 +47,78 @@ let congruence_boundary es prem arg1 arg2 =
   with
   | Skip_argument -> None
 
-let congruence_boundaries prems args1 args2 =
-  let rec fold prems_out es prems args1 args2 =
-      match prems, args1, args2 with
+(** Form a rule application representing the congruence rule equating the
+   arguments [args1] and [args2]. *)
+let form_rap' sgn form rl args1 args2 =
+  let rec fold es eq_args rl args1 args2 =
+    match rl, args1, args2 with
 
-      | [], [], [] -> List.rev prems_out
+    | Rule.Conclusion concl, [], [] ->
+       RapDone (form eq_args concl)
 
-      | prem :: prems, arg1 :: args1, arg2 :: args2 ->
-         begin match congruence_boundary es prem arg1 arg2 with
-           | Some prem_out -> fold (prem_out :: prems_out) (arg1 :: es) prems args1 args2
-           | None -> fold prems_out (arg1 :: es) prems args1 args2
-         end
+    | Rule.Premise (prem, rl), arg1 :: args1, arg2 :: args2 ->
+       begin match congruence_boundary es prem arg1 arg2 with
 
-      | _ -> Error.raise InvalidCongruence
+       | None ->
+          let es = arg1 :: es in
+          fold es eq_args rl args1 args2
+
+       | Some bdry ->
+          let rap_apply eq_abstr =
+            if not (Check.judgement_boundary_abstraction sgn eq_abstr bdry)
+            then Error.raise InvalidArgument ;
+            let eq_arg = Judgement.to_argument eq_abstr in
+            let eq_args = eq_arg :: eq_args in
+            let es = arg1 :: es in
+            fold es eq_args rl args1 args2
+          in
+          RapMore (bdry, rap_apply)
+       end
+
+    | Rule.Conclusion _, _::_, _
+    | Rule.Conclusion _, [], _::_
+    | Rule.Premise _, [], _
+    | Rule.Premise _, _::_, [] ->
+       Error.raise InvalidCongruence
   in
-  fold [] [] prems args1 args2
+  fold [] [] rl args1 args2
 
-
-let form_rap' sgn prems constr args1 args2 =
-  match congruence_boundaries prems args1 args2 with
-  | [] -> RapDone (constr [])
-
-  | bdry :: bdrys ->
-     let rec rap_apply (args, bdry, bdrys) abstr =
-       if not (Check.judgement_boundary_abstraction sgn abstr bdry)
-       then Error.raise InvalidArgument ;
-       let arg = Judgement.to_argument abstr in
-       let args = arg :: args in
-       match bdrys with
-       | [] ->
-          RapDone (constr args)
-
-       | bdry :: bdrys ->
-          RapMore (bdry, rap_apply (args, bdry, bdrys))
-     in
-     RapMore (bdry, rap_apply ([], bdry, bdrys))
-
-(* Form a rule application for a congruence of two applications of the same constructor.
+(* Form a rule application for a congruence of two applications of the same term constructor.
    We assume that [args1] and [args2] have originated from previous valid applications
    of [c] to them. *)
 let form_is_term_rap sgn c args1 args2 =
-  let Rule.Rule (c_prems, concl) = Signature.lookup_rule c sgn in
-  let t_schema =
+  let form eq_args concl =
     match concl with
-      | Rule.BoundaryIsTerm t_schema -> t_schema
-      | Rule.BoundaryIsType _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ -> Error.raise InvalidCongruence
-  in
-  let constr eq_args =
-    let asmp = Collect_assumptions.arguments eq_args
-    and e1 = Mk.term_constructor c args1
-    and e2 = Mk.term_constructor c args2
-    and t = Instantiate_meta.is_type ~lvl:0 args1 t_schema in
-    JudgementEqTerm (Mk.eq_term asmp e1 e2 t)
-  in
-  form_rap' sgn c_prems constr args1 args2
+    | Rule.BoundaryIsTerm t_schema ->
+       let asmp = Collect_assumptions.arguments eq_args
+       and e1 = Mk.term_constructor c args1
+       and e2 = Mk.term_constructor c args2
+       and t = Instantiate_meta.is_type ~lvl:0 args1 t_schema in
+       JudgementEqTerm (Mk.eq_term asmp e1 e2 t)
 
+    | Rule.BoundaryIsType _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ ->
+       assert false
+  in
+  let rl = Signature.lookup_rule c sgn in
+  form_rap' sgn form rl args1 args2
+
+(* Form a rule application for a congruence of two applications of the same type constructor.
+   We assume that [args1] and [args2] have originated from previous valid applications
+   of [c] to them. *)
 let form_is_type_rap sgn c args1 args2 =
-  let Rule.Rule (c_prems, concl) = Signature.lookup_rule c sgn in
-  match concl with
-  | Rule.BoundaryIsTerm _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ -> Error.raise InvalidCongruence
-  | Rule.BoundaryIsType () ->
-     let constr eq_args =
+  let form eq_args concl =
+    match concl with
+    | Rule.BoundaryIsType () ->
        let asmp = Collect_assumptions.arguments eq_args
        and t1 = Mk.type_constructor c args1
        and t2 = Mk.type_constructor c args2 in
        JudgementEqType (Mk.eq_type asmp t1 t2)
-     in
-     form_rap' sgn c_prems constr args1 args2
+
+    | Rule.BoundaryIsTerm _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ ->
+       assert false
+  in
+  let rl = Signature.lookup_rule c sgn in
+  form_rap' sgn form rl args1 args2
 
 let form_rap sgn c jdg1 jdg2 =
   match jdg1, jdg2 with
