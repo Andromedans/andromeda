@@ -17,7 +17,7 @@ let reserved = [
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
   ("fresh", FRESH) ;
-  ("fun", FUNCTION) ;
+  ("fun", FUN) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
   ("in", IN) ;

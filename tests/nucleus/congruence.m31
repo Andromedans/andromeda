@@ -13,7 +13,7 @@ congruence B (B a a) (B a b) (congruence a a a) (isPropA a b) ;;
 
 let congrB b1 b2 =
   match (b1, b2) with
-  | (B u1 v1, B u2 v2) =>
+  | (B u1 v1, B u2 v2) ->
     congruence B b1 b2 (isPropA u1 u2) (isPropA v1 v2)
   end
 ;;

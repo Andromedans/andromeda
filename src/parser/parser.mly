@@ -11,7 +11,7 @@
 %token LBRACK RBRACK
 %token LBRACE RBRACE
 %token COLON COMMA PERIOD COLONGT COLONQT
-%token ARROW DARROW
+%token ARROW
 
 (* Modules *)
 %token MODULE STRUCT
@@ -44,7 +44,7 @@
 (* Meta types *)
 %token MLUNIT MLSTRING
 %token MLJUDGEMENT MLBOUNDARY
-%token MLTYPE
+%token MLTYPE DARROW
 %token MLFORALL
 %token OF
 
@@ -52,7 +52,7 @@
 %token BANG COLONEQ REF
 
 (* Functions *)
-%token FUNCTION
+%token FUN
 
 (* TT commands *)
 %token FRESH CONVERT CONGRUENCE CONTEXT OCCURS DERIVE
@@ -234,10 +234,10 @@ term_:
   | HANDLE c=term WITH hcs=handler_cases END
     { Sugared.Handle (c, hcs) }
 
-  | FUNCTION xs=ml_arg+ DARROW e=term
+  | FUN xs=ml_arg+ ARROW e=term
     { Sugared.Function (xs, e) }
 
-  | DERIVE ps=nonempty_list(premise) DARROW e=term
+  | DERIVE ps=nonempty_list(premise) ARROW e=term
     { Sugared.Derive (ps, e) }
 
   | WITH h=term HANDLE c=term
@@ -558,10 +558,10 @@ handler_cases:
     { lst }
 
 handler_case:
-  | VAL c=match_case DARROW t=term
+  | VAL c=match_case ARROW t=term
     { Sugared.CaseVal c }
 
-  | op=long(op_name) ps=prefix_pattern* pt=handler_checking DARROW t=term
+  | op=long(op_name) ps=prefix_pattern* pt=handler_checking ARROW t=term
     { Sugared.CaseOp (op, (ps, pt, t)) }
 
   | FINALLY c=match_case
@@ -582,7 +582,7 @@ match_cases:
     { lst }
 
 match_case:
-  | p=pattern g=when_guard DARROW c=term
+  | p=pattern g=when_guard ARROW c=term
     { (p, g, c) }
 
 
