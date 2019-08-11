@@ -86,6 +86,9 @@ let rec ml_ty params {Location.it=t; at} =
   | Desugared.ML_Judgement ->
      Mlty.Judgement
 
+  | Desugared.ML_Derivation ->
+     Mlty.Derivation
+
   | Desugared.ML_Boundary ->
      Mlty.Boundary
 

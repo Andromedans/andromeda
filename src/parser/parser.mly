@@ -43,7 +43,7 @@
 
 (* Meta types *)
 %token MLUNIT MLSTRING
-%token MLJUDGEMENT MLBOUNDARY
+%token MLJUDGEMENT MLBOUNDARY MLDERIVATION
 %token MLTYPE DARROW
 %token MLFORALL
 %token OF
@@ -295,29 +295,34 @@ binop_term_:
 
 app_term: mark_location(app_term_) { $1 }
 app_term_:
+  | e=substitution_term_
+    { e }
+
+  | CURRENT c=substitution_term
+    { Sugared.Current c }
+
+  | CONGRUENCE c=long(tt_name) e1=substitution_term e2=substitution_term es=list(substitution_term)
+    { Sugared.Congruence (c, e1, e2, es) }
+
+  | CONTEXT c=substitution_term
+    { Sugared.Context c }
+
+  | CONVERT c1=substitution_term c2=substitution_term
+    { Sugared.Convert (c1, c2) }
+
+  | OCCURS c1=substitution_term c2=substitution_term
+    { Sugared.Occurs (c1, c2) }
+
+  | e=substitution_term es=nonempty_list(substitution_term)
+    { Sugared.Spine (e, es) }
+
+substitution_term: mark_location(substitution_term_) { $1 }
+substitution_term_:
   | e=prefix_term_
     { e }
 
-  | CURRENT c=prefix_term
-    { Sugared.Current c }
-
-  | CONGRUENCE c=long(tt_name) e1=prefix_term e2=prefix_term es=list(prefix_term)
-    { Sugared.Congruence (c, e1, e2, es) }
-
-  | CONTEXT c=prefix_term
-    { Sugared.Context c }
-
-  | CONVERT c1=prefix_term c2=prefix_term
-    { Sugared.Convert (c1, c2) }
-
-  | OCCURS c1=prefix_term c2=prefix_term
-    { Sugared.Occurs (c1, c2) }
-
-  | e=prefix_term s=substitution
+  | e=substitution_term s=substitution
     { Sugared.Substitute (e, s) }
-
-  | e=prefix_term es=nonempty_list(prefix_term)
-    { Sugared.Spine (e, es) }
 
 prefix_term: mark_location(prefix_term_) { $1 }
 prefix_term_:
@@ -763,6 +768,9 @@ simple_mlty_:
 
   | MLBOUNDARY
     { Sugared.ML_Boundary }
+
+  | MLDERIVATION
+    { Sugared.ML_Derivation }
 
   | MLUNIT
     { Sugared.ML_Prod [] }

@@ -12,6 +12,7 @@ let reserved = [
   ("convert", CONVERT) ;
   ("current", CURRENT) ;
   ("derive", DERIVE) ;
+  ("derivation", MLDERIVATION) ;
   ("dynamic", DYNAMIC) ;
   ("end", END) ;
   ("external", EXTERNAL) ;
