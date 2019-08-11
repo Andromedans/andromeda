@@ -20,9 +20,9 @@ let debug x = print (!! x)
 (* Top-level handlers default to failure. *)
 (*
 handle
-  | equal _ _ ⇒ None
-  | as_prod _ ⇒ None
-  | as_eq _ ⇒ None
+  | equal _ _ -> None
+  | as_prod _ -> None
+  | as_eq _ -> None
 end
 *)
 
@@ -32,8 +32,8 @@ let failure x = print ("FAILURE", x); exit ()
 
 let ( = ) x y =
   match compare x y with
-  | ML.equal => ML.true
-  | _ => ML.false
+  | ML.equal -> ML.true
+  | _ -> ML.false
   end
 
 (* operation whnf : judgement -> judgement *)
