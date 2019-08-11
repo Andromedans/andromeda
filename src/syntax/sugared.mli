@@ -22,6 +22,7 @@ and ml_ty' =
   | ML_Dynamic of ml_ty
   | ML_Judgement
   | ML_Boundary
+  | ML_Derivation
   | ML_String
   | ML_Anonymous
 

@@ -7,7 +7,7 @@ struct
   compare ML.greater ML.less ;;
   compare [] [[]] ;;
   compare ((), []) ((), [[]]) ;;
-  match compare "bar" "foo" with ML.less => "a" | ML.equal => "b" | ML.greater => "c" end ;;
-  match compare "foo" "foo" with ML.less => "a" | ML.equal => "b" | ML.greater => "c" end ;;
-  match compare "qux" "foo" with ML.less => "a" | ML.equal => "b" | ML.greater => "c" end ;;
+  match compare "bar" "foo" with ML.less -> "a" | ML.equal -> "b" | ML.greater -> "c" end ;;
+  match compare "foo" "foo" with ML.less -> "a" | ML.equal -> "b" | ML.greater -> "c" end ;;
+  match compare "qux" "foo" with ML.less -> "a" | ML.equal -> "b" | ML.greater -> "c" end ;;
 end

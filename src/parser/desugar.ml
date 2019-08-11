@@ -654,6 +654,9 @@ let mlty ctx params ty =
       | Sugared.ML_Boundary ->
          Desugared.ML_Boundary
 
+      | Sugared.ML_Derivation ->
+         Desugared.ML_Derivation
+
       | Sugared.ML_String -> Desugared.ML_String
       end
     in

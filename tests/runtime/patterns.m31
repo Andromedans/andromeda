@@ -1,18 +1,18 @@
-match "foo" with _ => "bar" end ;;
+match "foo" with _ -> "bar" end ;;
 
-match "foo" with x => x end ;;
+match "foo" with x -> x end ;;
 
-match ("foo", "bar", "baz") with (x, y, z) => (z, x, y) end ;;
+match ("foo", "bar", "baz") with (x, y, z) -> (z, x, y) end ;;
 
 let (x, y, z) = ("foo", "bar", "baz") in (z, x, y) ;;
 
 match (["foo"; "bar"], "baz") with
-  | (a, b) as (x :: xs, c) => (a, b, x, xs, c)
+  | (a, b) as (x :: xs, c) -> (a, b, x, xs, c)
 end ;;
 
 match ML.Some "foo" with
-  | ML.Some s => s
-  | ML.None => "WRONG ANSWER"
+  | ML.Some s -> s
+  | ML.None -> "WRONG ANSWER"
 end ;;
 
 rule A type ;;
@@ -21,11 +21,11 @@ rule P (_ : A) type ;;
 
 let test_judgement e =
 match e with
-  | x : X => ([x; X], "isterm")
-  | X ≡ Y => ([X; Y], "eqtype")
-  | X type => ([X], "istype")
-  | x ≡ y : X => ([x; y; X], "eqterm")
-  | {x : X} (j :> judgement) => ([x; X; j], "abstraction")
+  | x : X -> ([x; X], "isterm")
+  | X ≡ Y -> ([X; Y], "eqtype")
+  | X type -> ([X], "istype")
+  | x ≡ y : X -> ([x; y; X], "eqterm")
+  | {x : X} (j :> judgement) -> ([x; X; j], "abstraction")
 end ;;
 
 test_judgement a ;;
@@ -50,11 +50,11 @@ test_judgement ({z : A} P z) ;;
 
 let test_boundary bdry =
 match bdry with
-  | ? type => ([], [], "istype boundary")
-  | ? : X => ([X], [], "isterm boundary")
-  | (X ≡ Y as ?) as Θ => ([X; Y], [Θ], "eqtype boundary")
-  | x ≡ y : X as ? => ([x; y; X], [], "eqterm boundary")
-  | {x : X} (u :> boundary) => ([x; X], [u], "abstraction boundary")
+  | ? type -> ([], [], "istype boundary")
+  | ? : X -> ([X], [], "isterm boundary")
+  | (X ≡ Y as ?) as Θ -> ([X; Y], [Θ], "eqtype boundary")
+  | x ≡ y : X as ? -> ([x; y; X], [], "eqterm boundary")
+  | {x : X} (u :> boundary) -> ([x; X], [u], "abstraction boundary")
 end ;;
 
 test_boundary (? type) ;;

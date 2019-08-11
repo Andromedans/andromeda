@@ -3,18 +3,18 @@ rule a : A ;;
 rule B (x : A) (y : A) type ;;
 rule s (x : A) : B x x ;;
 
-let d = derive (x : A) => B x x ;;
+let d = derive (x : A) -> B x x ;;
 
 d a ;;
 
 {z : A} d z ;;
 
-let d' = derive (x : A) => B a x ;;
+let d' = derive (x : A) -> B a x ;;
 
 d' a ;;
 
 rule refl (X type) (x : X) (y : X) : x == y : X ;;
 
-let e = derive (x : A) => refl (B x x) (s x) (s x) ;;
+let e = derive (x : A) -> refl (B x x) (s x) (s x) ;;
 
 {a : A} e a ;;
