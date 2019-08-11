@@ -20,6 +20,7 @@ type ml_constructor = Ident.t
 type value =
   | Judgement of Nucleus.judgement_abstraction (** A judgement *)
   | Boundary of Nucleus.boundary_abstraction   (** A judgement boundary (also known as a goal) *)
+  | Derivation of Nucleus.Rule.derivation      (** A hypothetical derivation *)
   | Closure of (value,value) closure           (** An ML function *)
   | Handler of handler                         (** Handler value *)
   | Tag of ml_constructor * value list         (** Application of a data constructor *)
@@ -65,6 +66,9 @@ val mk_string : string -> value
 
 
 (** {b Value extraction} *)
+
+(** Convert to a derivation, or fail with [DerivationExpected] *)
+val as_derivation : at:Location.t -> value -> Nucleus.Rule.derivation
 
 (** Convert to a non-abstracted value, or fail with [UnexpectedAbstraction] *)
 val as_not_abstract : at:Location.t -> 'a Nucleus.abstraction -> 'a
@@ -141,18 +145,18 @@ val print_value :
 
 (** The runtime errors *)
 type error =
+  | TooFewArguments
+  | TooManyArguments
   | ExpectedAtom of Nucleus.is_term
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | AnnotationMismatch of Nucleus.is_type * Nucleus.is_type_abstraction
   | TypeMismatchCheckingMode of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnexpectedAbstraction
   | TermEqualityFail of Nucleus.is_term * Nucleus.is_term
   | TypeEqualityFail of Nucleus.is_type * Nucleus.is_type
   | UnannotatedAbstract of Name.t
   | MatchFail of value
-  | FailureFail of value
   | InvalidComparison
   | InvalidEqualTerm of Nucleus.is_term * Nucleus.is_term
   | InvalidEqualType of Nucleus.is_type * Nucleus.is_type
@@ -165,6 +169,7 @@ type error =
   | EqTermExpected of value
   | AbstractionExpected
   | JudgementExpected of value
+  | DerivationExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
   | RefExpected of value
@@ -175,7 +180,6 @@ type error =
   | InvalidCoerce of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnhandledOperation of Ident.t * value list
   | InvalidPatternMatch of value
-  | InvalidHandlerMatch
 
 (** The exception that is raised on runtime error *)
 exception Error of error Location.located
@@ -303,7 +307,7 @@ val add_dynamic : Name.t -> value -> unit toplevel
 val top_now : ml_dyn -> value -> unit toplevel
 
 (** Extend the signature with a new rule *)
-val add_rule : Ident.t -> Nucleus.Rule.t -> unit toplevel
+val add_rule : Ident.t -> Nucleus.Rule.primitive -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
 val top_handle : at:Location.t -> 'a comp -> 'a toplevel

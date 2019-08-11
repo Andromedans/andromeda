@@ -55,7 +55,7 @@
 %token FUNCTION
 
 (* TT commands *)
-%token FRESH CONVERT CONGRUENCE CONTEXT OCCURS
+%token FRESH CONVERT CONGRUENCE CONTEXT OCCURS DERIVE
 
 (* Toplevel directives *)
 %token VERBOSITY
@@ -173,38 +173,30 @@ top_command_:
 
 
 rule_:
-  | c=tt_name ps=premises TYPE
+  | c=tt_name ps=list(premise) TYPE
     { Sugared.RuleIsType (c, ps) }
 
-  | c=tt_name ps=premises COLON ty=term
+  | c=tt_name ps=list(premise) COLON ty=term
     { Sugared.RuleIsTerm (c, ps, ty) }
 
-  | c=tt_name ps=premises COLON l=app_term EQEQ r=ty_term
+  | c=tt_name ps=list(premise) COLON l=app_term EQEQ r=ty_term
     { Sugared.RuleEqType (c, ps, (l, r)) }
 
-  | c=tt_name ps=premises COLON l=app_term EQEQ r=app_term COLON ty=term
+  | c=tt_name ps=list(premise) COLON l=app_term EQEQ r=app_term COLON ty=term
     { Sugared.RuleEqTerm (c, ps, (l, r, ty)) }
-
-premises:
-  |
-    { [] }
-
-  | LPAREN p=premise RPAREN ps=premises
-    { p :: ps }
-
 
 premise: mark_location(premise_) { $1 }
 premise_:
-  | lctx=local_context mv=opt_name(tt_name) TYPE
+  | LPAREN lctx=local_context mv=opt_name(tt_name) TYPE RPAREN
     { Sugared.PremiseIsType (mv, lctx) }
 
-  | lctx=local_context mv=opt_name(tt_name) COLON ty=term
+  | LPAREN lctx=local_context mv=opt_name(tt_name) COLON ty=term RPAREN
     { Sugared.PremiseIsTerm (mv, lctx, ty) }
 
-  | lctx=local_context l=app_term EQEQ r=ty_term mv=equality_premise_name
+  | LPAREN lctx=local_context l=app_term EQEQ r=ty_term mv=equality_premise_name RPAREN
     { Sugared.PremiseEqType (mv, lctx, (l, r)) }
 
-  | lctx=local_context l=app_term EQEQ r=app_term COLON ty=term mv=equality_premise_name
+  | LPAREN lctx=local_context l=app_term EQEQ r=app_term COLON ty=term mv=equality_premise_name RPAREN
     { Sugared.PremiseEqTerm (mv, lctx, (l, r, ty)) }
 
 
@@ -244,6 +236,9 @@ term_:
 
   | FUNCTION xs=ml_arg+ DARROW e=term
     { Sugared.Function (xs, e) }
+
+  | DERIVE ps=nonempty_list(premise) DARROW e=term
+    { Sugared.Derive (ps, e) }
 
   | WITH h=term HANDLE c=term
     { Sugared.With (h, c) }

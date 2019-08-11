@@ -11,6 +11,7 @@ let reserved = [
   ("context", CONTEXT) ;
   ("convert", CONVERT) ;
   ("current", CURRENT) ;
+  ("derive", DERIVE) ;
   ("dynamic", DYNAMIC) ;
   ("end", END) ;
   ("external", EXTERNAL) ;

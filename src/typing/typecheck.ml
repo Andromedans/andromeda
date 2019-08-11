@@ -39,8 +39,10 @@ let rec generalizable c =
   | Syntax.BoundaryAscribe _
   | Syntax.TypeAscribe _
   | Syntax.TTConstructor _
+  | Syntax.TTApply _
   | Syntax.Abstract _
   | Syntax.Substitute _
+  | Syntax.Derive _
   | Syntax.Yield _
   | Syntax.Apply _
   | Syntax.Occurs _
@@ -228,7 +230,7 @@ and check_pattern ({Location.it=p'; at} as p) t =
         check_patterns ps ts >>= fun (ps, xts) ->
         return (locate ~at (Syntax.Patt_Tuple ps), xts)
 
-     | Mlty.(Prod _ | Judgement | Boundary | String | Meta _ | Param _ |
+     | Mlty.(Prod _ | Judgement | Boundary | Derivation | String | Meta _ | Param _ |
              Arrow _ | Handler _ | Apply _ | Ref _ | Dynamic _) ->
         infer_pattern p >>= fun (p, t', xts) ->
         Tyenv.add_equation ~at t' t >>= fun () ->
@@ -283,7 +285,7 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      end
 
   | Desugared.Handler h ->
-     handler ~at h >>= fun (h, t) ->
+     infer_handler ~at h >>= fun (h, t) ->
      return (locate ~at (Syntax.Handler h), t)
 
   | Desugared.TTConstructor (pth, cs) ->
@@ -448,12 +450,12 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      check_comp c2 Mlty.Judgement >>= fun c2 ->
      return (locate ~at (Syntax.Substitute (c1, c2)), Mlty.Judgement)
 
-  | Desugared.Apply (c1, c2) ->
-     infer_comp c1 >>= fun (c1, t1) ->
-     infer_comp c2 >>= fun (c2, t2) ->
-     let out = Mlty.fresh_type () in
-     Tyenv.add_equation ~at t1 (Mlty.Arrow (t2, out)) >>= fun () ->
-     return (locate ~at (Syntax.Apply (c1, c2)), out)
+  | Desugared.Derive (ps, c) ->
+     premises ps (check_comp c Mlty.Judgement) >>= fun (ps, c) ->
+     return (locate ~at (Syntax.Derive (ps, c)), Mlty.Derivation)
+
+  | Desugared.Spine (c, cs) ->
+     infer_spine ~at c cs
 
   | Desugared.Yield c ->
     Tyenv.lookup_continuation >>= fun (a, b) ->
@@ -499,12 +501,40 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      boundary bdry >>= fun bdry ->
      return (locate ~at Syntax.(MLBoundary bdry), Mlty.Boundary)
 
-and check_comp c t =
-  infer_comp c >>= fun (c, t') ->
-  Tyenv.add_equation ~at:c.Location.at t' t >>= fun () ->
-  return c
+and infer_spine ~at c_head cs =
+  let rec fold t_head c_head cs =
+    Tyenv.as_derivation_or_function ~at t_head >>= function
 
-and handler ~at {Desugared.handler_val=handler_val;handler_ops;handler_finally} =
+    | Tyenv.Is_derivation ->
+       (** It's a derivation *)
+       let rec fold cs_out = function
+         | [] ->
+            let cs_out = List.rev cs_out in
+            return (locate ~at Syntax.(TTApply (c_head, cs_out)), Mlty.Judgement)
+         | c :: cs ->
+            check_comp c Mlty.Judgement >>= fun c_out ->
+            fold (c_out :: cs_out) cs
+       in
+       fold [] cs
+
+    | Tyenv.Is_function (u, v) ->
+       (** It's an ML application *)
+       begin match cs with
+       | [] -> assert false
+       | [c] ->
+          check_comp c u >>= fun c ->
+          return (locate ~at (Syntax.Apply (c_head, c)), v)
+       | c :: cs ->
+          check_comp c u >>= fun c ->
+          let c_head = locate ~at (Syntax.Apply (c_head, c)) in
+          fold v c_head cs
+       end
+  in
+  infer_comp c_head >>= fun (c_head, t_head) ->
+  fold t_head c_head cs
+
+
+and infer_handler ~at {Desugared.handler_val=handler_val;handler_ops;handler_finally} =
   let input = Mlty.fresh_type () in
   begin match handler_val with
     | [] -> return ([], input)
@@ -596,6 +626,11 @@ and match_op_cases op cases t_out =
            fold_cases (case :: cases) rem
       in
       fold_cases [] cases)
+
+and check_comp c t =
+  infer_comp c >>= fun (c, t') ->
+  Tyenv.add_equation ~at:c.Location.at t' t >>= fun () ->
+  return c
 
 
 and let_clauses
@@ -743,6 +778,37 @@ and boundary = function
      check_comp c3 Mlty.Judgement >>= fun c3 ->
      return (Syntax.BoundaryEqTerm (c1, c2, c3))
 
+and local_context lctx m =
+  let rec fold xcs = function
+    | [] ->
+       let xcs = List.rev xcs in
+       m >>= fun x -> return (xcs, x)
+    | (x, c) :: lctx ->
+       check_comp c Mlty.Judgement >>= fun c ->
+       Tyenv.add_bound_mono x Mlty.Judgement
+       (fold ((x, c) :: xcs) lctx)
+  in
+  fold [] lctx
+
+and premise {Location.it=prem; at} =
+  let Desugared.Premise (x, lctx, bdry) = prem in
+  local_context lctx (boundary bdry) >>= fun (lctx, bdry) ->
+  let p = locate ~at (Syntax.Premise (x, lctx, bdry)) in
+  return (x, p)
+
+and premises :
+ 'a . Desugared.premise list -> 'a Tyenv.tyenvM -> (Syntax.premise list * 'a) Tyenv.tyenvM
+= fun prems m ->
+  let rec fold ps = function
+    | [] ->
+       m >>= fun x ->
+       let ps = List.rev ps in return (ps, x)
+    | prem :: prems ->
+       premise prem >>= fun (x, p) ->
+       Tyenv.add_bound_mono x Mlty.Judgement (fold (p::ps) prems)
+  in
+  fold [] prems
+
 let add_ml_type (t, (params, def)) =
   let params = List.map (fun _ -> Mlty.fresh_param ()) params in
   match def with
@@ -766,54 +832,6 @@ let add_ml_type (t, (params, def)) =
        in
        let constructors = fold 0 [] constructors in
        Tyenv.add_ml_type t (Mlty.Sum (params, constructors))
-
-let local_context lctx m =
-  let rec fold xcs = function
-    | [] ->
-       let xcs = List.rev xcs in
-       m >>= fun x -> return (xcs, x)
-    | (x, c) :: lctx ->
-       check_comp c Mlty.Judgement >>= fun c ->
-       Tyenv.add_bound_mono x Mlty.Judgement
-       (fold ((x, c) :: xcs) lctx)
-  in
-  fold [] lctx
-
-let premise {Location.it=prem; at} =
-  let Desugared.Premise (x, lctx, bdry) = prem in
-  local_context lctx (boundary bdry) >>= fun (lctx, bdry) ->
-  let p = locate ~at (Syntax.Premise (x, lctx, bdry)) in
-  return (x, p)
-
-let premises prems m =
-  let rec fold ps = function
-    | [] ->
-       m >>= fun x ->
-       let ps = List.rev ps in return (ps, x)
-    | prem :: prems ->
-       premise prem >>= fun (x, p) ->
-       Tyenv.add_bound_mono x Mlty.Judgement (fold (p::ps) prems)
-  in
-  fold [] prems
-
-let boundary = function
-  | Desugared.BoundaryIsType ->
-     return Syntax.BoundaryIsType
-
-  | Desugared.BoundaryIsTerm c ->
-     check_comp c Mlty.Judgement >>= fun c ->
-     return (Syntax.BoundaryIsTerm c)
-
-  | Desugared.BoundaryEqType (c1, c2) ->
-     check_comp c1 Mlty.Judgement >>= fun c1 ->
-     check_comp c2 Mlty.Judgement >>= fun c2 ->
-     return (Syntax.BoundaryEqType (c1, c2))
-
-  | Desugared.BoundaryEqTerm (c1, c2, c3) ->
-     check_comp c1 Mlty.Judgement >>= fun c1 ->
-     check_comp c2 Mlty.Judgement >>= fun c2 ->
-     check_comp c3 Mlty.Judgement >>= fun c3 ->
-     return (Syntax.BoundaryEqTerm (c1, c2, c3))
 
 let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
   match c with

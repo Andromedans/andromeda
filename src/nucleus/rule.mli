@@ -52,4 +52,10 @@ and boundary_abstraction = boundary abstraction
 
 and premise = boundary_abstraction
 
-type t = Rule of premise list * boundary
+and 'a hypothetical =
+  | Conclusion of 'a
+  | Premise of premise * 'a hypothetical
+
+type primitive = boundary hypothetical
+
+type derivation = judgement hypothetical
