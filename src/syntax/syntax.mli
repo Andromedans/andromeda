@@ -30,6 +30,7 @@ and pattern' =
   | Patt_BoundaryEqTerm of pattern * pattern * pattern
   | Patt_MLConstructor of ml_constructor * pattern list
   | Patt_Tuple of pattern list
+  | Patt_String of string
 
 (** Computations *)
 type comp = comp' located

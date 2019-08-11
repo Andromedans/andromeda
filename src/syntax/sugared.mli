@@ -62,6 +62,7 @@ and pattern' =
   | Patt_Constructor of path * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
+  | Patt_String of string
 
 (** Sugared terms *)
 type comp = comp' located

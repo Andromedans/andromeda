@@ -1,6 +1,7 @@
 - : mlstring = "bar"
 - : mlstring = "foo"
 - : mlstring * mlstring * mlstring = ("baz", "foo", "bar")
+- : mlstring = "right"
 - : mlstring * mlstring * mlstring = ("baz", "foo", "bar")
 - : list mlstring * mlstring * mlstring * list mlstring * mlstring =
   ("foo" :: "bar" :: [], "baz", "foo", "bar" :: [], "baz")
