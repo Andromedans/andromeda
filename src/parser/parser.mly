@@ -686,6 +686,9 @@ simple_pattern_:
   | LBRACK ps=separated_list(SEMI, pattern) RBRACK
     { Sugared.Patt_List ps }
 
+  | s=QUOTED_STRING
+    { Sugared.Patt_String s }
+
 let_pattern: mark_location(let_pattern_) { $1 }
 let_pattern_:
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN

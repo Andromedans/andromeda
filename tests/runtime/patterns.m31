@@ -4,6 +4,8 @@ match "foo" with x -> x end ;;
 
 match ("foo", "bar", "baz") with (x, y, z) -> (z, x, y) end ;;
 
+match "foo" with "bar" -> "wrong" | "foo" -> "right" end ;;
+
 let (x, y, z) = ("foo", "bar", "baz") in (z, x, y) ;;
 
 match (["foo"; "bar"], "baz") with

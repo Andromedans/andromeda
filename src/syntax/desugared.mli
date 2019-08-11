@@ -47,6 +47,7 @@ and pattern' =
   | Patt_BoundaryEqTerm of pattern * pattern * pattern
   | Patt_MLConstructor of Path.ml_constructor * pattern list
   | Patt_Tuple of pattern list
+  | Patt_String of string
 
 (** Desugared computations *)
 type comp = comp' located

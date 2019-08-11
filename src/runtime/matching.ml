@@ -149,6 +149,9 @@ let rec collect_pattern sgn xvs {Location.it=p'; at} v =
   | Syntax.Patt_Tuple ps, Runtime.Tuple vs ->
      collect_patterns sgn xvs ps vs
 
+  | Syntax.Patt_String p, Runtime.String s ->
+     if String.equal p s then xvs else raise Match_fail
+
   (* mismatches *)
   | Syntax.Patt_MLConstructor _,
     Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Ref _ | Dyn _ | Tuple _ | String _)
@@ -163,7 +166,10 @@ let rec collect_pattern sgn xvs {Location.it=p'; at} v =
     Runtime.(Judgement _ | Derivation _  | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _ | String _)
 
   | Syntax.Patt_Tuple _,
-    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _) ->
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _)
+
+  | Syntax.Patt_String _,
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _) ->
      Runtime.(error ~at (InvalidPatternMatch v))
 
 and collect_judgement sgn xvs p abstr =

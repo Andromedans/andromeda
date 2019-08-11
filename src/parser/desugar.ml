@@ -828,6 +828,9 @@ let rec pattern ~toplevel ctx {Location.it=p; at} =
      let ctx, ps = patterns ~at ~toplevel ctx ps in
      ctx, locate (Desugared.Patt_Tuple ps)
 
+  | Sugared.Patt_String s ->
+     ctx, locate (Desugared.Patt_String s)
+
 and patterns ~at ~toplevel ctx ps =
   let rec fold ctx ps_out = function
     | [] ->
@@ -851,7 +854,7 @@ let check_linear_pattern_variable ~at ~forbidden x =
 let rec check_linear ?(forbidden=Name.set_empty) {Location.it=p';at} =
   match p' with
 
-  | Sugared.Patt_Anonymous | Sugared.Patt_Path (Name.PModule _) ->
+  | Sugared.Patt_Anonymous | Sugared.Patt_Path (Name.PModule _) | Sugared.Patt_String _ ->
      forbidden
 
   | Sugared.Patt_Path (Name.PName x) ->

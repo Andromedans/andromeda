@@ -208,6 +208,9 @@ let rec infer_pattern {Location.it=p; at} =
     in
     fold [] [] [] ps
 
+  | Desugared.Patt_String s ->
+     return (locate ~at (Syntax.Patt_String s), Mlty.String, [])
+
 and check_pattern ({Location.it=p'; at} as p) t =
   match p' with
   | Desugared.Patt_Anonymous ->
@@ -240,7 +243,7 @@ and check_pattern ({Location.it=p'; at} as p) t =
         return (p, xts)
      end
 
-  | Desugared.(Patt_MLConstructor _ | Patt_TTConstructor _ |
+  | Desugared.(Patt_MLConstructor _ | Patt_TTConstructor _ | Patt_String _ |
              Patt_BoundaryIsType | Patt_BoundaryIsTerm _ | Patt_BoundaryEqType _ | Patt_BoundaryEqTerm _ |
              Patt_GenAtom _ | Patt_IsType _ | Patt_IsTerm _ | Patt_EqType _ | Patt_EqTerm _ | Patt_Abstraction _)->
      infer_pattern p >>= fun (p, t', xts) ->
