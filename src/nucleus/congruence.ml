@@ -47,9 +47,9 @@ let congruence_boundary es prem arg1 arg2 =
   with
   | Skip_argument -> None
 
-(** Form a rule application representing the congruence rule equating the
-   arguments [args1] and [args2]. *)
-let form_rap' sgn form rl args1 args2 =
+(** Form a rule application representing the congruence rule derived from teh given
+    rule [rl] applied to [args1] and [args2]. *)
+let form_rule_rap sgn form rl args1 args2 =
   let rec fold es eq_args rl args1 args2 =
     match rl, args1, args2 with
 
@@ -83,6 +83,38 @@ let form_rap' sgn form rl args1 args2 =
   in
   fold [] [] rl args1 args2
 
+let form_meta_rap form abstr args1 args2 =
+  let rec fold es eq_args abstr args1 args2 =
+    match abstr, args1, args2 with
+
+    | NotAbstract bdry, [], [] ->
+       RapDone (form eq_args bdry)
+
+    | Abstract (_, t', abstr), arg1 :: args1, arg2 :: args2 ->
+       let t = Instantiate_bound.is_type_fully es t' in
+       let bdry = (arg1, arg2, t) in
+       let rap_apply = function
+         | NotAbstract (JudgementEqTerm eq) ->
+            if not (Check.eq_term_boundary eq bdry) then Error.raise InvalidCongruence ;
+            let eq_arg = Arg_NotAbstract (JudgementEqTerm eq) in
+            let eq_args = eq_arg :: eq_args in
+            let es = arg1 :: es in
+            fold es eq_args abstr args1 args2
+
+         | NotAbstract (JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _)
+         | Abstract _ ->
+            Error.raise InvalidCongruence
+       in
+       RapMore (NotAbstract (BoundaryEqTerm bdry), rap_apply)
+
+    | NotAbstract _, _::_, _
+    | NotAbstract _, _, _::_
+    | Abstract _, [], _
+    | Abstract _, _, [] ->
+       Error.raise InvalidCongruence
+  in
+  fold [] [] abstr args1 args2
+
 (* Form a rule application for a congruence of two applications of the same term constructor.
    We assume that [args1] and [args2] have originated from previous valid applications
    of [c] to them. *)
@@ -100,7 +132,7 @@ let form_is_term_rap sgn c args1 args2 =
        assert false
   in
   let rl = Signature.lookup_rule c sgn in
-  form_rap' sgn form rl args1 args2
+  form_rule_rap sgn form rl args1 args2
 
 (* Form a rule application for a congruence of two applications of the same type constructor.
    We assume that [args1] and [args2] have originated from previous valid applications
@@ -118,32 +150,60 @@ let form_is_type_rap sgn c args1 args2 =
        assert false
   in
   let rl = Signature.lookup_rule c sgn in
-  form_rap' sgn form rl args1 args2
+  form_rule_rap sgn form rl args1 args2
 
 let form_rap sgn jdg1 jdg2 =
   match jdg1, jdg2 with
 
   | JudgementIsTerm e1, JudgementIsTerm e2 ->
-     let rec extract_info = function
-       | TermConstructor (c, args) -> c, args
-       | TermConvert (e, _, _) -> extract_info e
-       | TermAtom _ | TermMeta _ -> Error.raise InvalidCongruence
-       | TermBound _ -> assert false
+     let rec form = function
+       | TermConvert (e1, _, _), e2 -> form (e1, e2)
+
+       | e1, TermConvert (e2, _, _) -> form (e1, e2)
+
+       | TermConstructor (c1, args1), TermConstructor (c2, args2) ->
+          if not (Ident.equal c1 c2) then Error.raise InvalidCongruence ;
+          form_is_term_rap sgn c1 args1 args2
+
+       | (TermMeta (m1, args1) as e1), (TermMeta (m2, args2) as e2) ->
+          if not (Nonce.equal m1.meta_nonce m2.meta_nonce) then Error.raise InvalidCongruence ;
+          form_meta_rap
+          (fun eq_args t' ->
+            let t = Instantiate_bound.is_type_fully (Indices.of_list args1) t' in
+            let asmp = Collect_assumptions.arguments eq_args in
+            JudgementEqTerm (Mk.eq_term asmp e1 e2 t))
+          m1.meta_type
+          args1 args2
+
+       | TermMeta _, TermConstructor _
+       | TermConstructor _, TermMeta _
+       | TermAtom _, _
+       | _, TermAtom _ ->
+           Error.raise InvalidCongruence
+
+       | TermBound _, _ | _, TermBound _ -> assert false
      in
-     let c1, args1 = extract_info e1
-     and c2, args2 = extract_info e2 in
-     if not (Ident.equal c1 c2) then Error.raise InvalidCongruence ;
-     form_is_term_rap sgn c1 args1 args2
+     form (e1, e2)
 
   | JudgementIsType t1, JudgementIsType t2 ->
-     let extract_info = function
-       | TypeConstructor (c, args) -> c, args
-       | TypeMeta _ -> Error.raise InvalidCongruence
-     in
-     let c1, args1 = extract_info t1
-     and c2, args2 = extract_info t2 in
-     if not (Ident.equal c1 c2) then Error.raise InvalidCongruence ;
-     form_is_type_rap sgn c1 args1 args2
+     begin match t1, t2 with
+     | TypeConstructor (c1, args1), TypeConstructor (c2, args2) ->
+        if not (Ident.equal c1 c2) then Error.raise InvalidCongruence ;
+        form_is_type_rap sgn c1 args1 args2
+
+     | TypeMeta (m1, args1), TypeMeta (m2, args2) ->
+        if not (Nonce.equal m1.meta_nonce m2.meta_nonce) then Error.raise InvalidCongruence ;
+        form_meta_rap
+          (fun eq_args () ->
+            let asmp = Collect_assumptions.arguments eq_args in
+            JudgementEqType (Mk.eq_type asmp t1 t2))
+          m1.meta_type
+          args1 args2
+
+     | TypeConstructor _, TypeMeta _
+     | TypeMeta _, TypeConstructor _ ->
+        Error.raise InvalidCongruence
+     end
 
   | ((JudgementEqType _ | JudgementEqTerm _), _ |
      _, (JudgementEqType _ | JudgementEqTerm _) |
