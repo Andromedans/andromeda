@@ -68,7 +68,27 @@ and term_arguments args args' =
 and argument arg arg' =
   match arg, arg' with
   | Arg_NotAbstract jdg, Arg_NotAbstract jdg' ->
-     judgement jdg jdg'
+     (* It would make sense to call [judgement] here, but that one compares
+        boundaries of equations. Here we need to skip comparing those arguments
+        that are equalities, as they do not figure in alpha equality at all
+        (just like assumptions do not either). In addition, since the boundaries
+        of equality arguments are detemined by the preceeding object arguments,
+        we know comparison would succeed. *)
+     begin match jdg, jdg' with
+     | JudgementIsType t1, JudgementIsType t2 -> is_type t1 t2
+
+     | JudgementIsTerm e1, JudgementIsTerm e2 -> is_term e1 e2
+
+     | JudgementEqType _, JudgementEqType _
+     | JudgementEqTerm _, JudgementEqTerm _ ->
+        true
+
+     | JudgementIsType _, (JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _)
+     | JudgementIsTerm _, (JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _)
+     | JudgementEqType _, (JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _)
+     | JudgementEqTerm _, (JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _) ->
+        false
+     end
 
   | Arg_Abstract (_, arg), Arg_Abstract (_, arg') ->
      argument arg arg'

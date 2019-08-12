@@ -563,7 +563,7 @@ handler_cases:
     { lst }
 
 handler_case:
-  | VAL c=match_case ARROW t=term
+  | VAL c=match_case
     { Sugared.CaseVal c }
 
   | op=long(op_name) ps=prefix_pattern* pt=handler_checking ARROW t=term
