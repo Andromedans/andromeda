@@ -3,7 +3,7 @@
 type error
 
 (** Arity of a TT constructor *)
-type tt_arity = { arity : int ; relevant : int }
+type tt_arity = int
 
 (** Arity of an ML constructor or opertation *)
 type ml_arity = int

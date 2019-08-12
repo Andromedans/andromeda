@@ -1,0 +1,26 @@
+rule A type ;;
+rule B (a : A) type ;;
+rule b₁ (a : A) : B a ;;
+rule b₂ (a : A) : B a ;;
+rule ξ (a : A) : b₁ a ≡ b₂ a : B a ;;
+rule a₁ : A ;;
+rule a₂ : A ;;
+rule α : a₁ ≡ a₂ : A ;;
+
+rule symmetry
+   (X type) (x : X) (y : X)
+   (x ≡ y : X as α) :
+   y ≡ x : X
+;;
+
+rule transitivity
+   (X type) (x : X) (y : X) (z : X)
+   (x ≡ y : X as α) (y ≡ z : X as β) :
+   x ≡ z : X
+;;
+
+let p = ξ a₁ ;;
+let q = congruence (b₂ a₁) (b₂ a₂) α ;;
+let r = congruence (B a₂) (B a₁) (symmetry A a₁ a₂ α) ;;
+let s = transitivity (B a₁) (b₁ a₁) (b₂ a₁) (convert (b₂ a₂) r) p q ;;
+

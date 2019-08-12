@@ -64,7 +64,7 @@ and comp' =
   | Yield of comp
   | String of string
   | Occurs of comp * comp
-  | Congruence of Ident.t * comp * comp * comp list
+  | Congruence of comp * comp * comp list
   | Convert of comp * comp
   | Context of comp
   | Natural of comp

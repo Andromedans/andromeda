@@ -1,0 +1,13 @@
+val cow :> mlforall α β, (α → β) → α → β = <function>
+val chicken :> derivation → judgement → judgement → judgement =
+  <function>
+Rule A is postulated.
+Rule a is postulated.
+Rule B is postulated.
+Rule s is postulated.
+val d :> derivation = <derivation>
+- : judgement = ⊢ s a a a
+val e :> derivation = <derivation>
+- : judgement → judgement → judgement = <function>
+- : judgement = ⊢ B a a a type
+- : judgement = ⊢ B a a a type

@@ -1,0 +1,14 @@
+Rule reflexivity is postulated.
+Rule symmetry is postulated.
+Rule transitivity is postulated.
+Rule magic is postulated.
+val eq :> derivation = <derivation>
+Rule nat is postulated.
+Rule plus is postulated.
+Rule comm is postulated.
+Rule Vec is postulated.
+Rule u is postulated.
+Rule j is postulated.
+Rule k is postulated.
+- : judgement = ⊢ u nat (plus j k) ≡ u nat (plus k j) : Vec nat (plus j
+  k)

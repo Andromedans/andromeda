@@ -1,0 +1,14 @@
+Rule A is postulated.
+Rule B is postulated.
+Rule b₁ is postulated.
+Rule b₂ is postulated.
+Rule ξ is postulated.
+Rule a₁ is postulated.
+Rule a₂ is postulated.
+Rule α is postulated.
+Rule symmetry is postulated.
+Rule transitivity is postulated.
+val p :> judgement = ⊢ b₁ a₁ ≡ b₂ a₁ : B a₁
+val q :> judgement = ⊢ b₂ a₁ ≡ b₂ a₂ : B a₁
+val r :> judgement = ⊢ B a₂ ≡ B a₁
+val s :> judgement = ⊢ b₁ a₁ ≡ b₂ a₂ : B a₁

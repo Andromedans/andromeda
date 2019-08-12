@@ -301,8 +301,8 @@ app_term_:
   | CURRENT c=substitution_term
     { Sugared.Current c }
 
-  | CONGRUENCE c=long(tt_name) e1=substitution_term e2=substitution_term es=list(substitution_term)
-    { Sugared.Congruence (c, e1, e2, es) }
+  | CONGRUENCE e1=substitution_term e2=substitution_term es=list(substitution_term)
+    { Sugared.Congruence (e1, e2, es) }
 
   | CONTEXT c=substitution_term
     { Sugared.Context c }
