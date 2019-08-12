@@ -149,21 +149,27 @@ let rec collect_pattern sgn xvs {Location.it=p'; at} v =
   | Syntax.Patt_Tuple ps, Runtime.Tuple vs ->
      collect_patterns sgn xvs ps vs
 
+  | Syntax.Patt_String p, Runtime.String s ->
+     if String.equal p s then xvs else raise Match_fail
+
   (* mismatches *)
   | Syntax.Patt_MLConstructor _,
-    Runtime.(Judgement _ | Boundary _ | Closure _ | Handler _ | Ref _ | Dyn _ | Tuple _ | String _)
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Ref _ | Dyn _ | Tuple _ | String _)
 
   | Syntax.Patt_Abstract _,
-    Runtime.(Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _ | String _)
+    Runtime.(Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _ | String _)
 
   | Syntax.(Patt_TTConstructor _ | Patt_GenAtom _ | Patt_IsType _ | Patt_IsTerm _ | Patt_EqType _ | Patt_EqTerm _),
-    Runtime.(Boundary _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _ | String _)
+    Runtime.(Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _ | String _)
 
   | Syntax.(Patt_BoundaryIsType | Patt_BoundaryIsTerm _ | Patt_BoundaryEqType _ | Patt_BoundaryEqTerm _) ,
-    Runtime.(Judgement _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _ | String _)
+    Runtime.(Judgement _ | Derivation _  | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _ | String _)
 
   | Syntax.Patt_Tuple _,
-    Runtime.(Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _) ->
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _)
+
+  | Syntax.Patt_String _,
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | Tuple _) ->
      Runtime.(error ~at (InvalidPatternMatch v))
 
 and collect_judgement sgn xvs p abstr =
@@ -257,8 +263,7 @@ let match_pattern p v =
   let r = match_pattern' sgn p v in
   return r
 
-let collect_boundary_pattern sgn xvs pttrn bdry =
-  failwith "pattern matching of boundaries not implemented"
+let collect_boundary_pattern = collect_pattern
 
 let match_op_pattern ps p_bdry vs bdry =
   Runtime.get_env >>= fun env ->
@@ -271,10 +276,8 @@ let match_op_pattern ps p_bdry vs bdry =
           match p_bdry with
           | None -> xvs
           | Some p ->
-             begin match bdry with
-             | Some t -> collect_boundary_pattern sgn xvs p t
-             | None -> xvs
-             end
+             let v = match bdry with | None -> None | Some t -> Some (Runtime.mk_boundary t) in
+             collect_boundary_pattern sgn xvs p (Reflect.mk_option v)
         in
         Some xvs
       with Match_fail -> None

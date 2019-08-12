@@ -1,0 +1,12 @@
+Rule A is postulated.
+Rule a is postulated.
+Rule B is postulated.
+Rule s is postulated.
+val d :> derivation = <derivation>
+- : judgement = ⊢ B a a type
+- : judgement = ⊢ {z : A} B z z type
+val d' :> derivation = <derivation>
+- : judgement = ⊢ B a a type
+Rule refl is postulated.
+val e :> derivation = <derivation>
+- : judgement = ⊢ {a₀ : A} s a₀ ≡ s a₀ : B a₀ a₀

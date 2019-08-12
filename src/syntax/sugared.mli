@@ -22,6 +22,7 @@ and ml_ty' =
   | ML_Dynamic of ml_ty
   | ML_Judgement
   | ML_Boundary
+  | ML_Derivation
   | ML_String
   | ML_Anonymous
 
@@ -61,6 +62,7 @@ and pattern' =
   | Patt_Constructor of path * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
+  | Patt_String of string
 
 (** Sugared terms *)
 type comp = comp' located
@@ -89,10 +91,11 @@ and comp' =
   (* Multi-argument substitutions are *not* treated as parallel substitutions
      but desugared to consecutive substitutions. *)
   | Substitute of comp * comp list
+  | Derive of premise list * comp
   | Spine of comp * comp list
   | Yield of comp
   | String of string
-  | Congruence of Name.path * comp * comp * comp list
+  | Congruence of comp * comp * comp list
   | Context of comp
   | Convert of comp * comp
   | Occurs of comp * comp
@@ -121,20 +124,20 @@ and match_case = pattern * comp option * comp
 
 and match_op_case = pattern list * pattern option * comp
 
-type ml_tydef =
-  | ML_Sum of (Name.t * ml_ty list) list
-  | ML_Alias of ml_ty
-
 (** The local context of a premise to a rule. *)
-type local_context = (Name.t * comp) list
+and local_context = (Name.t * comp) list
 
 (** A premise to a rule *)
-type premise = premise' located
+and premise = premise' located
 and premise' =
   | PremiseIsType of Name.t option * local_context
   | PremiseIsTerm of Name.t option * local_context * comp
   | PremiseEqType of Name.t option * local_context * (comp * comp)
   | PremiseEqTerm of Name.t option * local_context * (comp * comp * comp)
+
+type ml_tydef =
+  | ML_Sum of (Name.t * ml_ty list) list
+  | ML_Alias of ml_ty
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' located

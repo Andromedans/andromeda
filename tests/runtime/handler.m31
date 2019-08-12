@@ -1,0 +1,18 @@
+operation auto : mlunit -> judgement ;;
+rule A type ;;
+rule a : A ;;
+rule B type ;;
+
+handle
+  auto () : A
+with
+| auto () : ML.Some (? : X) -> yield a
+| auto () : ML.None -> yield B
+end ;;
+
+handle
+  auto ()
+with
+| auto () : ML.Some (? : X) -> yield a
+| auto () : ML.None -> yield B
+end

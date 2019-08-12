@@ -5,13 +5,15 @@
 
     * check arities of constructors and operations
 
-    We check arities here in order to figure out how to split a spine [C e1 ... en]
-    into an application of a constructor [(C e1 ... ek) ... en] where [k] is
-    the arity of [C].
-
     The arity of a constructor [C] is a pair of number [(n, m)], where [n] is the
     number of arguments it takes, and [m] is the number of proof-relevant arguments
     (term and type arguments).
+
+    Note that we do not check arities of derivations here because those are first-class
+    and are not bound to specific identifiers. Typechecking performs that operation.
+    We could consider moving arity checking of all entitites to typechecking, but then
+    we need to worry about separate namespaces in which they might leave, and it would
+    just induce some pointless code refactoring.
 *)
 
 (** Association tables with de Bruijn levels. *)
@@ -65,7 +67,7 @@ struct
 end
 
 (** Arity of a TT constructor *)
-type tt_arity = { arity : int ; relevant : int }
+type tt_arity = int
 
 (** Arity of an ML constructor or opertation *)
 type ml_arity = int
@@ -110,7 +112,6 @@ type error =
   | UnknownPath of Name.path
   | UnknownType of Name.path
   | UnknownModule of Name.path
-  | UnknownTTConstructor of Name.path
   | NameAlreadyDeclared of Name.t * info
   | MLTypeAlreadyDeclared of Name.t
   | MLModuleAlreadyDeclared of Name.t
@@ -119,7 +120,6 @@ type error =
   | InvalidAppliedPatternName : Name.path * info -> error
   | NonlinearPattern : Name.t -> error
   | ArityMismatch of Name.path * int * int
-  | CongruenceArityMismatch of Name.path * int * int
   | UnboundYield
   | ParallelShadowing of Name.t
   | AppliedTyParam
@@ -138,10 +138,6 @@ let print_error err ppf = match err with
 
   | UnknownModule pth ->
      Format.fprintf ppf "unknown ML module %t"
-       (Name.print_path pth)
-
-  | UnknownTTConstructor pth ->
-     Format.fprintf ppf "unknown rule %t"
        (Name.print_path pth)
 
   | NameAlreadyDeclared (x, info) ->
@@ -181,12 +177,6 @@ let print_error err ppf = match err with
 
   | ArityMismatch (pth, used, expected) ->
      Format.fprintf ppf "%t expects %d arguments but is used with %d"
-       (Name.print_path pth)
-       expected
-       used
-
-  | CongruenceArityMismatch (pth, used, expected) ->
-     Format.fprintf ppf "congruence %t expects %d arguments but is used with %d"
        (Name.print_path pth)
        expected
        used
@@ -362,13 +352,6 @@ module Ctx = struct
     | Some (MLConstructor (pth, arity)) -> pth, arity
     | None |Some (Bound _ | Value _ | TTConstructor _ | Operation _) ->
        assert false
-
-  (* Get information about the given TT constructor. *)
-  let get_tt_constructor ~at pth ctx =
-    match find_name pth ctx with
-    | Some (TTConstructor (pth, arity)) -> pth, arity
-    | None |Some (Bound _ | Value _ | MLConstructor _ | Operation _) ->
-       error ~at (UnknownTTConstructor pth)
 
   (* Get information about the given ML operation. *)
   let get_ml_operation op ctx =
@@ -557,26 +540,15 @@ let check_ml_arity ~at pth used expected =
     error ~at (ArityMismatch (pth, used, expected))
 
 (* Compute the arity of a TT constructor, given the premises of its rule. *)
-let tt_arity prems =
-  let rec count n m = function
-    | [] -> {arity=n; relevant=m}
-    | {Location.it=Sugared.(PremiseIsType _ | PremiseIsTerm _); _} :: prems -> count (n+1) (m+1) prems
-    | {Location.it=Sugared.(PremiseEqType _ | PremiseEqTerm _); _} :: prems -> count (n+1) m prems
-  in
-  count 0 0 prems
+let tt_arity prems = List.length prems
 
 (* Compute the arity of a ML constructor. *)
 let ml_arity = List.length
 
 (* Check that the arity is the expected one. *)
-let check_tt_arity ~at pth used {arity=expected;_} =
+let check_tt_arity ~at pth used expected =
   if used <> expected then
     error ~at (ArityMismatch (pth, used, expected))
-
-(* Check that the arity for a congruence rule is the expected one. *)
-let check_tt_congruence_arity ~at pth used {relevant=expected;_} =
-  if used <> expected then
-    error ~at (CongruenceArityMismatch (pth, 2 + used, 2 + expected))
 
 (* Desugar an ML type, with the given list of known type parameters *)
 let mlty ctx params ty =
@@ -647,6 +619,9 @@ let mlty ctx params ty =
 
       | Sugared.ML_Boundary ->
          Desugared.ML_Boundary
+
+      | Sugared.ML_Derivation ->
+         Desugared.ML_Derivation
 
       | Sugared.ML_String -> Desugared.ML_String
       end
@@ -819,6 +794,9 @@ let rec pattern ~toplevel ctx {Location.it=p; at} =
      let ctx, ps = patterns ~at ~toplevel ctx ps in
      ctx, locate (Desugared.Patt_Tuple ps)
 
+  | Sugared.Patt_String s ->
+     ctx, locate (Desugared.Patt_String s)
+
 and patterns ~at ~toplevel ctx ps =
   let rec fold ctx ps_out = function
     | [] ->
@@ -842,7 +820,7 @@ let check_linear_pattern_variable ~at ~forbidden x =
 let rec check_linear ?(forbidden=Name.set_empty) {Location.it=p';at} =
   match p' with
 
-  | Sugared.Patt_Anonymous | Sugared.Patt_Path (Name.PModule _) ->
+  | Sugared.Patt_Anonymous | Sugared.Patt_Path (Name.PModule _) | Sugared.Patt_String _ ->
      forbidden
 
   | Sugared.Patt_Path (Name.PName x) ->
@@ -1021,8 +999,12 @@ let rec comp ctx {Location.it=c';at} =
           Location.mark ~at (Desugared.Substitute (e, c)))
        e cs
 
+  | Sugared.Derive (prems, c) ->
+     let c, prems = premises ctx prems (fun ctx -> comp ctx c) in
+     locate (Desugared.Derive (prems, c))
+
   | Sugared.Spine (e, cs) ->
-     spine ctx e cs
+     spine ~at ctx e cs
 
   | Sugared.Name x ->
 
@@ -1084,13 +1066,11 @@ let rec comp ctx {Location.it=c';at} =
   | Sugared.String s ->
      locate (Desugared.String s)
 
-  | Sugared.Congruence (pth, c1, c2, cs) ->
-     let c_pth, arity = Ctx.get_tt_constructor ~at pth ctx in
-     check_tt_congruence_arity ~at pth (List.length cs) arity ;
+  | Sugared.Congruence (c1, c2, cs) ->
      let c1 = comp ctx c1
      and c2 = comp ctx c2
      and cs = List.map (comp ctx) cs in
-     locate (Desugared.Congruence (c_pth, c1, c2, cs))
+     locate (Desugared.Congruence (c1, c2, cs))
 
   | Sugared.Context c ->
      let c = comp ctx c in
@@ -1255,8 +1235,7 @@ and let_annotation ctx = function
 
 (* To desugar a spine [c1 c2 ... cN], we check if c1 is an identifier, in which
    case we break the spine according to the arity of c1. *)
-and spine ctx ({Location.it=c';at} as c) cs =
-  let locate x = Location.mark ~at x in
+and spine ~at ctx ({Location.it=c'; at=c_at} as c) cs =
 
   (* Auxiliary function which splits a list into two parts with k
      elements in the first part. *)
@@ -1271,49 +1250,43 @@ and spine ctx ({Location.it=c';at} as c) cs =
     in
     split [] arity lst
   in
-
-  (* First we calculate the head of the spine, and the remaining arguments. *)
   let head, cs =
-    match c' with
+  match c' with
 
-    | Sugared.Name x ->
-       begin match Ctx.get_name ~at x ctx with
+  | Sugared.Name x ->
+     begin match Ctx.get_name ~at x ctx with
 
-       | Bound i ->
-          locate (Desugared.Bound i), cs
+     | Bound i ->
+          Location.mark ~at:c_at (Desugared.Bound i), cs
 
-       | Value pth ->
-          locate (Desugared.Value pth), cs
+     | Value pth ->
+          Location.mark ~at:c_at (Desugared.Value pth), cs
 
-       | TTConstructor (pth, arity) ->
+     | TTConstructor (pth, arity) ->
           check_tt_arity ~at x (List.length cs) arity ;
-          let cs', cs = split_at x arity.arity cs in
+          let cs', cs = split_at x arity cs in
           tt_constructor ~at ctx pth cs', cs
 
-       | MLConstructor (pth, arity) ->
-          check_ml_arity ~at x (List.length cs) arity ;
-          let cs', cs = split_at x arity cs in
-          ml_constructor ~at ctx pth cs', cs
+     | MLConstructor (pth, arity) ->
+        check_ml_arity ~at x (List.length cs) arity ;
+        let cs', cs = split_at x arity cs in
+        ml_constructor ~at ctx pth cs', cs
 
-       | Operation (pth, arity) ->
-          (* We allow more arguments than the arity of the operation. *)
-          let cs', cs = split_at x arity cs in
-          operation ~at ctx pth cs', cs
+     | Operation (pth, arity) ->
+        (* We allow more arguments than the arity of the operation. *)
+        let cs', cs = split_at x arity cs in
+        operation ~at ctx pth cs', cs
 
-       end
+     end
 
     | _ -> comp ctx c, cs
   in
+  match cs with
+  | [] -> head
+  | _::_ ->
+     let cs = List.map (comp ctx) cs in
+     Location.mark ~at (Desugared.Spine (head, cs))
 
-  (* TODO improve locs *)
-  List.fold_left
-    (fun head arg ->
-       let arg = comp ctx arg
-       and at = Location.union at arg.Location.at in
-       let head = Desugared.Apply (head, arg) in
-       Location.mark ~at head)
-    head
-    cs
 
 (* Desugar handler cases. *)
 and handler ~at ctx hcs =
@@ -1402,6 +1375,83 @@ and operation ~at ctx x cs =
   let cs = List.map (comp ctx) cs in
   Location.mark ~at (Desugared.Operation (x, cs))
 
+and local_context :
+  'a . Ctx.t -> Sugared.local_context -> (Ctx.t -> 'a) -> 'a * Desugared.local_context
+= fun ctx xcs m ->
+  let rec fold ctx xcs_out = function
+    | [] ->
+       let xcs_out = List.rev xcs_out in
+       let v = m ctx in
+       v, xcs_out
+    | (x, c) :: xcs ->
+       let c = comp ctx c in
+       let ctx = Ctx.add_bound x ctx in
+       fold ctx ((x,c) :: xcs_out) xcs
+  in
+  fold ctx [] xcs
+
+and premise ctx {Location.it=prem;at} =
+  let locate x = Location.mark ~at x in
+  match prem with
+  | Sugared.PremiseIsType (mvar, local_ctx) ->
+     let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Desugared.BoundaryIsType in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
+
+  | Sugared.PremiseIsTerm (mvar, local_ctx, c) ->
+     let c, local_ctx =
+       local_context
+         ctx local_ctx
+         (fun ctx -> comp ctx c)
+     in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Desugared.BoundaryIsTerm c in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
+
+  | Sugared.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
+     let (c1, c2), local_ctx =
+       local_context
+         ctx local_ctx
+         (fun ctx ->
+           comp ctx c1,
+           comp ctx c2)
+     in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Desugared.BoundaryEqType (c1, c2) in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
+
+  | Sugared.PremiseEqTerm (mvar, local_ctx, (c1, c2, c3)) ->
+     let (c1, c2, c3), local_ctx =
+       local_context ctx local_ctx
+       (fun ctx ->
+         comp ctx c1,
+         comp ctx c2,
+         comp ctx c3)
+     in
+     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+     let ctx = Ctx.add_bound mvar ctx in
+     let bdry = Desugared.BoundaryEqTerm (c1, c2, c3) in
+     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
+
+and premises :
+  'a . Ctx.t -> Sugared.premise list -> (Ctx.t -> 'a) -> 'a * Desugared.premise list
+= fun ctx prems m ->
+  let rec fold ctx prems_out = function
+    | [] ->
+       let v = m ctx in
+       let prems_out = List.rev prems_out in
+       v, prems_out
+
+    | prem :: prems ->
+       let ctx, prem = premise ctx prem in
+       fold ctx (prem :: prems_out) prems
+  in
+  fold ctx [] prems
+
 let decl_operation ~at ctx args res =
   let args = List.map (mlty ctx []) args
   and res = mlty ctx [] res in
@@ -1460,79 +1510,6 @@ let mlty_rec_defs ~at ctx defs =
   let defs_out =
     List.map (fun (t, (params, def)) -> (t, (params, mlty_def ~at ctx params def))) defs_out in
   ctx, defs_out
-
-let local_context ctx xcs m =
-  let rec fold ctx xcs_out = function
-    | [] ->
-       let xcs_out = List.rev xcs_out in
-       let v = m ctx in
-       v, xcs_out
-    | (x, c) :: xcs ->
-       let c = comp ctx c in
-       let ctx = Ctx.add_bound x ctx in
-       fold ctx ((x,c) :: xcs_out) xcs
-  in
-  fold ctx [] xcs
-
-let premise ctx {Location.it=prem;at} =
-  let locate x = Location.mark ~at x in
-  match prem with
-  | Sugared.PremiseIsType (mvar, local_ctx) ->
-     let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryIsType in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseIsTerm (mvar, local_ctx, c) ->
-     let c, local_ctx =
-       local_context
-         ctx local_ctx
-         (fun ctx -> comp ctx c)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryIsTerm c in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
-     let (c1, c2), local_ctx =
-       local_context
-         ctx local_ctx
-         (fun ctx ->
-           comp ctx c1,
-           comp ctx c2)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryEqType (c1, c2) in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseEqTerm (mvar, local_ctx, (c1, c2, c3)) ->
-     let (c1, c2, c3), local_ctx =
-       local_context ctx local_ctx
-       (fun ctx ->
-         comp ctx c1,
-         comp ctx c2,
-         comp ctx c3)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryEqTerm (c1, c2, c3) in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-let premises ctx prems m =
-  let rec fold ctx prems_out = function
-    | [] ->
-       let v = m ctx in
-       let prems_out = List.rev prems_out in
-       v, prems_out
-
-    | prem :: prems ->
-       let ctx, prem = premise ctx prem in
-       fold ctx (prem :: prems_out) prems
-  in
-  fold ctx [] prems
 
 let rec toplevel' ~loading ~basedir ctx {Location.it=cmd; at} =
   let locate1 cmd = [Location.mark ~at cmd] in

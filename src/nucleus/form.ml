@@ -55,27 +55,34 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
 
 (* Form a rule application for the given constructor [c] *)
 let form_constructor_rap sgn c =
-  let Rule.Rule (prems, concl) = Signature.lookup_rule c sgn in
-  let constr =
-    match concl with
-    | Rule.BoundaryIsType _ ->
-       (fun args -> JudgementIsType (Mk.type_constructor c (Indices.to_list args)))
+  let rec fold args = function
+    | Rule.Premise (prem, rl) ->
+       let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
+       let rap abstr =
+         if not (Check.judgement_boundary_abstraction sgn abstr bdry)
+         then Error.raise InvalidArgument ;
+         let arg = Judgement.to_argument abstr in
+         let args = arg :: args in
+         fold args rl
+       in
+       RapMore (bdry, rap)
 
-    | Rule.BoundaryIsTerm _ ->
-       (fun args -> JudgementIsTerm (Mk.term_constructor c (Indices.to_list args)))
+    | Rule.Conclusion (Rule.BoundaryIsType ()) ->
+       RapDone (JudgementIsType (Mk.type_constructor c (Indices.to_list args)))
 
-    | Rule.BoundaryEqType (lhs_schema, rhs_schema) ->
-       (fun args ->
+    | Rule.Conclusion (Rule.BoundaryIsTerm _) ->
+       RapDone (JudgementIsTerm (Mk.term_constructor c (Indices.to_list args)))
+
+    | Rule.Conclusion (Rule.BoundaryEqType (lhs_schema, rhs_schema)) ->
          (* order of arguments not important in [Collect_assumptions.arguments],
             we could try avoiding a list reversal caused by [Indices.to_list]. *)
          let asmp = Collect_assumptions.arguments (Indices.to_list args)
          and lhs = Instantiate_meta.is_type ~lvl:0 args lhs_schema
          and rhs = Instantiate_meta.is_type ~lvl:0 args rhs_schema
          in
-         JudgementEqType (Mk.eq_type asmp lhs rhs))
+         RapDone (JudgementEqType (Mk.eq_type asmp lhs rhs))
 
-    | Rule.BoundaryEqTerm (e1_schema, e2_schema, t_schema) ->
-       (fun args ->
+    | Rule.Conclusion (Rule.BoundaryEqTerm (e1_schema, e2_schema, t_schema)) ->
          (* order of arguments not important in [Collect_assumptions.arguments],
             we could try avoiding a list reversal caused by [Indices.to_list]. *)
          let asmp = Collect_assumptions.arguments (Indices.to_list args)
@@ -83,28 +90,48 @@ let form_constructor_rap sgn c =
          and e2 = Instantiate_meta.is_term ~lvl:0 args e2_schema
          and t = Instantiate_meta.is_type ~lvl:0 args t_schema
          in
-         JudgementEqTerm (Mk.eq_term asmp e1 e2 t))
+         RapDone (JudgementEqTerm (Mk.eq_term asmp e1 e2 t))
   in
-  match prems with
-  | [] -> RapDone (constr [])
-  | prem :: prems ->
+  let rl = Signature.lookup_rule c sgn in
+  fold [] rl
 
-     let rec rap_apply (args, bdry, prems) abstr =
-       if not (Check.judgement_boundary_abstraction sgn abstr bdry)
-       then Error.raise InvalidArgument ;
-       let arg = Judgement.to_argument abstr in
-       let args = arg :: args in
-       match prems with
-       | [] ->
-          RapDone (constr args)
-       | prem :: prems ->
-          let bdry = (Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem) in
-          RapMore (bdry, rap_apply (args, bdry, prems))
-     in
-     let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 [] prem in
-     RapMore (bdry, rap_apply ([], bdry, prems))
+(** Form a rap from a derivation *)
+let form_derivation_rap sgn drv =
+  let rec fold args = function
+    | Rule.Premise (prem, drv) ->
+       let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
+       let rap abstr =
+         if not (Check.judgement_boundary_abstraction sgn abstr bdry)
+         then Error.raise InvalidArgument ;
+         let arg = Judgement.to_argument abstr in
+         let args = arg :: args in
+         fold args drv
+       in
+       RapMore (bdry, rap)
 
+    | Rule.Conclusion (Rule.JudgementIsType t_schema) ->
+       let t = Instantiate_meta.is_type ~lvl:0 args t_schema in
+       RapDone (JudgementIsType t)
 
+    | Rule.Conclusion (Rule.JudgementIsTerm e_schema) ->
+       let e = Instantiate_meta.is_term ~lvl:0 args e_schema in
+       RapDone (JudgementIsTerm e)
+
+    | Rule.Conclusion (Rule.JudgementEqType eq_schema) ->
+       (* order of arguments not important in [Collect_assumptions.arguments],
+          we could try avoiding a list reversal caused by [Indices.to_list]. *)
+       let eq = Instantiate_meta.eq_type ~lvl:0 args eq_schema in
+       RapDone (JudgementEqType eq)
+
+    | Rule.Conclusion (Rule.JudgementEqTerm eq_schema) ->
+       (* order of arguments not important in [Collect_assumptions.arguments],
+          we could try avoiding a list reversal caused by [Indices.to_list]. *)
+       let eq = Instantiate_meta.eq_term ~lvl:0 args eq_schema in
+       RapDone (JudgementEqTerm eq)
+  in
+  fold [] drv
+
+(** Formation of a term from an atom *)
 let form_is_term_atom = Mk.atom
 
 (** Conversion *)

@@ -12,6 +12,7 @@ and ml_ty' =
   | ML_Dynamic of ml_ty
   | ML_Judgement
   | ML_Boundary
+  | ML_Derivation
   | ML_String
   | ML_Bound of Path.index
   | ML_Anonymous
@@ -46,6 +47,7 @@ and pattern' =
   | Patt_BoundaryEqTerm of pattern * pattern * pattern
   | Patt_MLConstructor of Path.ml_constructor * pattern list
   | Patt_Tuple of pattern list
+  | Patt_String of string
 
 (** Desugared computations *)
 type comp = comp' located
@@ -72,13 +74,14 @@ and comp' =
   | BoundaryAscribe of comp * comp
   | TypeAscribe of comp * comp
   | TTConstructor of Path.t * comp list
-  | Apply of comp * comp
+  | Spine of comp * comp list
   | Abstract of Name.t * comp option * comp
   | Substitute of comp * comp
+  | Derive of premise list * comp
   | Yield of comp
   | String of string
   | Occurs of comp * comp
-  | Congruence of Path.t * comp * comp * comp list
+  | Congruence of comp * comp * comp list
   | Convert of comp * comp
   | Context of comp
   | Natural of comp
@@ -107,14 +110,14 @@ and match_case = pattern * comp option * comp
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = pattern list * pattern option * comp
 
+and local_context = (Name.t * comp) list
+
+and premise = premise' located
+and premise' = Premise of Name.t * local_context * boundary
+
 type ml_tydef =
   | ML_Sum of (Name.t * ml_ty list) list
   | ML_Alias of ml_ty
-
-type local_context = (Name.t * comp) list
-
-type premise = premise' located
-and premise' = Premise of Name.t * local_context * boundary
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' located

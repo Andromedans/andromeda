@@ -139,7 +139,7 @@ and mk_rule_eq_term metas (EqTerm (asmp, e1, e2, t)) =
   Rule.EqTerm (e1, e2, t)
 
 and mk_rule_assumptions metas asmp =
-  Print.error "should check that asmp is a subset of metas or some such@." ;
+  (* XXX should check that asmp is a subset of metas or some such? *)
   ()
 
 and mk_rule_judgement metas = function
@@ -196,33 +196,53 @@ let mk_rule_premise metas = function
   | BoundaryEqTerm (e1, e2, t) ->
      Rule.BoundaryEqTerm (mk_rule_is_term metas e1, mk_rule_is_term metas e2, mk_rule_is_type metas t)
 
-let form_rule prems concl =
-  let rec fold metas prems_out = function
-    | [] ->
-       let concl =
-         match concl with
-         | BoundaryIsType () ->
-            Rule.BoundaryIsType ()
-
-         | BoundaryIsTerm t ->
-            Rule.BoundaryIsTerm (mk_rule_is_type metas t)
-
-         | BoundaryEqType (t1, t2) ->
-            let t1 = mk_rule_is_type metas t1
-            and t2 = mk_rule_is_type metas t2 in
-            Rule.BoundaryEqType (t1, t2)
-
-         | BoundaryEqTerm (e1, e2, t) ->
-            let e1 = mk_rule_is_term metas e1
-            and e2 = mk_rule_is_term metas e2
-            and t = mk_rule_is_type metas t in
-            Rule.BoundaryEqTerm (e1, e2, t)
-       in
-       let prems_out = List.rev prems_out in
-       Rule.Rule (prems_out, concl)
+let fold_prems prems form_concl =
+  let rec fold metas = function
+    | [] -> Rule.Conclusion (form_concl metas)
 
     | (mv, prem) :: prems ->
        let prem = mk_rule_abstraction mk_rule_premise metas prem in
-       fold (mv :: metas) (prem :: prems_out) prems
+       let rl = fold (mv :: metas) prems in
+       Rule.Premise (prem, rl)
   in
-  fold [] [] prems
+  fold [] prems
+
+let form_rule prems concl =
+  fold_prems prems
+  begin fun metas ->
+    match concl with
+    | BoundaryIsType () ->
+       Rule.BoundaryIsType ()
+
+    | BoundaryIsTerm t ->
+       Rule.BoundaryIsTerm (mk_rule_is_type metas t)
+
+    | BoundaryEqType (t1, t2) ->
+       let t1 = mk_rule_is_type metas t1
+       and t2 = mk_rule_is_type metas t2 in
+       Rule.BoundaryEqType (t1, t2)
+
+    | BoundaryEqTerm (e1, e2, t) ->
+       let e1 = mk_rule_is_term metas e1
+       and e2 = mk_rule_is_term metas e2
+       and t = mk_rule_is_type metas t in
+       Rule.BoundaryEqTerm (e1, e2, t)
+  end
+
+
+let form_derivation prems concl =
+  fold_prems prems
+  begin fun metas ->
+    match concl with
+    | JudgementIsType t ->
+       Rule.JudgementIsType (mk_rule_is_type metas t)
+
+    | JudgementIsTerm e ->
+       Rule.JudgementIsTerm (mk_rule_is_term metas e)
+
+    | JudgementEqType eq ->
+       Rule.JudgementEqType (mk_rule_eq_type metas eq)
+
+    | JudgementEqTerm eq ->
+       Rule.JudgementEqTerm (mk_rule_eq_term metas eq)
+  end

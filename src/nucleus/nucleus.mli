@@ -169,7 +169,14 @@ sig
 
   and premise = boundary_abstraction
 
-  type t = private Rule of premise list * boundary
+  and 'a hypothetical =
+    private
+    | Conclusion of 'a
+    | Premise of premise * 'a hypothetical
+
+  type primitive = boundary hypothetical
+
+  type derivation = judgement hypothetical
 end
 
 
@@ -178,10 +185,12 @@ module Signature : sig
 
   val empty : signature
 
-  val add_rule : Ident.t -> Rule.t -> signature -> signature
+  val add_rule : Ident.t -> Rule.primitive -> signature -> signature
 end
 
-val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> Rule.t
+val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> Rule.primitive
+
+val form_derivation : (Nonce.t * boundary_abstraction) list -> judgement -> Rule.derivation
 
 (** When we apply a rule application to one more argument two things may happen.
    Either we are done and we get a result, or more arguments are needed, in
@@ -193,6 +202,9 @@ type rule_application = private
 
 (** Form a fully non-applied rule application for a given constructor *)
 val form_constructor_rap : signature -> Ident.t -> rule_application
+
+(** Form a fully non-applied derivation application *)
+val form_derivation_rap : signature -> Rule.derivation -> rule_application
 
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
@@ -406,7 +418,7 @@ val natural_type_eq : signature -> is_term -> eq_type
     judgements, or raise [InvalidCongruence] if the judgements are not
     of the correct form. *)
 val congruence_rap :
-  signature -> Ident.t -> judgement -> judgement -> rule_application
+  signature -> judgement -> judgement -> rule_application
 
 (** Give human names to things *)
 

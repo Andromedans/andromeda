@@ -11,7 +11,7 @@
 %token LBRACK RBRACK
 %token LBRACE RBRACE
 %token COLON COMMA PERIOD COLONGT COLONQT
-%token ARROW DARROW
+%token ARROW
 
 (* Modules *)
 %token MODULE STRUCT
@@ -43,8 +43,8 @@
 
 (* Meta types *)
 %token MLUNIT MLSTRING
-%token MLJUDGEMENT MLBOUNDARY
-%token MLTYPE
+%token MLJUDGEMENT MLBOUNDARY MLDERIVATION
+%token MLTYPE DARROW
 %token MLFORALL
 %token OF
 
@@ -52,10 +52,10 @@
 %token BANG COLONEQ REF
 
 (* Functions *)
-%token FUNCTION
+%token FUN
 
 (* TT commands *)
-%token FRESH CONVERT CONGRUENCE CONTEXT OCCURS
+%token FRESH CONVERT CONGRUENCE CONTEXT OCCURS DERIVE
 
 (* Toplevel directives *)
 %token VERBOSITY
@@ -173,38 +173,30 @@ top_command_:
 
 
 rule_:
-  | c=tt_name ps=premises TYPE
+  | c=tt_name ps=list(premise) TYPE
     { Sugared.RuleIsType (c, ps) }
 
-  | c=tt_name ps=premises COLON ty=term
+  | c=tt_name ps=list(premise) COLON ty=term
     { Sugared.RuleIsTerm (c, ps, ty) }
 
-  | c=tt_name ps=premises COLON l=app_term EQEQ r=ty_term
+  | c=tt_name ps=list(premise) COLON l=app_term EQEQ r=ty_term
     { Sugared.RuleEqType (c, ps, (l, r)) }
 
-  | c=tt_name ps=premises COLON l=app_term EQEQ r=app_term COLON ty=term
+  | c=tt_name ps=list(premise) COLON l=app_term EQEQ r=app_term COLON ty=term
     { Sugared.RuleEqTerm (c, ps, (l, r, ty)) }
-
-premises:
-  |
-    { [] }
-
-  | LPAREN p=premise RPAREN ps=premises
-    { p :: ps }
-
 
 premise: mark_location(premise_) { $1 }
 premise_:
-  | lctx=local_context mv=opt_name(tt_name) TYPE
+  | LPAREN lctx=local_context mv=opt_name(tt_name) TYPE RPAREN
     { Sugared.PremiseIsType (mv, lctx) }
 
-  | lctx=local_context mv=opt_name(tt_name) COLON ty=term
+  | LPAREN lctx=local_context mv=opt_name(tt_name) COLON ty=term RPAREN
     { Sugared.PremiseIsTerm (mv, lctx, ty) }
 
-  | lctx=local_context l=app_term EQEQ r=ty_term mv=equality_premise_name
+  | LPAREN lctx=local_context l=app_term EQEQ r=ty_term mv=equality_premise_name RPAREN
     { Sugared.PremiseEqType (mv, lctx, (l, r)) }
 
-  | lctx=local_context l=app_term EQEQ r=app_term COLON ty=term mv=equality_premise_name
+  | LPAREN lctx=local_context l=app_term EQEQ r=app_term COLON ty=term mv=equality_premise_name RPAREN
     { Sugared.PremiseEqTerm (mv, lctx, (l, r, ty)) }
 
 
@@ -242,8 +234,11 @@ term_:
   | HANDLE c=term WITH hcs=handler_cases END
     { Sugared.Handle (c, hcs) }
 
-  | FUNCTION xs=ml_arg+ DARROW e=term
+  | FUN xs=ml_arg+ ARROW e=term
     { Sugared.Function (xs, e) }
+
+  | DERIVE ps=nonempty_list(premise) ARROW e=term
+    { Sugared.Derive (ps, e) }
 
   | WITH h=term HANDLE c=term
     { Sugared.With (h, c) }
@@ -300,29 +295,34 @@ binop_term_:
 
 app_term: mark_location(app_term_) { $1 }
 app_term_:
+  | e=substitution_term_
+    { e }
+
+  | CURRENT c=substitution_term
+    { Sugared.Current c }
+
+  | CONGRUENCE e1=substitution_term e2=substitution_term es=list(substitution_term)
+    { Sugared.Congruence (e1, e2, es) }
+
+  | CONTEXT c=substitution_term
+    { Sugared.Context c }
+
+  | CONVERT c1=substitution_term c2=substitution_term
+    { Sugared.Convert (c1, c2) }
+
+  | OCCURS c1=substitution_term c2=substitution_term
+    { Sugared.Occurs (c1, c2) }
+
+  | e=substitution_term es=nonempty_list(substitution_term)
+    { Sugared.Spine (e, es) }
+
+substitution_term: mark_location(substitution_term_) { $1 }
+substitution_term_:
   | e=prefix_term_
     { e }
 
-  | CURRENT c=prefix_term
-    { Sugared.Current c }
-
-  | CONGRUENCE c=long(tt_name) e1=prefix_term e2=prefix_term es=list(prefix_term)
-    { Sugared.Congruence (c, e1, e2, es) }
-
-  | CONTEXT c=prefix_term
-    { Sugared.Context c }
-
-  | CONVERT c1=prefix_term c2=prefix_term
-    { Sugared.Convert (c1, c2) }
-
-  | OCCURS c1=prefix_term c2=prefix_term
-    { Sugared.Occurs (c1, c2) }
-
-  | e=prefix_term s=substitution
+  | e=substitution_term s=substitution
     { Sugared.Substitute (e, s) }
-
-  | e=prefix_term es=nonempty_list(prefix_term)
-    { Sugared.Spine (e, es) }
 
 prefix_term: mark_location(prefix_term_) { $1 }
 prefix_term_:
@@ -563,10 +563,10 @@ handler_cases:
     { lst }
 
 handler_case:
-  | VAL c=match_case DARROW t=term
+  | VAL c=match_case ARROW t=term
     { Sugared.CaseVal c }
 
-  | op=long(op_name) ps=prefix_pattern* pt=handler_checking DARROW t=term
+  | op=long(op_name) ps=prefix_pattern* pt=handler_checking ARROW t=term
     { Sugared.CaseOp (op, (ps, pt, t)) }
 
   | FINALLY c=match_case
@@ -587,7 +587,7 @@ match_cases:
     { lst }
 
 match_case:
-  | p=pattern g=when_guard DARROW c=term
+  | p=pattern g=when_guard ARROW c=term
     { (p, g, c) }
 
 
@@ -686,6 +686,9 @@ simple_pattern_:
   | LBRACK ps=separated_list(SEMI, pattern) RBRACK
     { Sugared.Patt_List ps }
 
+  | s=QUOTED_STRING
+    { Sugared.Patt_String s }
+
 let_pattern: mark_location(let_pattern_) { $1 }
 let_pattern_:
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
@@ -768,6 +771,9 @@ simple_mlty_:
 
   | MLBOUNDARY
     { Sugared.ML_Boundary }
+
+  | MLDERIVATION
+    { Sugared.ML_Derivation }
 
   | MLUNIT
     { Sugared.ML_Prod [] }

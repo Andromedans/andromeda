@@ -40,6 +40,7 @@ end
 type ty =
   | Judgement
   | Boundary
+  | Derivation
   | String
   | Meta of meta
   | Param of param
@@ -65,7 +66,6 @@ type ty_def =
   | Sum of (Ident.t * ty list) list forall
 
 type error =
-  | InvalidApplication of ty * ty * ty
   | TypeMismatch of ty * ty
   | HandlerExpected of ty
   | RefExpected of ty
@@ -75,6 +75,7 @@ type error =
   | Ungeneralizable of param list * ty
   | UninferrableExpression
   | JudgementOrBoundaryExpected of ty
+  | DerivationOrFunctionExpected of ty
   | JudgementExpected of ty
 
 exception Error of error Location.located
@@ -130,6 +131,8 @@ let rec print_ty ~penv ?max_level t ppf =
 
   | Boundary -> Format.fprintf ppf "boundary"
 
+  | Derivation -> Format.fprintf ppf "derivation"
+
   | String -> Format.fprintf ppf "mlstring"
 
   | Meta m -> print_meta m ppf
@@ -182,12 +185,6 @@ let print_error err ppf =
   let penv = fresh_penv () in
   match err with
 
-  | InvalidApplication (h, arg, out) ->
-    Format.fprintf ppf "invalid application of@ @[<hov>%t]@ to@ @[<hov>%t@]@ producing@ @[<hov>%t]"
-      (print_ty ~penv h)
-      (print_ty ~penv arg)
-      (print_ty ~penv out)
-
   | TypeMismatch (t1, t2) ->
     Format.fprintf ppf "expected@ @[%t@] but got@ @[%t@]"
       (print_ty ~penv t2)
@@ -223,19 +220,23 @@ let print_error err ppf =
     Format.fprintf ppf "expected a judgement or boundary but got@ @[<hov>%t@]"
       (print_ty ~penv ty)
 
+  | DerivationOrFunctionExpected ty ->
+    Format.fprintf ppf "expected a function or a derivation but got@ @[<hov>%t@]"
+      (print_ty ~penv ty)
+
   | JudgementExpected ty ->
     Format.fprintf ppf "expected a judgement but got@ @[<hov>%t@]"
       (print_ty ~penv ty)
 
 let rec occurs m = function
-  | Judgement | Boundary | String | Param _ -> false
+  | Judgement | Boundary | Derivation | String | Param _ -> false
   | Meta m' -> eq_meta m m'
   | Prod ts  | Apply (_, ts) -> List.exists (occurs m) ts
   | Arrow (t1, t2) | Handler (t1, t2) -> occurs m t1 || occurs m t2
   | Ref t | Dynamic t -> occurs m t
 
 let rec occuring = function
-  | Judgement | Boundary | String | Param _ -> MetaSet.empty
+  | Judgement | Boundary | Derivation | String | Param _ -> MetaSet.empty
   | Meta m -> MetaSet.singleton m
   | Prod ts  | Apply (_, ts) ->
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
@@ -249,7 +250,7 @@ let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
 let instantiate pus t =
   let rec inst = function
 
-    | Judgement | Boundary | String | Meta _ as t -> t
+    | Judgement | Boundary | Derivation | String | Meta _ as t -> t
 
     | Param p as t ->
        begin
@@ -289,7 +290,7 @@ let instantiate pus t =
 
 let params_occur ps t =
   let rec occurs = function
-  | Judgement | Boundary | String | Meta _ -> false
+  | Judgement | Boundary | Derivation | String | Meta _ -> false
   | Param p -> List.mem p ps
   | Prod ts  | Apply (_, ts) ->
     List.exists occurs ts

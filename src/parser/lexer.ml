@@ -11,12 +11,14 @@ let reserved = [
   ("context", CONTEXT) ;
   ("convert", CONVERT) ;
   ("current", CURRENT) ;
+  ("derive", DERIVE) ;
+  ("derivation", MLDERIVATION) ;
   ("dynamic", DYNAMIC) ;
   ("end", END) ;
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
   ("fresh", FRESH) ;
-  ("fun", FUNCTION) ;
+  ("fun", FUN) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
   ("in", IN) ;
