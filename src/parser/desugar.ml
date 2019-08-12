@@ -5,10 +5,6 @@
 
     * check arities of constructors and operations
 
-    We check arities here in order to figure out how to split a spine [C e1 ... en]
-    into an application of a constructor [(C e1 ... ek) ... en] where [k] is
-    the arity of [C].
-
     The arity of a constructor [C] is a pair of number [(n, m)], where [n] is the
     number of arguments it takes, and [m] is the number of proof-relevant arguments
     (term and type arguments).
@@ -71,7 +67,7 @@ struct
 end
 
 (** Arity of a TT constructor *)
-type tt_arity = { arity : int ; relevant : int }
+type tt_arity = int
 
 (** Arity of an ML constructor or opertation *)
 type ml_arity = int
@@ -116,7 +112,6 @@ type error =
   | UnknownPath of Name.path
   | UnknownType of Name.path
   | UnknownModule of Name.path
-  | UnknownTTConstructor of Name.path
   | NameAlreadyDeclared of Name.t * info
   | MLTypeAlreadyDeclared of Name.t
   | MLModuleAlreadyDeclared of Name.t
@@ -125,7 +120,6 @@ type error =
   | InvalidAppliedPatternName : Name.path * info -> error
   | NonlinearPattern : Name.t -> error
   | ArityMismatch of Name.path * int * int
-  | CongruenceArityMismatch of Name.path * int * int
   | UnboundYield
   | ParallelShadowing of Name.t
   | AppliedTyParam
@@ -144,10 +138,6 @@ let print_error err ppf = match err with
 
   | UnknownModule pth ->
      Format.fprintf ppf "unknown ML module %t"
-       (Name.print_path pth)
-
-  | UnknownTTConstructor pth ->
-     Format.fprintf ppf "unknown rule %t"
        (Name.print_path pth)
 
   | NameAlreadyDeclared (x, info) ->
@@ -187,12 +177,6 @@ let print_error err ppf = match err with
 
   | ArityMismatch (pth, used, expected) ->
      Format.fprintf ppf "%t expects %d arguments but is used with %d"
-       (Name.print_path pth)
-       expected
-       used
-
-  | CongruenceArityMismatch (pth, used, expected) ->
-     Format.fprintf ppf "congruence %t expects %d arguments but is used with %d"
        (Name.print_path pth)
        expected
        used
@@ -368,13 +352,6 @@ module Ctx = struct
     | Some (MLConstructor (pth, arity)) -> pth, arity
     | None |Some (Bound _ | Value _ | TTConstructor _ | Operation _) ->
        assert false
-
-  (* Get information about the given TT constructor. *)
-  let get_tt_constructor ~at pth ctx =
-    match find_name pth ctx with
-    | Some (TTConstructor (pth, arity)) -> pth, arity
-    | None |Some (Bound _ | Value _ | MLConstructor _ | Operation _) ->
-       error ~at (UnknownTTConstructor pth)
 
   (* Get information about the given ML operation. *)
   let get_ml_operation op ctx =
@@ -563,26 +540,15 @@ let check_ml_arity ~at pth used expected =
     error ~at (ArityMismatch (pth, used, expected))
 
 (* Compute the arity of a TT constructor, given the premises of its rule. *)
-let tt_arity prems =
-  let rec count n m = function
-    | [] -> {arity=n; relevant=m}
-    | {Location.it=Sugared.(PremiseIsType _ | PremiseIsTerm _); _} :: prems -> count (n+1) (m+1) prems
-    | {Location.it=Sugared.(PremiseEqType _ | PremiseEqTerm _); _} :: prems -> count (n+1) m prems
-  in
-  count 0 0 prems
+let tt_arity prems = List.length prems
 
 (* Compute the arity of a ML constructor. *)
 let ml_arity = List.length
 
 (* Check that the arity is the expected one. *)
-let check_tt_arity ~at pth used {arity=expected;_} =
+let check_tt_arity ~at pth used expected =
   if used <> expected then
     error ~at (ArityMismatch (pth, used, expected))
-
-(* Check that the arity for a congruence rule is the expected one. *)
-let check_tt_congruence_arity ~at pth used {relevant=expected;_} =
-  if used <> expected then
-    error ~at (CongruenceArityMismatch (pth, 2 + used, 2 + expected))
 
 (* Desugar an ML type, with the given list of known type parameters *)
 let mlty ctx params ty =
@@ -1100,13 +1066,11 @@ let rec comp ctx {Location.it=c';at} =
   | Sugared.String s ->
      locate (Desugared.String s)
 
-  | Sugared.Congruence (pth, c1, c2, cs) ->
-     let c_pth, arity = Ctx.get_tt_constructor ~at pth ctx in
-     check_tt_congruence_arity ~at pth (List.length cs) arity ;
+  | Sugared.Congruence (c1, c2, cs) ->
      let c1 = comp ctx c1
      and c2 = comp ctx c2
      and cs = List.map (comp ctx) cs in
-     locate (Desugared.Congruence (c_pth, c1, c2, cs))
+     locate (Desugared.Congruence (c1, c2, cs))
 
   | Sugared.Context c ->
      let c = comp ctx c in
@@ -1300,7 +1264,7 @@ and spine ~at ctx ({Location.it=c'; at=c_at} as c) cs =
 
      | TTConstructor (pth, arity) ->
           check_tt_arity ~at x (List.length cs) arity ;
-          let cs', cs = split_at x arity.arity cs in
+          let cs', cs = split_at x arity cs in
           tt_constructor ~at ctx pth cs', cs
 
      | MLConstructor (pth, arity) ->

@@ -5,20 +5,20 @@ rule Π (X type) ({x:X} Y type) type ;;
 rule a : A ;;
 rule b : A ;;
 
-congruence a a a ;;
+congruence a a ;;
 
 rule isPropA (a : A) (b : A) : a ≡ b : A ;;
 
-congruence B (B a a) (B a b) (congruence a a a) (isPropA a b) ;;
+congruence (B a a) (B a b) (congruence a a) (isPropA a b) ;;
 
 let congrB b1 b2 =
   match (b1, b2) with
   | (B u1 v1, B u2 v2) ->
-    congruence B b1 b2 (isPropA u1 u2) (isPropA v1 v2)
+    congruence b1 b2 (isPropA u1 u2) (isPropA v1 v2)
   end
 ;;
 
-congruence Π (Π A ({x} B x x)) (Π A ({x} B a a)) (congruence A A A) ({x} congrB (B x x) (B a a))
+congruence (Π A ({x} B x x)) (Π A ({x} B a a)) (congruence A A) ({x} congrB (B x x) (B a a))
 ;;
 
 rule A' type ;;
@@ -32,4 +32,4 @@ let isPropA' x y = convert (isPropA (convert x α') (convert y α')) α ;;
 rule B' (_ : A') (_ : A') type ;;
 rule β (x : A) (y : A) : B x y ≡ B' (convert x α) (convert y α) ;;
 
-congruence Π (Π A ({x} B x x)) (Π A' ({y} B' y y)) α ({z} β z z)
+congruence (Π A ({x} B x x)) (Π A' ({y} B' y y)) α ({z} β z z)

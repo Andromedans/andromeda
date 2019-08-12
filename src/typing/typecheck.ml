@@ -475,14 +475,13 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      check_comp c2 Mlty.Judgement >>= fun c2 ->
      return (locate ~at (Syntax.Occurs (c1, c2)), Mlty.Judgement)
 
-  | Desugared.Congruence (cnstr, c1, c2, cs) ->
-     Tyenv.lookup_tt_constructor cnstr >>= fun cnstr ->
+  | Desugared.Congruence (c1, c2, cs) ->
      check_comp c1 Mlty.Judgement >>= fun c1 ->
      check_comp c2 Mlty.Judgement >>= fun c2 ->
      let rec fold cs_out = function
        | [] ->
           let cs_out = List.rev cs_out in
-          return (locate ~at (Syntax.Congruence (cnstr, c1, c2, cs_out)), Mlty.Judgement)
+          return (locate ~at (Syntax.Congruence (c1, c2, cs_out)), Mlty.Judgement)
        | c :: cs ->
           check_comp c Mlty.Judgement >>= fun c ->
           fold (c :: cs_out) cs

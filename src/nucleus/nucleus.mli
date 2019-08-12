@@ -416,7 +416,7 @@ val natural_type_eq : signature -> is_term -> eq_type
     judgements, or raise [InvalidCongruence] if the judgements are not
     of the correct form. *)
 val congruence_rap :
-  signature -> Ident.t -> judgement -> judgement -> rule_application
+  signature -> judgement -> judgement -> rule_application
 
 (** Give human names to things *)
 

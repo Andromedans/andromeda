@@ -120,30 +120,30 @@ let form_is_type_rap sgn c args1 args2 =
   let rl = Signature.lookup_rule c sgn in
   form_rap' sgn form rl args1 args2
 
-let form_rap sgn c jdg1 jdg2 =
+let form_rap sgn jdg1 jdg2 =
   match jdg1, jdg2 with
 
   | JudgementIsTerm e1, JudgementIsTerm e2 ->
-     let rec extract_args = function
-       | TermConstructor (c', args) ->
-          if Ident.equal c c' then args else Error.raise InvalidCongruence
-       | TermConvert (e, _, _) -> extract_args e
+     let rec extract_info = function
+       | TermConstructor (c, args) -> c, args
+       | TermConvert (e, _, _) -> extract_info e
        | TermAtom _ | TermMeta _ -> Error.raise InvalidCongruence
        | TermBound _ -> assert false
      in
-     let args1 = extract_args e1
-     and args2 = extract_args e2 in
-     form_is_term_rap sgn c args1 args2
+     let c1, args1 = extract_info e1
+     and c2, args2 = extract_info e2 in
+     if not (Ident.equal c1 c2) then Error.raise InvalidCongruence ;
+     form_is_term_rap sgn c1 args1 args2
 
   | JudgementIsType t1, JudgementIsType t2 ->
-     let extract_args = function
-       | TypeConstructor (c', args) ->
-          if Ident.equal c c' then args else Error.raise InvalidCongruence
+     let extract_info = function
+       | TypeConstructor (c, args) -> c, args
        | TypeMeta _ -> Error.raise InvalidCongruence
      in
-     let args1 = extract_args t1
-     and args2 = extract_args t2 in
-     form_is_type_rap sgn c args1 args2
+     let c1, args1 = extract_info t1
+     and c2, args2 = extract_info t2 in
+     if not (Ident.equal c1 c2) then Error.raise InvalidCongruence ;
+     form_is_type_rap sgn c1 args1 args2
 
   | ((JudgementEqType _ | JudgementEqTerm _), _ |
      _, (JudgementEqType _ | JudgementEqTerm _) |
