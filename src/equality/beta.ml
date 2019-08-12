@@ -1,6 +1,6 @@
-(** A β-rule has the form
+(** A β-derivation has the form
 
-    rule R P₁ ... Pᵢ  e₁ ≡ e₂ : A
+    derive P₁ ... Pᵢ  -> e₁ ≡ e₂ : A
 
   where:
 
@@ -16,6 +16,11 @@
 
      rule Σ_β₁ (A type) ({x : A} B type) (a : A) (b : B{a}) :
        π₁ A B (pair A B a b) == a : A
+
+  Funky rule:
+
+     rule Funky (x : unit) x == tt : unit
+
 
 *)
 
@@ -45,21 +50,11 @@ and is_term =
   | IsTermConstructor of Ident.t * argument list
   | IsTermAtom of Nucleus.is_atom
 
-and eq_type =
-  | EqTypeAddMeta of int
-  | EqTypeCheckMeta of int
-  | EqTypeBoundary of is_type * is_type
-
-and eq_term =
-  | EqTermAddMeta of int
-  | EqTermCheckMeta of int
-  | EqTermBoundary of is_term * is_term * is_type
-
 and argument =
   | ArgumentIsType of is_type
   | ArgumentIsTerm of is_term
-  | ArgumentEqType of eq_type
-  | ArgumentEqTerm of eq_term
+  | ArgumentEqType
+  | ArgumentEqTerm
 
 exception Match_fail
 
@@ -164,60 +159,6 @@ and collect_is_term sgn metas abstr = function
           fold e
      end
 
-and collect_eq_type sgn metas abstr = function
-
-  | EqTypeAddMeta k ->
-     add_meta k abstr metas
-
-  | EqTypeCheckMeta k ->
-     check_meta k abstr metas ;
-     metas
-
-  | EqTypeBoundary (r1, r2) ->
-     begin match Nucleus.as_not_abstract abstr with
-
-     | None -> raise Match_fail
-
-     | Some (Nucleus.JudgementEqType eq) ->
-        let Nucleus.Stump_EqType (_asmp, t1, t2) = Nucleus.invert_eq_type eq in
-        let abstr1 = Nucleus.(abstract_not_abstract (JudgementIsType t1))
-        and abstr2 = Nucleus.(abstract_not_abstract (JudgementIsType t2)) in
-        let metas = collect_is_type sgn metas abstr1 r1 in
-        let metas = collect_is_type sgn metas abstr2 r2 in
-        metas
-
-     | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _) ->
-        raise Match_fail
-     end
-
-and collect_eq_term sgn metas abstr = function
-
-  | EqTermAddMeta k ->
-     add_meta k abstr metas
-
-  | EqTermCheckMeta k ->
-     check_meta k abstr metas ;
-     metas
-
-  | EqTermBoundary (r1, r2, rt) ->
-     begin match Nucleus.as_not_abstract abstr with
-
-     | None -> raise Match_fail
-
-     | Some (Nucleus.JudgementEqTerm eq) ->
-        let Nucleus.Stump_EqTerm (_asmp, e1, e2, t) = Nucleus.invert_eq_term eq in
-        let abstr1 = Nucleus.(abstract_not_abstract (JudgementIsTerm e1))
-        and abstr2 = Nucleus.(abstract_not_abstract (JudgementIsTerm e2))
-        and abstrt = Nucleus.(abstract_not_abstract (JudgementIsType t)) in
-        let metas = collect_is_type sgn metas abstrt rt in
-        let metas = collect_is_term sgn metas abstr1 r1 in
-        let metas = collect_is_term sgn metas abstr2 r2 in
-        metas
-
-     | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _) ->
-        raise Match_fail
-     end
-
 and collect_arguments sgn metas args_e args_r =
   match args_e, args_r with
   | [], [] -> metas
@@ -235,9 +176,9 @@ and collect_argument sgn metas jdg = function
 
   | ArgumentIsTerm r -> collect_is_term sgn metas jdg r
 
-  | ArgumentEqType r -> collect_eq_type sgn metas jdg r
+  | ArgumentEqType -> metas
 
-  | ArgumentEqTerm r -> collect_eq_term sgn metas jdg r
+  | ArgumentEqTerm -> metas
 
 
 (** Given a mapping of de Bruijn indices [0, ..., k-1] to their values, convert
@@ -270,11 +211,11 @@ let match_is_type sgn e k r =
 
 exception Form_fail
 
-(** Form a pattern from the given term [e], abstracting over the given
+(** Form a pattern from the given rule term [e], abstracting over the given
     meta-variables. *)
 let rec form_is_term sgn metas e =
-  match Nucleus.invert_is_term sgn e with
-  | Nucleus.Stump_TermAtom atm -> IsTermAtom atm
+  match e with
+  | Nucleus.Rule. atm -> IsTermAtom atm
 
   | Nucleus.Stump_TermConstructor (c, args) ->
      let args = form_arguments sgn metas args in
@@ -286,7 +227,7 @@ let rec form_is_term sgn metas e =
      else
        raise Form_fail
 
-  | Nucleus.Stump_TermConvert (e, _) -> form_is_term sgn k e
+  | Nucleus.Stump_TermConvert (e, _) -> form_is_term sgn metas e
 
 and form_arguments sgn metas = function
   | [] -> metas
