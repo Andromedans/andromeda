@@ -1,3 +1,8 @@
+rule reflexivity
+   (X type) (x : X) :
+   x ≡ x : X
+;;
+
 rule symmetry
    (X type) (x : X) (y : X)
    (x ≡ y : X as α) :
@@ -35,9 +40,7 @@ rule plus (m : nat) (n : nat) : nat ;;
 rule comm (m : nat) (n : nat) : plus m n ≡ plus n m : nat ;;
 rule Vec (X  type) (n : nat) type ;;
 rule u (X type) (n : nat) : Vec X n ;;
-rule v (X type) (n : nat) : Vec X n ;;
-rule ξ (X type) (n : nat) : u X n ≡ v X n : Vec X n ;;
 rule j : nat ;;
 rule k : nat ;;
 
-eq nat ({n} Vec nat n) ({n} u nat n) ({n} v nat n) ({n} ξ nat n) (plus j k) (plus k j) (comm j k) ;;
+eq nat ({n} Vec nat n) ({n} u nat n) ({n} u nat n) ({n} reflexivity (Vec nat n) (u nat n)) (plus j k) (plus k j) (comm j k) ;;
