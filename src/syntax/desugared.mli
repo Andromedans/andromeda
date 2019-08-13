@@ -74,6 +74,7 @@ and comp' =
   | TTConstructor of Path.t * comp list
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp
+  | AbstractComp of (comp list) * comp
   | Substitute of comp * comp
   | Yield of comp
   | String of string
@@ -85,10 +86,10 @@ and comp' =
   | MLBoundary of boundary
 
 and boundary =
-   | BoundaryIsType
-   | BoundaryIsTerm of comp
-   | BoundaryEqType of comp * comp
-   | BoundaryEqTerm of comp * comp * comp
+  | BoundaryIsType
+  | BoundaryIsTerm of comp
+  | BoundaryEqType of comp * comp
+  | BoundaryEqTerm of comp * comp * comp
 
 and let_clause =
   | Let_clause of pattern * let_annotation * comp (* [let (?p :> t) = c] *)

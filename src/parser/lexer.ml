@@ -4,6 +4,7 @@ open Parser
 let reserved = [
   ("_", UNDERSCORE) ;
   ("_atom", UATOM) ;
+  ("abstract", ABSTRACT);
   ("and", AND) ;
   ("as", AS) ;
   ("boundary", MLBOUNDARY) ;
@@ -50,9 +51,9 @@ let reserved = [
 
 let name =
   [%sedlex.regexp? (('_' | alphabetic),
-                 Star ('_' | alphabetic
-                      | 185 | 178 | 179 | 8304 .. 8351 (* sub-/super-scripts *)
-                      | '0'..'9' | '\'')) | math]
+                    Star ('_' | alphabetic
+                         | 185 | 178 | 179 | 8304 .. 8351 (* sub-/super-scripts *)
+                         | '0'..'9' | '\'')) | math]
 
 let digit = [%sedlex.regexp? '0'..'9']
 let numeral = [%sedlex.regexp? Plus digit]
@@ -148,10 +149,10 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | eof                      -> f (); EOF
 
   | name               -> f ();
-    let n = Ulexbuf.lexeme lexbuf in
-    begin try List.assoc n reserved
-    with Not_found -> NAME (Name.mk_name n)
-    end
+     let n = Ulexbuf.lexeme lexbuf in
+     begin try List.assoc n reserved
+     with Not_found -> NAME (Name.mk_name n)
+     end
 
   | numeral                  -> f (); let k = safe_int_of_string lexbuf in NUMERAL k
 
@@ -164,10 +165,10 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
 and comments level ({ Ulexbuf.stream;_ } as lexbuf) =
   match%sedlex stream with
   | end_longcomment ->
-    if level = 0 then
-      begin Ulexbuf.update_pos lexbuf; token lexbuf end
-    else
-      comments (level-1) lexbuf
+     if level = 0 then
+       begin Ulexbuf.update_pos lexbuf; token lexbuf end
+     else
+       comments (level-1) lexbuf
 
   | start_longcomment -> comments (level+1) lexbuf
   | '\n'        -> Ulexbuf.new_line lexbuf; comments level lexbuf
@@ -199,8 +200,8 @@ let run
   | Sedlexing.MalFormed ->
      let at = at_of lexbuf in
      Ulexbuf.error ~at Ulexbuf.MalformedUTF8
-  (* | Sedlexing.InvalidCodepoint _ -> *)
-  (*    assert false (\* Shouldn't happen with UTF8 *\) *)
+(* | Sedlexing.InvalidCodepoint _ -> *)
+(*    assert false (\* Shouldn't happen with UTF8 *\) *)
 
 
 let read_file ?line_limit parse fn =
