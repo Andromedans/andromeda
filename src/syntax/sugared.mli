@@ -90,6 +90,7 @@ and comp' =
   | Abstract of (Name.t * comp option) list * comp
   (* Multi-argument substitutions are *not* treated as parallel substitutions
      but desugared to consecutive substitutions. *)
+  | AbstractComp of (comp list) * comp
   | Substitute of comp * comp list
   | Derive of premise list * comp
   | Spine of comp * comp list
