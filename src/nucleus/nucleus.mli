@@ -122,7 +122,7 @@ sig
 
   and is_term =
     private
-    | TermBound of bound
+    | TermBoundVar of bound
     | TermConstructor of Ident.t * argument list
     | TermMeta of meta * is_term list
 

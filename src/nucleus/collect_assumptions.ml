@@ -13,7 +13,7 @@ let rec is_type ?(lvl=0) = function
 
 and is_term ?(lvl=0) = function
 
-  | TermBound k ->
+  | TermBoundVar k ->
      if k < lvl then
        Assumption.empty
      else

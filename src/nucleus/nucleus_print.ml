@@ -25,7 +25,7 @@ and thesis_is_term ?max_level ~penv e ppf =
   | TermAtom {atom_nonce=x; _} ->
      Nonce.print ~parentheses:true x ppf
 
-  | TermBound k -> Name.print_debruijn penv.debruijn k ppf
+  | TermBoundVar k -> Name.print_debruijn penv.debruijn k ppf
 
   | TermConstructor (c, args) ->
      constructor ?max_level ~penv c args ppf

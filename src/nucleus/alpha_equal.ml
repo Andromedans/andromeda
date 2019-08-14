@@ -29,7 +29,7 @@ and is_term e1 e2 =
   | e1, TermConvert (e2, _, _) ->
      is_term e1 e2
 
-  | TermBound i, TermBound j -> i = j
+  | TermBoundVar i, TermBoundVar j -> i = j
 
   | TermAtom {atom_nonce=x;_}, TermAtom {atom_nonce=y;_} -> Nonce.equal x y
 
@@ -39,7 +39,7 @@ and is_term e1 e2 =
   | TermConstructor (c, args), TermConstructor (c', args') ->
      Ident.equal c c' && arguments args args'
 
-  | (TermAtom _ | TermBound _ | TermConstructor _  | TermMeta _), _ ->
+  | (TermAtom _ | TermBoundVar _ | TermConstructor _  | TermMeta _), _ ->
      false
   end
 

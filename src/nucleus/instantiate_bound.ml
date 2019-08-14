@@ -17,7 +17,7 @@ let rec is_type e0 ?(lvl=0) = function
 
 and is_term e0 ?(lvl=0) = function
 
-    | TermBound k as e ->
+    | TermBoundVar k as e ->
        if k < lvl then
          e
        else begin
@@ -118,7 +118,7 @@ let rec is_type_fully ?(lvl=0) es = function
 
 and is_term_fully ?(lvl=0) es = function
 
-  | (TermBound k) as e ->
+  | (TermBoundVar k) as e ->
      if k < lvl
      then e
      else

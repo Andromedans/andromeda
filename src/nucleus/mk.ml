@@ -13,7 +13,7 @@ let fresh_eq_type_meta = fresh_meta
 let fresh_eq_term_meta = fresh_meta
 let fresh_judgement_meta = fresh_meta
 
-let bound k = TermBound k
+let bound k = TermBoundVar k
 
 let type_constructor c args = TypeConstructor (c, args)
 

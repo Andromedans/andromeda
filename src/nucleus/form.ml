@@ -154,7 +154,7 @@ let form_is_term_convert_opt sgn e (EqType (asmp, t1, t2)) =
      else
        None
 
-  | (TermAtom _ | TermBound _ | TermConstructor _ | TermMeta _) as e ->
+  | (TermAtom _ | TermBoundVar _ | TermConstructor _ | TermMeta _) as e ->
      let t0 = Sanity.natural_type sgn e in
      if Alpha_equal.is_type t0 t1 then
        (* We need not include assumptions of [t1] because [t0] is alpha-equal

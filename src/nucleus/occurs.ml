@@ -7,7 +7,7 @@ let rec is_type k = function
 
 and is_term k = function
   | TermAtom _ -> false
-  | TermBound m -> k = m
+  | TermBoundVar m -> k = m
   | TermMeta (_, args) -> term_arguments k args
   | TermConstructor (_, args) -> arguments k args
   | TermConvert (e, asmp, t) -> is_term k e || assumptions k asmp || is_type k t

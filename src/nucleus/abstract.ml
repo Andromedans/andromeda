@@ -15,7 +15,7 @@ let rec is_type x ?(lvl=0) = function
      TypeMeta (mv, args)
 
 and is_term x ?(lvl=0) = function
-  | TermBound k as e ->
+  | TermBoundVar k as e ->
      if k < lvl then
        e
      else
@@ -30,7 +30,7 @@ and is_term x ?(lvl=0) = function
         if Assumption.mem_atom x asmp
         then Error.raise InvalidAbstraction
         else e
-     | true -> TermBound lvl
+     | true -> TermBoundVar lvl
      end
 
   | TermMeta (mv, args) ->

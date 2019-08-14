@@ -24,7 +24,7 @@ let rec is_term e =
 
     | TermAtom {atom_nonce=x; atom_type=t} -> Json.tag "TermAtom" [Nonce.Json.nonce x; is_type t]
 
-    | TermBound b -> Json.tag "TermBound" [Json.Int b]
+    | TermBoundVar b -> Json.tag "TermBoundVar" [Json.Int b]
 
     | TermConstructor (c, lst) -> Json.tag "TermConstructor" (Ident.Json.ident c :: arguments lst)
 

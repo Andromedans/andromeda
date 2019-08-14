@@ -38,7 +38,7 @@ let invert_is_term sgn = function
 
   | TermAtom a -> Stump_TermAtom a
 
-  | TermBound _ -> assert false
+  | TermBoundVar _ -> assert false
 
   | TermConstructor (c, args) ->
      let rl = Signature.lookup_rule c sgn in

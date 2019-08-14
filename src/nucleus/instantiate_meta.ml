@@ -29,7 +29,7 @@ let rec is_type ~lvl metas = function
      end
 
 and is_term ~lvl (metas : argument list) = function
-  | Rule.TermBound k -> Mk.bound k
+  | Rule.TermBoundVar k -> Mk.bound k
 
   | Rule.TermConstructor (c, args) ->
      let args = arguments ~lvl metas args

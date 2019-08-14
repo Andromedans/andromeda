@@ -23,7 +23,7 @@ let fully_apply_abstraction_no_checks inst_u abstr args =
 let type_of_term sgn = function
   | TermAtom {atom_type=t; _} -> t
 
-  | TermBound k ->
+  | TermBoundVar k ->
      (* We should never get here. If ever we need to compute the type of a
         term with bound variables, then we should have unabstracted the term
         beforehand, and asked about the type of the unabstracted version. *)
@@ -73,7 +73,7 @@ let rec type_of_term_abstraction sgn = function
     We maintain the invariant that no further assumptions are needed (apart from those
     already present in [e]) to derive that [e] actually has type [t]. *)
 let natural_type sgn = function
-  | (TermAtom _ | TermBound _ | TermConstructor _ | TermMeta _) as e ->
+  | (TermAtom _ | TermBoundVar _ | TermConstructor _ | TermMeta _) as e ->
      type_of_term sgn e
 
   | TermConvert (e, _, _) -> type_of_term sgn e

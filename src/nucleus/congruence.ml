@@ -181,7 +181,7 @@ let form_rap sgn jdg1 jdg2 =
        | _, TermAtom _ ->
            Error.raise InvalidCongruence
 
-       | TermBound _, _ | _, TermBound _ -> assert false
+       | TermBoundVar _, _ | _, TermBoundVar _ -> assert false
      in
      form (e1, e2)
 

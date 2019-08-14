@@ -108,8 +108,8 @@ and mk_rule_is_term metas = function
      let args = mk_rule_arguments metas args in
      Rule.TermConstructor (c, args)
 
-  | TermBound k ->
-     Rule.TermBound k
+  | TermBoundVar k ->
+     Rule.TermBoundVar k
 
   | TermConvert (e, asmp, t) ->
      let {free; meta; bound} = asmp

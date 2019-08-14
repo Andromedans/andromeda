@@ -7,7 +7,7 @@ type is_type =
   | TypeConstructor of Ident.t * argument list
 
 and is_term =
-  | TermBound of bound
+  | TermBoundVar of bound
   | TermAtom of is_atom
   | TermMeta of is_term_meta * is_term list
   | TermConstructor of Ident.t * argument list

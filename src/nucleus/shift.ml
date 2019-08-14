@@ -14,11 +14,11 @@ let rec is_type ~lvl k = function
 
 and is_term ~lvl k = function
 
-  | TermBound j as e ->
+  | TermBoundVar j as e ->
      if j < lvl then
        e
      else
-       TermBound (j + k)
+       TermBoundVar (j + k)
 
   | TermAtom _ as e ->
      e (* no bound variables in atoms *)

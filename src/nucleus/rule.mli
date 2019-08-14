@@ -10,7 +10,7 @@ type is_type =
   | TypeMeta of meta * is_term list
 
 and is_term =
-  | TermBound of bound
+  | TermBoundVar of bound
   | TermConstructor of Ident.t * argument list
   | TermMeta of meta * is_term list
 
