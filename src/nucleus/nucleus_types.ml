@@ -78,7 +78,7 @@ type eq_term_abstraction = eq_term abstraction
 
 type stump_is_type =
   | Stump_TypeConstructor of Ident.t * judgement_abstraction list
-  | Stump_TypeMeta of Nonce.t * boundary abstraction * is_term list
+  | Stump_TypeMeta of Nonce.t * boundary_abstraction * is_term list
 
 type stump_is_term =
   | Stump_TermAtom of is_atom
@@ -125,6 +125,8 @@ type error =
   | TooManyArguments
   | IsTermExpected
   | IsTypeExpected
+  | IsTypeBoundaryExpected
+  | IsTermBoundaryExpected
   | ExtraAssumptions
   | InvalidApplication
   | InvalidArgument

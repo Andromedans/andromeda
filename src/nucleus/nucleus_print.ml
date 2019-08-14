@@ -102,17 +102,20 @@ and thesis_eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
     (thesis_is_type ~penv t)
 
 (** Print a meta-variable *)
-and meta :
-  type a . ?max_level:Level.t -> penv:print_environment
-            -> a meta -> is_term list -> Format.formatter -> unit
-  = fun ?max_level ~penv {meta_nonce;_} args ppf ->
+and meta ?max_level ~penv mv args ppf =
+  let print_mv =
+    match mv with
+    | MetaFree {meta_nonce; _} -> Nonce.print ~parentheses:true meta_nonce
+    | MetaBound k -> (fun ppf -> Format.fprintf ppf "BOUNDMETA[%d]" k)
+  in
   match args with
   | [] ->
-     Nonce.print ~parentheses:true meta_nonce ppf
+     print_mv ppf
+
   | _::_ ->
      Print.print ~at_level:Level.meta ?max_level ppf "%t@ %t"
-    (Nonce.print ~parentheses:true meta_nonce)
-    (Print.sequence (thesis_is_term ~max_level:Level.meta_arg ~penv) "" args) ;
+       (print_mv)
+       (Print.sequence (thesis_is_term ~max_level:Level.meta_arg ~penv) "" args)
 
 and argument ?max_level ~penv arg ppf =
   let rec fold xs penv arg ppf =
@@ -157,7 +160,7 @@ and print_assumptions ?max_level ~penv {free_var; free_meta; bound_var=_; bound_
     (Print.sequence
        (fun (x,t) ppf -> Print.print ppf "%t@ :@ %t" (Nonce.print ~parentheses:true x) (thesis_is_type ~penv t))
        "," (Nonce.map_bindings free_var))
-    (if empty_free_meta then "" else ", ")
+    (if empty_free_var || empty_free_meta then "" else ", ")
     (Print.sequence
        (fun (x, abstr) ppf -> Print.print ppf "%t@ :@ %t" (Nonce.print ~parentheses:true x) (boundary_abstraction ~penv abstr))
        "," (Nonce.map_bindings free_meta))
@@ -296,9 +299,13 @@ let error ~penv err ppf =
 
   | TooManyArguments -> Format.fprintf ppf "too many arguments"
 
+  | IsTypeExpected -> Format.fprintf ppf "type expected"
+
   | IsTermExpected -> Format.fprintf ppf "term expected"
 
-  | IsTypeExpected -> Format.fprintf ppf "type expected"
+  | IsTypeBoundaryExpected -> Format.fprintf ppf "type boundary expected"
+
+  | IsTermBoundaryExpected -> Format.fprintf ppf "term boundary expected"
 
   | ExtraAssumptions -> Format.fprintf ppf "extra assumptions"
 

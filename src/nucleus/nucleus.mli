@@ -76,22 +76,18 @@ type boundary_abstraction = boundary abstraction
 
 type assumption
 
-type 'a meta
-type is_type_meta = is_type_boundary abstraction meta
-type is_term_meta = is_term_boundary abstraction meta
-type eq_type_meta = eq_type_boundary abstraction meta
-type eq_term_meta = eq_term_boundary abstraction meta
+type meta
 
 (** A stump is obtained when we invert a judgement. *)
 
 type nonrec stump_is_type =
   | Stump_TypeConstructor of Ident.t * judgement_abstraction list
-  | Stump_TypeMeta of is_type_meta * is_term list
+  | Stump_TypeMeta of Nonce.t * boundary_abstraction * is_term list
 
 and stump_is_term =
   | Stump_TermAtom of is_atom
   | Stump_TermConstructor of Ident.t * judgement_abstraction list
-  | Stump_TermMeta of is_term_meta * is_term list
+  | Stump_TermMeta of Nonce.t * boundary_abstraction * is_term list
   | Stump_TermConvert of is_term * eq_type
 
 and stump_eq_type =
@@ -209,16 +205,14 @@ val form_derivation_rap : signature -> Rule.derivation -> rule_application
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
 
-(** [form_is_type_meta sgn a args] creates a is_type judgement by applying the
-    meta-variable [a] = `x : A, ..., y : B ⊢ jdg` to a list of terms [args] of
-    matching types. *)
-val form_is_type_meta : signature -> is_type_meta -> is_term list -> is_type
+(** [form_meta x abstr] creates an eta-expanded fresh meta-variable with
+    the given boundary abstraction for an object boundary. For an equality
+    boundary is creates an abstracted equality judgement. It returns the nonce
+    of the meta-variable that it created. For equality judgements, it returns
+    a dummy nonce that does not appear anywhere. *)
+val form_meta : Name.t -> boundary_abstraction -> Nonce.t * judgement_abstraction
 
-(** [form_is_term_meta sgn a args] creates a is_term judgement by applying the
-    meta-variable [a] = `x : A, ..., y : B ⊢ jdg` to a list of terms [args] of
-    matching types. *)
-val form_is_term_meta : signature -> is_term_meta -> is_term list -> is_term
-
+(** Convert the given term along the given equality type. *)
 val form_is_term_convert : signature -> is_term -> eq_type -> is_term
 
 (** Form a boundary *)
@@ -243,17 +237,6 @@ val abstract_boundary : is_atom -> boundary_abstraction -> boundary_abstraction
 
 (** [fresh_atom x t] Create a fresh atom from name [x] with type [t] *)
 val fresh_atom : Name.t -> is_type -> is_atom
-
-(** [fresh_is_type_meta x abstr] creates a fresh type meta-variable of type [abstr] *)
-val fresh_is_type_meta : Name.t -> is_type_boundary abstraction -> is_type_meta
-val fresh_is_term_meta : Name.t -> is_term_boundary abstraction -> is_term_meta
-val fresh_eq_type_meta : Name.t -> eq_type_boundary abstraction -> eq_type_meta
-val fresh_eq_term_meta : Name.t -> eq_term_boundary abstraction -> eq_term_meta
-
-(** [fresh_judgement_meta x bdry] creates a fresh meta-variable with the given boundary *)
-val fresh_judgement_meta : Name.t -> boundary_abstraction -> boundary_abstraction meta
-
-val judgement_meta_eta_expanded : signature -> boundary_abstraction meta -> judgement_abstraction
 
 (** Verify that an abstraction is in fact not abstract. *)
 val as_not_abstract : 'a abstraction -> 'a option
@@ -286,7 +269,7 @@ val invert_eq_term : eq_term -> stump_eq_term
 
 val atom_name : is_atom -> Name.t
 
-val meta_nonce : 'a meta -> Nonce.t
+(* val meta_nonce : 'a meta -> Nonce.t *)
 
 val invert_is_term_abstraction :
   ?name:Name.t -> is_term_abstraction -> is_term stump_abstraction

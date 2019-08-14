@@ -32,8 +32,8 @@ let rec is_term e =
 
     | TermConstructor (c, lst) -> Json.tag "TermConstructor" (Ident.Json.ident c :: arguments lst)
 
-    | TermMeta ({meta_nonce; _}, lst) ->
-       Json.tag "TermMeta" (Nonce.Json.nonce meta_nonce :: (List.map is_term lst))
+    | TermMeta (mv, lst) ->
+       Json.tag "TermMeta" (meta mv :: (List.map is_term lst))
 
     | TermConvert (e, asmp, t) -> Json.tag "TermConvert" [is_term e; assumptions asmp; is_type t]
 
@@ -43,9 +43,13 @@ and is_type t =
   let t =
     match t with
     | TypeConstructor (c, lst) -> Json.tag "TypeConstructor" (Ident.Json.ident c :: arguments lst)
-    | TypeMeta ({meta_nonce; _}, lst) ->
-       Json.tag "TypeMeta" (Nonce.Json.nonce meta_nonce :: (List.map is_term lst))
+    | TypeMeta (mv, lst) ->
+       Json.tag "TypeMeta" (meta mv :: (List.map is_term lst))
   in Json.tag "IsType" [t]
+
+and meta = function
+  | MetaFree {meta_nonce; _} -> Json.tag "MetaFree" [Nonce.Json.nonce meta_nonce]
+  | MetaBound k -> Json.tag "MetaBound" [Json.Int k]
 
 and argument arg =
   let rec fold xs = function
