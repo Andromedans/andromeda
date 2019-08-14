@@ -7,8 +7,8 @@ open Nucleus_types
 
 let rec is_type e0 ?(lvl=0) = function
   | TypeMeta (mv, args) ->
-     (* there are no bound variables in the type of a meta *)
-     let args = term_arguments e0 ~lvl args in
+     let mv = meta e0 ~lvl mv
+     and args = term_arguments e0 ~lvl args in
      TypeMeta (mv, args)
 
   | TypeConstructor (c, args) ->
@@ -29,8 +29,8 @@ and is_term e0 ?(lvl=0) = function
     | TermAtom _ as e -> e (* there are no bound variables in an atom type *)
 
     | TermMeta (mv, args) ->
-       (* there are no bound variables in the type of a meta *)
-       let args = term_arguments e0 ~lvl args in
+       let mv = meta e0 ~lvl mv
+       and args = term_arguments e0 ~lvl args in
        TermMeta (mv, args)
 
     | TermConstructor (c, args) ->
@@ -42,6 +42,9 @@ and is_term e0 ?(lvl=0) = function
        and asmp = assumptions e0 ~lvl asmp
        and t = is_type e0 ~lvl t in
        TermConvert (e, asmp, t)
+
+(* there are no bound variables in the type of a meta *)
+and meta e0 ?(lvl=0) mv = mv
 
 and eq_type e0 ?(lvl=0) (EqType (asmp, t1, t2)) =
   let asmp = assumptions e0 ~lvl asmp
@@ -99,6 +102,34 @@ and judgement e0 ?(lvl=0) = function
     | JudgementEqTerm asmp ->
        JudgementEqTerm (eq_term e0 ~lvl asmp)
 
+let is_type_boundary _ ?(lvl=0) () = ()
+
+let is_term_boundary e0 ?(lvl=0) t =
+  is_type e0 ~lvl t
+
+let eq_type_boundary e0 ?(lvl=0) (t1, t2) =
+  let t1 = is_type e0 ~lvl t1
+  and t2 = is_type e0 ~lvl t2 in
+  (t1, t2)
+
+let eq_term_boundary e0 ?(lvl=0) (e1, e2, t) =
+  let e1 = is_term e0 ~lvl e1
+  and e2 = is_term e0 ~lvl e2
+  and t = is_type e0 ~lvl t in
+  (e1, e2, t)
+
+let boundary e0 ?(lvl=0) = function
+  | BoundaryIsType () ->
+     BoundaryIsType (is_type_boundary e0 ~lvl ())
+
+  | BoundaryIsTerm t ->
+     BoundaryIsTerm (is_term_boundary e0 ~lvl t)
+
+  | BoundaryEqType (t1, t2) ->
+     BoundaryEqType (eq_type_boundary e0 ~lvl (t1, t2))
+
+  | BoundaryEqTerm (e1, e2, t) ->
+     BoundaryEqTerm (eq_term_boundary e0 ~lvl (e1, e2, t))
 
 (* [instantiate_fully ?lvl es t] replaces bound variables [k] for
    [lvl] <= [k] < [List.length es] with [List.nth (k - lvl) es] in [t]. Bound
@@ -198,31 +229,31 @@ and judgement_fully ?(lvl=0) es = function
   | JudgementEqTerm eq ->
      JudgementEqTerm (eq_term_fully ~lvl es eq)
 
-let is_type_boundary _ ?(lvl=0) () = ()
+let is_type_boundary_fully _ ?(lvl=0) () = ()
 
-let is_term_boundary e0 ?(lvl=0) t =
-  is_type e0 ~lvl t
+let is_term_boundary_fully ?(lvl=0) es t =
+  is_type_fully ~lvl es t
 
-let eq_type_boundary e0 ?(lvl=0) (t1, t2) =
-  let t1 = is_type e0 ~lvl t1
-  and t2 = is_type e0 ~lvl t2 in
+let eq_type_boundary_fully ?(lvl=0) es (t1, t2) =
+  let t1 = is_type_fully ~lvl es t1
+  and t2 = is_type_fully ~lvl es t2 in
   (t1, t2)
 
-let eq_term_boundary e0 ?(lvl=0) (e1, e2, t) =
-  let e1 = is_term e0 ~lvl e1
-  and e2 = is_term e0 ~lvl e2
-  and t = is_type e0 ~lvl t in
+let eq_term_boundary_fully ?(lvl=0) es (e1, e2, t) =
+  let e1 = is_term_fully ~lvl es e1
+  and e2 = is_term_fully ~lvl es e2
+  and t = is_type_fully ~lvl es t in
   (e1, e2, t)
 
-let boundary e0 ?(lvl=0) = function
+let boundary_fully ?(lvl=0) es = function
   | BoundaryIsType () ->
-     BoundaryIsType (is_type_boundary e0 ~lvl ())
+     BoundaryIsType (is_type_boundary_fully ~lvl es ())
 
   | BoundaryIsTerm t ->
-     BoundaryIsTerm (is_term_boundary e0 ~lvl t)
+     BoundaryIsTerm (is_term_boundary_fully ~lvl es t)
 
   | BoundaryEqType (t1, t2) ->
-     BoundaryEqType (eq_type_boundary e0 ~lvl (t1, t2))
+     BoundaryEqType (eq_type_boundary_fully ~lvl es (t1, t2))
 
   | BoundaryEqTerm (e1, e2, t) ->
-     BoundaryEqTerm (eq_term_boundary e0 ~lvl (e1, e2, t))
+     BoundaryEqTerm (eq_term_boundary_fully ~lvl es (e1, e2, t))

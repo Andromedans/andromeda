@@ -7,8 +7,8 @@ module Rule = Rule
 let meta_nonce = Meta.nonce
 let judgement_meta_eta_expanded = Meta.judgement_meta_eta_expanded
 
-let form_is_term_meta = Meta.form_is_term_meta
-let form_is_type_meta = Meta.form_is_type_meta
+(* let form_is_term_meta = Meta.form_is_term_meta *)
+(* let form_is_type_meta = Meta.form_is_type_meta *)
 
 (** Exports from [Sanity] *)
 let type_of_term = Sanity.type_of_term

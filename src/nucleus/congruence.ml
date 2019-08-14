@@ -165,14 +165,15 @@ let form_rap sgn jdg1 jdg2 =
           if not (Ident.equal c1 c2) then Error.raise InvalidCongruence ;
           form_is_term_rap sgn c1 args1 args2
 
-       | (TermMeta (m1, args1) as e1), (TermMeta (m2, args2) as e2) ->
-          if not (Nonce.equal m1.meta_nonce m2.meta_nonce) then Error.raise InvalidCongruence ;
+       | (TermMeta (MetaFree {meta_nonce=n1; meta_boundary}, args1) as e1), (TermMeta (MetaFree {meta_nonce=n2;_}, args2) as e2) ->
+          let abstr = (match Boundary.as_is_term_abstraction meta_boundary with Some abstr -> abstr | None -> assert false) in
+          if not (Nonce.equal n1 n2) then Error.raise InvalidCongruence ;
           form_meta_rap
           (fun eq_args t' ->
             let t = Instantiate_bound.is_type_fully (Indices.of_list args1) t' in
             let asmp = Collect_assumptions.arguments eq_args in
             JudgementEqTerm (Mk.eq_term asmp e1 e2 t))
-          m1.meta_type
+          abstr
           args1 args2
 
        | TermMeta _, TermConstructor _
@@ -181,6 +182,7 @@ let form_rap sgn jdg1 jdg2 =
        | _, TermAtom _ ->
            Error.raise InvalidCongruence
 
+       | TermMeta (MetaBound _, _), _ | _, TermMeta (MetaBound _, _)
        | TermBoundVar _, _ | _, TermBoundVar _ -> assert false
      in
      form (e1, e2)
@@ -191,22 +193,24 @@ let form_rap sgn jdg1 jdg2 =
         if not (Ident.equal c1 c2) then Error.raise InvalidCongruence ;
         form_is_type_rap sgn c1 args1 args2
 
-     | TypeMeta (m1, args1), TypeMeta (m2, args2) ->
-        if not (Nonce.equal m1.meta_nonce m2.meta_nonce) then Error.raise InvalidCongruence ;
+     | TypeMeta (MetaFree {meta_nonce=n1; meta_boundary}, args1), TypeMeta (MetaFree {meta_nonce=n2;_}, args2) ->
+        let abstr = (match Boundary.as_is_type_abstraction meta_boundary with Some abstr -> abstr | None -> assert false) in
+        if not (Nonce.equal n1 n2) then Error.raise InvalidCongruence ;
         form_meta_rap
           (fun eq_args () ->
             let asmp = Collect_assumptions.arguments eq_args in
             JudgementEqType (Mk.eq_type asmp t1 t2))
-          m1.meta_type
+          abstr
           args1 args2
 
+     | TypeMeta (MetaBound _, _), _ | _, TypeMeta (MetaBound _, _)
      | TypeConstructor _, TypeMeta _
      | TypeMeta _, TypeConstructor _ ->
         Error.raise InvalidCongruence
      end
 
-  | ((JudgementEqType _ | JudgementEqTerm _), _ |
-     _, (JudgementEqType _ | JudgementEqTerm _) |
-     JudgementIsType _, JudgementIsTerm _ |
-     JudgementIsTerm _, JudgementIsType _) ->
+  | (JudgementEqType _ | JudgementEqTerm _), _
+  | _, (JudgementEqType _ | JudgementEqTerm _)
+  | JudgementIsType _, JudgementIsTerm _
+  | JudgementIsTerm _, JudgementIsType _ ->
      Error.raise InvalidCongruence

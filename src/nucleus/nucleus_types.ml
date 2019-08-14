@@ -3,13 +3,13 @@
 type bound = int
 
 type is_type =
-  | TypeMeta of is_type_meta * is_term list
+  | TypeMeta of meta * is_term list
   | TypeConstructor of Ident.t * argument list
 
 and is_term =
   | TermBoundVar of bound
   | TermAtom of is_atom
-  | TermMeta of is_term_meta * is_term list
+  | TermMeta of meta * is_term list
   | TermConstructor of Ident.t * argument list
   | TermConvert of is_term * assumption * is_type
 
@@ -23,13 +23,9 @@ and argument =
   | Arg_NotAbstract of judgement
   | Arg_Abstract of Name.t * argument
 
-and 't meta = { meta_nonce : Nonce.t ; meta_type : 't }
-
-and is_type_meta = is_type_boundary abstraction meta
-and is_term_meta = is_term_boundary abstraction meta
-and eq_type_meta = eq_type_boundary abstraction meta
-and eq_term_meta = eq_term_boundary abstraction meta
-and judgement_meta = boundary_abstraction meta
+and meta =
+  | MetaFree of { meta_nonce : Nonce.t ; meta_boundary : boundary_abstraction }
+  | MetaBound of bound
 
 and assumption =
   { free_var : is_type Nonce.map
@@ -82,12 +78,12 @@ type eq_term_abstraction = eq_term abstraction
 
 type stump_is_type =
   | Stump_TypeConstructor of Ident.t * judgement_abstraction list
-  | Stump_TypeMeta of is_type_meta * is_term list
+  | Stump_TypeMeta of Nonce.t * boundary abstraction * is_term list
 
 type stump_is_term =
   | Stump_TermAtom of is_atom
   | Stump_TermConstructor of Ident.t * judgement_abstraction list
-  | Stump_TermMeta of is_term_meta * is_term list
+  | Stump_TermMeta of Nonce.t * boundary_abstraction * is_term list
   | Stump_TermConvert of is_term * eq_type
 
 type stump_eq_type =

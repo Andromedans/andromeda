@@ -49,8 +49,16 @@ let type_of_term sgn = function
      let rl = Signature.lookup_rule c sgn in
      fold [] rl args
 
-  | TermMeta ({meta_type;_}, args) ->
-     fully_apply_abstraction_no_checks (Instantiate_bound.is_type_fully ?lvl:None) meta_type args
+  | TermMeta (MetaBound _, _) ->
+     (* We should never get here. If ever we need to compute the type of a term with a
+        bound meta-variables, then we should have applied the term. *)
+     assert false
+
+  | TermMeta (MetaFree {meta_boundary;_}, args) ->
+     begin match Boundary.as_is_term_abstraction meta_boundary with
+     | None -> assert false
+     | Some bdry -> fully_apply_abstraction_no_checks (Instantiate_bound.is_type_fully ?lvl:None) bdry args
+     end
 
   | TermConvert (e, _, t) -> t
 

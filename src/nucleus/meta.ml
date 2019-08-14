@@ -2,8 +2,6 @@ open Nucleus_types
 
 (** Meta-variables *)
 
-let nonce {meta_nonce=x;_} = x
-
 let rec check_term_arguments sgn abstr args =
   (* NB: We don't actually need to instantiate the body of the abstraction,
      because we only compare the types of the arguments with the abstraction *)
@@ -21,13 +19,13 @@ let rec check_term_arguments sgn abstr args =
      else
        Error.raise InvalidApplication
 
-let form_is_type_meta sgn m args =
-  check_term_arguments sgn m.meta_type args ;
-  Mk.type_meta m args
+(* let form_is_type_meta sgn m args = *)
+(*   check_term_arguments sgn m.meta_type args ; *)
+(*   Mk.type_meta m args *)
 
-let form_is_term_meta sgn m args =
-  check_term_arguments sgn m.meta_type args ;
-  Mk.term_meta m args
+(* let form_is_term_meta sgn m args = *)
+(*   check_term_arguments sgn m.meta_type args ; *)
+(*   Mk.term_meta m args *)
 
 (* let form_eq_type_meta sgn {meta_nonce; meta_type} args = *)
 (*   let asmp = Assumption.add_eq_type_meta meta_nonce meta_type Assumption.empty in *)

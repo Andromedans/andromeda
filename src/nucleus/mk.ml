@@ -6,7 +6,7 @@ let fresh_atom x t =
 
 let atom a = TermAtom a
 
-let fresh_meta x abstr = { meta_nonce = Nonce.create x ; meta_type = abstr }
+let fresh_meta x abstr = MetaFree { meta_nonce = Nonce.create x ; meta_boundary = abstr }
 let fresh_type_meta = fresh_meta
 let fresh_term_meta = fresh_meta
 let fresh_eq_type_meta = fresh_meta

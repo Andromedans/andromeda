@@ -45,8 +45,11 @@ let invert_is_term sgn = function
      let abstrs = invert_arguments rl args in
      Stump_TermConstructor (c, abstrs)
 
-  | TermMeta (mv, args) ->
-     Stump_TermMeta (mv, args)
+  | TermMeta (MetaBound _, _) ->
+     assert false
+
+  | TermMeta (MetaFree {meta_nonce; meta_boundary}, args) ->
+     Stump_TermMeta (meta_nonce, meta_boundary, args)
 
   | TermConvert (e, asmp, t) ->
      let t' = Sanity.natural_type sgn e in
@@ -59,7 +62,11 @@ let invert_is_type sgn = function
      let abstrs = invert_arguments rl args in
      Stump_TypeConstructor (c, abstrs)
 
-  | TypeMeta (mv, args) -> Stump_TypeMeta (mv, args)
+  | TypeMeta (MetaBound _, _) ->
+     assert false
+
+  | TypeMeta (MetaFree {meta_nonce; meta_boundary}, args) ->
+     Stump_TypeMeta (meta_nonce, meta_boundary, args)
 
 let invert_eq_type (EqType (asmp, t1, t2)) = Stump_EqType (asmp, t1, t2)
 

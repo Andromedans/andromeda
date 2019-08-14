@@ -125,7 +125,7 @@ and argument ?max_level ~penv arg ppf =
 
     | Arg_Abstract (x, arg) ->
        let x =
-         (if Occurs.argument 0 arg then
+         (if Occurs_bound.argument 0 arg then
             Name.refresh penv.forbidden x
           else
             Name.anonymous ())
@@ -179,7 +179,7 @@ and abstraction
 
     | Abstract (x, u, abstr) ->
        let x =
-         (if Occurs.abstraction occurs_v 0 abstr then
+         (if Occurs_bound.abstraction occurs_v 0 abstr then
             Name.refresh penv.forbidden x
           else
             Name.anonymous ())
@@ -218,7 +218,7 @@ and thesis_boundary ?max_level ~penv bdry ppf =
   | BoundaryEqTerm eq -> boundary_eq_term ?max_level ~penv eq ppf
 
 and boundary_abstraction ?max_level ~penv abstr ppf =
-  abstraction Occurs.boundary thesis_boundary ?max_level ~penv abstr ppf
+  abstraction Occurs_bound.boundary thesis_boundary ?max_level ~penv abstr ppf
 
 and binder ~penv (x,t) ppf =
   Print.print ppf "{%t@ :@ %t}"
@@ -258,7 +258,7 @@ let judgement_abstraction ?max_level ~penv abstr ppf =
     "%t%s %t"
     (print_assumptions ~max_level:Level.assumptions ~penv asmp)
     (Print.char_vdash ())
-    (abstraction Occurs.judgement thesis_judgement ?max_level ~penv abstr)
+    (abstraction Occurs_bound.judgement thesis_judgement ?max_level ~penv abstr)
 
 let boundary_abstraction ?max_level ~penv abstr ppf =
   let asmp = Collect_assumptions.abstraction Collect_assumptions.boundary abstr in
@@ -267,23 +267,23 @@ let boundary_abstraction ?max_level ~penv abstr ppf =
     "%t%s %t"
     (print_assumptions ~max_level:Level.assumptions ~penv asmp)
     (Print.char_vdash ())
-    (abstraction Occurs.boundary thesis_boundary ?max_level ~penv abstr)
+    (abstraction Occurs_bound.boundary thesis_boundary ?max_level ~penv abstr)
 
 let is_type_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  abstraction Occurs.is_type thesis_is_type ?max_level ~penv abstr ppf
+  abstraction Occurs_bound.is_type thesis_is_type ?max_level ~penv abstr ppf
 
 let is_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  abstraction Occurs.is_term thesis_is_term ?max_level ~penv abstr ppf
+  abstraction Occurs_bound.is_term thesis_is_term ?max_level ~penv abstr ppf
 
 let eq_type_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  abstraction Occurs.eq_type thesis_eq_type ?max_level ~penv abstr ppf
+  abstraction Occurs_bound.eq_type thesis_eq_type ?max_level ~penv abstr ppf
 
 let eq_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  abstraction Occurs.eq_term thesis_eq_term ?max_level ~penv abstr ppf
+  abstraction Occurs_bound.eq_term thesis_eq_term ?max_level ~penv abstr ppf
 
 let error ~penv err ppf =
   let open Nucleus_types in

@@ -41,6 +41,8 @@ let add_free_meta x t asmp = { asmp with free_meta = Nonce.map_add x t asmp.free
 
 let add_bound_var k asmp = { asmp with bound_var = Bound_set.add k asmp.bound_var }
 
+let add_bound_meta k asmp = { asmp with bound_meta = Bound_set.add k asmp.bound_meta }
+
 let union a1 a2 =
   (* We arbitrarily pick the first type because they're supposed to be equal. It
      would be more paranoid to check that they are equal and complain if not

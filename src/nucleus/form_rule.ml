@@ -89,20 +89,26 @@ let rec mk_rule_is_type metas = function
      let args = mk_rule_arguments metas args in
      Rule.TypeConstructor (c, args)
 
-  | TypeMeta ({meta_nonce=x;_}, args) ->
+  | TypeMeta (MetaFree {meta_nonce=n;_}, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     let k = lookup_meta_index x metas in
+     let k = lookup_meta_index n metas in
      Rule.TypeMeta (k, args)
+
+  | TypeMeta (MetaBound _, _) ->
+     assert false
 
 and mk_rule_is_term metas = function
   | TermAtom _ ->
      (* this will be gone when we eliminate atoms *)
      failwith "a free atom cannot appear in a rule"
 
-  | TermMeta ({meta_nonce=x;_}, args) ->
+  | TermMeta (MetaFree {meta_nonce=n;_}, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     let k = lookup_meta_index x metas in
+     let k = lookup_meta_index n metas in
      Rule.TermMeta (k, args)
+
+  | TermMeta (MetaBound _, _) ->
+     assert false
 
   | TermConstructor (c, args) ->
      let args = mk_rule_arguments metas args in
