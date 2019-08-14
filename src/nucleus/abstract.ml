@@ -27,7 +27,7 @@ and is_term x ?(lvl=0) = function
      begin match Nonce.equal x y with
      | false ->
         let asmp = Collect_assumptions.is_type t in
-        if Assumption.mem_atom x asmp
+        if Assumption.mem_free_var x asmp
         then Error.raise InvalidAbstraction
         else e
      | true -> TermBoundVar lvl

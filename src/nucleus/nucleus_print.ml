@@ -147,23 +147,23 @@ and constructor ?max_level ~penv c args ppf =
        (Ident.print ~opens:penv.opens ~parentheses:true c)
        (Print.sequence (argument ~max_level:Level.constructor_arg ~penv) "" args) ;
 
-and print_assumptions ?max_level ~penv {free; meta; bound} ppf =
-  let empty_free = Nonce.map_is_empty free
-  and empty_meta = Nonce.map_is_empty meta
-  and empty_bound = Bound_set.is_empty bound in
+and print_assumptions ?max_level ~penv {free_var; free_meta; bound_var} ppf =
+  let empty_free = Nonce.map_is_empty free_var
+  and empty_meta = Nonce.map_is_empty free_meta
+  and empty_bound = Bound_set.is_empty bound_var in
   Print.print
     ?max_level ppf "%t%s%t%s%t%s"
     (Print.sequence
        (fun (x,t) ppf -> Print.print ppf "%t@ :@ %t" (Nonce.print ~parentheses:true x) (thesis_is_type ~penv t))
-       "," (Nonce.map_bindings free))
+       "," (Nonce.map_bindings free_var))
     (if empty_free || empty_meta then "" else "; ")
     (Print.sequence
        (fun (x, abstr) ppf -> Print.print ppf "%t@ :@ %t" (Nonce.print ~parentheses:true x) (boundary_abstraction ~penv abstr))
-       "," (Nonce.map_bindings meta))
+       "," (Nonce.map_bindings free_meta))
     (if (empty_free && empty_meta) || empty_bound then "" else "; ")
     (Print.sequence
        (fun k ppf -> Name.print_debruijn penv.debruijn k ppf)
-       "," (Bound_set.elements bound))
+       "," (Bound_set.elements bound_var))
     (if empty_free && empty_meta && empty_bound then "" else " ")
 
 

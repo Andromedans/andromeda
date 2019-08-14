@@ -20,7 +20,7 @@ and is_term ?(lvl=0) = function
        Assumption.singleton_bound (k - lvl)
 
   | TermAtom {atom_nonce=x; atom_type=t} ->
-     Assumption.add_free x t (is_type ~lvl t)
+     Assumption.add_free_var x t (is_type ~lvl t)
 
   | TermMeta (mv, args) ->
      let mv = is_term_meta ~lvl mv
@@ -48,12 +48,12 @@ and eq_term ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
 and is_type_meta ~lvl {meta_nonce; meta_type} =
   let asmp = abstraction (fun ?lvl () -> Assumption.empty) ~lvl meta_type in
   let meta_type = Boundary.from_is_type_abstraction meta_type in
-  Assumption.add_meta meta_nonce meta_type asmp
+  Assumption.add_free_meta meta_nonce meta_type asmp
 
 and is_term_meta ~lvl {meta_nonce; meta_type} =
   let asmp = abstraction is_type ~lvl meta_type in
   let meta_type = Boundary.from_is_term_abstraction meta_type in
-  Assumption.add_meta meta_nonce meta_type asmp
+  Assumption.add_free_meta meta_nonce meta_type asmp
 
 and abstraction
   : 'a . (?lvl:bound -> 'a -> assumption) ->
@@ -112,9 +112,9 @@ let arguments = arguments' ~lvl:0
 
 let context_u assumptions_u t =
   let asmp = assumptions_u t in
-  let {free; bound; _} = asmp in
-  assert (Bound_set.is_empty bound) ;
-  let free = Nonce.map_bindings free in
+  let {free_var; bound_var; _} = asmp in
+  assert (Bound_set.is_empty bound_var) ;
+  let free = Nonce.map_bindings free_var in
   List.map (fun (atom_nonce, atom_type) -> {atom_nonce; atom_type}) free
 
 (** Compute the list of atoms occurring in an abstraction. Similar to

@@ -91,11 +91,11 @@ let form_judgement_meta sgn {meta_nonce; meta_type} args =
      end
 
   | BoundaryEqType (t1, t2) ->
-     let asmp = Assumption.add_meta meta_nonce meta_type Assumption.empty in
+     let asmp = Assumption.add_free_meta meta_nonce meta_type Assumption.empty in
      JudgementEqType (Mk.eq_type asmp t1 t2)
 
   | BoundaryEqTerm (e1, e2, t) ->
-     let asmp = Assumption.add_meta meta_nonce meta_type Assumption.empty in
+     let asmp = Assumption.add_free_meta meta_nonce meta_type Assumption.empty in
      JudgementEqTerm (Mk.eq_term asmp e1 e2 t)
 
 let meta_eta_expanded' instantiate_meta form_meta abstract_meta mv =
