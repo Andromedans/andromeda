@@ -112,7 +112,7 @@ and mk_rule_is_term metas = function
      Rule.TermBoundVar k
 
   | TermConvert (e, asmp, t) ->
-     let {free_var; free_meta; bound_var} = asmp
+     let {free_var; free_meta; bound_var; bound_meta} = asmp
      (* NB: We do not check that the types of the metas match because we assume that
         the type of a meta never changes. *)
      and metas_set = Nonce.set_of_list metas in
@@ -120,6 +120,7 @@ and mk_rule_is_term metas = function
      begin match Nonce.map_is_empty free_var
                  && Nonce.map_for_all mem_metas_set free_meta
                  && Bound_set.is_empty bound_var
+                 && Bound_set.is_empty bound_meta
      with
      | true -> mk_rule_is_term metas e
      | false -> Error.raise ExtraAssumptions

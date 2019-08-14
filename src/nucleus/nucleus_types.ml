@@ -34,7 +34,9 @@ and judgement_meta = boundary_abstraction meta
 and assumption =
   { free_var : is_type Nonce.map
   ; free_meta : boundary_abstraction Nonce.map
-  ; bound_var : Bound_set.t }
+  ; bound_var : Bound_set.t
+  ; bound_meta : Bound_set.t
+  }
 
 and 'a abstraction =
   | NotAbstract of 'a

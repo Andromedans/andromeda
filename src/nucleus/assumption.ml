@@ -4,12 +4,14 @@ let empty =
   { free_var = Nonce.map_empty
   ; free_meta = Nonce.map_empty
   ; bound_var = Bound_set.empty
+  ; bound_meta = Bound_set.empty
   }
 
-let is_empty {free_var; free_meta; bound_var } =
+let is_empty {free_var; free_meta; bound_var; bound_meta} =
   Nonce.map_is_empty free_var
   && Nonce.map_is_empty free_meta
   && Bound_set.is_empty bound_var
+  && Bound_set.is_empty bound_meta
 
 let mem_free_var x s = Nonce.map_mem x s.free_var
 
@@ -46,6 +48,7 @@ let union a1 a2 =
   { free_var = Nonce.map_union (fun _ t _ -> Some t) a1.free_var a2.free_var
   ; free_meta = Nonce.map_union (fun _ bdry _ -> Some bdry) a1.free_meta a2.free_meta
   ; bound_var = Bound_set.union a1.bound_var a2.bound_var
+  ; bound_meta = Bound_set.union a1.bound_meta a2.bound_meta
   }
 
 (** [instantiate asmp0 ~lvl:k asmp] replaces bound variable [k] with the assumptions [asmp0] in [asmp]. *)
