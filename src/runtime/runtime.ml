@@ -172,7 +172,7 @@ and state = value Store.Ref.t
 and value =
   | Judgement of Nucleus.judgement_abstraction
   | Boundary of Nucleus.boundary_abstraction
-  | Derivation of Nucleus.Rule.derivation
+  | Derivation of Nucleus.derivation
   | Closure of (value, value) closure
   | Handler of handler
   | Tag of ml_constructor * value list

@@ -2,21 +2,25 @@
 
 open Nucleus_types
 
-let assumptions { free ; meta ; bound } =
-  let free =
-    if Nonce.map_is_empty free
+let assumptions { free_var ; free_meta ; bound_var ; bound_meta } =
+  let free_var =
+    if Nonce.map_is_empty free_var
     then []
-    else [("free", Nonce.Json.map free)]
-  and meta =
-    if Nonce.map_is_empty meta
+    else [("free_var", Nonce.Json.map free_var)]
+  and free_meta =
+    if Nonce.map_is_empty free_meta
     then []
-    else [("meta", Nonce.Json.map meta)]
-  and bound =
-    if Bound_set.is_empty bound
+    else [("free_meta", Nonce.Json.map free_meta)]
+  and bound_var =
+    if Bound_set.is_empty bound_var
     then []
-    else [("bound", Json.List (List.map (fun k -> Json.Int k) (Bound_set.elements bound)))]
+    else [("bound_var", Json.List (List.map (fun k -> Json.Int k) (Bound_set.elements bound_var)))]
+  and bound_meta =
+    if Bound_set.is_empty bound_meta
+    then []
+    else [("bound_meta", Json.List (List.map (fun k -> Json.Int k) (Bound_set.elements bound_meta)))]
   in
-  Json.record (free @ meta @ bound)
+  Json.record (free_var @ free_meta @ bound_var @ bound_meta)
 
 let rec is_term e =
   let e =
@@ -24,12 +28,12 @@ let rec is_term e =
 
     | TermAtom {atom_nonce=x; atom_type=t} -> Json.tag "TermAtom" [Nonce.Json.nonce x; is_type t]
 
-    | TermBound b -> Json.tag "TermBound" [Json.Int b]
+    | TermBoundVar b -> Json.tag "TermBoundVar" [Json.Int b]
 
     | TermConstructor (c, lst) -> Json.tag "TermConstructor" (Ident.Json.ident c :: arguments lst)
 
-    | TermMeta ({meta_nonce; _}, lst) ->
-       Json.tag "TermMeta" (Nonce.Json.nonce meta_nonce :: (List.map is_term lst))
+    | TermMeta (mv, lst) ->
+       Json.tag "TermMeta" (meta mv :: (List.map is_term lst))
 
     | TermConvert (e, asmp, t) -> Json.tag "TermConvert" [is_term e; assumptions asmp; is_type t]
 
@@ -39,9 +43,13 @@ and is_type t =
   let t =
     match t with
     | TypeConstructor (c, lst) -> Json.tag "TypeConstructor" (Ident.Json.ident c :: arguments lst)
-    | TypeMeta ({meta_nonce; _}, lst) ->
-       Json.tag "TypeMeta" (Nonce.Json.nonce meta_nonce :: (List.map is_term lst))
+    | TypeMeta (mv, lst) ->
+       Json.tag "TypeMeta" (meta mv :: (List.map is_term lst))
   in Json.tag "IsType" [t]
+
+and meta = function
+  | MetaFree {meta_nonce; _} -> Json.tag "MetaFree" [Nonce.Json.nonce meta_nonce]
+  | MetaBound k -> Json.tag "MetaBound" [Json.Int k]
 
 and argument arg =
   let rec fold xs = function

@@ -11,35 +11,35 @@ let congruence_boundary es prem arg1 arg2 =
   let rec fold ~lvl prem arg1 arg2 =
     match prem, arg1, arg2 with
 
-    | Rule.NotAbstract bdry, Arg_NotAbstract jdg1, Arg_NotAbstract jdg2 ->
+    | NotAbstract bdry, Arg_NotAbstract jdg1, Arg_NotAbstract jdg2 ->
        begin match bdry, jdg1, jdg2 with
-       | Rule.BoundaryIsType (), JudgementIsType t1, JudgementIsType t2 ->
+       | BoundaryIsType (), JudgementIsType t1, JudgementIsType t2 ->
           Mk.not_abstract (BoundaryEqType (t1, t2))
 
-       | Rule.BoundaryIsTerm t_schema, JudgementIsTerm e1, JudgementIsTerm e2 ->
+       | BoundaryIsTerm t_schema, JudgementIsTerm e1, JudgementIsTerm e2 ->
           let t = Instantiate_meta.is_type ~lvl es t_schema in
           Mk.not_abstract (BoundaryEqTerm (e1, e2, t))
 
-       | Rule.BoundaryEqType _, JudgementEqType _, JudgementEqType _
-       | Rule.BoundaryEqTerm _, JudgementEqTerm _, JudgementEqTerm _ ->
+       | BoundaryEqType _, JudgementEqType _, JudgementEqType _
+       | BoundaryEqTerm _, JudgementEqTerm _, JudgementEqTerm _ ->
           raise Skip_argument
 
        | _ -> Error.raise InvalidCongruence
        end
 
-    | Rule.Abstract (x, t_schema, prem), Arg_Abstract (x1, arg1), Arg_Abstract (x2, arg2) ->
+    | Abstract (x, t_schema, prem), Arg_Abstract (x1, arg1), Arg_Abstract (x2, arg2) ->
        let x = Name.prefer (Name.prefer x1 x2) x in
        let t = Instantiate_meta.is_type ~lvl es t_schema in
        let abstr = fold ~lvl:(lvl+1) prem arg1 arg2 in
        Mk.abstract x t abstr
 
     (* This is admittedly a bit silly. *)
-    | Rule.Abstract _, Arg_NotAbstract _, Arg_NotAbstract _
-    | Rule.NotAbstract _, Arg_Abstract _, Arg_NotAbstract _
-    | Rule.Abstract _, Arg_Abstract _, Arg_NotAbstract _
-    | Rule.NotAbstract _, Arg_NotAbstract _, Arg_Abstract _
-    | Rule.Abstract _, Arg_NotAbstract _, Arg_Abstract _
-    | Rule.NotAbstract _, Arg_Abstract _, Arg_Abstract _ ->
+    | Abstract _, Arg_NotAbstract _, Arg_NotAbstract _
+    | NotAbstract _, Arg_Abstract _, Arg_NotAbstract _
+    | Abstract _, Arg_Abstract _, Arg_NotAbstract _
+    | NotAbstract _, Arg_NotAbstract _, Arg_Abstract _
+    | Abstract _, Arg_NotAbstract _, Arg_Abstract _
+    | NotAbstract _, Arg_Abstract _, Arg_Abstract _ ->
        Error.raise InvalidCongruence
   in
   try
@@ -53,10 +53,10 @@ let form_rule_rap sgn form rl args1 args2 =
   let rec fold es eq_args rl args1 args2 =
     match rl, args1, args2 with
 
-    | Rule.Conclusion concl, [], [] ->
+    | Conclusion concl, [], [] ->
        RapDone (form eq_args concl)
 
-    | Rule.Premise (prem, rl), arg1 :: args1, arg2 :: args2 ->
+    | Premise (prem, rl), arg1 :: args1, arg2 :: args2 ->
        begin match congruence_boundary es prem arg1 arg2 with
 
        | None ->
@@ -75,10 +75,10 @@ let form_rule_rap sgn form rl args1 args2 =
           RapMore (bdry, rap_apply)
        end
 
-    | Rule.Conclusion _, _::_, _
-    | Rule.Conclusion _, [], _::_
-    | Rule.Premise _, [], _
-    | Rule.Premise _, _::_, [] ->
+    | Conclusion _, _::_, _
+    | Conclusion _, [], _::_
+    | Premise _, [], _
+    | Premise _, _::_, [] ->
        Error.raise InvalidCongruence
   in
   fold [] [] rl args1 args2
@@ -121,14 +121,14 @@ let form_meta_rap form abstr args1 args2 =
 let form_is_term_rap sgn c args1 args2 =
   let form eq_args concl =
     match concl with
-    | Rule.BoundaryIsTerm t_schema ->
+    | BoundaryIsTerm t_schema ->
        let asmp = Collect_assumptions.arguments eq_args
        and e1 = Mk.term_constructor c args1
        and e2 = Mk.term_constructor c args2
        and t = Instantiate_meta.is_type ~lvl:0 args1 t_schema in
        JudgementEqTerm (Mk.eq_term asmp e1 e2 t)
 
-    | Rule.BoundaryIsType _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ ->
+    | BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _ ->
        assert false
   in
   let rl = Signature.lookup_rule c sgn in
@@ -140,13 +140,13 @@ let form_is_term_rap sgn c args1 args2 =
 let form_is_type_rap sgn c args1 args2 =
   let form eq_args concl =
     match concl with
-    | Rule.BoundaryIsType () ->
+    | BoundaryIsType () ->
        let asmp = Collect_assumptions.arguments eq_args
        and t1 = Mk.type_constructor c args1
        and t2 = Mk.type_constructor c args2 in
        JudgementEqType (Mk.eq_type asmp t1 t2)
 
-    | Rule.BoundaryIsTerm _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _ ->
+    | BoundaryIsTerm _ | BoundaryEqType _ | BoundaryEqTerm _ ->
        assert false
   in
   let rl = Signature.lookup_rule c sgn in
@@ -165,14 +165,15 @@ let form_rap sgn jdg1 jdg2 =
           if not (Ident.equal c1 c2) then Error.raise InvalidCongruence ;
           form_is_term_rap sgn c1 args1 args2
 
-       | (TermMeta (m1, args1) as e1), (TermMeta (m2, args2) as e2) ->
-          if not (Nonce.equal m1.meta_nonce m2.meta_nonce) then Error.raise InvalidCongruence ;
+       | (TermMeta (MetaFree {meta_nonce=n1; meta_boundary}, args1) as e1), (TermMeta (MetaFree {meta_nonce=n2;_}, args2) as e2) ->
+          let abstr = (match Boundary.as_is_term_abstraction meta_boundary with Some abstr -> abstr | None -> assert false) in
+          if not (Nonce.equal n1 n2) then Error.raise InvalidCongruence ;
           form_meta_rap
           (fun eq_args t' ->
             let t = Instantiate_bound.is_type_fully (Indices.of_list args1) t' in
             let asmp = Collect_assumptions.arguments eq_args in
             JudgementEqTerm (Mk.eq_term asmp e1 e2 t))
-          m1.meta_type
+          abstr
           args1 args2
 
        | TermMeta _, TermConstructor _
@@ -181,7 +182,8 @@ let form_rap sgn jdg1 jdg2 =
        | _, TermAtom _ ->
            Error.raise InvalidCongruence
 
-       | TermBound _, _ | _, TermBound _ -> assert false
+       | TermMeta (MetaBound _, _), _ | _, TermMeta (MetaBound _, _)
+       | TermBoundVar _, _ | _, TermBoundVar _ -> assert false
      in
      form (e1, e2)
 
@@ -191,22 +193,24 @@ let form_rap sgn jdg1 jdg2 =
         if not (Ident.equal c1 c2) then Error.raise InvalidCongruence ;
         form_is_type_rap sgn c1 args1 args2
 
-     | TypeMeta (m1, args1), TypeMeta (m2, args2) ->
-        if not (Nonce.equal m1.meta_nonce m2.meta_nonce) then Error.raise InvalidCongruence ;
+     | TypeMeta (MetaFree {meta_nonce=n1; meta_boundary}, args1), TypeMeta (MetaFree {meta_nonce=n2;_}, args2) ->
+        let abstr = (match Boundary.as_is_type_abstraction meta_boundary with Some abstr -> abstr | None -> assert false) in
+        if not (Nonce.equal n1 n2) then Error.raise InvalidCongruence ;
         form_meta_rap
           (fun eq_args () ->
             let asmp = Collect_assumptions.arguments eq_args in
             JudgementEqType (Mk.eq_type asmp t1 t2))
-          m1.meta_type
+          abstr
           args1 args2
 
+     | TypeMeta (MetaBound _, _), _ | _, TypeMeta (MetaBound _, _)
      | TypeConstructor _, TypeMeta _
      | TypeMeta _, TypeConstructor _ ->
         Error.raise InvalidCongruence
      end
 
-  | ((JudgementEqType _ | JudgementEqTerm _), _ |
-     _, (JudgementEqType _ | JudgementEqTerm _) |
-     JudgementIsType _, JudgementIsTerm _ |
-     JudgementIsTerm _, JudgementIsType _) ->
+  | (JudgementEqType _ | JudgementEqTerm _), _
+  | _, (JudgementEqType _ | JudgementEqTerm _)
+  | JudgementIsType _, JudgementIsTerm _
+  | JudgementIsTerm _, JudgementIsType _ ->
      Error.raise InvalidCongruence

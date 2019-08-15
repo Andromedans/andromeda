@@ -9,7 +9,7 @@ let rec is_type t1 t2 =
   match t1, t2 with
 
   | TypeMeta (mv, args), TypeMeta (mv', args') ->
-     Nonce.equal mv.meta_nonce mv'.meta_nonce && term_arguments args args'
+     meta mv mv' && term_arguments args args'
 
   | TypeConstructor (c, args), TypeConstructor (c', args') ->
      Ident.equal c c' && arguments args args'
@@ -29,23 +29,33 @@ and is_term e1 e2 =
   | e1, TermConvert (e2, _, _) ->
      is_term e1 e2
 
-  | TermBound i, TermBound j -> i = j
+  | TermBoundVar i, TermBoundVar j -> i = j
 
   | TermAtom atm1, TermAtom atm2 ->
      is_atom atm1 atm2
 
   | TermMeta (mv, args), TermMeta (mv', args') ->
-     Nonce.equal mv.meta_nonce mv'.meta_nonce && term_arguments args args'
+     meta mv mv' && term_arguments args args'
 
   | TermConstructor (c, args), TermConstructor (c', args') ->
      Ident.equal c c' && arguments args args'
 
-  | (TermAtom _ | TermBound _ | TermConstructor _  | TermMeta _), _ ->
+  | (TermAtom _ | TermBoundVar _ | TermConstructor _  | TermMeta _), _ ->
      false
   end
 
 and is_atom {atom_nonce=x1;_} {atom_nonce=x2;_} =
   Nonce.equal x1 x2
+
+and meta mv mv' =
+  match mv, mv' with
+
+  | MetaBound i, MetaBound j -> i = j
+
+  | MetaFree {meta_nonce=n;_}, MetaFree {meta_nonce=n';_} -> Nonce.equal n n'
+
+  | MetaBound _, MetaFree _
+  | MetaFree _, MetaBound _ -> false
 
 and abstraction
   : 'a 'a . ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
@@ -72,7 +82,27 @@ and term_arguments args args' =
 and argument arg arg' =
   match arg, arg' with
   | Arg_NotAbstract jdg, Arg_NotAbstract jdg' ->
-     judgement jdg jdg'
+     (* It would make sense to call [judgement] here, but that one compares
+        boundaries of equations. Here we need to skip comparing those arguments
+        that are equalities, as they do not figure in alpha equality at all
+        (just like assumptions do not either). In addition, since the boundaries
+        of equality arguments are detemined by the preceeding object arguments,
+        we know comparison would succeed. *)
+     begin match jdg, jdg' with
+     | JudgementIsType t1, JudgementIsType t2 -> is_type t1 t2
+
+     | JudgementIsTerm e1, JudgementIsTerm e2 -> is_term e1 e2
+
+     | JudgementEqType _, JudgementEqType _
+     | JudgementEqTerm _, JudgementEqTerm _ ->
+        true
+
+     | JudgementIsType _, (JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _)
+     | JudgementIsTerm _, (JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _)
+     | JudgementEqType _, (JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _)
+     | JudgementEqTerm _, (JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _) ->
+        false
+     end
 
   | Arg_Abstract (_, arg), Arg_Abstract (_, arg') ->
      argument arg arg'

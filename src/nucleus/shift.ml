@@ -9,23 +9,23 @@ let rec is_type ~lvl k = function
 
   | TypeMeta (mv, args) ->
      let args = term_arguments ~lvl k args
-     and mv = ty_meta ~lvl k mv in
+     and mv = meta ~lvl k mv in
      TypeMeta (mv, args)
 
 and is_term ~lvl k = function
 
-  | TermBound j as e ->
+  | TermBoundVar j as e ->
      if j < lvl then
        e
      else
-       TermBound (j + k)
+       TermBoundVar (j + k)
 
   | TermAtom _ as e ->
      e (* no bound variables in atoms *)
 
   | TermMeta (mv, args) ->
      let args = term_arguments ~lvl k args
-     and mv = term_meta ~lvl k mv in
+     and mv = meta ~lvl k mv in
      TermMeta (mv, args)
 
   | TermConstructor (c, args) ->
@@ -39,10 +39,7 @@ and is_term ~lvl k = function
      TermConvert (e, asmp, t)
 
 (* metas can't refer to bound variables, so shifting does not affect them *)
-and ty_meta ~lvl k mv = mv
-
-(* metas can't refer to bound variables, so shifting does not affect them *)
-and term_meta ~lvl k mv = mv
+and meta ~lvl k mv = mv
 
 and eq_type ~lvl k (EqType (asmp, t1, t2)) =
   let asmp = Assumption.shift ~lvl k asmp
