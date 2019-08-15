@@ -7,29 +7,29 @@ let atom_name {atom_nonce=x;_} = Nonce.name x
 let rec invert_argument ~lvl es prem arg =
   match prem, arg with
 
-  | Rule.NotAbstract _, Arg_NotAbstract jdg ->
+  | NotAbstract _, Arg_NotAbstract jdg ->
      NotAbstract jdg
 
-  | Rule.Abstract (x, t_schema, prem), Arg_Abstract (y, arg) ->
+  | Abstract (x, t_schema, prem), Arg_Abstract (y, arg) ->
      let y = Name.prefer y x in
      let t = Instantiate_meta.is_type ~lvl es t_schema in
      let abstr = invert_argument ~lvl:(lvl+1) es prem arg in
      Mk.abstract y t abstr
 
-  | (Rule.NotAbstract _, Arg_Abstract _ | Rule.Abstract _, Arg_NotAbstract _) ->
+  | (NotAbstract _, Arg_Abstract _ | Abstract _, Arg_NotAbstract _) ->
      assert false
 
 let invert_arguments rl args =
   let rec fold es abstrs rl args =
     match rl, args with
-    | Rule.Conclusion _, [] -> List.rev abstrs
+    | Conclusion _, [] -> List.rev abstrs
 
-    | Rule.Premise (prem, rl), arg :: args ->
+    | Premise (prem, rl), arg :: args ->
        let abstr = invert_argument ~lvl:0 es prem arg in
        fold (arg :: es) (abstr :: abstrs) rl args
 
-    | Rule.Conclusion _, _::_
-    | Rule.Premise _, [] ->
+    | Conclusion _, _::_
+    | Premise _, [] ->
        assert false
   in
   fold [] [] rl args

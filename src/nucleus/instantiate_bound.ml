@@ -61,7 +61,7 @@ and eq_term e0 ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
 
 and assumptions e0 ?(lvl=0) asmp =
   let asmp0 = Collect_assumptions.is_term ~lvl e0 in
-  Assumption.instantiate ~lvl asmp0 asmp
+  Assumption.instantiate_bound ~lvl asmp0 asmp
 
 and abstraction
   : 'a .(is_term -> ?lvl:bound -> 'a -> 'a) ->
@@ -190,7 +190,7 @@ and eq_term_fully ?(lvl=0) es (EqTerm (asmp, e1, e2, t)) =
 
 and assumptions_fully ~lvl es asmp =
   let asmps = List.map (Collect_assumptions.is_term ~lvl) es in
-  Assumption.fully_instantiate asmps ~lvl asmp
+  Assumption.fully_instantiate_bound asmps ~lvl asmp
 
 and abstraction_fully
   : 'a . (?lvl:int -> is_term list -> 'a -> 'a) ->

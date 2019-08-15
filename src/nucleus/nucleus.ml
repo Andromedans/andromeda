@@ -2,8 +2,6 @@ include Nucleus_types
 
 module Signature = Signature
 
-module Rule = Rule
-
 let form_meta = Meta.form_meta
 
 (** Exports from [Sanity] *)

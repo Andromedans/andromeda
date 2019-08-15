@@ -59,12 +59,22 @@ and boundary =
 
 and boundary_abstraction = boundary abstraction
 
+type premise = boundary_abstraction
+
+type 'a rule =
+  | Conclusion of 'a
+  | Premise of premise * 'a rule
+
+type primitive = boundary rule
+
+type derivation = judgement rule
+
 (* A partial rule application *)
 type rule_application =
   | RapDone of judgement
   | RapMore of boundary_abstraction * (judgement_abstraction -> rule_application)
 
-type signature = Rule.primitive Ident.map
+type signature = primitive Ident.map
 
 type is_term_abstraction = is_term abstraction
 type is_type_abstraction = is_type abstraction

@@ -53,24 +53,24 @@ let union a1 a2 =
   ; bound_meta = Bound_set.union a1.bound_meta a2.bound_meta
   }
 
-(** [instantiate asmp0 ~lvl:k asmp] replaces bound variable [k] with the assumptions [asmp0] in [asmp]. *)
-let instantiate asmp0 ~lvl asmp =
+(** [instantiate_bound asmp0 ~lvl:k asmp] replaces bound variable [k] with the assumptions [asmp0] in [asmp]. *)
+let instantiate_bound asmp0 ~lvl asmp =
   match Bound_set.mem lvl asmp.bound_var with
   | false -> asmp
   | true ->
      let bound0 = Bound_set.map (fun k -> lvl + k) asmp0.bound_var
-     and bound_var = Bound_set.remove lvl asmp.bound_var
-     in
+     and bound_var = Bound_set.remove lvl asmp.bound_var in
+     (** Meta-variables do not contain bound variables *)
      let asmp0 = {asmp0 with bound_var = bound0}
      and asmp = {asmp with bound_var} in
      union asmp asmp0
 
 (** [fully_instantiate asmps ~lvl:k asmp] replaces bound variables in [asmp] with assumptions [asmps]. *)
-let fully_instantiate asmps ~lvl asmp =
+let fully_instantiate_bound asmps ~lvl asmp =
   let rec fold asmp = function
     | [] -> asmp
     | asmp0 :: asmps ->
-       let asmp = instantiate asmp0 ~lvl asmp
+       let asmp = instantiate_bound asmp0 ~lvl asmp
        in fold asmp asmps
   in
   fold asmp asmps
