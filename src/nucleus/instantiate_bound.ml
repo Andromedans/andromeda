@@ -7,8 +7,8 @@ open Nucleus_types
 
 let rec is_type e0 ?(lvl=0) = function
   | TypeMeta (mv, args) ->
-     (* there are no bound variables in the type of a meta *)
-     let args = term_arguments e0 ~lvl args in
+     let mv = meta e0 ~lvl mv
+     and args = term_arguments e0 ~lvl args in
      TypeMeta (mv, args)
 
   | TypeConstructor (c, args) ->
@@ -17,7 +17,7 @@ let rec is_type e0 ?(lvl=0) = function
 
 and is_term e0 ?(lvl=0) = function
 
-    | TermBound k as e ->
+    | TermBoundVar k as e ->
        if k < lvl then
          e
        else begin
@@ -29,8 +29,8 @@ and is_term e0 ?(lvl=0) = function
     | TermAtom _ as e -> e (* there are no bound variables in an atom type *)
 
     | TermMeta (mv, args) ->
-       (* there are no bound variables in the type of a meta *)
-       let args = term_arguments e0 ~lvl args in
+       let mv = meta e0 ~lvl mv
+       and args = term_arguments e0 ~lvl args in
        TermMeta (mv, args)
 
     | TermConstructor (c, args) ->
@@ -42,6 +42,9 @@ and is_term e0 ?(lvl=0) = function
        and asmp = assumptions e0 ~lvl asmp
        and t = is_type e0 ~lvl t in
        TermConvert (e, asmp, t)
+
+(* there are no bound variables in the type of a meta *)
+and meta e0 ?(lvl=0) mv = mv
 
 and eq_type e0 ?(lvl=0) (EqType (asmp, t1, t2)) =
   let asmp = assumptions e0 ~lvl asmp
@@ -58,7 +61,7 @@ and eq_term e0 ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
 
 and assumptions e0 ?(lvl=0) asmp =
   let asmp0 = Collect_assumptions.is_term ~lvl e0 in
-  Assumption.instantiate ~lvl asmp0 asmp
+  Assumption.instantiate_bound ~lvl asmp0 asmp
 
 and abstraction
   : 'a .(is_term -> ?lvl:bound -> 'a -> 'a) ->
@@ -99,6 +102,34 @@ and judgement e0 ?(lvl=0) = function
     | JudgementEqTerm asmp ->
        JudgementEqTerm (eq_term e0 ~lvl asmp)
 
+let is_type_boundary _ ?(lvl=0) () = ()
+
+let is_term_boundary e0 ?(lvl=0) t =
+  is_type e0 ~lvl t
+
+let eq_type_boundary e0 ?(lvl=0) (t1, t2) =
+  let t1 = is_type e0 ~lvl t1
+  and t2 = is_type e0 ~lvl t2 in
+  (t1, t2)
+
+let eq_term_boundary e0 ?(lvl=0) (e1, e2, t) =
+  let e1 = is_term e0 ~lvl e1
+  and e2 = is_term e0 ~lvl e2
+  and t = is_type e0 ~lvl t in
+  (e1, e2, t)
+
+let boundary e0 ?(lvl=0) = function
+  | BoundaryIsType () ->
+     BoundaryIsType (is_type_boundary e0 ~lvl ())
+
+  | BoundaryIsTerm t ->
+     BoundaryIsTerm (is_term_boundary e0 ~lvl t)
+
+  | BoundaryEqType (t1, t2) ->
+     BoundaryEqType (eq_type_boundary e0 ~lvl (t1, t2))
+
+  | BoundaryEqTerm (e1, e2, t) ->
+     BoundaryEqTerm (eq_term_boundary e0 ~lvl (e1, e2, t))
 
 (* [instantiate_fully ?lvl es t] replaces bound variables [k] for
    [lvl] <= [k] < [List.length es] with [List.nth (k - lvl) es] in [t]. Bound
@@ -118,7 +149,7 @@ let rec is_type_fully ?(lvl=0) es = function
 
 and is_term_fully ?(lvl=0) es = function
 
-  | (TermBound k) as e ->
+  | (TermBoundVar k) as e ->
      if k < lvl
      then e
      else
@@ -159,7 +190,7 @@ and eq_term_fully ?(lvl=0) es (EqTerm (asmp, e1, e2, t)) =
 
 and assumptions_fully ~lvl es asmp =
   let asmps = List.map (Collect_assumptions.is_term ~lvl) es in
-  Assumption.fully_instantiate asmps ~lvl asmp
+  Assumption.fully_instantiate_bound asmps ~lvl asmp
 
 and abstraction_fully
   : 'a . (?lvl:int -> is_term list -> 'a -> 'a) ->
@@ -198,31 +229,31 @@ and judgement_fully ?(lvl=0) es = function
   | JudgementEqTerm eq ->
      JudgementEqTerm (eq_term_fully ~lvl es eq)
 
-let is_type_boundary _ ?(lvl=0) () = ()
+let is_type_boundary_fully _ ?(lvl=0) () = ()
 
-let is_term_boundary e0 ?(lvl=0) t =
-  is_type e0 ~lvl t
+let is_term_boundary_fully ?(lvl=0) es t =
+  is_type_fully ~lvl es t
 
-let eq_type_boundary e0 ?(lvl=0) (t1, t2) =
-  let t1 = is_type e0 ~lvl t1
-  and t2 = is_type e0 ~lvl t2 in
+let eq_type_boundary_fully ?(lvl=0) es (t1, t2) =
+  let t1 = is_type_fully ~lvl es t1
+  and t2 = is_type_fully ~lvl es t2 in
   (t1, t2)
 
-let eq_term_boundary e0 ?(lvl=0) (e1, e2, t) =
-  let e1 = is_term e0 ~lvl e1
-  and e2 = is_term e0 ~lvl e2
-  and t = is_type e0 ~lvl t in
+let eq_term_boundary_fully ?(lvl=0) es (e1, e2, t) =
+  let e1 = is_term_fully ~lvl es e1
+  and e2 = is_term_fully ~lvl es e2
+  and t = is_type_fully ~lvl es t in
   (e1, e2, t)
 
-let boundary e0 ?(lvl=0) = function
+let boundary_fully ?(lvl=0) es = function
   | BoundaryIsType () ->
-     BoundaryIsType (is_type_boundary e0 ~lvl ())
+     BoundaryIsType (is_type_boundary_fully ~lvl es ())
 
   | BoundaryIsTerm t ->
-     BoundaryIsTerm (is_term_boundary e0 ~lvl t)
+     BoundaryIsTerm (is_term_boundary_fully ~lvl es t)
 
   | BoundaryEqType (t1, t2) ->
-     BoundaryEqType (eq_type_boundary e0 ~lvl (t1, t2))
+     BoundaryEqType (eq_type_boundary_fully ~lvl es (t1, t2))
 
   | BoundaryEqTerm (e1, e2, t) ->
-     BoundaryEqTerm (eq_term_boundary e0 ~lvl (e1, e2, t))
+     BoundaryEqTerm (eq_term_boundary_fully ~lvl es (e1, e2, t))

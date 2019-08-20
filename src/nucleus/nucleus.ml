@@ -2,13 +2,7 @@ include Nucleus_types
 
 module Signature = Signature
 
-module Rule = Rule
-
-let meta_nonce = Meta.nonce
-let judgement_meta_eta_expanded = Meta.judgement_meta_eta_expanded
-
-let form_is_term_meta = Meta.form_is_term_meta
-let form_is_type_meta = Meta.form_is_type_meta
+let form_meta = Meta.form_meta
 
 (** Exports from [Sanity] *)
 let type_of_term = Sanity.type_of_term
@@ -20,12 +14,6 @@ let natural_type_eq = Sanity.natural_type_eq
 let check_judgement_boundary_abstraction = Check.judgement_boundary_abstraction
 
 let fresh_atom = Mk.fresh_atom
-let fresh_is_type_meta = Mk.fresh_type_meta
-let fresh_is_term_meta = Mk.fresh_term_meta
-let fresh_eq_type_meta = Mk.fresh_eq_type_meta
-let fresh_eq_term_meta = Mk.fresh_eq_term_meta
-
-let fresh_judgement_meta = Mk.fresh_judgement_meta
 
 let alpha_equal_term = Alpha_equal.is_term
 let alpha_equal_type = Alpha_equal.is_type
@@ -115,7 +103,7 @@ let apply_judgement_abstraction = Apply_abstraction.apply_judgement_abstraction
 
 let occurs_abstraction assumptions_u a abstr =
   let asmp = Collect_assumptions.abstraction assumptions_u abstr in
-  Assumption.mem_atom a.atom_nonce asmp
+  Assumption.mem_free_var a.atom_nonce asmp
 
 let occurs_is_type_abstraction = occurs_abstraction Collect_assumptions.is_type
 let occurs_is_term_abstraction = occurs_abstraction Collect_assumptions.is_term

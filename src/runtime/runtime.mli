@@ -20,7 +20,7 @@ type ml_constructor = Ident.t
 type value =
   | Judgement of Nucleus.judgement_abstraction (** A judgement *)
   | Boundary of Nucleus.boundary_abstraction   (** A judgement boundary (also known as a goal) *)
-  | Derivation of Nucleus.Rule.derivation      (** A hypothetical derivation *)
+  | Derivation of Nucleus.derivation           (** A hypothetical derivation *)
   | Closure of (value,value) closure           (** An ML function *)
   | Handler of handler                         (** Handler value *)
   | Tag of ml_constructor * value list         (** Application of a data constructor *)
@@ -68,7 +68,7 @@ val mk_string : string -> value
 (** {b Value extraction} *)
 
 (** Convert to a derivation, or fail with [DerivationExpected] *)
-val as_derivation : at:Location.t -> value -> Nucleus.Rule.derivation
+val as_derivation : at:Location.t -> value -> Nucleus.derivation
 
 (** Convert to a non-abstracted value, or fail with [UnexpectedAbstraction] *)
 val as_not_abstract : at:Location.t -> 'a Nucleus.abstraction -> 'a
@@ -307,7 +307,7 @@ val add_dynamic : Name.t -> value -> unit toplevel
 val top_now : ml_dyn -> value -> unit toplevel
 
 (** Extend the signature with a new rule *)
-val add_rule : Ident.t -> Nucleus.Rule.primitive -> unit toplevel
+val add_rule : Ident.t -> Nucleus.primitive -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
 val top_handle : at:Location.t -> 'a comp -> 'a toplevel

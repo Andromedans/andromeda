@@ -7,7 +7,7 @@ let rec is_type k = function
 
 and is_term k = function
   | TermAtom _ -> false
-  | TermBound m -> k = m
+  | TermBoundVar m -> k = m
   | TermMeta (_, args) -> term_arguments k args
   | TermConstructor (_, args) -> arguments k args
   | TermConvert (e, asmp, t) -> is_term k e || assumptions k asmp || is_type k t
@@ -19,7 +19,7 @@ and eq_term k (EqTerm (asmp, e1, e2, t)) =
   assumptions k asmp || is_term k e1 || is_term k e2 || is_type k t
 
 and assumptions k asmp =
-  Assumption.mem_bound k asmp
+  Assumption.mem_bound_var k asmp
 
 and abstraction
   : 'a . (bound -> 'a -> bool) -> bound -> 'a abstraction -> bool

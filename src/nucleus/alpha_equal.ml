@@ -9,7 +9,7 @@ let rec is_type t1 t2 =
   match t1, t2 with
 
   | TypeMeta (mv, args), TypeMeta (mv', args') ->
-     Nonce.equal mv.meta_nonce mv'.meta_nonce && term_arguments args args'
+     meta mv mv' && term_arguments args args'
 
   | TypeConstructor (c, args), TypeConstructor (c', args') ->
      Ident.equal c c' && arguments args args'
@@ -29,19 +29,29 @@ and is_term e1 e2 =
   | e1, TermConvert (e2, _, _) ->
      is_term e1 e2
 
-  | TermBound i, TermBound j -> i = j
+  | TermBoundVar i, TermBoundVar j -> i = j
 
   | TermAtom {atom_nonce=x;_}, TermAtom {atom_nonce=y;_} -> Nonce.equal x y
 
   | TermMeta (mv, args), TermMeta (mv', args') ->
-     Nonce.equal mv.meta_nonce mv'.meta_nonce && term_arguments args args'
+     meta mv mv' && term_arguments args args'
 
   | TermConstructor (c, args), TermConstructor (c', args') ->
      Ident.equal c c' && arguments args args'
 
-  | (TermAtom _ | TermBound _ | TermConstructor _  | TermMeta _), _ ->
+  | (TermAtom _ | TermBoundVar _ | TermConstructor _  | TermMeta _), _ ->
      false
   end
+
+and meta mv mv' =
+  match mv, mv' with
+
+  | MetaBound i, MetaBound j -> i = j
+
+  | MetaFree {meta_nonce=n;_}, MetaFree {meta_nonce=n';_} -> Nonce.equal n n'
+
+  | MetaBound _, MetaFree _
+  | MetaFree _, MetaBound _ -> false
 
 and abstraction
   : 'a 'a . ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool

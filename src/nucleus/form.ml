@@ -56,7 +56,7 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
 (* Form a rule application for the given constructor [c] *)
 let form_constructor_rap sgn c =
   let rec fold args = function
-    | Rule.Premise (prem, rl) ->
+    | Premise (prem, rl) ->
        let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
        let rap abstr =
          if not (Check.judgement_boundary_abstraction sgn abstr bdry)
@@ -67,13 +67,13 @@ let form_constructor_rap sgn c =
        in
        RapMore (bdry, rap)
 
-    | Rule.Conclusion (Rule.BoundaryIsType ()) ->
+    | Conclusion (BoundaryIsType ()) ->
        RapDone (JudgementIsType (Mk.type_constructor c (Indices.to_list args)))
 
-    | Rule.Conclusion (Rule.BoundaryIsTerm _) ->
+    | Conclusion (BoundaryIsTerm _) ->
        RapDone (JudgementIsTerm (Mk.term_constructor c (Indices.to_list args)))
 
-    | Rule.Conclusion (Rule.BoundaryEqType (lhs_schema, rhs_schema)) ->
+    | Conclusion (BoundaryEqType (lhs_schema, rhs_schema)) ->
          (* order of arguments not important in [Collect_assumptions.arguments],
             we could try avoiding a list reversal caused by [Indices.to_list]. *)
          let asmp = Collect_assumptions.arguments (Indices.to_list args)
@@ -82,7 +82,7 @@ let form_constructor_rap sgn c =
          in
          RapDone (JudgementEqType (Mk.eq_type asmp lhs rhs))
 
-    | Rule.Conclusion (Rule.BoundaryEqTerm (e1_schema, e2_schema, t_schema)) ->
+    | Conclusion (BoundaryEqTerm (e1_schema, e2_schema, t_schema)) ->
          (* order of arguments not important in [Collect_assumptions.arguments],
             we could try avoiding a list reversal caused by [Indices.to_list]. *)
          let asmp = Collect_assumptions.arguments (Indices.to_list args)
@@ -98,7 +98,7 @@ let form_constructor_rap sgn c =
 (** Form a rap from a derivation *)
 let form_derivation_rap sgn drv =
   let rec fold args = function
-    | Rule.Premise (prem, drv) ->
+    | Premise (prem, drv) ->
        let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
        let rap abstr =
          if not (Check.judgement_boundary_abstraction sgn abstr bdry)
@@ -109,21 +109,21 @@ let form_derivation_rap sgn drv =
        in
        RapMore (bdry, rap)
 
-    | Rule.Conclusion (Rule.JudgementIsType t_schema) ->
+    | Conclusion (JudgementIsType t_schema) ->
        let t = Instantiate_meta.is_type ~lvl:0 args t_schema in
        RapDone (JudgementIsType t)
 
-    | Rule.Conclusion (Rule.JudgementIsTerm e_schema) ->
+    | Conclusion (JudgementIsTerm e_schema) ->
        let e = Instantiate_meta.is_term ~lvl:0 args e_schema in
        RapDone (JudgementIsTerm e)
 
-    | Rule.Conclusion (Rule.JudgementEqType eq_schema) ->
+    | Conclusion (JudgementEqType eq_schema) ->
        (* order of arguments not important in [Collect_assumptions.arguments],
           we could try avoiding a list reversal caused by [Indices.to_list]. *)
        let eq = Instantiate_meta.eq_type ~lvl:0 args eq_schema in
        RapDone (JudgementEqType eq)
 
-    | Rule.Conclusion (Rule.JudgementEqTerm eq_schema) ->
+    | Conclusion (JudgementEqTerm eq_schema) ->
        (* order of arguments not important in [Collect_assumptions.arguments],
           we could try avoiding a list reversal caused by [Indices.to_list]. *)
        let eq = Instantiate_meta.eq_term ~lvl:0 args eq_schema in
@@ -154,7 +154,7 @@ let form_is_term_convert_opt sgn e (EqType (asmp, t1, t2)) =
      else
        None
 
-  | (TermAtom _ | TermBound _ | TermConstructor _ | TermMeta _) as e ->
+  | (TermAtom _ | TermBoundVar _ | TermConstructor _ | TermMeta _) as e ->
      let t0 = Sanity.natural_type sgn e in
      if Alpha_equal.is_type t0 t1 then
        (* We need not include assumptions of [t1] because [t0] is alpha-equal

@@ -6,14 +6,11 @@ let fresh_atom x t =
 
 let atom a = TermAtom a
 
-let fresh_meta x abstr = { meta_nonce = Nonce.create x ; meta_type = abstr }
-let fresh_type_meta = fresh_meta
-let fresh_term_meta = fresh_meta
-let fresh_eq_type_meta = fresh_meta
-let fresh_eq_term_meta = fresh_meta
-let fresh_judgement_meta = fresh_meta
+let fresh_meta x abstr =
+  let n = Nonce.create x in
+  n, MetaFree { meta_nonce =  n ; meta_boundary = abstr }
 
-let bound k = TermBound k
+let bound k = TermBoundVar k
 
 let type_constructor c args = TypeConstructor (c, args)
 

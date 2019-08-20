@@ -6,24 +6,24 @@ open Nucleus_types
 let rec is_type ?(lvl=0) = function
   | TypeMeta (mv, args) ->
      let args = term_arguments ~lvl args
-     and mv = is_type_meta ~lvl mv in
+     and mv = meta ~lvl mv in
      Assumption.union mv args
 
   | TypeConstructor (_, args) -> arguments' ~lvl args
 
 and is_term ?(lvl=0) = function
 
-  | TermBound k ->
+  | TermBoundVar k ->
      if k < lvl then
        Assumption.empty
      else
        Assumption.singleton_bound (k - lvl)
 
   | TermAtom {atom_nonce=x; atom_type=t} ->
-     Assumption.add_free x t (is_type ~lvl t)
+     Assumption.add_free_var x t (is_type ~lvl t)
 
   | TermMeta (mv, args) ->
-     let mv = is_term_meta ~lvl mv
+     let mv = meta ~lvl mv
      and args = term_arguments ~lvl args in
      Assumption.union mv args
 
@@ -45,15 +45,12 @@ and eq_term ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
     (Assumption.union (assumptions ~lvl asmp) (is_type ~lvl t))
     (Assumption.union (is_term ~lvl e1) (is_term ~lvl e2))
 
-and is_type_meta ~lvl {meta_nonce; meta_type} =
-  let asmp = abstraction (fun ?lvl () -> Assumption.empty) ~lvl meta_type in
-  let meta_type = Boundary.from_is_type_abstraction meta_type in
-  Assumption.add_meta meta_nonce meta_type asmp
+and meta ~lvl = function
+  | MetaFree {meta_nonce; meta_boundary} ->
+     let asmp = abstraction boundary ~lvl meta_boundary in
+     Assumption.add_free_meta meta_nonce meta_boundary asmp
 
-and is_term_meta ~lvl {meta_nonce; meta_type} =
-  let asmp = abstraction is_type ~lvl meta_type in
-  let meta_type = Boundary.from_is_term_abstraction meta_type in
-  Assumption.add_meta meta_nonce meta_type asmp
+  | MetaBound k -> Assumption.add_bound_meta k Assumption.empty
 
 and abstraction
   : 'a . (?lvl:bound -> 'a -> assumption) ->
@@ -90,9 +87,9 @@ and judgement ?(lvl=0) = function
 
 and assumptions ?(lvl=0) asmp = Assumption.at_level ~lvl asmp
 
-let is_type_boundary = Assumption.empty
+and is_type_boundary = Assumption.empty
 
-let is_term_boundary = is_type
+and is_term_boundary ?(lvl=0) t = is_type ~lvl t
 
 and eq_type_boundary ?(lvl=0) (t1, t2) =
   Assumption.union (is_type ~lvl t1) (is_type ~lvl t2)
@@ -102,7 +99,7 @@ and eq_term_boundary ?(lvl=0) (e1, e2, t) =
     (is_type ~lvl t)
     (Assumption.union (is_term ~lvl e1) (is_term ~lvl e2))
 
-let boundary ?(lvl=0) = function
+and boundary ?(lvl=0) = function
   | BoundaryIsType () -> is_type_boundary
   | BoundaryIsTerm t -> is_term_boundary ~lvl t
   | BoundaryEqType eq -> eq_type_boundary ~lvl eq
@@ -112,9 +109,9 @@ let arguments = arguments' ~lvl:0
 
 let context_u assumptions_u t =
   let asmp = assumptions_u t in
-  let {free; bound; _} = asmp in
-  assert (Bound_set.is_empty bound) ;
-  let free = Nonce.map_bindings free in
+  let {free_var; bound_var; _} = asmp in
+  assert (Bound_set.is_empty bound_var) ;
+  let free = Nonce.map_bindings free_var in
   List.map (fun (atom_nonce, atom_type) -> {atom_nonce; atom_type}) free
 
 (** Compute the list of atoms occurring in an abstraction. Similar to

@@ -25,7 +25,7 @@ and thesis_is_term ?max_level ~penv e ppf =
   | TermAtom {atom_nonce=x; _} ->
      Nonce.print ~parentheses:true x ppf
 
-  | TermBound k -> Name.print_debruijn penv.debruijn k ppf
+  | TermBoundVar k -> Name.print_debruijn penv.debruijn k ppf
 
   | TermConstructor (c, args) ->
      constructor ?max_level ~penv c args ppf
@@ -102,17 +102,20 @@ and thesis_eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
     (thesis_is_type ~penv t)
 
 (** Print a meta-variable *)
-and meta :
-  type a . ?max_level:Level.t -> penv:print_environment
-            -> a meta -> is_term list -> Format.formatter -> unit
-  = fun ?max_level ~penv {meta_nonce;_} args ppf ->
+and meta ?max_level ~penv mv args ppf =
+  let print_mv =
+    match mv with
+    | MetaFree {meta_nonce; _} -> Nonce.print ~parentheses:true meta_nonce
+    | MetaBound k -> (fun ppf -> Format.fprintf ppf "BOUNDMETA[%d]" k)
+  in
   match args with
   | [] ->
-     Nonce.print ~parentheses:true meta_nonce ppf
+     print_mv ppf
+
   | _::_ ->
      Print.print ~at_level:Level.meta ?max_level ppf "%t@ %t"
-    (Nonce.print ~parentheses:true meta_nonce)
-    (Print.sequence (thesis_is_term ~max_level:Level.meta_arg ~penv) "" args) ;
+       (print_mv)
+       (Print.sequence (thesis_is_term ~max_level:Level.meta_arg ~penv) "" args)
 
 and argument ?max_level ~penv arg ppf =
   let rec fold xs penv arg ppf =
@@ -125,7 +128,7 @@ and argument ?max_level ~penv arg ppf =
 
     | Arg_Abstract (x, arg) ->
        let x =
-         (if Occurs.argument 0 arg then
+         (if Occurs_bound.argument 0 arg then
             Name.refresh penv.forbidden x
           else
             Name.anonymous ())
@@ -147,25 +150,21 @@ and constructor ?max_level ~penv c args ppf =
        (Ident.print ~opens:penv.opens ~parentheses:true c)
        (Print.sequence (argument ~max_level:Level.constructor_arg ~penv) "" args) ;
 
-and print_assumptions ?max_level ~penv {free; meta; bound} ppf =
-  let empty_free = Nonce.map_is_empty free
-  and empty_meta = Nonce.map_is_empty meta
-  and empty_bound = Bound_set.is_empty bound in
+and print_assumptions ?max_level ~penv {free_var; free_meta; bound_var=_; bound_meta=_} ppf =
+  (* If we were more paranoid, we could assert here that [bound_var] and [bound_meta] are empty,
+     as we should never print assumptions inside a binder. *)
+  let empty_free_var = Nonce.map_is_empty free_var
+  and empty_free_meta = Nonce.map_is_empty free_meta in
   Print.print
-    ?max_level ppf "%t%s%t%s%t%s"
+    ?max_level ppf "%t%s%t%s"
     (Print.sequence
        (fun (x,t) ppf -> Print.print ppf "%t@ :@ %t" (Nonce.print ~parentheses:true x) (thesis_is_type ~penv t))
-       "," (Nonce.map_bindings free))
-    (if empty_free || empty_meta then "" else "; ")
+       "," (Nonce.map_bindings free_var))
+    (if empty_free_var || empty_free_meta then "" else ", ")
     (Print.sequence
        (fun (x, abstr) ppf -> Print.print ppf "%t@ :@ %t" (Nonce.print ~parentheses:true x) (boundary_abstraction ~penv abstr))
-       "," (Nonce.map_bindings meta))
-    (if (empty_free && empty_meta) || empty_bound then "" else "; ")
-    (Print.sequence
-       (fun k ppf -> Name.print_debruijn penv.debruijn k ppf)
-       "," (Bound_set.elements bound))
-    (if empty_free && empty_meta && empty_bound then "" else " ")
-
+       "," (Nonce.map_bindings free_meta))
+    (if empty_free_var && empty_free_meta then "" else " ")
 
 and abstraction
    : 'b . (bound -> 'b -> bool) ->
@@ -183,7 +182,7 @@ and abstraction
 
     | Abstract (x, u, abstr) ->
        let x =
-         (if Occurs.abstraction occurs_v 0 abstr then
+         (if Occurs_bound.abstraction occurs_v 0 abstr then
             Name.refresh penv.forbidden x
           else
             Name.anonymous ())
@@ -222,7 +221,7 @@ and thesis_boundary ?max_level ~penv bdry ppf =
   | BoundaryEqTerm eq -> boundary_eq_term ?max_level ~penv eq ppf
 
 and boundary_abstraction ?max_level ~penv abstr ppf =
-  abstraction Occurs.boundary thesis_boundary ?max_level ~penv abstr ppf
+  abstraction Occurs_bound.boundary thesis_boundary ?max_level ~penv abstr ppf
 
 and binder ~penv (x,t) ppf =
   Print.print ppf "{%t@ :@ %t}"
@@ -262,7 +261,7 @@ let judgement_abstraction ?max_level ~penv abstr ppf =
     "%t%s %t"
     (print_assumptions ~max_level:Level.assumptions ~penv asmp)
     (Print.char_vdash ())
-    (abstraction Occurs.judgement thesis_judgement ?max_level ~penv abstr)
+    (abstraction Occurs_bound.judgement thesis_judgement ?max_level ~penv abstr)
 
 let boundary_abstraction ?max_level ~penv abstr ppf =
   let asmp = Collect_assumptions.abstraction Collect_assumptions.boundary abstr in
@@ -271,23 +270,23 @@ let boundary_abstraction ?max_level ~penv abstr ppf =
     "%t%s %t"
     (print_assumptions ~max_level:Level.assumptions ~penv asmp)
     (Print.char_vdash ())
-    (abstraction Occurs.boundary thesis_boundary ?max_level ~penv abstr)
+    (abstraction Occurs_bound.boundary thesis_boundary ?max_level ~penv abstr)
 
 let is_type_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  abstraction Occurs.is_type thesis_is_type ?max_level ~penv abstr ppf
+  abstraction Occurs_bound.is_type thesis_is_type ?max_level ~penv abstr ppf
 
 let is_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  abstraction Occurs.is_term thesis_is_term ?max_level ~penv abstr ppf
+  abstraction Occurs_bound.is_term thesis_is_term ?max_level ~penv abstr ppf
 
 let eq_type_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  abstraction Occurs.eq_type thesis_eq_type ?max_level ~penv abstr ppf
+  abstraction Occurs_bound.eq_type thesis_eq_type ?max_level ~penv abstr ppf
 
 let eq_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
-  abstraction Occurs.eq_term thesis_eq_term ?max_level ~penv abstr ppf
+  abstraction Occurs_bound.eq_term thesis_eq_term ?max_level ~penv abstr ppf
 
 let error ~penv err ppf =
   let open Nucleus_types in
@@ -300,9 +299,13 @@ let error ~penv err ppf =
 
   | TooManyArguments -> Format.fprintf ppf "too many arguments"
 
+  | IsTypeExpected -> Format.fprintf ppf "type expected"
+
   | IsTermExpected -> Format.fprintf ppf "term expected"
 
-  | IsTypeExpected -> Format.fprintf ppf "type expected"
+  | IsTypeBoundaryExpected -> Format.fprintf ppf "type boundary expected"
+
+  | IsTermBoundaryExpected -> Format.fprintf ppf "term boundary expected"
 
   | ExtraAssumptions -> Format.fprintf ppf "extra assumptions"
 
