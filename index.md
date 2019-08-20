@@ -1,101 +1,68 @@
-### About the project
+---
+title: Andromeda proof assistant
+navigation: about
+layout: page
+---
 
-Andromeda is an experimental implementation of dependent type theory with a reflection rule.
-For theoretical background see:
+Andromeda is an implementation of dependent type theory with equality reflection. The type
+theory is very expressive, as it allows one to postulate new judgmental equalities.
 
-* Andrej Bauer: "How to implemenent type theory with a reflection rule"
-  ([slides](http://www.qmac.ox.ac.uk/events/Talk%20slides/Bauer-HoTT-Oxford.pdf) and
-   [video](https://www.youtube.com/watch?v=IlfQjWqrK6I))
+The design of Andromeda follows the tradition of
+[LCF](https://en.wikipedia.org/wiki/Logic_for_Computable_Functions)-style theorem provers:
 
-The reflection rule allows us to do many things, such as add new computation
-rules for new type formers, and hopefully also provide support for Vladimir
-Voevodsky's [Homotopy Type System](http://ncatlab.org/homotopytypetheory/show/Homotopy+Type+System)
-which has *two* kinds of equality, one of which has a reflection rule.
+* there is an abstract datatype of judgments,
+* all constructions of judgments are done by a trusted *nucleus* and directly correspond
+  to the inference rules of type theory (or derivations thereof),
+* the user interacts with the nucleus by writing programs in a high-level, statically
+  typed meta-language [*Andromeda ML (AML)*](meta-language.html).
+
+The nucleus does not perform any normalization (it cannot as the underlying type theory
+has no normal forms), unification, or perform proof search. These techniques can all be
+implemented on top of the nucleus in AML, and therefore cannot compute underivable
+judgments by design. Of course, they could fail or run forever because AML is a
+general-purpose programming language.
+
+Equality checking is delegated to the meta-level by a mechanism of operations and handlers
+akin to those of the [Eff programming language](http://www.eff-lang.org). Whenever the
+nucleus needs to check a non-trivial equation, it triggers an operation (question) which
+propagates to the meta-level. There it is intercepted by a user-defined handler which
+handles (answers) the equation by providing a witness for it.
+
+### Theoretical background
+
+Documents: see the
+[documents folder](https://github.com/Andromedans/andromeda/tree/master/doc) in the GitHub
+repository.
 
 
-### Installation
 
-The easiest way to install Andromeda is through the
-[Opam](http://opam.ocamlpro.com) package manager for OCaml. You can install
-Opam on your system following [these
-instructions](http://opam.ocaml.org/doc/Install.html).
-In case your operating system does not provide OCaml version >= 4.02, you can
-install it with `opam switch 4.02.1`.
-Then simply add the Andromeda repo to opam, update and install Andromeda with
-these commands:
-```
-opam repo add andromeda git://github.com/haselwarter/andromeda-opam.git
-opam update
-opam install andromeda
-```
-
-
-### Compilation
-
-To build Andromeda, you need [OCaml 4.02](http://ocaml.org) or later (and quite possibly it
-works with earlier versions too), the [menhir](http://gallium.inria.fr/~fpottier/menhir/)
-parser generator and the [sedlex](https://www.lexifi.com/sedlex) unicode lexer. We recommend
-using [Opam](http://opam.ocamlpro.com) for installation of OCaml, menhir and sedlex.
-
-If you also install the [ledit](http://opam.ocaml.org/packages/ledit/ledit.2.03/) or
-[rlwrap](http://utopia.knoware.nl/~hlub/uck/rlwrap/#rlwrap) utility, the Andromeda toplevel
-will use them to give you line editing capabilities.
-
-### Building Andromeda
-
-To build Andromeda type `make` at the command line. This will create the executable
-`andromeda.byte`. You can run the tests in the `test` subfolder with `make test`.
-
-The file `prelude.m31` contains basic definitions and is loaded when Andromeda is
-started (unless the option `--no-prelude` is given).
-
-#### Examples
-
-We have put some examples in the `examples` subdirectory. An outdated and incomplete
-description of the Andromedan type theory can be found in `doc/andromeda.tex`. We are
-still changing Andromeda in every respect so it probably does not make sense to write
-documentation at this point.
-
-### The structure of source code
-
-The source code can be found in `src`, in the following folders:
-
-* `parser` - input syntax, lexer, parser, and the desugaring phase which computes de Bruijn indices
-   and separates expressions and computations
-* `runtime` - context manipulation, runtime values and the main evaluation loop
-* `tt` - abstract syntax, weak-head normal forms, equality checks
-* `utils` - error messages, file locations, pretty printing, manipulation of variable names
-* `andromeda.ml` - main program
-* `config.ml` - configuration
-* `syntax.mli` - desugared input syntax
-
-The basic steps in the evaluation of input are:
-
-1. An expression is parsed using the lexer `parser/lexer.mll` and the parser `parser/parser.mly`.
-   The result is a value of type `Input.term` or `Input.ty` or `Input.toplevel`. The user input
-   has no separation of computations (effectful) and expressions (pure).
-2. `Desugar` converts the parsed entity to the corresponding intermediate representation of
-   type `Syntax.expr`, `Syntax.comp` or `Syntax.toplevel`. Desugaring replaces named bound variables
-   with de Bruijn indices and separates computations from expressions.
-3. `Eval` evaluates the syntactic expression to a result of type `Value.result`. The result is a
-   pair [(e,t)] of a value [e] and its type [t]. Evaluation is done in a context [ctx] of type
-   [Context.t] which consists of: free variables with their types, bound variables mapped to their
-   values, and equality hints.
-
-The correctness guarantee for the evaluator is this: if a computation [c] evaluates to a value [(e,t)]
-in context [ctx] then the judgement [ctx |- e : t] is derivable.
-
-### History of the name Andromeda
+### History of the name
 
 Andromeda used to be called Brazil, as a consequence of discussions at the Institute for
 Advanced Study where we talked about "sending proofs to a far away place where they will
 check them independently". We thought of Brazil as a faraway place, but it later turned
-out it was not quite far enough. We hope that nobody will claim that the Andromeda galaxy
-is a nearby place.
+out it was not quite far enough. Martin Escardó suggested the name Andromeda. We hope that
+nobody will claim that our neighboring galaxy is a nearby place.
+
+### Developers
+
+* [Andrej Bauer](http://andrej.com/)
+* [Gaëtan Gilbert](https://github.com/SkySkimmer)
+* [Philipp Haselwarter](https://www.haselwarter.org/~philipp/)
+* [Matija Pretnar](http://matija.pretnar.info/)
+* [Chris Stone](https://www.cs.hmc.edu/~stone/)
+
 
 ### Travis Continuous Integration
 
-The GitHub repository is linked to Travis CI. To find out the current build status is
-displayed here:
+The GitHub repository is linked to Travis CI. The current build status:
 
-  [![Build Status](https://api.travis-ci.org/andrejbauer/andromeda.png?branch=master)](https://travis-ci.org/andrejbauer/andromeda)
+[![Build Status](https://api.travis-ci.org/Andromedans/andromeda.png?branch=master)](https://travis-ci.org/Andromedans/andromeda)
+
+### Support
+
+This material is based upon work supported by the Air Force Office of Scientific Research,
+Air Force Materiel Command, USAF under Award No. FA9550-14-1-0096. Any opinions, findings,
+and conclusions or recommendations expressed in this publication are those of the
+author(s) and do not necessarily reflect the views of the Air Force Office of Scientific
+Research, Air Force Materiel Command, USAF.
