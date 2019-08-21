@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 
+  {% include relBase.html %}
   <head>
     {% include meta.html %}
     <title>{{page.title}}</title>
@@ -23,7 +24,7 @@
     {% endif %}
     <div id="main_content_wrap" class="outer">
     <!-- NAVIGATION -->
-    <nav>{% include navigation.html %}</nav>  
+    <nav>{% include navigation.html %}</nav>
 
       <section id="main_content" class="inner">
       {{ content }}

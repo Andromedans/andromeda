@@ -1,4 +1,11 @@
+{% if page.andromeda_version >= 2 %}
 <a id="forkme_banner" href="https://github.com/Andromedans/andromeda">View on GitHub</a>
-
 <h1 id="project_title">Andromeda</h1>
+<h2 id="project_tagline">Your type theory à la Martin-Löf</h2>
+
+{% else %}
+
+<a id="forkme_banner" href="https://github.com/Andromedans/andromeda/tree/andromeda-1.0">View on GitHub</a>
+<h1 id="project_title">Andromeda 1</h1>
 <h2 id="project_tagline">Type theory with equality reflection</h2>
+{% endif %}
