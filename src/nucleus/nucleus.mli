@@ -123,6 +123,10 @@ val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> primitive
 
 val form_derivation : (Nonce.t * boundary_abstraction) list -> judgement -> derivation
 
+(** Functions that expose abstract types. These are harmless because there is no way
+    to map back into the absract types. *)
+val expose_judgement : judgement -> Nucleus_types.judgement
+
 (** When we apply a rule application to one more argument two things may happen.
    Either we are done and we get a result, or more arguments are needed, in
    which case we get the rap with one more argument applied, and the boundary of
@@ -161,10 +165,7 @@ val form_is_term_boundary_abstraction : is_type_abstraction -> boundary_abstract
 val abstract_not_abstract : 'a -> 'a abstraction
 
 (** Abstract a judgement abstraction *)
-(* val abstract_is_type : is_atom -> is_type_abstraction -> is_type_abstraction *)
 val abstract_is_term : ?name:Name.t -> is_atom -> is_term_abstraction -> is_term_abstraction
-(* val abstract_eq_type : is_atom -> eq_type_abstraction -> eq_type_abstraction *)
-(* val abstract_eq_term : is_atom -> eq_term_abstraction -> eq_term_abstraction *)
 val abstract_judgement : ?name:Name.t -> is_atom -> judgement_abstraction -> judgement_abstraction
 
 (** Abstract a boundary abstraction *)
@@ -201,6 +202,8 @@ val invert_is_term : signature -> is_term -> stump_is_term
 val invert_eq_type : eq_type -> stump_eq_type
 
 val invert_eq_term : eq_term -> stump_eq_term
+
+val atom_nonce : is_atom -> Nonce.t
 
 val atom_name : is_atom -> Name.t
 

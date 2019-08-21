@@ -4,6 +4,9 @@ module Signature = Signature
 
 let form_meta = Meta.form_meta
 
+(** Exponsing the inner structure (safely) *)
+let expose_judgement jdg = jdg
+
 (** Exports from [Sanity] *)
 let type_of_term = Sanity.type_of_term
 let type_of_term_abstraction = Sanity.type_of_term_abstraction
@@ -22,7 +25,6 @@ let alpha_equal_abstraction = Alpha_equal.abstraction
 
 let alpha_equal_judgement = Alpha_equal.judgement
 let alpha_equal_boundary = Alpha_equal.boundary
-
 
 (** Construct judgements *)
 let form_alpha_equal_term = Form.form_alpha_equal_term
@@ -79,6 +81,7 @@ let invert_boundary_abstraction = Invert.invert_boundary_abstraction
 
 let as_not_abstract = Invert.as_not_abstract
 let atom_name = Invert.atom_name
+let atom_nonce {atom_nonce;_} = atom_nonce
 
 let as_is_type_abstraction = Judgement.as_is_type_abstraction
 let as_is_term_abstraction = Judgement.as_is_term_abstraction

@@ -35,15 +35,17 @@
     bother matching anything under an abstraction. *)
 
 type is_type =
-  | IsTypeAddMeta of int
-  | IsTypeCheckMeta of int
-  | IsTypeConstructor of Ident.t * argument list
+  | TypeAddMeta of int
+  | TypeCheckMeta of int
+  | TypeConstructor of Ident.t * argument list
+  | TypeFreeMeta of Nonce.t * is_term list
 
 and is_term =
-  | IsTermAddMeta of int
-  | IsTermCheckMeta of int
-  | IsTermConstructor of Ident.t * argument list
-  | IsTermAtom of Nucleus.is_atom
+  | TermAddMeta of int
+  | TermCheckMeta of int
+  | TermConstructor of Ident.t * argument list
+  | TermFreeMeta of Nonce.t * is_term list
+  | TermAtom of Nonce.t
 
 and eq_type =
   | EqTypeAddMeta of int
@@ -81,14 +83,14 @@ let check_meta k abstr metas =
 
 let rec collect_is_type sgn metas abstr = function
 
-  | IsTypeAddMeta k ->
+  | TypeAddMeta k ->
      add_meta k abstr metas
 
-  | IsTypeCheckMeta k ->
+  | TypeCheckMeta k ->
      check_meta k abstr metas ;
      metas
 
-  | IsTypeConstructor (c, args) ->
+  | TypeConstructor (c, args) ->
      begin match Nucleus.as_not_abstract abstr with
      | None
      | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -108,16 +110,35 @@ let rec collect_is_type sgn metas abstr = function
         end
      end
 
+  | TypeFreeMeta (n, es) ->
+     begin match Nucleus.as_not_abstract abstr with
+     | None
+     | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) ->
+        raise Match_fail
+
+     | Some (Nucleus.JudgementIsType t) ->
+        begin match Nucleus.invert_is_type sgn t with
+          | Nucleus.Stump_TypeMeta (n', _, es') ->
+             if Nonce.equal n n' then
+               collect_is_terms sgn metas es' es
+             else
+               raise Match_fail
+
+          | Nucleus.Stump_TypeConstructor _ ->
+             raise Match_fail
+        end
+     end
+
 and collect_is_term sgn metas abstr = function
 
-  | IsTermAddMeta k ->
+  | TermAddMeta k ->
      add_meta k abstr metas
 
-  | IsTermCheckMeta k ->
+  | TermCheckMeta k ->
      check_meta k abstr metas ;
      metas
 
-  | IsTermConstructor (c, args) ->
+  | TermConstructor (c, args) ->
      begin match Nucleus.as_not_abstract abstr with
      | None -> raise Match_fail
      | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -143,7 +164,7 @@ and collect_is_term sgn metas abstr = function
 
      end
 
-  | IsTermAtom atm ->
+  | TermAtom n ->
      begin match Nucleus.as_not_abstract abstr with
        | None -> raise Match_fail
        | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -153,7 +174,7 @@ and collect_is_term sgn metas abstr = function
           let rec fold e =
             match Nucleus.invert_is_term sgn e with
             | Nucleus.Stump_TermAtom atm' ->
-               if Nucleus.alpha_equal_atom atm atm' then
+               if Nonce.equal n (Nucleus.atom_nonce atm') then
                  metas
                else
                  raise Match_fail
@@ -163,6 +184,41 @@ and collect_is_term sgn metas abstr = function
           in
           fold e
      end
+
+  | TermFreeMeta (n, es) ->
+     begin match Nucleus.as_not_abstract abstr with
+     | None
+     | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
+        raise Match_fail
+
+     | Some (Nucleus.JudgementIsTerm e) ->
+        let rec fold e =
+          match Nucleus.invert_is_term sgn e with
+          | Nucleus.Stump_TermMeta (n', _, es') ->
+             if Nonce.equal n n' then
+               collect_is_terms sgn metas es' es
+             else
+               raise Match_fail
+
+          | Nucleus.Stump_TermConvert (e, _) -> fold e
+          | Nucleus.(Stump_TermConstructor _ | Stump_TermAtom _) ->
+             raise Match_fail
+        in
+        fold e
+     end
+
+and collect_is_terms sgn metas es es' =
+  match es, es' with
+
+  | [], [] -> metas
+
+  | e :: es, e' :: es' ->
+     let e = Nucleus.(abstract_not_abstract (JudgementIsTerm e)) in
+     let metas = collect_is_term sgn metas e e' in
+     collect_is_terms sgn metas es es'
+
+  | [], _::_ | _::_, [] ->
+     raise Match_fail
 
 and collect_eq_type sgn metas abstr = function
 
@@ -270,29 +326,160 @@ let match_is_type sgn e k r =
 
 exception Form_fail
 
-(** Form a pattern from the given term [e], abstracting over the given
-    meta-variables. *)
-let rec form_is_term sgn metas e =
-  match Nucleus.invert_is_term sgn e with
-  | Nucleus.Stump_TermAtom atm -> IsTermAtom atm
+(** Is the given judgement abstraction an eta-expanded meta-variable? *)
+let extract_meta metas abstr =
+  let rec fold k = function
 
-  | Nucleus.Stump_TermConstructor (c, args) ->
-     let args = form_arguments sgn metas args in
-     IsTermConstructor (c, args)
+    | Nucleus_types.Arg_Abstract (_, abstr) -> fold (k+1) abstr
 
-  | Nucleus.Stump_TermMeta (i, []) ->
-     if 0 <= i && i < k then
-       IsTermAddMeta i
+    | Nucleus_types.Arg_NotAbstract jdg ->
+       (* check tht given arguments are bound variables j, j-1, ..., 0 *)
+       let rec check_es j = function
+
+         | [] -> if j <> 0 then raise Form_fail
+
+         | Nucleus_types.TermBoundVar i :: es ->
+            if i = j-1 then check_es (j-1) es else raise Form_fail
+
+         | Nucleus_types.(TermAtom _ | TermMeta _ | TermConvert _ | TermConstructor _) :: _ -> raise Form_fail
+
+       in
+       begin match jdg with
+
+       | Nucleus_types.JudgementIsTerm e ->
+          begin match e with
+          | Nucleus_types.TermMeta (MetaBound k, es) ->
+             check_es k es ;
+             if Bound_set.mem k metas then
+               metas, ArgumentIsTerm (TermCheckMeta k)
+             else
+               let metas = Bound_set.add k metas in
+               metas, ArgumentIsTerm (TermAddMeta k)
+
+          | Nucleus_types.(TermMeta (MetaFree _, _) | TermBoundVar _ | TermAtom _ | TermConstructor _ | TermConvert _) ->
+             raise Form_fail
+
+          end
+
+       | Nucleus_types.JudgementIsType t ->
+          begin match t with
+          | Nucleus_types.TypeMeta (MetaBound k, es) ->
+             check_es k es ;
+             if Bound_set.mem k metas then
+               metas, ArgumentIsType (TypeCheckMeta k)
+             else
+               let metas = Bound_set.add k metas in
+               metas, ArgumentIsType (TypeAddMeta k)
+
+          | Nucleus_types.(TypeMeta (MetaFree _, _) | TypeConstructor _) ->
+             raise Form_fail
+          end
+
+       | Nucleus_types.(JudgementEqType _ | JudgementEqTerm _) ->
+          raise Form_fail
+       end
+  in
+  fold 0 abstr
+
+
+(** Form a rewrite pattern from the given term [e], abstracting over the given
+   bound meta-variables. *)
+let rec form_is_term metas e =
+  match e with
+  | Nucleus_types.TermBoundVar _ ->
+     assert false
+
+  | Nucleus_types.TermAtom atm ->
+     metas, TermAtom atm.atom_nonce
+
+  | Nucleus_types.TermConstructor (c, args) ->
+     let metas, args = form_arguments metas args in
+     metas, TermConstructor (c, args)
+
+  | Nucleus_types.TermMeta (MetaBound i, []) ->
+     if Bound_set.mem i metas then
+       metas, TermCheckMeta i
      else
-       raise Form_fail
+       let metas = Bound_set.add i metas in
+       metas, TermAddMeta i
 
-  | Nucleus.Stump_TermConvert (e, _) -> form_is_term sgn k e
+  | Nucleus_types.TermMeta (MetaFree mv, es) ->
+     let rec fold metas es_out = function
 
-and form_arguments sgn metas = function
-  | [] -> metas
-  | arg :: args ->
-     let metas = form_argument sgn meta arg in
-     let metas = form_arguments sgn metas args in
-     metas
+       | [] ->
+          let es_out = List.rev es_out in
+          metas, TermFreeMeta (mv.meta_nonce, es_out)
 
-and form_argument sgn metas arg = (??)
+       | e :: es ->
+          let metas, e = form_is_term metas e in
+          fold metas (e :: es_out) es
+     in
+     fold metas [] es
+
+  | Nucleus_types.TermMeta (MetaBound _, _::_)
+  | Nucleus_types.TermConvert _ ->
+     raise Form_fail
+
+and form_is_type metas = function
+
+  | Nucleus_types.TypeConstructor (c, args) ->
+     let metas, args = form_arguments metas args in
+     metas, TypeConstructor (c, args)
+
+  | Nucleus_types.TypeMeta (MetaBound i, []) ->
+     if Bound_set.mem i metas then
+       metas, TypeCheckMeta i
+     else
+       let metas = Bound_set.add i metas in
+       metas, TypeAddMeta i
+
+  | Nucleus_types.TypeMeta (MetaFree mv, es) ->
+     let rec fold metas es_out = function
+
+       | [] ->
+          let es_out = List.rev es_out in
+          metas, TypeFreeMeta (mv.meta_nonce, es_out)
+
+       | e :: es ->
+          let metas, e = form_is_term metas e in
+          fold metas (e :: es_out) es
+     in
+     fold metas [] es
+
+  | Nucleus_types.TypeMeta (MetaBound _, _::_) ->
+     raise Form_fail
+
+and form_arguments metas args =
+  let rec fold metas args_out = function
+
+    | [] ->
+       let args_out = List.rev args_out in
+       metas, args_out
+
+    | arg :: args ->
+       let metas, arg = form_argument metas arg in
+       fold metas (arg :: args_out) args
+  in
+  fold metas [] args
+
+and form_argument metas = function
+  | Nucleus_types.Arg_NotAbstract jdg ->
+     begin match jdg with
+     | Nucleus_types.JudgementIsTerm e ->
+        let metas, e = form_is_term metas e in
+        metas, ArgumentIsTerm e
+
+     | Nucleus_types.JudgementIsType t ->
+        let metas, t = form_is_type metas t in
+        metas, ArgumentIsType t
+
+     | Nucleus_types.JudgementEqType _
+     | Nucleus_types.JudgementEqTerm _ ->
+        (* For the time being we don't support equality arguments.
+           It's not entirely clear how we should treat them. *)
+        raise Form_fail
+     end
+
+  | Nucleus_types.Arg_Abstract _ as abstr ->
+     (** Check to see if this is an eta-expanded meta-variable. *)
+     extract_meta metas abstr
