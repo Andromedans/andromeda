@@ -53,6 +53,7 @@ SHARE_DIR ?= $(PREFIX)/share
 DOC_DIR := $(DOC_DIR)/andromeda
 LIB_DIR := $(LIB_DIR)/andromeda
 EXAMPLE_DIR := $(LIB_DIR)/examples
+THEORIES_DIR := $(LIB_DIR)/theories
 
 version:
 	@git describe --always --long
@@ -80,8 +81,8 @@ graph: andromeda.docdir/andromeda.dot
 	dot -Tsvg < _build/andromeda.docdir/andromeda.dot > andromeda.svg
 
 
-install: install-binary install-lib install-examples install-project-info install-emacs
-uninstall: uninstall-binary uninstall-lib uninstall-examples uninstall-project-info uninstall-emacs
+install: install-binary install-lib install-theories install-examples install-project-info install-emacs
+uninstall: uninstall-binary uninstall-lib uninstall-theories uninstall-examples uninstall-project-info uninstall-emacs
 
 install-binary: opt
 	install -d $(BIN_DIR)
@@ -111,11 +112,11 @@ uninstall-emacs:
 	rm -f $(SHARE_DIR)/emacs/site-lisp/andromeda.el $(SHARE_DIR)/emacs/site-lisp/andromeda-autoloads.el
 
 install-lib:
-	install -d $(LIB_DIR)/std
+	install -d $(LIB_DIR)/stdlib
 	install -m 644 prelude.m31 $(LIB_DIR)/prelude.m31
-	cp -r std/* $(LIB_DIR)/std/
+	cp -r stdlib/* $(LIB_DIR)/stdlib/
 uninstall-lib:
-	rm -rf $(LIB_DIR)/std/*
+	rm -rf $(LIB_DIR)/stdlib/*
 	rm -f $(LIB_DIR)/prelude.m31
 	rmdir $(LIB_DIR) || true
 
@@ -125,6 +126,13 @@ install-examples:
 uninstall-examples:
 	rm -rf $(EXAMPLE_DIR)/* || true
 	rmdir $(EXAMPLE_DIR) || true
+
+install-theories:
+	install -d $(THEORIES_DIR)
+	cp -r theories/* $(THEORIES_DIR)
+uninstall-theories:
+	rm -rf $(THEORIES_DIR)/* || true
+	rmdir $(THEORIES_DIR) || true
 
 clean:
 	ocamlbuild -clean
@@ -139,6 +147,7 @@ clean:
 	install-binary \
 	install-doc \
 	install-examples \
+	install-theories \
 	install-lib \
 	menhir-explain \
 	src/build.ml \
