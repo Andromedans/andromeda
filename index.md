@@ -7,8 +7,7 @@ layout: page
 
 ### ICFP 2019 material
 
-* [keynote slides](talks/icfp2019/Derivations_as_computations-ICFP_2019.pdf)
-* [demo file](https://gist.github.com/haselwarter/3da19c171d6279e978c50df772004727)
+* [abstract, keynote slides (pdf), and demo file](http://math.andrej.com/2019/08/21/derivations-as-computations/)
 * [some answers to *sli.do* questions](answers.html)
 
 ### Introduction
