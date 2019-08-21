@@ -11,23 +11,25 @@ navigation: "install"
 The easiest way to install Andromeda is through the [Opam](http://opam.ocamlpro.com)
 package manager for OCaml. You can install Opam on your system following
 [these instructions](http://opam.ocaml.org/doc/Install.html). In case your operating
-system does not provide OCaml version >= 4.02, you can install it with `opam switch
-4.02.1`. Then simply add the Andromeda repo to opam, update and install Andromeda with
+system does not provide OCaml version >= 4.07, you can install it with `opam switch
+4.08.1`. Then simply add the Andromeda repo to opam, update and install Andromeda with
 these commands:
 
-    opam repo add andromeda git://github.com/haselwarter/andromeda-opam.git
+    git clone https://github.com/Andromedans/andromeda
+    cd andromeda
     opam update
-    opam install andromeda
+    opam pin add andromeda .    # for installation (confirm twice with "y")
+    opam upgrade                # to upgrade
 
-### Building Andromeda 
+### Building Andromeda
 
 #### Prerequisites
 
-To build Andromeda, you need [OCaml 4.02](http://ocaml.org) or later (and quite possibly
+To build Andromeda, you need [OCaml 4.07](http://ocaml.org) or later (and quite possibly
 it works with earlier versions too), the
 [menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator and the
 [sedlex](https://www.lexifi.com/sedlex) unicode lexer. We recommend using
-[Opam](http://opam.ocamlpro.com) for installation of OCaml, menhir and sedlex.
+[Opam](http://opam.ocamlpro.com) for installation of OCaml and dependencies.
 
 If you also install the [ledit](http://opam.ocaml.org/packages/ledit/ledit.2.03/) or
 [rlwrap](http://utopia.knoware.nl/~hlub/uck/rlwrap/#rlwrap) utility, the Andromeda
