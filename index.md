@@ -5,6 +5,13 @@ andromeda_version: 2
 layout: page
 ---
 
+### ICFP 2019 material
+
+* [keynote slides](talks/icfp2019/Derivations_as_computations-ICFP_2019.pdf)
+* [demo file](https://gist.github.com/haselwarter/3da19c171d6279e978c50df772004727)
+
+### Introduction
+
 Information about the old Andromeda 1, an implementation of type theory with
 equality reflection, is available [*here*](v1/index.html).
 
