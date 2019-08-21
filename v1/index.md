@@ -1,33 +1,39 @@
 ---
-title: Andromeda proof assistant
-navigation: Andromeda 2
-andromeda_version: 2
+title: Andromeda v1
+navigation: about
 layout: page
 ---
 
-Information about the old Andromeda 1, an implementation of type theory with
-equality reflection, is available [*here*](v1/index.html).
-
-Andromeda 2 is currently under active development. Until better documentation
-will be available, the best way to learn about Andromeda 2 is by consulting the
-code examples found in
-[theories subdirectory](https://github.com/Andromedans/andromeda/tree/master/theories)
-and the [tests subdirectory](https://github.com/Andromedans/andromeda/tree/master/tests).
+Andromeda 1 is an implementation of dependent type theory with equality reflection. The type
+theory is very expressive, as it allows one to postulate new judgmental equalities.
 
 The design of Andromeda follows the tradition of
 [LCF](https://en.wikipedia.org/wiki/Logic_for_Computable_Functions)-style theorem provers:
 
-* there is an abstract datatype of judgements,
-* all constructions of judgements are done by a trusted *nucleus* and directly correspond
-  to the application of inference rules of type theory,
+* there is an abstract datatype of judgments,
+* all constructions of judgments are done by a trusted *nucleus* and directly correspond
+  to the inference rules of type theory (or derivations thereof),
 * the user interacts with the nucleus by writing programs in a high-level, statically
-  typed meta-language *Andromeda ML (AML)*.
+  typed meta-language [*Andromeda ML (AML)*](meta-language.html).
 
 The nucleus does not perform any normalization (it cannot as the underlying type theory
 has no normal forms), unification, or perform proof search. These techniques can all be
 implemented on top of the nucleus in AML, and therefore cannot compute underivable
 judgments by design. Of course, they could fail or run forever because AML is a
 general-purpose programming language.
+
+Equality checking is delegated to the meta-level by a mechanism of operations and handlers
+akin to those of the [Eff programming language](http://www.eff-lang.org). Whenever the
+nucleus needs to check a non-trivial equation, it triggers an operation (question) which
+propagates to the meta-level. There it is intercepted by a user-defined handler which
+handles (answers) the equation by providing a witness for it.
+
+### Theoretical background
+
+Documents: see the
+[documents folder](https://github.com/Andromedans/andromeda/tree/master/doc) in the GitHub
+repository.
+
 
 
 ### History of the name
