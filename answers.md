@@ -23,7 +23,7 @@ type theories we picked.
 
 > Will you support transport of terms between user-defined type theories?
 
-A: This is the PhD subject of [Anja Petkovič](anjapetkovic.com), so yes,
+A: This is the PhD subject of [Anja Petković](https://anjapetkovic.com), so yes,
 exciting future work!
 
 ##### Anonymous (9:47 AM):
