@@ -15,9 +15,9 @@ module PathSet = Set.Make(
                          match x, y with
                          | Direct _, Module _ -> -1
                          | Module _, Direct _ -> 1
-                         | Direct (Level (_, i)), Direct (Level (_, j)) -> Pervasives.compare i j
+                         | Direct (Level (_, i)), Direct (Level (_, j)) -> Stdlib.compare i j
                          | Module (p, Level(_, i)), Module (q, Level (_, j)) ->
-                            let c = Pervasives.compare i j in
+                            let c = Stdlib.compare i j in
                             if c <> 0 then c
                             else compare p q
                      end)

@@ -30,7 +30,7 @@ struct
 
   module KeyMap = Map.Make (struct
                              type t = key
-                             let compare = Pervasives.compare
+                             let compare = Stdlib.compare
                            end)
 
   type 'a t = {store : 'a KeyMap.t; counter : int}
