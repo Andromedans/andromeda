@@ -52,8 +52,8 @@ export OPAMYES=1
 # opam init -a ${BASE_REMOTE}
 opam init
 eval $(opam config env)
-opam switch install 4.06.1
-opam switch 4.06.1
+opam switch install 4.08.1
+opam switch 4.08.1
 eval $(opam config env)
 
 # install andromeda dependencies
