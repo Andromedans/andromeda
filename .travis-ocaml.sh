@@ -52,6 +52,7 @@ export OPAMYES=1
 # opam init -a ${BASE_REMOTE}
 opam init
 eval $(opam config env)
+opam switch list-available || opam switch --all || opam switch --list || true
 opam switch install 4.08.1
 opam switch 4.08.1
 eval $(opam config env)
