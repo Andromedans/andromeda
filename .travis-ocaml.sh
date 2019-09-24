@@ -32,7 +32,7 @@ esac
 
 # sudo add-apt-repository \
 #      "deb mirror://mirrors.ubuntu.com/mirrors.txt trusty main restricted universe"
-# sudo add-apt-repository --yes ppa:${ppa}
+sudo add-apt-repository --yes ppa:${ppa}
 sudo apt-get update -qq
 sudo apt-get install -y \
      $(full_apt_version ocaml $OCAML_VERSION) \
