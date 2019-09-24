@@ -21,17 +21,8 @@ OCAML_VERSION=${OCAML_VERSION:-latest}
 # the base opam repository to use for bootstrapping and catch-all namespace
 BASE_REMOTE=${BASE_REMOTE:-git://github.com/ocaml/opam-repository}
 
-case "$OCAML_VERSION" in
-    3.12) ppa=avsm/ocaml312+opam12 ;;
-    4.00) ppa=avsm/ocaml40+opam12  ;;
-    4.01) ppa=avsm/ocaml41+opam12  ;;
-    4.02) ppa=avsm/ocaml42+opam12  ;;
-    latest) ppa=avsm/ppa-opam-experimental;;
-    *)    echo Unknown compiler version; exit 1;;
-esac
-
-# sudo add-apt-repository \
-#      "deb mirror://mirrors.ubuntu.com/mirrors.txt trusty main restricted universe"
+# Add Anil's Ubuntu repo for Opam 2
+ppa=avsm/ppa
 sudo add-apt-repository --yes ppa:${ppa}
 sudo apt-get update -qq
 sudo apt-get install -y \
