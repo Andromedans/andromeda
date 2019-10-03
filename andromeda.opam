@@ -9,6 +9,7 @@ dev-repo: "git://github.com/Andromedans/andromeda"
 license: "BSD-2-Clause"
 synopsis: "¸¸.•*¨*• A Prover for Type Theories à la Martin-Löf •*¨*•.¸¸"
 depends: [
+  "ocaml" { >= "4.07.0" }
   "ocamlbuild" {build}
   "ocamlfind" {build}
   "menhir"

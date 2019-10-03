@@ -17,7 +17,7 @@ let path {path; _} = path
 
 let equal {stamp=i;_} {stamp=j;_} = (i = j)
 
-let compare {stamp=i;_} {stamp=j;_} = Pervasives.compare i j
+let compare {stamp=i;_} {stamp=j;_} = Stdlib.compare i j
 
 module IdentMap = Map.Make(struct
                         type nonrec t = t
