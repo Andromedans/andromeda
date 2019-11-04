@@ -1,27 +1,60 @@
-(** A β-rule has the form
+(** Type-directed equality checking based on user-provided rules. *)
 
-    rule R P₁ ... Pᵢ  e₁ ≡ e₂ : A
+(** We support user-provided beta-rules and extensionality-rules (these are
+  typically derivable from η-etas rules, but have a more convenient form)
+
+  A term extensionality rule has the form
+
+      rule R P₁ ... Pᵢ (x : A) (y : A) Q₁ ... Qⱼ x ≡ y : A
 
   where:
 
-  - the head meta-variable of each premise appears in e₁, uninstantiated (actually
-    fully η-expanded), so that the premises can be read off e₁
+  - the premises P₁ ... Pᵢ are type and term premises
+
+  - the premises Q₁ ... Qⱼ are term equation premises
+
+  - the head meta-variables of the premises P₁ ... Pᵢ appear in A,
+    uninstantiated, so that the premises P₁ ... Pᵢ can be read off A.
+
+  For example, the extensionality rule for functions is
+
+      rule Π_ext (A type) ({x:A} B type) (f : Π A B) (g : Π A B)
+                 ({x : A} app A B f x ≡ app A B g x as ξ)
+                 f ≡ g : Π A B
+
+  For example, the extensionality rule for the unit type is
+
+      rule unit_ext (x : unit) (y : unit) x ≡ y : unit
+
+  For example, the extensionality rule for dependent sums is
+
+      rule Σ_ext (A type) ({x:A} B type) (p : Σ A B) (q : Σ A B)
+                 (π₁ A B p ≡ π₁ A B q : A as ξ₁)
+                 (π₂ A B p ≡ π₂ A B q : B{π₁ A B p} as ξ₂) p ≡ q
+                 : Σ A B
+
+  A term β-rule has the form
+
+      rule R P₁ ... Pᵢ e₁ ≡ e₂ : A
+
+  where:
+
+  - the head meta-variable of each premise appears in e₁, uninstantiated
+    (actually fully η-expanded), so that the premises can be read off e₁
 
   For example, the β-rule for functions is:
 
-     rule Π_β (A type) ({x:A} B type) (a : A) ({x:A} e : B{x}) :
-       app A B (λ A B e) a ≡ e{a} : B{a}
+     rule Π_β (A type) ({x:A} B type) (a : A) ({x:A} e : B{x})
+              : app A B (λ A B e) a ≡ e{a} : B{a}
 
   For example, the β-rule for projections are:
 
-     rule Σ_β₁ (A type) ({x : A} B type) (a : A) (b : B{a}) :
-       π₁ A B (pair A B a b) == a : A
+     rule Σ_β₁ (A type) ({x : A} B type) (a : A) (b : B{a})
+              : π₁ A B (pair A B a b) == a : A
 
-*)
+  A type β-rule has the form
 
-(** A type β-rule has the form
-
-    rule R P₁ ... Pᵢ  A ≡ B
+     rule R P₁ ... Pᵢ  A ≡ B
 
   where:
 
@@ -33,7 +66,6 @@
 
 (** Types describing patterns that we can match against. These are simple and do not
     bother matching anything under an abstraction. *)
-
 type is_type =
   | TypeAddMeta of int
   | TypeCheckMeta of int
@@ -74,12 +106,14 @@ module MetaMap =
 
 let add_meta = MetaMap.add
 
+(** Verifty that the [abstr] equals the abstraction that the bound meta-variable [k]
+    was matched to previosuly. *)
 let check_meta k abstr metas =
   let abstr' = MetaMap.find k metas in
   if not (Nucleus.alpha_equal_abstraction Nucleus.alpha_equal_judgement abstr abstr') then
     raise Match_fail
 
-(** Match a TT term against a matcher, read off the meta-variables. *)
+(** Match an abstraction against a matcher, and collect the values of meta-variables when doing so. *)
 
 let rec collect_is_type sgn metas abstr = function
 
@@ -341,7 +375,8 @@ let extract_meta metas abstr =
          | Nucleus_types.TermBoundVar i :: es ->
             if i = j-1 then check_es (j-1) es else raise Form_fail
 
-         | Nucleus_types.(TermAtom _ | TermMeta _ | TermConvert _ | TermConstructor _) :: _ -> raise Form_fail
+         | Nucleus_types.(TermAtom _ | TermMeta _ | TermConvert _ | TermConstructor _) :: _ ->
+            raise Form_fail
 
        in
        begin match jdg with
@@ -356,7 +391,8 @@ let extract_meta metas abstr =
                let metas = Bound_set.add k metas in
                metas, ArgumentIsTerm (TermAddMeta k)
 
-          | Nucleus_types.(TermMeta (MetaFree _, _) | TermBoundVar _ | TermAtom _ | TermConstructor _ | TermConvert _) ->
+          | Nucleus_types.(TermMeta (MetaFree _, _) | TermBoundVar _ | TermAtom _ |
+                           TermConstructor _ | TermConvert _) ->
              raise Form_fail
 
           end
@@ -483,3 +519,7 @@ and form_argument metas = function
   | Nucleus_types.Arg_Abstract _ as abstr ->
      (** Check to see if this is an eta-expanded meta-variable. *)
      extract_meta metas abstr
+
+(** Create an internal representation of a β-rule *)
+type beta_rule = {
+  }
