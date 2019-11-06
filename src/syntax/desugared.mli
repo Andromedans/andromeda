@@ -74,7 +74,7 @@ and comp' =
   | TTConstructor of Path.t * comp list
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp
-  | AbstractComp of (comp list) * comp
+  | AbstractAtom of comp * comp
   | Substitute of comp * comp
   | Yield of comp
   | String of string

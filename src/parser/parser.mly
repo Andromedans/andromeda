@@ -254,8 +254,8 @@ term_:
   | FRESH x=opt_name(ml_name) COLON t=ty_term
     { Sugared.Fresh (x, t) }
 
-  | ABSTRACT c1=nonempty_list(term) IN c2=term
-    {Sugared.AbstractComp (c1, c2)}
+  | ABSTRACT c1=prefix_term c2=prefix_term
+    { Sugared.AbstractAtom (c1, c2) }
 
   | e=app_term COLONQT bdry=ty_term
     { Sugared.BoundaryAscribe (e, bdry) }
