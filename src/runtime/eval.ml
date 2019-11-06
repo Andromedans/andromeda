@@ -203,6 +203,18 @@ let rec comp {Location.it=c'; at} =
              | Runtime.(Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
                 Runtime.(error ~at (JudgementExpected v))
            end)
+  
+  | Syntax.AbstractAtom (a, c) ->
+     comp_as_atom a >>= fun a ->
+           begin comp c >>=
+             function
+             | Runtime.Judgement jdg -> Runtime.return_judgement (Nucleus.abstract_judgement a jdg)
+
+             | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
+
+             | Runtime.(Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+                Runtime.(error ~at (JudgementExpected v))
+           end
 
   | Syntax.Substitute (c1, c2) ->
      (*
@@ -356,6 +368,7 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.Lookup _
   | Syntax.Update _
   | Syntax.Fresh _
+  | Syntax.AbstractAtom _
   | Syntax.Current _
   | Syntax.String _
   | Syntax.Occurs _
