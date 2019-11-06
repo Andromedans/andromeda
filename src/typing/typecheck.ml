@@ -35,6 +35,7 @@ let rec generalizable c =
   | Syntax.Update _
   | Syntax.Ref _
   | Syntax.Fresh _
+  | Syntax.AbstractAtom _
   | Syntax.Match _
   | Syntax.BoundaryAscribe _
   | Syntax.TypeAscribe _
@@ -414,6 +415,11 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
   | Desugared.Fresh (xopt, c) ->
      check_comp c Mlty.Judgement >>= fun c ->
      return (locate ~at (Syntax.Fresh (xopt, c)), Mlty.Judgement)
+
+   | Desugared.AbstractAtom (c1, c2) ->
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
+     check_comp c2 Mlty.Judgement >>= fun c2 ->
+     return (locate ~at (Syntax.AbstractAtom (c1, c2)), Mlty.Judgement)
 
   | Desugared.Match (c, cases) ->
     infer_comp c >>= fun (c, tc) ->

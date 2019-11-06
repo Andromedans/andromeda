@@ -59,7 +59,7 @@ and comp' =
   | TTApply of comp * comp list
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp
-  | AbstractComp of (comp list) * comp
+  | AbstractAtom of comp * comp
   | Substitute of comp * comp
   | Derive of premise list * comp
   | Yield of comp
