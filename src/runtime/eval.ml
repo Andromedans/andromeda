@@ -218,7 +218,11 @@ let rec comp {Location.it=c'; at} =
 
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
+<<<<<<< HEAD
              | Runtime.(Closure _ | Derivation _| Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+=======
+             | Runtime.(Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+>>>>>>> b0e48f50f2ee9d31343cd5142d8082d260ab2b07
                 Runtime.(error ~at (JudgementExpected v))
            end
 
