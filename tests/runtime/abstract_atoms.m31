@@ -1,4 +1,13 @@
 rule A type;;
-let abstr = {z : A} z;;
-let a = match abstr with {y : Y} w :> judgement -> y end;;
+
+let x = fresh x : A in abstract x x;;
+
+let b = fresh b : A in abstract b (? : A);;
+
+let abstr_jdg = {z : A} z;;
+let a = match abstr_jdg with {y : Y} w :> judgement -> y end;;
 let abstr1 = abstract a a;;
+
+let abstr_bdry = {x : A} {y : A} ? : A ;;
+let (atom, bdry) = match abstr_bdry with {y : Y} w :> boundary -> (y, w) end;;
+let abstr2 = abstract atom bdry;;
