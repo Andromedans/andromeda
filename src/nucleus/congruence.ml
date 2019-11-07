@@ -56,7 +56,7 @@ let form_rule_rap sgn form rl args1 args2 =
     | Conclusion concl, [], [] ->
        RapDone (form eq_args concl)
 
-    | Premise (prem, rl), arg1 :: args1, arg2 :: args2 ->
+    | Premise (_, prem, rl), arg1 :: args1, arg2 :: args2 ->
        begin match congruence_boundary es prem arg1 arg2 with
 
        | None ->

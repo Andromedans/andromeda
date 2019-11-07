@@ -288,6 +288,10 @@ let eq_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
   abstraction Occurs_bound.eq_term thesis_eq_term ?max_level ~penv abstr ppf
 
+(** Printing of error messages *)
+(* TODO: Some of these are probably internal while others count as runtime errors. We
+   shoudl differentiate between them and tell the user the internal ones are not their
+   fault. *)
 let error ~penv err ppf =
   let open Nucleus_types in
   match err with

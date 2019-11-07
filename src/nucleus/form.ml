@@ -56,7 +56,7 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
 (* Form a rule application for the given constructor [c] *)
 let form_constructor_rap sgn c =
   let rec fold args = function
-    | Premise (prem, rl) ->
+    | Premise (_, prem, rl) ->
        let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
        let rap abstr =
          if not (Check.judgement_boundary_abstraction sgn abstr bdry)
@@ -98,7 +98,7 @@ let form_constructor_rap sgn c =
 (** Form a rap from a derivation *)
 let form_derivation_rap sgn drv =
   let rec fold args = function
-    | Premise (prem, drv) ->
+    | Premise (_, prem, drv) ->
        let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
        let rap abstr =
          if not (Check.judgement_boundary_abstraction sgn abstr bdry)
