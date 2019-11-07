@@ -1,0 +1,4 @@
+Rule A is postulated.
+val abstr :> judgement = ⊢ {z : A} z
+val a :> judgement = ?z₀ : A ⊢ ?z₀
+val abstr1 :> judgement = ⊢ {z : A} z

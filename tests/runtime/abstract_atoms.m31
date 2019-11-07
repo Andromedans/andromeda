@@ -1,0 +1,4 @@
+rule A type;;
+let abstr = {z : A} z;;
+let a = match abstr with {y : Y} w :> judgement -> y end;;
+let abstr1 = abstract a a;;
