@@ -125,7 +125,7 @@ let form_is_term_rap sgn c args1 args2 =
        let asmp = Collect_assumptions.arguments eq_args
        and e1 = Mk.term_constructor c args1
        and e2 = Mk.term_constructor c args2
-       and t = Instantiate_meta.is_type ~lvl:0 args1 t_schema in
+       and t = Instantiate_meta.is_type ~lvl:0 (List.rev args1) t_schema in
        JudgementEqTerm (Mk.eq_term asmp e1 e2 t)
 
     | BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _ ->
