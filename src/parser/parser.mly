@@ -249,9 +249,6 @@ term_:
   | FRESH x=opt_name(ml_name) COLON t=ty_term
     { Sugared.Fresh (x, t) }
 
-  | ABSTRACT c1=prefix_term c2=prefix_term
-    { Sugared.AbstractAtom (c1, c2) }
-
   | e=app_term COLONQT bdry=ty_term
     { Sugared.BoundaryAscribe (e, bdry) }
 
@@ -312,6 +309,9 @@ app_term_:
 
   | CONVERT c1=substitution_term c2=substitution_term
     { Sugared.Convert (c1, c2) }
+
+  | ABSTRACT c1=prefix_term c2=prefix_term
+    { Sugared.AbstractAtom (c1, c2) }
 
   | OCCURS c1=substitution_term c2=substitution_term
     { Sugared.Occurs (c1, c2) }
