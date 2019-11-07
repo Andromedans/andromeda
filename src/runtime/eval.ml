@@ -207,7 +207,7 @@ let rec comp {Location.it=c'; at} =
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
              | Runtime.(Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-                Runtime.(error ~at (JudgementExpected v))
+                Runtime.(error ~at (JudgementOrBoundaryExpected v))
            end)
   
   | Syntax.AbstractAtom (a, c) ->
@@ -219,7 +219,7 @@ let rec comp {Location.it=c'; at} =
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
              | Runtime.(Closure _ | Derivation _| Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-                Runtime.(error ~at (JudgementExpected v))
+                Runtime.(error ~at (JudgementOrBoundaryExpected v))
            end
 
   | Syntax.Substitute (c1, c2) ->
