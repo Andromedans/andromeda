@@ -55,11 +55,7 @@
 %token FUN
 
 (* TT commands *)
-<<<<<<< HEAD
 %token FRESH CONVERT CONGRUENCE CONTEXT OCCURS DERIVE ABSTRACT
-=======
-%token ABSTRACT FRESH CONVERT CONGRUENCE CONTEXT OCCURS
->>>>>>> b0e48f50f2ee9d31343cd5142d8082d260ab2b07
 
 (* Toplevel directives *)
 %token VERBOSITY
