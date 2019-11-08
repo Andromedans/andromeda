@@ -55,7 +55,7 @@
 %token FUN
 
 (* TT commands *)
-%token FRESH CONVERT CONGRUENCE CONTEXT OCCURS DERIVE
+%token FRESH CONVERT CONGRUENCE CONTEXT OCCURS DERIVE ABSTRACT
 
 (* Toplevel directives *)
 %token VERBOSITY
@@ -309,6 +309,9 @@ app_term_:
 
   | CONVERT c1=substitution_term c2=substitution_term
     { Sugared.Convert (c1, c2) }
+
+  | ABSTRACT c1=prefix_term c2=prefix_term
+    { Sugared.AbstractAtom (c1, c2) }
 
   | OCCURS c1=substitution_term c2=substitution_term
     { Sugared.Occurs (c1, c2) }

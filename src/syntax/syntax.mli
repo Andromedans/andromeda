@@ -59,6 +59,7 @@ and comp' =
   | TTApply of comp * comp list
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp
+  | AbstractAtom of comp * comp
   | Substitute of comp * comp
   | Derive of premise list * comp
   | Yield of comp
@@ -72,16 +73,16 @@ and comp' =
 
 (** The boundary of the conclusion of a premise or a rule *)
 and boundary =
-   | BoundaryIsType
-   | BoundaryIsTerm of comp
-   | BoundaryEqType of comp * comp
-   | BoundaryEqTerm of comp * comp * comp
+  | BoundaryIsType
+  | BoundaryIsTerm of comp
+  | BoundaryEqType of comp * comp
+  | BoundaryEqTerm of comp * comp * comp
 
 (** A let-clause is given by a list of names with their types, a pattern that
-   binds these variables (so the variables list needs to match the pattern!),
-   and the body of the definition.
+    binds these variables (so the variables list needs to match the pattern!),
+    and the body of the definition.
 
-   The names and types are used only for printing during runtime. *)
+    The names and types are used only for printing during runtime. *)
 and let_clause =
   | Let_clause of pattern * comp
 

@@ -169,6 +169,7 @@ type error =
   | EqTermExpected of value
   | AbstractionExpected
   | JudgementExpected of value
+  | JudgementOrBoundaryExpected of value
   | DerivationExpected of value
   | ClosureExpected of value
   | HandlerExpected of value

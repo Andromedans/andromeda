@@ -959,6 +959,11 @@ let rec comp ctx {Location.it=c';at} =
      let c = comp ctx c in
      locate (Desugared.Fresh (xopt, c))
 
+   | Sugared.AbstractAtom (c1,c2) ->
+     let c1 = comp ctx c1
+     and c2 = comp ctx c2 in
+     locate (Desugared.AbstractAtom (c1,c2))
+
   | Sugared.Match (c, cases) ->
      let c = comp ctx c
      and cases = List.map (match_case ctx) cases in
