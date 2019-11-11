@@ -288,6 +288,17 @@ let eq_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
   abstraction Occurs_bound.eq_term thesis_eq_term ?max_level ~penv abstr ppf
 
+let derivation ?max_level ~penv drv ppf =
+  let rec fold drv ppf =
+    match drv with
+    | Conclusion jdg -> Print.print "%s@ %t" (Print.char_arrow ()) (thesis_judgement ~penv jdg)
+    | Premise (n, p, rl) ->
+       let penv' =
+  in
+  Print.print ?max_level "derive@ %t" (fold drv) ppf
+
+
+
 (** Printing of error messages *)
 (* TODO: Some of these are probably internal while others count as runtime errors. We
    shoudl differentiate between them and tell the user the internal ones are not their
