@@ -3,15 +3,15 @@ Rule B is postulated.
 Rule a is postulated.
 Rule b is postulated.
 - : boundary = ⊢ ⁇ type
-- : boundary = ⊢ {_ : A} {_ : A} (⁇ type)
+- : boundary = ⊢ {_ : A} {_ : A} ⁇ type
 - : boundary = ⊢ ⁇ : A
-- : boundary = ⊢ {_ : A} {_ : A} (⁇ : A)
+- : boundary = ⊢ {_ : A} {_ : A} ⁇ : A
 - : boundary = ⊢ A ≡ B as ⁇
-- : boundary = ⊢ {_ : A} {_ : A} (A ≡ B as ⁇)
+- : boundary = ⊢ {_ : A} {_ : A} A ≡ B as ⁇
 - : boundary = ⊢ a ≡ b : A as ⁇
 - : boundary = ⊢ {x : A} a ≡ x : A as ⁇
 Rule ξ is postulated.
 - : judgement = ⊢ a
 Rule P is postulated.
 Rule ζ is postulated.
-- : judgement = ⊢ {z : A} (P z ≡ P z)
+- : judgement = ⊢ {z : A} P z ≡ P z
