@@ -63,7 +63,7 @@ type premise = boundary_abstraction
 
 type 'a rule =
   | Conclusion of 'a
-  | Premise of Name.t * premise * 'a rule
+  | Premise of Nonce.t * premise * 'a rule
 
 type primitive = boundary rule
 

@@ -1,5 +1,5 @@
 (* Infix operations *)
-%token <Name.t * Location.t> QUESTIONMARK PREFIXOP EQ INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
+%token <Name.t * Location.t> QQMARK PREFIXOP EQ INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
 
 (* Names and numerals *)
 %token UNDERSCORE
@@ -275,16 +275,16 @@ binop_term_:
   | e1=app_term COLONEQ e2=binop_term
     { Sugared.Update (e1, e2) }
 
-  | QUESTIONMARK TYPE
+  | QQMARK TYPE
     { Sugared.MLBoundaryIsType }
 
-  | QUESTIONMARK COLON t=app_term
+  | QQMARK COLON t=app_term
     { Sugared.MLBoundaryIsTerm t }
 
-  | l=app_term EQEQ r=app_term AS QUESTIONMARK
+  | l=app_term EQEQ r=app_term AS QQMARK
     { Sugared.MLBoundaryEqType (l, r) }
 
-  | l=app_term EQEQ r=app_term COLON ty=term AS QUESTIONMARK
+  | l=app_term EQEQ r=app_term COLON ty=term AS QQMARK
     { Sugared.MLBoundaryEqTerm (l, r, ty) }
 
   | e1=binop_term oploc=infix e2=binop_term
@@ -623,13 +623,13 @@ pattern_:
   | p1=binop_pattern EQEQ  p2=binop_pattern COLON p3=pattern
     { Sugared.Patt_EqTerm (p1, p2, p3) }
 
-  | QUESTIONMARK COLON p=binop_pattern
+  | QQMARK COLON p=binop_pattern
     { Sugared.Patt_BoundaryIsTerm p }
 
-  | p1=binop_pattern EQEQ p2=binop_pattern AS QUESTIONMARK
+  | p1=binop_pattern EQEQ p2=binop_pattern AS QQMARK
     { Sugared.Patt_BoundaryEqType (p1, p2) }
 
-  | p1=binop_pattern EQEQ p2=binop_pattern COLON p3=binop_pattern AS QUESTIONMARK
+  | p1=binop_pattern EQEQ p2=binop_pattern COLON p3=binop_pattern AS QQMARK
     { Sugared.Patt_BoundaryEqTerm (p1, p2, p3) }
 
   | abstr=tt_maybe_typed_binder p=pattern
@@ -671,7 +671,7 @@ simple_pattern_:
   | UNDERSCORE
     { Sugared.Patt_Anonymous }
 
-  | QUESTIONMARK TYPE
+  | QQMARK TYPE
     { Sugared.Patt_BoundaryIsType }
 
   | x=long(ml_name)

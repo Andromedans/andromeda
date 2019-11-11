@@ -43,6 +43,8 @@ let binder = abstraction
 let judgement = 850
 let judgement_thesis = judgement - 1
 
+let derive = judgement
+
 let boundary = judgement
 let boundary_thesis = judgement_thesis
 

@@ -5,24 +5,24 @@ rule b : A ;;
 
 (* Evaluation of boundaries *)
 
-? type ;;
-{x : A} {y : A} (? type) ;;
+⁇ type ;;
+{x : A} {y : A} (⁇ type) ;;
 
-? : A ;;
-{x : A} {y : A} ? : A ;;
+⁇ : A ;;
+{x : A} {y : A} ⁇ : A ;;
 
-A ≡ B as ? ;;
-{x : A} {y : A} A ≡ B as ? ;;
+A ≡ B as ?? ;;
+{x : A} {y : A} A ≡ B as ?? ;;
 
-a ≡ b : A as ? ;;
-{x : A} a ≡ x : A as ? ;;
+a ≡ b : A as ?? ;;
+{x : A} a ≡ x : A as ?? ;;
 
 (* Boundary checking *)
 
 rule ξ : A ≡ B ;;
 
 handle
-  a :? (? : B)
+  a :? (?? : B)
 with
   ML.coerce _ _ -> yield (ML.Some (convert a ξ))
 end ;;
@@ -31,7 +31,7 @@ rule P (_ : A) type ;;
 rule ζ (x : A) (y : A) : P x ≡ P y ;;
 
 handle
-  a :? {x : A} P x ≡ P x as ?
+  a :? {x : A} P x ≡ P x as ??
 with
   | ML.coerce _ _ -> yield (ML.Some ({z : A} ζ z z))
 end

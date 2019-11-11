@@ -64,6 +64,9 @@ val boundary_thesis : t
 val judgement : t
 val judgement_thesis : t
 
+(** A derived rule *)
+val derive : t
+
 (** The assumptions of a judgement or a boundary *)
 val assumptions : t
 
