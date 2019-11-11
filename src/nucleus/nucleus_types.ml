@@ -63,7 +63,7 @@ type premise = boundary_abstraction
 
 type 'a rule =
   | Conclusion of 'a
-  | Premise of premise * 'a rule
+  | Premise of Nonce.t * premise * 'a rule
 
 type primitive = boundary rule
 
@@ -152,6 +152,7 @@ exception Error of error
 
 type print_environment = {
   forbidden : Name.set ;
-  debruijn : Name.t list ;
+  debruijn_var : Name.t list ;
+  debruijn_meta : Name.t list ;
   opens : Path.set
 }

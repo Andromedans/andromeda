@@ -24,7 +24,7 @@ let invert_arguments rl args =
     match rl, args with
     | Conclusion _, [] -> List.rev abstrs
 
-    | Premise (prem, rl), arg :: args ->
+    | Premise (_, prem, rl), arg :: args ->
        let abstr = invert_argument ~lvl:0 es prem arg in
        fold (arg :: es) (abstr :: abstrs) rl args
 

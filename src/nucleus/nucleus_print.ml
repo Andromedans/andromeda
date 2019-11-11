@@ -5,9 +5,15 @@ open Nucleus_types
 (** Add the given identifier to the list of names that cannot be used as bound names. *)
 let forbid x penv = { penv with forbidden = Name.set_add x penv.forbidden }
 
-(** Register a deBruijn index name *)
-let debruijn x penv =
-  { penv with forbidden = Name.set_add x penv.forbidden ; debruijn = x :: penv.debruijn }
+(** Register the name of a bound variable *)
+let debruijn_var x penv =
+  { penv with forbidden = Name.set_add x penv.forbidden ; debruijn_var = x :: penv.debruijn_var }
+
+(** Register the name of a bound meta-variable *)
+let debruijn_meta x penv =
+  let x = Nonce.name x in
+  { penv with forbidden = Name.set_add x penv.forbidden ; debruijn_meta = x :: penv.debruijn_meta }
+
 
 (** Print the thesis if a type judgement. *)
 let rec thesis_is_type ?max_level ~penv t ppf =
@@ -25,7 +31,7 @@ and thesis_is_term ?max_level ~penv e ppf =
   | TermAtom {atom_nonce=x; _} ->
      Nonce.print ~parentheses:true x ppf
 
-  | TermBoundVar k -> Name.print_debruijn penv.debruijn k ppf
+  | TermBoundVar k -> Name.print_debruijn_var penv.debruijn_var k ppf
 
   | TermConstructor (c, args) ->
      constructor ?max_level ~penv c args ppf
@@ -35,34 +41,6 @@ and thesis_is_term ?max_level ~penv e ppf =
 
   | TermConvert (e, _, _) -> thesis_is_term ~penv ?max_level e ppf
 
-(** Print the boundary of a type judgement. *)
-and boundary_is_type ?max_level ~penv () ppf =
-  Print.print
-    ?max_level
-    ~at_level:Level.boundary
-    ppf
-    "? type"
-
-(** Print the boundary of a term judgement. *)
-and boundary_is_term ?max_level ~penv t ppf =
-  Print.print
-    ?max_level
-    ~at_level:Level.boundary
-    ppf
-    "?@ :@ %t"
-    (thesis_is_type ~penv t)
-
-(** Print the boundary of a type equality judgement. *)
-and boundary_eq_type ?max_level ~penv (t1, t2) ppf =
-  Print.print
-    ?max_level
-    ~at_level:Level.boundary
-    ppf
-    "%t@ %s@ %t as ?"
-    (thesis_is_type ~penv t1)
-    (Print.char_equal ())
-    (thesis_is_type ~penv t2)
-
 (** Print a type equality judgement. *)
 and thesis_eq_type ?max_level ~penv (EqType (_asmp, t1, t2)) ppf =
   (* TODO: print _asmp? *)
@@ -71,22 +49,9 @@ and thesis_eq_type ?max_level ~penv (EqType (_asmp, t1, t2)) ppf =
     ~at_level:Level.boundary
     ppf
     "%t@ %s@ %t"
-    (thesis_is_type ~penv t1)
+    (thesis_is_type ~max_level:Level.eq_left ~penv t1)
     (Print.char_equal ())
-    (thesis_is_type ~penv t2)
-
-(** Print the boundary of a term equality judgement. *)
-and boundary_eq_term ?max_level ~penv (e1, e2, t) ppf =
-  (* TODO: print _asmp? *)
-  Print.print
-    ?max_level
-    ~at_level:Level.eq
-    ppf
-    "%t@ %s@ %t@ :@ %t as ?"
-    (thesis_is_term ~penv e1)
-    (Print.char_equal ())
-    (thesis_is_term ~penv e2)
-    (thesis_is_type ~penv t)
+    (thesis_is_type ~max_level:Level.eq_right ~penv t2)
 
 (** Print a term equality judgement. *)
 and thesis_eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
@@ -96,17 +61,63 @@ and thesis_eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
     ~at_level:Level.eq
     ppf
     "%t@ %s@ %t@ :@ %t"
-    (thesis_is_term ~penv e1)
+    (thesis_is_term ~max_level:Level.eq_left ~penv e1)
     (Print.char_equal ())
-    (thesis_is_term ~penv e2)
-    (thesis_is_type ~penv t)
+    (thesis_is_term ~max_level:Level.eq_right ~penv e2)
+    (thesis_is_type ~max_level:Level.eq_type ~penv t)
 
-(** Print a meta-variable *)
+(** Print the boundary of a type judgement. *)
+and boundary_is_type ?max_level ~penv ~print_head () ppf =
+  Print.print
+    ?max_level
+    ~at_level:Level.boundary
+    ppf
+    "%t type" (print_head)
+
+(** Print the boundary of a term judgement. *)
+and boundary_is_term ?max_level ~penv ~print_head t ppf =
+  Print.print
+    ?max_level
+    ~at_level:Level.boundary
+    ppf
+    "%t@ :@ %t"
+    (print_head)
+    (thesis_is_type ~max_level:Level.ascribe ~penv t)
+
+(** Print the boundary of a type equality judgement. *)
+and boundary_eq_type ?max_level ~penv ~print_head (t1, t2) ppf =
+  Print.print
+    ?max_level
+    ~at_level:Level.boundary
+    ppf
+    "%t@ %s@ %t as %t"
+    (thesis_is_type ~max_level:Level.eq_left ~penv t1)
+    (Print.char_equal ())
+    (thesis_is_type ~max_level:Level.eq_right ~penv t2)
+    (print_head)
+
+(** Print the boundary of a term equality judgement. *)
+and boundary_eq_term ?max_level ~penv ~print_head (e1, e2, t) ppf =
+  (* TODO: print _asmp? *)
+  Print.print
+    ?max_level
+    ~at_level:Level.eq
+    ppf
+    "%t@ %s@ %t@ :@ %t as %t"
+    (thesis_is_term ~max_level:Level.eq_left ~penv e1)
+    (Print.char_equal ())
+    (thesis_is_term ~max_level:Level.eq_right ~penv e2)
+    (thesis_is_type ~max_level:Level.ascribe ~penv t)
+    (print_head)
+
+(** Print a meta-variable instantiation *)
 and meta ?max_level ~penv mv args ppf =
   let print_mv =
     match mv with
     | MetaFree {meta_nonce; _} -> Nonce.print ~parentheses:true meta_nonce
-    | MetaBound k -> (fun ppf -> Format.fprintf ppf "BOUNDMETA[%d]" k)
+    | MetaBound k -> (fun ppf -> Name.print_debruijn_meta penv.debruijn_meta k ppf)
+  and print_arg arg ppf =
+    Format.fprintf ppf "{%t}" (thesis_is_term ~penv arg)
   in
   match args with
   | [] ->
@@ -115,7 +126,7 @@ and meta ?max_level ~penv mv args ppf =
   | _::_ ->
      Print.print ~at_level:Level.meta ?max_level ppf "%t@ %t"
        (print_mv)
-       (Print.sequence (thesis_is_term ~max_level:Level.meta_arg ~penv) "" args)
+       (Print.sequence print_arg "" args)
 
 and argument ?max_level ~penv arg ppf =
   let rec fold xs penv arg ppf =
@@ -133,7 +144,7 @@ and argument ?max_level ~penv arg ppf =
           else
             Name.anonymous ())
        in
-       let penv = debruijn x penv in
+       let penv = debruijn_var x penv in
        fold (x::xs) penv arg ppf
   in
   match arg with
@@ -158,11 +169,11 @@ and print_assumptions ?max_level ~penv {free_var; free_meta; bound_var=_; bound_
   Print.print
     ?max_level ppf "%t%s%t%s"
     (Print.sequence
-       (fun (x,t) ppf -> Print.print ppf "%t@ :@ %t" (Nonce.print ~parentheses:true x) (thesis_is_type ~penv t))
+       (fun (x,t) ppf -> Print.print ppf "%t@ :@ %t" (Nonce.print ~parentheses:true x) (thesis_is_type ~max_level:Level.ascribe ~penv t))
        "," (Nonce.map_bindings free_var))
-    (if empty_free_var || empty_free_meta then "" else ", ")
+    (if empty_free_var || empty_free_meta then "" else ", ") (* XXX maybe put in something more visible than a , here, such as ; *)
     (Print.sequence
-       (fun (x, abstr) ppf -> Print.print ppf "%t@ :@ %t" (Nonce.print ~parentheses:true x) (boundary_abstraction ~penv abstr))
+       (fun (x, abstr) ppf -> boundary_abstraction' ~penv:(forbid (Nonce.name x) penv) ~print_head:(Nonce.print ~parentheses:true x) abstr ppf)
        "," (Nonce.map_bindings free_meta))
     (if empty_free_var && empty_free_meta then "" else " ")
 
@@ -188,7 +199,7 @@ and abstraction
             Name.anonymous ())
        in
        Print.print ppf "%t@ " (binder ~penv (x, u)) ;
-       let penv = debruijn x penv in
+       let penv = debruijn_var x penv in
        fold penv abstr ppf
   in
   match abstr with
@@ -210,18 +221,18 @@ and judgement_as_argument ?max_level ~penv arg ppf =
   | JudgementEqTerm eq -> thesis_eq_term ?max_level ~penv eq ppf
 
 (* Printing of boundaries *)
-and thesis_boundary ?max_level ~penv bdry ppf =
+and thesis_boundary ?max_level ~penv ~print_head bdry ppf =
   match bdry with
-  | BoundaryIsType () -> boundary_is_type ?max_level ~penv () ppf
+  | BoundaryIsType () -> boundary_is_type ?max_level ~penv ~print_head () ppf
 
-  | BoundaryIsTerm e -> boundary_is_term ?max_level ~penv e ppf
+  | BoundaryIsTerm e -> boundary_is_term ?max_level ~penv ~print_head e ppf
 
-  | BoundaryEqType eq -> boundary_eq_type ?max_level ~penv eq ppf
+  | BoundaryEqType eq -> boundary_eq_type ?max_level ~penv ~print_head eq ppf
 
-  | BoundaryEqTerm eq -> boundary_eq_term ?max_level ~penv eq ppf
+  | BoundaryEqTerm eq -> boundary_eq_term ?max_level ~penv ~print_head eq ppf
 
-and boundary_abstraction ?max_level ~penv abstr ppf =
-  abstraction Occurs_bound.boundary thesis_boundary ?max_level ~penv abstr ppf
+and boundary_abstraction' ?max_level ~penv ~print_head abstr ppf =
+  abstraction Occurs_bound.boundary (thesis_boundary ~print_head) ?max_level ~penv abstr ppf
 
 and binder ~penv (x,t) ppf =
   Print.print ppf "{%t@ :@ %t}"
@@ -259,18 +270,20 @@ let judgement_abstraction ?max_level ~penv abstr ppf =
   Print.print
     ?max_level ~at_level:Level.judgement ppf
     "%t%s %t"
-    (print_assumptions ~max_level:Level.assumptions ~penv asmp)
+    (print_assumptions ~max_level:Level.vdash_left ~penv asmp)
     (Print.char_vdash ())
-    (abstraction Occurs_bound.judgement thesis_judgement ?max_level ~penv abstr)
+    (abstraction Occurs_bound.judgement thesis_judgement ~max_level:Level.vdash_right ~penv abstr)
+
+let print_qqmark ppf = Format.fprintf ppf "%s" (Print.char_qqmark ())
 
 let boundary_abstraction ?max_level ~penv abstr ppf =
   let asmp = Collect_assumptions.abstraction Collect_assumptions.boundary abstr in
   Print.print
-    ?max_level ~at_level:Level.judgement ppf
+    ?max_level ~at_level:Level.boundary ppf
     "%t%s %t"
-    (print_assumptions ~max_level:Level.assumptions ~penv asmp)
+    (print_assumptions ~max_level:Level.vdash_left ~penv asmp)
     (Print.char_vdash ())
-    (abstraction Occurs_bound.boundary thesis_boundary ?max_level ~penv abstr)
+    (abstraction Occurs_bound.boundary (thesis_boundary ~print_head:print_qqmark) ~max_level:Level.vdash_right ~penv  abstr)
 
 let is_type_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
@@ -288,6 +301,26 @@ let eq_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
   abstraction Occurs_bound.eq_term thesis_eq_term ?max_level ~penv abstr ppf
 
+let premise ~penv n prem ppf =
+  boundary_abstraction' ~penv:(forbid (Nonce.name n) penv) ~print_head:(Name.print ~parentheses:true (Nonce.name n)) prem ppf
+
+let derivation ?max_level ~penv drv ppf =
+  let rec fold ~penv drv ppf =
+    match drv with
+    | Conclusion jdg -> Print.print ppf "%s@ %t" (Print.char_arrow ()) (thesis_judgement ~penv jdg)
+    | Premise (n, prem, drv) ->
+       Print.print ppf "(%t)@ %t"
+                   (premise ~penv n prem)
+                   (fold ~penv:(debruijn_meta n penv) drv)
+  in
+  Print.print ppf ?max_level ~at_level:Level.derive "derive@ %t" (fold ~penv drv)
+
+
+
+(** Printing of error messages *)
+(* TODO: Some of these are probably internal while others count as runtime errors. We
+   shoudl differentiate between them and tell the user the internal ones are not their
+   fault. *)
 let error ~penv err ppf =
   let open Nucleus_types in
   match err with
@@ -315,7 +348,7 @@ let error ~penv err ppf =
 
   | ArgumentExpected bdry ->
      Format.fprintf ppf "expected a judgment with boundary@ %t"
-       (thesis_boundary ~penv bdry)
+       (thesis_boundary ~penv ~print_head:print_qqmark bdry)
 
   | AbstractionExpected -> Format.fprintf ppf "abstraction expected"
 

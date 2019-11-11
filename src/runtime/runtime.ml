@@ -137,7 +137,8 @@ let penv_open pth penv =
 let mk_nucleus_penv {forbidden;opens} =
   { Nucleus.forbidden = forbidden ;
     Nucleus.opens = opens ;
-    Nucleus.debruijn = [] }
+    Nucleus.debruijn_var = [] ;
+    Nucleus.debruijn_meta = [] }
 
 (** Runtime environment. *)
 type env = {
@@ -672,7 +673,7 @@ let rec print_value ?max_level ~penv v ppf =
 
   | Boundary bdry -> Nucleus.print_boundary_abstraction ~penv:(mk_nucleus_penv penv) ?max_level bdry ppf
 
-  | Derivation drv -> Format.fprintf ppf "<derivation>" (* XXX improve printing of derivations *)
+  | Derivation drv -> Nucleus.print_derivation ~penv:(mk_nucleus_penv penv) ?max_level drv ppf
 
   | Closure f -> Format.fprintf ppf "<function>"
 

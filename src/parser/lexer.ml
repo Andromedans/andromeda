@@ -25,6 +25,7 @@ let reserved = [
   ("in", IN) ;
   ("include", INCLUDE) ;
   ("judgement", MLJUDGEMENT) ;
+  ("judgment", MLJUDGEMENT) ; (* for Egbert Rijke and other Americans *)
   ("let", LET) ;
   ("match", MATCH) ;
   ("mlforall", MLFORALL) ;
@@ -127,7 +128,7 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ';'                      -> f (); SEMI
   (* We record the location of operators here because menhir cannot handle %infix and
      mark_location simultaneously, it seems. *)
-  | '?'                      -> f (); QUESTIONMARK (Name.mk_name ~fixity:Name.Prefix "?", at_of lexbuf)
+  | "??" | 8263 (* ⁇ *)      -> f (); QQMARK (Name.mk_name ~fixity:Name.Prefix (Ulexbuf.lexeme lexbuf), at_of lexbuf)
   | prefixop                 -> f (); PREFIXOP (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.mk_name ~fixity:Name.Prefix s, at_of lexbuf)
   (* Comes before infixop0 because it also matches infixop0. *)
