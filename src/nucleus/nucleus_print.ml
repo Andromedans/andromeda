@@ -5,9 +5,14 @@ open Nucleus_types
 (** Add the given identifier to the list of names that cannot be used as bound names. *)
 let forbid x penv = { penv with forbidden = Name.set_add x penv.forbidden }
 
-(** Register a deBruijn index name *)
-let debruijn x penv =
-  { penv with forbidden = Name.set_add x penv.forbidden ; debruijn = x :: penv.debruijn }
+(** Register the name of a bound variable *)
+let debruijn_var x penv =
+  { penv with forbidden = Name.set_add x penv.forbidden ; debruijn_var = x :: penv.debruijn_var }
+
+(** Register the name of a bound meta-variable *)
+let debruijn_meta x penv =
+  { penv with forbidden = Name.set_add x penv.forbidden ; debruijn_meta = x :: penv.debruijn_meta }
+
 
 (** Print the thesis if a type judgement. *)
 let rec thesis_is_type ?max_level ~penv t ppf =
@@ -25,7 +30,7 @@ and thesis_is_term ?max_level ~penv e ppf =
   | TermAtom {atom_nonce=x; _} ->
      Nonce.print ~parentheses:true x ppf
 
-  | TermBoundVar k -> Name.print_debruijn penv.debruijn k ppf
+  | TermBoundVar k -> Name.print_debruijn penv.debruijn_var k ppf
 
   | TermConstructor (c, args) ->
      constructor ?max_level ~penv c args ppf
@@ -136,7 +141,7 @@ and argument ?max_level ~penv arg ppf =
           else
             Name.anonymous ())
        in
-       let penv = debruijn x penv in
+       let penv = debruijn_var x penv in
        fold (x::xs) penv arg ppf
   in
   match arg with
@@ -191,7 +196,7 @@ and abstraction
             Name.anonymous ())
        in
        Print.print ppf "%t@ " (binder ~penv (x, u)) ;
-       let penv = debruijn x penv in
+       let penv = debruijn_var x penv in
        fold penv abstr ppf
   in
   match abstr with

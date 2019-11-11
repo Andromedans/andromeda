@@ -1,7 +1,8 @@
 (** Printing environment *)
 type print_environment = {
   forbidden : Name.set ;
-  debruijn : Name.t list ;
+  debruijn_var : Name.t list ;
+  debruijn_meta : Name.t list ;
   opens : Path.set
 }
 
