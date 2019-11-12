@@ -49,7 +49,8 @@ nobody will claim that our neighboring galaxy is a nearby place.
 
 * [Andrej Bauer](http://andrej.com/)
 * [Gaëtan Gilbert](https://github.com/SkySkimmer)
-* [Philipp Haselwarter](https://www.haselwarter.org/~philipp/)
+* [Philipp G. Haselwarter](https://www.haselwarter.org/~philipp/)
+* [Anja Petković](https://anjapetkovic.com/)
 * [Matija Pretnar](http://matija.pretnar.info/)
 * [Chris Stone](https://www.cs.hmc.edu/~stone/)
 
