@@ -32,8 +32,8 @@ BIN_DIR ?= $(PREFIX)/bin
 DOC_DIR ?= $(PREFIX)/doc
 LIB_DIR ?= $(PREFIX)/lib
 SHARE_DIR ?= $(PREFIX)/share
-DOC_DIR := $(DOC_DIR)/andromeda
-LIB_DIR := $(LIB_DIR)/andromeda
+DOC_DIR := $(DOC_DIR)/andromeda-1
+LIB_DIR := $(LIB_DIR)/andromeda-1
 EXAMPLE_DIR := $(LIB_DIR)/examples
 
 version:
@@ -46,7 +46,7 @@ src/build.ml:
 	echo "let lib_dir = \""$(LIB_DIR)"\" ;;" >> $@
 
 emacs-autoloads:
-	cd etc && emacs --batch --eval '(setq backup-inhibited t)' --eval '(update-file-autoloads "andromeda.el" t "'`pwd`'/andromeda-autoloads.el")'
+	cd etc && emacs --batch --eval '(setq backup-inhibited t)' --eval '(update-file-autoloads "andromeda-1.el" t "'`pwd`'/andromeda-1-autoloads.el")'
 
 andromeda.odocl:
 	find src/ -name '*.mli' -exec basename {} '.mli' \; | perl -p -e 's/^(.)/\u\1/' > andromeda.odocl
@@ -67,9 +67,9 @@ uninstall: uninstall-binary uninstall-lib uninstall-examples uninstall-project-i
 
 install-binary: opt
 	install -d $(BIN_DIR)
-	install _build/src/andromeda.native $(BIN_DIR)/andromeda
+	install _build/src/andromeda.native $(BIN_DIR)/andromeda-1
 uninstall-binary:
-	rm -f $(BIN_DIR)/andromeda
+	rm -f $(BIN_DIR)/andromeda-1
 
 install-doc: doc
 	install -d $(DOC_DIR)
@@ -87,10 +87,10 @@ uninstall-project-info:
 
 install-emacs:
 	install -d $(SHARE_DIR)/emacs/site-lisp
-	install -m 644 etc/andromeda.el $(SHARE_DIR)/emacs/site-lisp
-	install -m 644 etc/andromeda-autoloads.el $(SHARE_DIR)/emacs/site-lisp
+	install -m 644 etc/andromeda-1.el $(SHARE_DIR)/emacs/site-lisp
+	install -m 644 etc/andromeda-1-autoloads.el $(SHARE_DIR)/emacs/site-lisp
 uninstall-emacs:
-	rm -f $(SHARE_DIR)/emacs/site-lisp/andromeda.el $(SHARE_DIR)/emacs/site-lisp/andromeda-autoloads.el
+	rm -f $(SHARE_DIR)/emacs/site-lisp/andromeda-1.el $(SHARE_DIR)/emacs/site-lisp/andromeda-1-autoloads.el
 
 install-lib:
 	install -d $(LIB_DIR)/std
