@@ -17,9 +17,18 @@ these commands:
 
     git clone https://github.com/Andromedans/andromeda
     cd andromeda
+    git checkout andromeda-1.0
     opam update
     opam pin add andromeda .    # for installation (confirm twice with "y")
-    opam upgrade                # to upgrade
+
+    # to upgrade
+    cd andromeda
+    git pull
+    opam upgrade
+
+    # to uninstall
+    opam uninstall andromeda-1
+    opam pin remove andromeda-1
 
 ### Building Andromeda
 
@@ -40,6 +49,7 @@ toplevel will use them to give you line editing capabilities.
 Checkout the Andromeda repository
 
     git clone git@github.com:Andromedans/andromeda.git
+    git checkout andromeda-1.0
 
 or consider [forking it](https://github.com/Andromedans/andromeda#fork-destination-box) if
 you indent do contribute to the project.
