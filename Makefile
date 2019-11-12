@@ -107,6 +107,8 @@ install-emacs:
 	install -d $(SHARE_DIR)/emacs/site-lisp
 	install -m 644 etc/andromeda-1.el $(SHARE_DIR)/emacs/site-lisp
 	install -m 644 etc/andromeda-1-autoloads.el $(SHARE_DIR)/emacs/site-lisp
+	install -m 644 etc/andromeda-1-smie.el $(SHARE_DIR)/emacs/site-lisp
+	install -m 644 etc/eri.el $(SHARE_DIR)/emacs/site-lisp
 uninstall-emacs:
 	rm -f $(SHARE_DIR)/emacs/site-lisp/andromeda-1.el $(SHARE_DIR)/emacs/site-lisp/andromeda-1-autoloads.el
 
