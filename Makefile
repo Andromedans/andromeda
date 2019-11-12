@@ -1,12 +1,27 @@
+# Figure out which version of OCaml is being used
+OCAML_VERSION=$(shell ocamlc --version)
+
+# Figure out which version of sedlex is being used
+SEDLEX_VERSION=$(shell opam info sedlex --version)
+
+# Set up correct incantation for sedlex
+SEDLEX=$(shell if [ "$(SEDLEX_VERSION)" \< "2.0" ] ; then echo "sedlex" ; else echo "sedlex.ppx"; fi)
+
 #warnings disabled:
 # 4: fragile pattern matching (we try to stick to it but don't always)
 #27: innocuous unused variable
 #29: non-escaped end-of-line in string constant
 #50: unexpected documentation comment
 
-OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
-OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
-#OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
+# Use this to not die on all warnings
+#OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50 -use-ocamlfind -pkg menhirLib -pkg $(SEDLEX)
+
+OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg $(SEDLEX)
+
+# The --strict flag prevents --explain, so we make a separate Makefile target to get
+# menhir explanations
+OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --strict"
+OCAMLBUILD_MENHIRFLAGS_EXPLAIN = -use-menhir -menhir "menhir --explain"
 
 all: andromeda.native
 opt: andromeda.native
@@ -17,6 +32,9 @@ profile: andromeda.p.native
 
 andromeda.byte andromeda.native andromeda.d.byte andromeda.p.native: src/build.ml
 	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
+
+menhir-explain:
+	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS_EXPLAIN) $(OCAMLBUILD_FLAGS) src/parser/parser.ml
 
 # "make test" to see if anything broke
 test: default
@@ -41,7 +59,7 @@ version:
 
 src/build.ml:
 	/bin/echo -n 'let version = "' > $@
-	$(MAKE) -s version | tr -d '\n' >> $@
+	$(MAKE) -s version | egrep -v '^make' | tr -d '\n' >> $@
 	/bin/echo '" ;;' >> $@
 	echo "let lib_dir = \""$(LIB_DIR)"\" ;;" >> $@
 
