@@ -80,10 +80,10 @@ let print ~parentheses m ppf =
   in
   match m.name with
   | {Name.name=s; Name.fixity=Name.Word} ->
-     Format.fprintf ppf "?%s%s" s (Name.subscript k)
+     Format.fprintf ppf "%s%s" s (Name.subscript k)
 
   | {Name.name=_; Name.fixity=Name.Anonymous j} ->
-     Format.fprintf ppf "?anon%d%s" j (Name.subscript k)
+     Format.fprintf ppf "_anon%d%s" j (Name.subscript k)
 
   | {Name.name=s; Name.fixity=(Name.Prefix|Name.Infix _)} ->
      if parentheses then

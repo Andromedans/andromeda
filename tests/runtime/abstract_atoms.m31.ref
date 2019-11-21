@@ -2,9 +2,9 @@ Rule A is postulated.
 - : judgement = ⊢ {x : A} x
 - : boundary = ⊢ {_ : A} ⁇ : A
 val abstr_jdg :> judgement = ⊢ {z : A} z
-val a :> judgement = ?z₀ : A ⊢ ?z₀
+val a :> judgement = z₀ : A ⊢ z₀
 val abstr1 :> judgement = ⊢ {z : A} z
 val abstr_bdry :> boundary = ⊢ {_ : A} {_ : A} ⁇ : A
-val atom :> judgement = ?x₁ : A ⊢ ?x₁
+val atom :> judgement = x₁ : A ⊢ x₁
 val bdry :> boundary = ⊢ {_ : A} ⁇ : A
 val abstr2 :> boundary = ⊢ {_ : A} {_ : A} ⁇ : A
