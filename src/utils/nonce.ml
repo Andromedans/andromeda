@@ -69,7 +69,7 @@ let fresh_print_index =
   let k = ref (-1) in
   fun () -> incr k ; !k
 
-let print ~parentheses m ppf =
+let print ~questionmark ~parentheses m ppf =
   let k =
     match m.print with
     | Some k -> k
@@ -78,18 +78,19 @@ let print ~parentheses m ppf =
        m.print <- Some k ;
        k
   in
+  let qmark = if questionmark then "?" else "" in
   match m.name with
   | {Name.name=s; Name.fixity=Name.Word} ->
-     Format.fprintf ppf "%s%s" s (Name.subscript k)
+     Format.fprintf ppf "%s%s%s" qmark s (Name.subscript k)
 
   | {Name.name=_; Name.fixity=Name.Anonymous j} ->
-     Format.fprintf ppf "_anon%d%s" j (Name.subscript k)
+     Format.fprintf ppf "%s_anon%d%s" qmark j (Name.subscript k)
 
   | {Name.name=s; Name.fixity=(Name.Prefix|Name.Infix _)} ->
      if parentheses then
-       Format.fprintf ppf "( %s%s )" s (Name.subscript k)
+       Format.fprintf ppf "%s( %s%s )" qmark s (Name.subscript k)
      else
-       Format.fprintf ppf "%s%s" s (Name.subscript k)
+       Format.fprintf ppf "%s%s%s" qmark s (Name.subscript k)
 
 module Json =
 struct
