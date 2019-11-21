@@ -152,14 +152,15 @@ and dynamic = {
   signature : Nucleus.signature;
 
   (* Current values of dynamic variables *)
-  vars : value Store.Dyn.t
+  vars : value Store.Dyn.t;
+
+  (* Current printing environment *)
+  penv : penv;
+
 }
 
 and lexical = {
   table : value SymbolTable.t ;
-
-  (* Current printing environment *)
-  penv : penv;
 
   (* values to which de Bruijn indices are bound *)
   current_values : value list;
@@ -513,10 +514,9 @@ let add_rule rname rule env =
     (match Ident.path rname with
      | Path.Direct (Path.Level (name, _)) -> name
      | Path.Module (_, Path.Level (name, _)) -> name
-    ) env.lexical.penv in
+    ) env.dynamic.penv in
   let env = { env
-              with dynamic = { env.dynamic with signature }
-                 ; lexical = { env.lexical with penv }
+              with dynamic = { env.dynamic with signature; penv }
             } in
   (), env
 
@@ -623,7 +623,7 @@ let continue v ({lexical={ml_yield;_};_} as env) =
 (** Printers *)
 
 (** Generate a printing environment from runtime environment *)
-let get_penv env = env.lexical.penv
+let get_penv env = env.dynamic.penv
 
 let get_nucleus_penv env =
   mk_nucleus_penv (get_penv env)
@@ -639,7 +639,7 @@ let top_lookup_opens env =
   penv.opens, env
 
 let top_open_path pth env =
-  let env = { env with lexical = { env.lexical with penv = penv_open pth env.lexical.penv } } in
+  let env = { env with dynamic = { env.dynamic with penv = penv_open pth env.dynamic.penv } } in
   (), env
 
 let top_lookup_signature env =
@@ -900,13 +900,13 @@ let print_error ~penv err ppf =
 let empty = {
   lexical = {
     table = SymbolTable.initial ;
-    penv = { forbidden = Name.set_empty ; opens = Path.set_empty } ;
     current_values = [] ;
     ml_yield = None ;
   } ;
   dynamic = {
     signature = Nucleus.Signature.empty ;
     vars = Store.Dyn.empty ;
+    penv = { forbidden = Name.set_empty ; opens = Path.set_empty } ;
   } ;
   state = Store.Ref.empty;
 }
