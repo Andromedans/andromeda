@@ -213,7 +213,7 @@ let fold_prems prems form_concl =
     | (mv, prem) :: prems ->
        let prem = mk_rule_abstraction mk_rule_premise metas prem in
        let rl = fold (mv :: metas) prems in
-       Premise (prem, rl)
+       Premise (mv, prem, rl)
   in
   fold [] prems
 

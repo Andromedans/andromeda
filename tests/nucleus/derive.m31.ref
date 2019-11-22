@@ -2,13 +2,13 @@ Rule A is postulated.
 Rule a is postulated.
 Rule B is postulated.
 Rule s is postulated.
-val d :> derivation = <derivation>
+val d :> derivation = derive (x : A) → B x x type
 - : judgement = ⊢ B a a type
 - : judgement = ⊢ {z : A} B z z type
-val d' :> derivation = <derivation>
+val d' :> derivation = derive (x : A) → B a x type
 - : judgement = ⊢ B a a type
 Rule refl is postulated.
-val e :> derivation = <derivation>
+val e :> derivation = derive (x : A) → s x ≡ s x : B x x
 - : judgement = ⊢ {a₀ : A} s a₀ ≡ s a₀ : B a₀ a₀
-val f :> derivation = <derivation>
+val f :> derivation = derive (a : A) (b : A) → B a b type
 - : judgement = ⊢ {u : A} {v : A} B u v type

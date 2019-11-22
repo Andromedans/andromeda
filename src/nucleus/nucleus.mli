@@ -1,7 +1,8 @@
 (** Printing environment *)
 type print_environment = {
   forbidden : Name.set ;
-  debruijn : Name.t list ;
+  debruijn_var : Name.t list ;
+  debruijn_meta : Name.t list ;
   opens : Path.set
 }
 
@@ -105,7 +106,7 @@ type premise = boundary_abstraction
 type 'a rule =
   private
   | Conclusion of 'a
-  | Premise of premise * 'a rule
+  | Premise of Nonce.t * premise * 'a rule
 
 type primitive = boundary rule
 
@@ -377,6 +378,10 @@ val print_judgement_abstraction :
 
 val print_boundary_abstraction :
   ?max_level:Level.t -> penv:print_environment -> boundary_abstraction -> Format.formatter -> unit
+
+val print_derivation :
+  ?max_level:Level.t -> penv:print_environment -> derivation -> Format.formatter -> unit
+
 
 (** An error emitted by the nucleus *)
 type error

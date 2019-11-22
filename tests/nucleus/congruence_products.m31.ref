@@ -1,0 +1,14 @@
+Rule eq_term_refl is postulated.
+Rule eq_type_refl is postulated.
+Rule Π is postulated.
+Rule λ is postulated.
+Rule app is postulated.
+Rule A is postulated.
+Rule a is postulated.
+Rule B is postulated.
+Rule f is postulated.
+Rule g is postulated.
+- : judgement = ⊢ Π A ({x} B x) ≡ Π A ({x} B x)
+- : judgement = ⊢ app A ({x} B x) g a ≡ app A ({x} B x) g a : B a
+- : judgement = ⊢ λ A ({x} B x) ({x} f x) ≡ λ A ({x} B x) ({x} f x) :
+  Π A ({x} B x)

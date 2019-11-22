@@ -85,8 +85,11 @@ val index_opt : t -> t option list -> int option
 (** [level x xs] finds the level of [x] in list [xs] if it's there. *)
 val level : t -> t list -> int option
 
-(** Print a de Bruijn index, using its name from the list of given names *)
-val print_debruijn : t list -> int -> Format.formatter -> unit
+(** Print a de Bruijn index of a free variable, using its name from the list of given names *)
+val print_debruijn_var : t list -> int -> Format.formatter -> unit
+
+(** Print a de Bruijn index of a meta variable, using its name from the list of given names *)
+val print_debruijn_meta : t list -> int -> Format.formatter -> unit
 
 (** Predefined names assumed by ML to exist *)
 module Builtin : sig

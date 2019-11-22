@@ -45,10 +45,19 @@ val meta_arg : t
 (** Infix operators *)
 val infix : infix -> t * t * t
 
+(** A type on the right-hand side of a colon *)
+val ascribe : t
+
 (** Equality *)
 val eq : t
 val eq_left : t
 val eq_right : t
+val eq_type : t
+
+(** A judgement as an ML value *)
+val vdash : t
+val vdash_left : t
+val vdash_right : t
 
 (** Abstraction *)
 
@@ -63,6 +72,9 @@ val boundary_thesis : t
 (** A judgement [ctx |- e : t] *)
 val judgement : t
 val judgement_thesis : t
+
+(** A derived rule *)
+val derive : t
 
 (** The assumptions of a judgement or a boundary *)
 val assumptions : t

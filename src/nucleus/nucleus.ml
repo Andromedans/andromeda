@@ -131,6 +131,7 @@ let print_eq_term_abstraction = Nucleus_print.eq_term_abstraction
 let print_eq_type_abstraction = Nucleus_print.eq_type_abstraction
 let print_judgement_abstraction = Nucleus_print.judgement_abstraction
 let print_boundary_abstraction = Nucleus_print.boundary_abstraction
+let print_derivation = Nucleus_print.derivation
 let print_error = Nucleus_print.error
 
 let name_of_judgement = Nucleus_print.name_of_judgement

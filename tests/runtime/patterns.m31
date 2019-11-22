@@ -52,27 +52,27 @@ test_judgement ({z : A} P z) ;;
 
 let test_boundary bdry =
 match bdry with
-  | ? type -> ([], [], "istype boundary")
-  | ? : X -> ([X], [], "isterm boundary")
-  | (X ≡ Y as ?) as Θ -> ([X; Y], [Θ], "eqtype boundary")
-  | x ≡ y : X as ? -> ([x; y; X], [], "eqterm boundary")
+  | ⁇ type -> ([], [], "istype boundary")
+  | ⁇ : X -> ([X], [], "isterm boundary")
+  | (X ≡ Y as ⁇) as Θ -> ([X; Y], [Θ], "eqtype boundary")
+  | x ≡ y : X as ⁇ -> ([x; y; X], [], "eqterm boundary")
   | {x : X} (u :> boundary) -> ([x; X], [u], "abstraction boundary")
 end ;;
 
-test_boundary (? type) ;;
+test_boundary (⁇ type) ;;
 
-test_boundary (? : A) ;;
+test_boundary (⁇ : A) ;;
 
-test_boundary (? : P a) ;;
+test_boundary (⁇ : P a) ;;
 
-test_boundary (A ≡ P a as ?) ;;
+test_boundary (A ≡ P a as ⁇) ;;
 
-test_boundary (a ≡ b : A as ?) ;;
+test_boundary (a ≡ b : A as ⁇) ;;
 
-test_boundary ((convert a ξ) ≡ (convert b ξ) : B as ?) ;;
+test_boundary ((convert a ξ) ≡ (convert b ξ) : B as ⁇) ;;
 
-test_boundary ({z : A} ? : P z) ;;
+test_boundary ({z : A} ⁇ : P z) ;;
 
 rule θ : B ≡ A ;;
 
-test_boundary ({z : B} ? : P (convert z θ)) ;;
+test_boundary ({z : B} ⁇ : P (convert z θ)) ;;

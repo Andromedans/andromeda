@@ -270,6 +270,10 @@ let print_debruijn xs k ppf =
   with
   | Failure _ -> Format.fprintf ppf "[%d]" k
 
+let print_debruijn_var = print_debruijn
+
+let print_debruijn_meta = print_debruijn
+
 module Json =
 struct
   let name = function
