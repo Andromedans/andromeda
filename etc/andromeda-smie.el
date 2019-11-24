@@ -3,7 +3,7 @@
 (require 'smie)
 
 ;; TODO: add vdash here! in sedlex, it comes from `math'
-(defvar m31--name-re m31-meta-variable-rx)
+(defvar m31--name-re m31-ml-variable-rx)
 (defvar m31--quoted-string-re (rx (seq ?\" (1+ (not (any ?\"))) ?\")))
 
 (defvar m31--reserved
