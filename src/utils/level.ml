@@ -24,6 +24,8 @@ let constructor_arg = constructor - 1
 let meta = constructor
 let meta_arg = meta - 1
 
+let ascribe = 650
+
 let infix = function
   | Infix4 -> (200, 199, 200)
   | Infix3 -> (300, 300, 299)
@@ -35,13 +37,20 @@ let infix = function
 let eq = 700
 let eq_left = eq - 1
 let eq_right = eq - 1
+let eq_type = ascribe
 
-let abstraction = 800
+let vdash = 875
+let vdash_left = vdash - 1
+let vdash_right = vdash - 1
+
+let abstraction = 850
 let abstraction_body = abstraction
 let binder = abstraction
 
-let judgement = 850
+let judgement = 800
 let judgement_thesis = judgement - 1
+
+let derive = judgement
 
 let boundary = judgement
 let boundary_thesis = judgement_thesis
@@ -58,7 +67,7 @@ let ml_operation = constructor
 let ml_operation_arg = ml_operation - 1
 
 let ml_tuple = highest
-let ml_tuple_arg = 800
+let ml_tuple_arg = 600
 
 let ml_prod = 400
 let ml_prod_arg = ml_prod - 1

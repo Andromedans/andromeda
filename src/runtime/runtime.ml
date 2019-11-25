@@ -37,7 +37,7 @@ struct
   module TableMap = Map.Make(
                      struct
                        type t = int
-                       let compare = Pervasives.compare
+                       let compare = Stdlib.compare
                      end)
 
   type 'v table = {
@@ -137,7 +137,8 @@ let penv_open pth penv =
 let mk_nucleus_penv {forbidden;opens} =
   { Nucleus.forbidden = forbidden ;
     Nucleus.opens = opens ;
-    Nucleus.debruijn = [] }
+    Nucleus.debruijn_var = [] ;
+    Nucleus.debruijn_meta = [] }
 
 (** Runtime environment. *)
 type env = {
@@ -172,7 +173,7 @@ and state = value Store.Ref.t
 and value =
   | Judgement of Nucleus.judgement_abstraction
   | Boundary of Nucleus.boundary_abstraction
-  | Derivation of Nucleus.Rule.derivation
+  | Derivation of Nucleus.derivation
   | Closure of (value, value) closure
   | Handler of handler
   | Tag of ml_constructor * value list
@@ -228,6 +229,7 @@ type error =
   | EqTermExpected of value
   | AbstractionExpected
   | JudgementExpected of value
+  | JudgementOrBoundaryExpected of value
   | DerivationExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
@@ -671,7 +673,7 @@ let rec print_value ?max_level ~penv v ppf =
 
   | Boundary bdry -> Nucleus.print_boundary_abstraction ~penv:(mk_nucleus_penv penv) ?max_level bdry ppf
 
-  | Derivation drv -> Format.fprintf ppf "<derivation>" (* XXX improve printing of derivations *)
+  | Derivation drv -> Nucleus.print_derivation ~penv:(mk_nucleus_penv penv) ?max_level drv ppf
 
   | Closure f -> Format.fprintf ppf "<function>"
 
@@ -849,6 +851,9 @@ let print_error ~penv err ppf =
 
   | JudgementExpected v ->
      Format.fprintf ppf "expected a judgement but got %s" (name_of v)
+
+  | JudgementOrBoundaryExpected v ->
+     Format.fprintf ppf "expected a judgement or a boundary but got %s" (name_of v)
 
   | DerivationExpected v ->
      Format.fprintf ppf "expected a derivation but got %s" (name_of v)

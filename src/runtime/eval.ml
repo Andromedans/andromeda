@@ -207,8 +207,20 @@ let rec comp {Location.it=c'; at} =
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
              | Runtime.(Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-                Runtime.(error ~at (JudgementExpected v))
+                Runtime.(error ~at (JudgementOrBoundaryExpected v))
            end)
+  
+  | Syntax.AbstractAtom (a, c) ->
+     comp_as_atom a >>= fun a ->
+           begin comp c >>=
+             function
+             | Runtime.Judgement jdg -> Runtime.return_judgement (Nucleus.abstract_judgement a jdg)
+
+             | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
+
+             | Runtime.(Closure _ | Derivation _| Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+                Runtime.(error ~at (JudgementOrBoundaryExpected v))
+           end
 
   | Syntax.Substitute (c1, c2) ->
      (*
@@ -370,6 +382,7 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.Lookup _
   | Syntax.Update _
   | Syntax.Fresh _
+  | Syntax.AbstractAtom _
   | Syntax.Current _
   | Syntax.String _
   | Syntax.Occurs _
@@ -650,9 +663,9 @@ and local_context lctx cmp =
 and premise {Location.it=Syntax.Premise(x, lctx, bdry); at} =
   local_context lctx (eval_boundary ~at bdry) >>= fun bdry ->
   Runtime.lookup_signature >>= fun sgn ->
-  let mv = Nucleus.fresh_judgement_meta x bdry in
-  let v = Runtime.Judgement (Nucleus.judgement_meta_eta_expanded sgn mv) in
-  return ((Nucleus.meta_nonce mv, bdry), v)
+  let n, jdg = Nucleus.form_meta x bdry in
+  let v = Runtime.Judgement jdg in
+  return ((n, bdry), v)
 
 
 (** Evaluate the premises of a rule, bind them to meta-variables, then evaluate

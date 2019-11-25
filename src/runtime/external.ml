@@ -26,7 +26,7 @@ let externals =
      Runtime.mk_closure (fun v ->
          Runtime.return_closure (fun w ->
              try
-               let c = Pervasives.compare v w in
+               let c = Stdlib.compare v w in
                Runtime.return
                  (if c < 0 then Reflect.mlless
                   else if c > 0 then Reflect.mlgreater
@@ -71,7 +71,7 @@ let externals =
     ));
 
     ("exit", (* forall a, mlunit -> a *)
-     Runtime.mk_closure (fun _ -> Pervasives.exit 0));
+     Runtime.mk_closure (fun _ -> Stdlib.exit 0));
 
     ("magic", (* forall a b, a -> b *)
      Runtime.mk_closure (fun v -> Runtime.return v));

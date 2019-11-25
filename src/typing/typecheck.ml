@@ -35,6 +35,7 @@ let rec generalizable c =
   | Syntax.Update _
   | Syntax.Ref _
   | Syntax.Fresh _
+  | Syntax.AbstractAtom _
   | Syntax.Match _
   | Syntax.BoundaryAscribe _
   | Syntax.TypeAscribe _
@@ -415,6 +416,21 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      check_comp c Mlty.Judgement >>= fun c ->
      return (locate ~at (Syntax.Fresh (xopt, c)), Mlty.Judgement)
 
+   | Desugared.AbstractAtom (c1, c2) ->
+      check_comp c1 Mlty.Judgement >>= fun c1 ->
+      begin
+      infer_comp c2 >>= fun (c2,t) ->
+        Tyenv.as_judgement_or_boundary ~at t >>=
+          begin function
+            | Tyenv.Is_judgement ->
+               let c = locate ~at (Syntax.AbstractAtom (c1, c2)) in
+               return (c, Mlty.Judgement)
+            | Tyenv.Is_boundary ->
+               let c = locate ~at (Syntax.AbstractAtom (c1, c2)) in
+               return (c, Mlty.Boundary)
+      end
+   end
+
   | Desugared.Match (c, cases) ->
     infer_comp c >>= fun (c, tc) ->
     match_cases ~at tc cases >>= fun (cases, t) ->
@@ -710,29 +726,35 @@ and letrec_clauses
           'a Tyenv.tyenvM -> ((Name.t * Mlty.ty_schema) list * Syntax.letrec_clause list * 'a) Tyenv.tyenvM
   = fun ~toplevel fycs m ->
 
-  let rec bind_functions acc = function
-    | [] -> return (List.rev acc)
+  let bind_functions acc clauses comp_in_extended_context =
 
-    | Desugared.Letrec_clause (f, (y, a), annot, c) :: rem ->
-       let a =
-         begin
-           match a with
-           | Desugared.Arg_annot_none -> Mlty.fresh_type ()
-           | Desugared.Arg_annot_ty t -> ml_ty [] t
-         end
-       and b = Mlty.fresh_type () in
-       begin
-         match annot with
-         | Desugared.Let_annot_none ->
-            Tyenv.ungeneralize (Mlty.Arrow (a, b)) >>= fun sch ->
-            return (sch, None)
-         | Desugared.Let_annot_schema sch ->
-            let sch = ml_schema sch in
-            return (sch, Some sch)
-       end >>= fun (sch, schopt) ->
-       (if toplevel then Tyenv.add_ml_value_poly else Tyenv.add_bound_poly)
-         f sch
-         (bind_functions ((f, schopt, y, a, c, b) :: acc) rem)
+    let prepare_types_for_binding a annot =
+      let a =
+        match a with
+        | Desugared.Arg_annot_none -> Mlty.fresh_type ()
+        | Desugared.Arg_annot_ty t -> ml_ty [] t
+      and b = Mlty.fresh_type () in
+      begin
+        match annot with
+        | Desugared.Let_annot_none ->
+           Tyenv.ungeneralize (Mlty.Arrow (a, b)) >>= fun sch ->
+           return (sch, None)
+        | Desugared.Let_annot_schema sch ->
+           let sch = ml_schema sch in
+           return (sch, Some sch)
+      end >>= fun sch_schopt -> return (a, b, sch_schopt)
+    in
+
+    let rec bind_functions_fold acc = function
+      | [] -> return (List.rev acc) >>= comp_in_extended_context
+
+      | Desugared.Letrec_clause (f, (y, a), annot, c) :: rem ->
+         prepare_types_for_binding a annot >>= fun (a, b, (sch, schopt)) ->
+         (if toplevel then Tyenv.add_ml_value_poly else Tyenv.add_bound_poly)
+           f sch
+           (bind_functions_fold ((f, schopt, y, a, c, b) :: acc) rem)
+    in
+    bind_functions_fold acc clauses
   in
 
   let rec check_bodies acc = function
@@ -758,11 +780,20 @@ and letrec_clauses
 
   in
 
-  bind_functions [] fycs >>=
-  check_bodies []  >>=
-  generalize_funs [] [] >>= fun (info, clauses) ->
-  m >>= fun x ->
-  return (info, clauses, x)
+  (* We want [m] to be run in the locally extended context. *)
+  bind_functions [] fycs
+    begin fun acc ->
+      check_bodies [] acc >>=
+      generalize_funs [] [] >>= fun (info, clauses) ->
+      m >>= fun x ->
+      return (info, clauses, x)
+    end
+
+  (* bind_functions [] fycs >>=
+   * check_bodies [] >>=
+   * generalize_funs [] [] >>= fun (info, clauses) ->
+   * m >>= fun x ->
+   * return (info, clauses, x) *)
 
 and boundary = function
   | Desugared.BoundaryIsType ->

@@ -23,7 +23,7 @@ let fully_apply_abstraction_no_checks inst_u abstr args =
 let type_of_term sgn = function
   | TermAtom {atom_type=t; _} -> t
 
-  | TermBound k ->
+  | TermBoundVar k ->
      (* We should never get here. If ever we need to compute the type of a
         term with bound variables, then we should have unabstracted the term
         beforehand, and asked about the type of the unabstracted version. *)
@@ -36,21 +36,29 @@ let type_of_term sgn = function
      let rec fold inds rl args =
        match rl, args with
 
-       | Rule.Premise (_, rl), arg :: args -> fold (arg :: inds) rl args
+       | Premise (_, _, rl), arg :: args -> fold (arg :: inds) rl args
 
-       | Rule.Conclusion (Rule.BoundaryIsTerm t_schema), [] ->
+       | Conclusion (BoundaryIsTerm t_schema), [] ->
           Instantiate_meta.is_type ~lvl:0 inds t_schema
 
-       | Rule.Conclusion (Rule.BoundaryIsType _ | Rule.BoundaryEqType _ | Rule.BoundaryEqTerm _), []
-       | Rule.Premise _, []
-       | Rule.Conclusion _, _::_ ->
+       | Conclusion (BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _), []
+       | Premise _, []
+       | Conclusion _, _::_ ->
           assert false
      in
      let rl = Signature.lookup_rule c sgn in
      fold [] rl args
 
-  | TermMeta ({meta_type;_}, args) ->
-     fully_apply_abstraction_no_checks (Instantiate_bound.is_type_fully ?lvl:None) meta_type args
+  | TermMeta (MetaBound _, _) ->
+     (* We should never get here. If ever we need to compute the type of a term with a
+        bound meta-variables, then we should have applied the term. *)
+     assert false
+
+  | TermMeta (MetaFree {meta_boundary;_}, args) ->
+     begin match Boundary.as_is_term_abstraction meta_boundary with
+     | None -> assert false
+     | Some bdry -> fully_apply_abstraction_no_checks (Instantiate_bound.is_type_fully ?lvl:None) bdry args
+     end
 
   | TermConvert (e, _, t) -> t
 
@@ -73,7 +81,7 @@ let rec type_of_term_abstraction sgn = function
     We maintain the invariant that no further assumptions are needed (apart from those
     already present in [e]) to derive that [e] actually has type [t]. *)
 let natural_type sgn = function
-  | (TermAtom _ | TermBound _ | TermConstructor _ | TermMeta _) as e ->
+  | (TermAtom _ | TermBoundVar _ | TermConstructor _ | TermMeta _) as e ->
      type_of_term sgn e
 
   | TermConvert (e, _, _) -> type_of_term sgn e

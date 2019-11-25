@@ -5,7 +5,7 @@ type meta = {
   mutable meta_shown : string option ;
 }
 
-let meta_compare {meta_index=i;_} {meta_index=j;_} = Pervasives.compare i j
+let meta_compare {meta_index=i;_} {meta_index=j;_} = Stdlib.compare i j
 
 let eq_meta {meta_index=i;_} {meta_index=j;_} = (i = j)
 
@@ -80,7 +80,7 @@ type error =
 
 exception Error of error Location.located
 
-let error ~at err = Pervasives.raise (Error (Location.mark ~at err))
+let error ~at err = Stdlib.raise (Error (Location.mark ~at err))
 
 (** We expect that most type metavariables are never shown to the user,
     and thus we reindex the ones that are shown to the user. We could

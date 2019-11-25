@@ -202,7 +202,7 @@ let print_error err ppf = match err with
 
 exception Error of error Location.located
 
-let error ~at err = Pervasives.raise (Error (Location.mark ~at err))
+let error ~at err = Stdlib.raise (Error (Location.mark ~at err))
 
 module Ctx = struct
 
@@ -959,6 +959,11 @@ let rec comp ctx {Location.it=c';at} =
      let c = comp ctx c in
      locate (Desugared.Fresh (xopt, c))
 
+   | Sugared.AbstractAtom (c1,c2) ->
+     let c1 = comp ctx c1
+     and c2 = comp ctx c2 in
+     locate (Desugared.AbstractAtom (c1,c2))
+
   | Sugared.Match (c, cases) ->
      let c = comp ctx c
      and cases = List.map (match_case ctx) cases in
@@ -1704,7 +1709,7 @@ let initial_context, initial_commands =
   with
   | Error {Location.it=err;_} ->
     Print.error "Error in built-in code:@ %t.@." (print_error err) ;
-    Pervasives.exit 1
+    Stdlib.exit 1
 
 module Builtin =
 struct

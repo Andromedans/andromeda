@@ -14,7 +14,7 @@ rule Id_ind
 rule Id_β
   (A type)
   ({x y : A} {p : Id A x y} C type)
-  ({x : A} c : C{x, x, (Id_refl A x)})
+  ({x : A} c : C{x, x, Id_refl A x})
   (a : A)
   : Id_ind A C c a a (Id_refl A a) ≡ c{a} : C{a, a, Id_refl A a}
 

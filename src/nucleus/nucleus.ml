@@ -2,13 +2,10 @@ include Nucleus_types
 
 module Signature = Signature
 
-module Rule = Rule
+let form_meta = Meta.form_meta
 
-let meta_nonce = Meta.nonce
-let judgement_meta_eta_expanded = Meta.judgement_meta_eta_expanded
-
-let form_is_term_meta = Meta.form_is_term_meta
-let form_is_type_meta = Meta.form_is_type_meta
+(** Exponsing the inner structure (safely) *)
+let expose_judgement jdg = jdg
 
 (** Exports from [Sanity] *)
 let type_of_term = Sanity.type_of_term
@@ -20,12 +17,6 @@ let natural_type_eq = Sanity.natural_type_eq
 let check_judgement_boundary_abstraction = Check.judgement_boundary_abstraction
 
 let fresh_atom = Mk.fresh_atom
-let fresh_is_type_meta = Mk.fresh_type_meta
-let fresh_is_term_meta = Mk.fresh_term_meta
-let fresh_eq_type_meta = Mk.fresh_eq_type_meta
-let fresh_eq_term_meta = Mk.fresh_eq_term_meta
-
-let fresh_judgement_meta = Mk.fresh_judgement_meta
 
 let alpha_equal_term = Alpha_equal.is_term
 let alpha_equal_type = Alpha_equal.is_type
@@ -34,7 +25,6 @@ let alpha_equal_abstraction = Alpha_equal.abstraction
 
 let alpha_equal_judgement = Alpha_equal.judgement
 let alpha_equal_boundary = Alpha_equal.boundary
-
 
 (** Construct judgements *)
 let form_alpha_equal_term = Form.form_alpha_equal_term
@@ -91,6 +81,7 @@ let invert_boundary_abstraction = Invert.invert_boundary_abstraction
 
 let as_not_abstract = Invert.as_not_abstract
 let atom_name = Invert.atom_name
+let atom_nonce {atom_nonce;_} = atom_nonce
 
 let as_is_type_abstraction = Judgement.as_is_type_abstraction
 let as_is_term_abstraction = Judgement.as_is_term_abstraction
@@ -116,7 +107,7 @@ let apply_judgement_abstraction = Apply_abstraction.apply_judgement_abstraction
 
 let occurs_abstraction assumptions_u a abstr =
   let asmp = Collect_assumptions.abstraction assumptions_u abstr in
-  Assumption.mem_atom a.atom_nonce asmp
+  Assumption.mem_free_var a.atom_nonce asmp
 
 let occurs_is_type_abstraction = occurs_abstraction Collect_assumptions.is_type
 let occurs_is_term_abstraction = occurs_abstraction Collect_assumptions.is_term
@@ -140,6 +131,7 @@ let print_eq_term_abstraction = Nucleus_print.eq_term_abstraction
 let print_eq_type_abstraction = Nucleus_print.eq_type_abstraction
 let print_judgement_abstraction = Nucleus_print.judgement_abstraction
 let print_boundary_abstraction = Nucleus_print.boundary_abstraction
+let print_derivation = Nucleus_print.derivation
 let print_error = Nucleus_print.error
 
 let name_of_judgement = Nucleus_print.name_of_judgement

@@ -2,7 +2,7 @@
 
 open Nucleus_types
 
-(** [abstract_is_type x0 ~lvl:k t] replaces atom [x0] in type [t] with bound variable [k] (default [0]). *)
+(** [abstract_is_type x ~lvl:k t] replaces atom whose nonce is [x] in type [t] with bound variable [k] (default [0]). *)
 let rec is_type x ?(lvl=0) = function
 
   | TypeConstructor (c, args) ->
@@ -11,11 +11,11 @@ let rec is_type x ?(lvl=0) = function
 
   | TypeMeta (mv, args) ->
      let args = term_arguments x ~lvl args
-     and mv = is_type_meta x ~lvl mv in
+     and mv = meta x ~lvl mv in
      TypeMeta (mv, args)
 
 and is_term x ?(lvl=0) = function
-  | TermBound k as e ->
+  | TermBoundVar k as e ->
      if k < lvl then
        e
      else
@@ -27,15 +27,15 @@ and is_term x ?(lvl=0) = function
      begin match Nonce.equal x y with
      | false ->
         let asmp = Collect_assumptions.is_type t in
-        if Assumption.mem_atom x asmp
+        if Assumption.mem_free_var x asmp
         then Error.raise InvalidAbstraction
         else e
-     | true -> TermBound lvl
+     | true -> TermBoundVar lvl
      end
 
   | TermMeta (mv, args) ->
      let args = term_arguments x ~lvl args
-     and mv = is_term_meta x ~lvl mv in
+     and mv = meta x ~lvl mv in
      TermMeta (mv, args)
 
   | TermConstructor (c, args) ->
@@ -61,11 +61,16 @@ and eq_term x ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
   and t = is_type x ~lvl t
   in EqTerm (asmp, e1, e2, t)
 
-(* the type of a meta can't refer to bound variables nor to atoms *)
-and is_term_meta x ~lvl mv = mv
+and meta x ~lvl = function
 
-(* the type of a meta can't refer to bound variables nor to atoms *)
-and is_type_meta x ~lvl mv = mv
+    | MetaBound _ as mv -> mv
+
+    | MetaFree {meta_nonce; meta_boundary} as mv ->
+       (* the type of a meta can't refer to bound variables nor to atoms *)
+       if Occurs_atom.abstraction Occurs_atom.boundary x meta_boundary then
+         Error.raise InvalidAbstraction
+       else
+         mv
 
 and assumptions x ?(lvl=0) asmp =
   Assumption.abstract x ~lvl asmp
@@ -104,7 +109,6 @@ and judgement x ?(lvl=0) = function
 let not_abstract u = Mk.not_abstract u
 
 let is_type_abstraction ?name {atom_nonce=n; atom_type=t} abstr =
-  (* XXX occurs check?! *)
   let abstr = abstraction is_type n abstr in
   let x = match name with Some x -> x | None -> Nonce.name n in
   Mk.abstract x t abstr

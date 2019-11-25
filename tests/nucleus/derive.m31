@@ -18,3 +18,11 @@ rule refl (X type) (x : X) (y : X) : x == y : X ;;
 let e = derive (x : A) -> refl (B x x) (s x) (s x) ;;
 
 {a : A} e a ;;
+
+let f =
+  derive (a : A) (b : A) ->
+    let g = derive (y : A) (u : B a a) -> B a y in
+    g b (s a)
+;;
+
+{u v : A} f u v ;;

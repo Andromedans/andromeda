@@ -1,7 +1,7 @@
-dist: xenial
+dist: bionic
 language: c
 sudo: required
 install: true
 script: bash -ex .travis-ocaml.sh
 env:
-  - M31_DEPS="menhir sedlex" BUILD_CMD="make all test"
+  - BUILD_CMD="make all test"

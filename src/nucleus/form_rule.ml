@@ -4,16 +4,16 @@ open Nucleus_types
 let instantiate_premise ~lvl metas prem =
   match prem with
 
-  | Rule.BoundaryIsType () ->
+  | BoundaryIsType () ->
      BoundaryIsType ()
 
-  | Rule.BoundaryIsTerm t ->
+  | BoundaryIsTerm t ->
      BoundaryIsTerm (Instantiate_meta.is_type ~lvl metas t)
 
-  | Rule.BoundaryEqType (t1, t2) ->
+  | BoundaryEqType (t1, t2) ->
      BoundaryEqType (Instantiate_meta.is_type ~lvl metas t1, Instantiate_meta.is_type ~lvl metas t2)
 
-  | Rule.BoundaryEqTerm (e1, e2, t) ->
+  | BoundaryEqTerm (e1, e2, t) ->
      BoundaryEqTerm (Instantiate_meta.is_term ~lvl metas e1,
                      Instantiate_meta.is_term ~lvl metas e2,
                      Instantiate_meta.is_type ~lvl metas t)
@@ -46,12 +46,12 @@ let arg_of_argument = function
   | JudgementEqType eq -> Mk.arg_eq_type eq
   | JudgementEqTerm eq-> Mk.arg_eq_term eq
 
-let match_argument sgn metas (s : Rule.boundary) (p : judgement) : judgement =
+let match_argument sgn metas (s : boundary) (p : judgement) : judgement =
   failwith "form_rule match_argument shouldn't be needed"
   (* check_argument sgn metas s p ;
    * arg_of_argument p *)
 
-let match_arguments sgn (premises : Rule.boundary list) (arguments : judgement list) =
+let match_arguments sgn (premises : boundary list) (arguments : judgement list) =
   let rec fold args_out = function
     | [], [] ->
        (* The arguments must _not_ be reversed because we refer to them by meta-variable
@@ -71,10 +71,10 @@ let match_arguments sgn (premises : Rule.boundary list) (arguments : judgement l
 (** Lookup the de Bruijn index of a meta-variable. *)
 let lookup_meta_index x mvs =
   let rec search k = function
-    | [] -> assert false
+    | [] -> None
     | y :: mvs ->
        if Nonce.equal x y then
-         k
+         Some k
        else
          search (k+1) mvs
   in
@@ -87,123 +87,133 @@ let lookup_meta_index x mvs =
 let rec mk_rule_is_type metas = function
   | TypeConstructor (c, args) ->
      let args = mk_rule_arguments metas args in
-     Rule.TypeConstructor (c, args)
+     TypeConstructor (c, args)
 
-  | TypeMeta ({meta_nonce=x;_}, args) ->
+  | TypeMeta (MetaFree mv, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     let k = lookup_meta_index x metas in
-     Rule.TypeMeta (k, args)
+     begin match lookup_meta_index mv.meta_nonce metas with
+     | Some k -> TypeMeta (MetaBound k, args)
+     | None -> TypeMeta (MetaFree mv, args)
+     end
+
+  | TypeMeta (MetaBound _, _) ->
+     assert false
 
 and mk_rule_is_term metas = function
   | TermAtom _ ->
      (* this will be gone when we eliminate atoms *)
      failwith "a free atom cannot appear in a rule"
 
-  | TermMeta ({meta_nonce=x;_}, args) ->
+  | TermMeta (MetaFree mv, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     let k = lookup_meta_index x metas in
-     Rule.TermMeta (k, args)
+     begin match lookup_meta_index mv.meta_nonce metas with
+     | Some k -> TermMeta (MetaBound k, args)
+     | None -> TermMeta (MetaFree mv, args)
+     end
+
+  | TermMeta (MetaBound _, _) ->
+     assert false
 
   | TermConstructor (c, args) ->
      let args = mk_rule_arguments metas args in
-     Rule.TermConstructor (c, args)
+     TermConstructor (c, args)
 
-  | TermBound k ->
-     Rule.TermBound k
+  | TermBoundVar k ->
+     TermBoundVar k
 
   | TermConvert (e, asmp, t) ->
-     let {free; meta; bound} = asmp
-     (* NB: We do not check that the types of the metas match because we assume that
-        the type of a meta never changes. *)
-     and metas_set = Nonce.set_of_list metas in
-     let mem_metas_set mv _bnd = Nonce.set_mem mv metas_set in
-     begin match Nonce.map_is_empty free
-                 && Nonce.map_for_all mem_metas_set meta
-                 && Bound_set.is_empty bound
-     with
-     | true -> mk_rule_is_term metas e
-     | false -> Error.raise ExtraAssumptions
-     end
+     let e = mk_rule_is_term metas e
+     and asmp = mk_rule_assumptions metas asmp
+     and t = mk_rule_is_type metas t
+     in
+     TermConvert (e, asmp, t)
 
 and mk_rule_eq_type metas (EqType (asmp, t1, t2)) =
-  let _ = mk_rule_assumptions metas asmp
+  let asmp = mk_rule_assumptions metas asmp
   and t1 = mk_rule_is_type metas t1
   and t2 = mk_rule_is_type metas t2 in
-  Rule.EqType (t1, t2)
+  EqType (asmp, t1, t2)
 
 and mk_rule_eq_term metas (EqTerm (asmp, e1, e2, t)) =
-  let _ = mk_rule_assumptions metas asmp
+  let asmp = mk_rule_assumptions metas asmp
   and e1 = mk_rule_is_term metas e1
   and e2 = mk_rule_is_term metas e2
   and t = mk_rule_is_type metas t in
-  Rule.EqTerm (e1, e2, t)
+  EqTerm (asmp, e1, e2, t)
 
-and mk_rule_assumptions metas asmp =
-  (* XXX should check that asmp is a subset of metas or some such? *)
-  ()
+and mk_rule_assumptions metas {free_var; free_meta; bound_var; bound_meta} =
+  (* It must be the case that [bound_meta] is empty. *)
+  assert (Bound_set.is_empty bound_meta) ;
+  let rec fold free_meta bound_meta k = function
+    | [] -> { free_var; free_meta; bound_var; bound_meta }
+    | n :: metas ->
+       if Nonce.map_mem n free_meta then
+         let free_meta = Nonce.map_remove n free_meta in
+         let bound_meta = Bound_set.add k bound_meta in
+         fold free_meta bound_meta (k+1) metas
+       else
+         fold free_meta bound_meta (k+1) metas
+  in
+  fold free_meta bound_meta 0 metas
 
 and mk_rule_judgement metas = function
 
-  | JudgementIsType t ->
-     Rule.JudgementIsType (mk_rule_is_type metas t)
+  | JudgementIsType t -> JudgementIsType (mk_rule_is_type metas t)
 
-  | JudgementIsTerm e ->
-     Rule.JudgementIsTerm (mk_rule_is_term metas e)
+  | JudgementIsTerm e -> JudgementIsTerm (mk_rule_is_term metas e)
 
-  | JudgementEqType eq ->
-     Rule.JudgementEqType (mk_rule_eq_type metas eq)
+  | JudgementEqType eq -> JudgementEqType (mk_rule_eq_type metas eq)
 
-  | JudgementEqTerm eq ->
-     Rule.JudgementEqTerm (mk_rule_eq_term metas eq)
+  | JudgementEqTerm eq -> JudgementEqTerm (mk_rule_eq_term metas eq)
 
 and mk_rule_argument metas = function
 
   | Arg_NotAbstract jdg ->
      let jdg = mk_rule_judgement metas jdg in
-     Rule.Arg_NotAbstract jdg
+     Arg_NotAbstract jdg
 
   | Arg_Abstract (x, arg) ->
      let arg = mk_rule_argument metas arg in
-     Rule.Arg_Abstract (x, arg)
+     Arg_Abstract (x, arg)
 
 and mk_rule_arguments metas args =
   List.map (mk_rule_argument metas) args
 
 and mk_rule_abstraction
-  : 'a 'b 'c . (Nonce.t list -> 'a -> 'b) -> Nonce.t list -> 'a abstraction -> 'b Rule.abstraction
+  : 'a 'b 'c . (Nonce.t list -> 'a -> 'b) -> Nonce.t list -> 'a abstraction -> 'b abstraction
   = fun form_u metas -> function
 
     | NotAbstract u ->
        let u = form_u metas u in
-       Rule.NotAbstract u
+       NotAbstract u
 
     | Abstract (x, t, abstr) ->
        let t = mk_rule_is_type metas t in
        let abstr = mk_rule_abstraction form_u metas abstr in
-       Rule.Abstract (x, t, abstr)
+       Abstract (x, t, abstr)
 
 let mk_rule_premise metas = function
 
   | BoundaryIsType () ->
-     Rule.BoundaryIsType ()
+     BoundaryIsType ()
 
   | BoundaryIsTerm t ->
-     Rule.BoundaryIsTerm (mk_rule_is_type metas t)
+     BoundaryIsTerm (mk_rule_is_type metas t)
 
   | BoundaryEqType (t1, t2) ->
-     Rule.BoundaryEqType (mk_rule_is_type metas t1, mk_rule_is_type metas t2)
+     BoundaryEqType (mk_rule_is_type metas t1, mk_rule_is_type metas t2)
 
   | BoundaryEqTerm (e1, e2, t) ->
-     Rule.BoundaryEqTerm (mk_rule_is_term metas e1, mk_rule_is_term metas e2, mk_rule_is_type metas t)
+     BoundaryEqTerm (mk_rule_is_term metas e1, mk_rule_is_term metas e2, mk_rule_is_type metas t)
 
 let fold_prems prems form_concl =
   let rec fold metas = function
-    | [] -> Rule.Conclusion (form_concl metas)
+    | [] -> Conclusion (form_concl metas)
 
     | (mv, prem) :: prems ->
        let prem = mk_rule_abstraction mk_rule_premise metas prem in
        let rl = fold (mv :: metas) prems in
-       Rule.Premise (prem, rl)
+       Premise (mv, prem, rl)
   in
   fold [] prems
 
@@ -212,21 +222,21 @@ let form_rule prems concl =
   begin fun metas ->
     match concl with
     | BoundaryIsType () ->
-       Rule.BoundaryIsType ()
+       BoundaryIsType ()
 
     | BoundaryIsTerm t ->
-       Rule.BoundaryIsTerm (mk_rule_is_type metas t)
+       BoundaryIsTerm (mk_rule_is_type metas t)
 
     | BoundaryEqType (t1, t2) ->
        let t1 = mk_rule_is_type metas t1
        and t2 = mk_rule_is_type metas t2 in
-       Rule.BoundaryEqType (t1, t2)
+       BoundaryEqType (t1, t2)
 
     | BoundaryEqTerm (e1, e2, t) ->
        let e1 = mk_rule_is_term metas e1
        and e2 = mk_rule_is_term metas e2
        and t = mk_rule_is_type metas t in
-       Rule.BoundaryEqTerm (e1, e2, t)
+       BoundaryEqTerm (e1, e2, t)
   end
 
 
@@ -234,15 +244,11 @@ let form_derivation prems concl =
   fold_prems prems
   begin fun metas ->
     match concl with
-    | JudgementIsType t ->
-       Rule.JudgementIsType (mk_rule_is_type metas t)
+    | JudgementIsType t -> JudgementIsType (mk_rule_is_type metas t)
 
-    | JudgementIsTerm e ->
-       Rule.JudgementIsTerm (mk_rule_is_term metas e)
+    | JudgementIsTerm e -> JudgementIsTerm (mk_rule_is_term metas e)
 
-    | JudgementEqType eq ->
-       Rule.JudgementEqType (mk_rule_eq_type metas eq)
+    | JudgementEqType eq -> JudgementEqType (mk_rule_eq_type metas eq)
 
-    | JudgementEqTerm eq ->
-       Rule.JudgementEqTerm (mk_rule_eq_term metas eq)
+    | JudgementEqTerm eq -> JudgementEqTerm (mk_rule_eq_term metas eq)
   end

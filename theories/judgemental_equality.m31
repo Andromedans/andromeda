@@ -1,5 +1,5 @@
 require judgemental_equality_type
 
 let sym_eq_type h = match h with
-  | a ≡ b => judgemental_equality_type.eq_type_sym a b h
+  | a ≡ b -> judgemental_equality_type.eq_type_sym a b h
   end
