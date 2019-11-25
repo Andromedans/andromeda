@@ -16,16 +16,16 @@ val add_extensionality : checker -> Nucleus.derivation -> checker
 
 (** Check a type equality. *)
 val check_eqtype :
-  checker -> Nucleus.is_type_abstraction -> Nucleus.is_type_abstraction ->
+  checker -> Nucleus.signature -> Nucleus.is_type_abstraction -> Nucleus.is_type_abstraction ->
   Nucleus.eq_type_abstraction option
 
 (** Check a term equality. *)
 val check_eqterm :
-  checker -> Nucleus.is_term_abstraction -> Nucleus.is_term_abstraction ->
+  checker -> Nucleus.signature -> Nucleus.is_term_abstraction -> Nucleus.is_term_abstraction ->
   Nucleus.eq_term_abstraction option
 
 (** Compute the weak head-normal form of a type. *)
-val whnf_type : checker -> Nucleus.is_type_abstraction -> Nucleus.eq_type_abstraction
+val whnf_type : checker -> Nucleus.signature -> Nucleus.is_type -> Nucleus.eq_type
 
 (** Compute the weak head-normal form of a term. *)
-val whnf_term : checker -> Nucleus.is_term_abstraction -> Nucleus.eq_term_abstraction
+val whnf_term : checker -> Nucleus.signature -> Nucleus.is_term -> Nucleus.eq_term
