@@ -108,7 +108,7 @@ and check_term_abstraction chk sgn trm1_abstr trm2_abstr =
     | None, None ->
        begin match Nucleus.(as_not_abstract trm1_abstr, as_not_abstract trm2_abstr) with
        | Some e1, Some e2 ->
-          let e1_eq_e2 = check_term chk sgn e1 e2 (??) in
+          let e1_eq_e2 = check_term chk sgn e1 e2 in
           Nucleus.abstract_not_abstract e1_eq_e2
 
        | (None, _) | (_, None) ->
@@ -142,8 +142,8 @@ and check_type chk sgn ty1 ty2 =
     (Nucleus.transitivity_type ty1_eq_ty1' ty1'_eq_ty2')
     (Nucleus.symmetry_type ty2_eq_ty2')
 
-
-and check_term chk sgn e1 e2 ty =
+and check_term chk sgn e1 e2 =
+  (* XXX missing type-directed phase *)
   let e1_eq_e1', e1' = whnf_term chk sgn e1
   and e2_eq_e2', e2' = whnf_term chk sgn e2 in
   let e1'_eq_e2' = check_whnf_term chk sgn e1' e2' in
@@ -158,10 +158,16 @@ and check_whnf_type chk sgn (Whnf ty1) (Whnf ty2) =
 
   | Some rap -> apply_congruence chk sgn rap
 
-and check_whnf_term chk sgn (Whnf trm1) (Whnf trm2) =
-  (??)
+and check_whnf_term chk sgn (Whnf e1) (Whnf e2) =
+  match Nucleus.congruence_is_term sgn e1 e2 with
 
-and apply_congruence chk sgn rap =
+  | None -> raise Equality_fail
+
+  | Some rap -> apply_congruence chk sgn rap
+
+and apply_congruence :
+  'a . checker -> Nucleus.signature -> 'a Nucleus.rule_application -> 'a
+  = fun chk sgn rap ->
   let rec fold = function
 
     | Nucleus.RapDone ty1_eq_ty2 -> ty1_eq_ty2
@@ -173,19 +179,26 @@ and apply_congruence chk sgn rap =
   fold rap
 
 and check_boundary_abstraction chk sgn bdry =
+  let rec check bdry =
   match Nucleus.invert_boundary_abstraction bdry with
 
   | Nucleus.(Stump_NotAbstract (BoundaryEqType (ty1, ty2))) ->
      Nucleus.(abstract_not_abstract (JudgementEqType (check_type chk sgn ty1 ty2)))
 
   | Nucleus.(Stump_NotAbstract (BoundaryEqTerm bdry)) ->
-     let (e1, e2, ty) = Nucleus.invert_eq_term_boundary bdry in
-     Nucleus.(abstract_not_abstract (JudgementEqTerm (check_term chk sgn e1 e2 ty)))
+     let (e1, e2, _) = Nucleus.invert_eq_term_boundary bdry in
+     Nucleus.(abstract_not_abstract (JudgementEqTerm (check_term chk sgn e1 e2)))
 
-  | Nucleus.Stump_Abstract (_, _) -> (??)
+  | Nucleus.Stump_Abstract (atm, abstr) ->
+     let eq_abstr = check abstr in
+     Nucleus.abstract_judgement atm eq_abstr
 
   | Nucleus.(Stump_NotAbstract (BoundaryIsTerm _ | BoundaryIsType _)) ->
      assert false
+
+  in
+  check bdry
+
 
 and whnf_type chk sgn ty =
   (??)

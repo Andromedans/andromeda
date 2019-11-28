@@ -3,7 +3,7 @@
 
   A term extensionality rule has the form
 
-      rule R P₁ ... Pᵢ (x : A) (y : A) Q₁ ... Qⱼ x ≡ y : A
+      rule R P₁ ... Pᵢ A (x : A) (y : A) Q₁ ... Qⱼ x ≡ y : A
 
   where:
 
