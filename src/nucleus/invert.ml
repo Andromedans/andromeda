@@ -76,11 +76,6 @@ let as_not_abstract = function
   | Abstract _ -> None
   | NotAbstract v -> Some v
 
-(* XXX Too dangerous to exist *)
-(* let as_abstract = function *)
-(*   | Abstract (atm, abstr) -> Some (atm, abstr) *)
-(*   | NotAbstract _ -> None *)
-
 let invert_abstraction ?name inst_v = function
   | Abstract (x, t, abstr) ->
      let x = (match name with None -> x | Some y -> y) in

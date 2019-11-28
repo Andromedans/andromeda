@@ -47,7 +47,7 @@ let congruence_boundary es prem arg1 arg2 =
   with
   | Skip_argument -> None
 
-(** Form a rule application representing the congruence rule derived from teh given
+(** Form a rule application representing the congruence rule derived from the given
     rule [rl] applied to [args1] and [args2]. *)
 let form_rule_rap sgn form rl args1 args2 =
   let rec fold es eq_args rl args1 args2 =
@@ -152,7 +152,7 @@ let form_is_type_rap sgn c args1 args2 =
   let rl = Signature.lookup_rule c sgn in
   form_rule_rap sgn form rl args1 args2
 
-let form_rap sgn jdg1 jdg2 =
+let form_judgement sgn jdg1 jdg2 =
   match jdg1, jdg2 with
 
   | JudgementIsTerm e1, JudgementIsTerm e2 ->
@@ -214,3 +214,86 @@ let form_rap sgn jdg1 jdg2 =
   | JudgementIsType _, JudgementIsTerm _
   | JudgementIsTerm _, JudgementIsType _ ->
      Error.raise InvalidCongruence
+
+let form_is_type sgn ty1 ty2 =
+  match ty1, ty2 with
+
+  | TypeConstructor (c, args1), TypeConstructor (c', args2) ->
+     if not (Ident.equal c c') then
+       None
+     else
+       let form eq_args concl =
+         match concl with
+         | BoundaryIsType () ->
+            let asmp = Collect_assumptions.arguments eq_args in
+            Mk.eq_type asmp ty1 ty2
+
+         | BoundaryIsTerm _ | BoundaryEqType _ | BoundaryEqTerm _ ->
+            assert false
+       in
+       let rl = Signature.lookup_rule c sgn in
+       Some (form_rule_rap sgn form rl args1 args2)
+
+  | TypeMeta (MetaFree {meta_nonce=n1; meta_boundary}, args1), TypeMeta (MetaFree {meta_nonce=n2;_}, args2) ->
+     let abstr = (match Boundary.as_is_type_abstraction meta_boundary with Some abstr -> abstr | None -> assert false) in
+     if not (Nonce.equal n1 n2) then
+       None
+     else
+       Some (form_meta_rap
+               (fun eq_args () ->
+                 let asmp = Collect_assumptions.arguments eq_args in
+                 Mk.eq_type asmp ty1 ty2)
+               abstr
+               args1 args2)
+
+  | TypeMeta (MetaBound _, _), _ | _, TypeMeta (MetaBound _, _)
+  | TypeConstructor _, TypeMeta _
+  | TypeMeta _, TypeConstructor _ ->
+        None
+
+let form_is_term sgn e1 e2 =
+  let rec form = function
+    | TermConvert (e1, _, _), e2 -> form (e1, e2)
+
+    | e1, TermConvert (e2, _, _) -> form (e1, e2)
+
+    | TermConstructor (c, args1), TermConstructor (c', args2) ->
+       if not (Ident.equal c c') then
+         None
+       else
+         let form' eq_args concl =
+           match concl with
+           | BoundaryIsTerm t_schema ->
+              let asmp = Collect_assumptions.arguments eq_args
+              and t = Instantiate_meta.is_type ~lvl:0 (List.rev args1) t_schema in
+              Mk.eq_term asmp e1 e2 t
+
+           | BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _ ->
+              assert false
+         in
+         let rl = Signature.lookup_rule c sgn in
+         Some (form_rule_rap sgn form' rl args1 args2)
+
+    | (TermMeta (MetaFree {meta_nonce=n1; meta_boundary}, args1) as e1), (TermMeta (MetaFree {meta_nonce=n2;_}, args2) as e2) ->
+       let abstr = (match Boundary.as_is_term_abstraction meta_boundary with Some abstr -> abstr | None -> assert false) in
+       if not (Nonce.equal n1 n2) then
+         None
+       else
+         Some (form_meta_rap
+                 (fun eq_args t' ->
+                   let t = Instantiate_bound.is_type_fully (Indices.of_list args1) t' in
+                   let asmp = Collect_assumptions.arguments eq_args in
+                   Mk.eq_term asmp e1 e2 t)
+                 abstr
+                 args1 args2)
+
+    | TermMeta _, TermConstructor _
+      | TermConstructor _, TermMeta _
+      | TermAtom _, _
+      | _, TermAtom _ ->
+       None
+
+    | TermMeta (MetaBound _, _), _ | _, TermMeta (MetaBound _, _)
+      | TermBoundVar _, _ | _, TermBoundVar _ -> assert false
+  in
+  form (e1, e2)

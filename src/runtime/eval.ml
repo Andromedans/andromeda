@@ -209,7 +209,7 @@ let rec comp {Location.it=c'; at} =
              | Runtime.(Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
                 Runtime.(error ~at (JudgementOrBoundaryExpected v))
            end)
-  
+
   | Syntax.AbstractAtom (a, c) ->
      comp_as_atom a >>= fun a ->
            begin comp c >>=
@@ -304,7 +304,7 @@ let rec comp {Location.it=c'; at} =
      let jdg2 = Runtime.as_not_abstract ~at abstr2 in
      Runtime.get_env >>= fun env ->
      let sgn = Runtime.get_signature env in
-     let rap = Nucleus.congruence_rap sgn jdg1 jdg2 in
+     let rap = Nucleus.congruence_judgement sgn jdg1 jdg2 in
      check_arguments ~at rap cs
 
   | Syntax.Convert (c1, c2) ->

@@ -132,15 +132,15 @@ val expose_judgement : judgement -> Nucleus_types.judgement
    Either we are done and we get a result, or more arguments are needed, in
    which case we get the rap with one more argument applied, and the boundary of
    the next argument. *)
-type rule_application = private
-  | RapDone of judgement
-  | RapMore of boundary_abstraction * (judgement_abstraction -> rule_application)
+type 'a rule_application = private
+  | RapDone of 'a
+  | RapMore of boundary_abstraction * (judgement_abstraction -> 'a rule_application)
 
 (** Form a fully non-applied rule application for a given constructor *)
-val form_constructor_rap : signature -> Ident.t -> rule_application
+val form_constructor_rap : signature -> Ident.t -> judgement rule_application
 
 (** Form a fully non-applied derivation application *)
-val form_derivation_rap : signature -> derivation -> rule_application
+val form_derivation_rap : signature -> derivation -> judgement rule_application
 
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
@@ -165,8 +165,13 @@ val form_is_term_boundary_abstraction : is_type_abstraction -> boundary_abstract
 (** Form a non-abstracted abstraction *)
 val abstract_not_abstract : 'a -> 'a abstraction
 
-(** Abstract a judgement abstraction *)
+(** Abstract an abstraction by one more level. *)
+val abstract_is_type : ?name:Name.t -> is_atom -> is_type_abstraction -> is_type_abstraction
 val abstract_is_term : ?name:Name.t -> is_atom -> is_term_abstraction -> is_term_abstraction
+val abstract_eq_type : ?name:Name.t -> is_atom -> eq_type_abstraction -> eq_type_abstraction
+val abstract_eq_term : ?name:Name.t -> is_atom -> eq_term_abstraction -> eq_term_abstraction
+
+(** Abstract a judgement abstraction by one more level *)
 val abstract_judgement : ?name:Name.t -> is_atom -> judgement_abstraction -> judgement_abstraction
 
 (** Abstract a boundary abstraction *)
@@ -207,8 +212,6 @@ val invert_eq_term : eq_term -> stump_eq_term
 val atom_nonce : is_atom -> Nonce.t
 
 val atom_name : is_atom -> Name.t
-
-(* val meta_nonce : 'a meta -> Nonce.t *)
 
 val invert_is_term_abstraction :
   ?name:Name.t -> is_term_abstraction -> is_term stump_abstraction
@@ -339,8 +342,14 @@ val natural_type_eq : signature -> is_term -> eq_type
 (** Create the congruence rule application for the given constructor and
     judgements, or raise [InvalidCongruence] if the judgements are not
     of the correct form. *)
-val congruence_rap :
-  signature -> judgement -> judgement -> rule_application
+val congruence_judgement :
+  signature -> judgement -> judgement -> judgement rule_application
+
+val congruence_is_type :
+  signature -> is_type -> is_type -> eq_type rule_application option
+
+val congruence_is_term :
+  signature -> is_term -> is_term -> eq_term rule_application option
 
 (** Give human names to things *)
 

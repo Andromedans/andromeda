@@ -70,9 +70,9 @@ type primitive = boundary rule
 type derivation = judgement rule
 
 (* A partial rule application *)
-type rule_application =
-  | RapDone of judgement
-  | RapMore of boundary_abstraction * (judgement_abstraction -> rule_application)
+type 'a rule_application =
+  | RapDone of 'a
+  | RapMore of boundary_abstraction * (judgement_abstraction -> 'a rule_application)
 
 type signature = primitive Ident.map
 

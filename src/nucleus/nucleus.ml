@@ -54,6 +54,9 @@ let form_derivation = Form_rule.form_derivation
 
 let abstract_boundary = Abstract.boundary_abstraction
 let abstract_is_term = Abstract.is_term_abstraction
+let abstract_is_type = Abstract.is_type_abstraction
+let abstract_eq_type = Abstract.eq_type_abstraction
+let abstract_eq_term = Abstract.eq_term_abstraction
 
 let abstract_judgement = Abstract.judgement_abstraction
 
@@ -119,7 +122,10 @@ let convert_term_abstraction = Convert.term_abstraction
 let convert_eq_term_abstraction = Convert.eq_term_abstraction
 let convert_judgement_abstraction = Convert.judgement_abstraction
 
-let congruence_rap = Congruence.form_rap
+let congruence_judgement = Congruence.form_judgement
+let congruence_is_type = Congruence.form_is_type
+let congruence_is_term = Congruence.form_is_term
+
 
 let print_is_term = Nucleus_print.is_term
 let print_is_type = Nucleus_print.is_type
