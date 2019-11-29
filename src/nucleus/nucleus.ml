@@ -118,6 +118,8 @@ let occurs_eq_type_abstraction = occurs_abstraction Collect_assumptions.eq_type
 let occurs_eq_term_abstraction = occurs_abstraction Collect_assumptions.eq_term
 let occurs_judgement_abstraction = occurs_abstraction Collect_assumptions.judgement
 
+let convert_term = Form.form_is_term_convert_opt
+let convert_eq_term = Form.form_eq_term_convert_opt
 let convert_term_abstraction = Convert.term_abstraction
 let convert_eq_term_abstraction = Convert.eq_term_abstraction
 let convert_judgement_abstraction = Convert.judgement_abstraction

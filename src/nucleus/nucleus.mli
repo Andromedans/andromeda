@@ -193,10 +193,11 @@ val as_is_term : judgement -> is_term option
 val as_eq_type : judgement -> eq_type option
 val as_eq_term : judgement -> eq_term option
 
+(** Conversions *)
+val convert_term : signature -> is_term -> eq_type -> is_term option
 val convert_term_abstraction : signature -> is_term abstraction -> eq_type abstraction -> is_term abstraction option
-
+val convert_eq_term : eq_term -> eq_type -> eq_term option
 val convert_eq_term_abstraction : eq_term abstraction -> eq_type abstraction -> eq_term abstraction option
-
 val convert_judgement_abstraction : signature -> judgement_abstraction -> eq_type_abstraction -> judgement_abstraction option
 
 (** Inversion principles *)
@@ -241,7 +242,7 @@ val invert_eq_type_boundary_abstraction :
   ?name:Name.t -> eq_type_boundary abstraction -> (is_type * is_type) stump_abstraction
 
 val invert_eq_term_boundary_abstraction :
-  ?name:Name.t -> eq_term_boundary abstraction -> (is_term * is_term * is_type) stump_abstraction
+  ?name:Name.t -> eq_term_boundary abstraction -> eq_term_boundary stump_abstraction
 
 val invert_boundary_abstraction :
   ?name:Name.t -> boundary_abstraction -> boundary stump_abstraction
