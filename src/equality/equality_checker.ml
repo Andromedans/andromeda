@@ -118,8 +118,8 @@ and prove_eq_term chk sgn bdry =
 
   | None ->
      (* normalization phase *)
-     let e1_eq_e1', e1' = whnf_term chk sgn e1
-     and e2_eq_e2', e2' = whnf_term chk sgn e2 in
+     let e1_eq_e1', e1' = whnf_term chk sgn e1 t
+     and e2_eq_e2', e2' = whnf_term chk sgn e2 t in
      let e1'_eq_e2' = check_whnf_term chk sgn e1' e2' in
      Nucleus.transitivity_term
        (Nucleus.transitivity_term e1_eq_e1' e1'_eq_e2')
@@ -133,6 +133,7 @@ and check_whnf_type chk sgn (Whnf ty1) (Whnf ty2) =
 
   | Some rap -> resolve_rap chk sgn rap
 
+(* We assume that [e1] and [e2] have the same type. *)
 and check_whnf_term chk sgn (Whnf e1) (Whnf e2) =
   match Nucleus.congruence_is_term sgn e1 e2 with
 
@@ -189,5 +190,15 @@ and whnf_type chk sgn ty =
   in
   fold (Nucleus.reflexivity_type ty) ty
 
-and whnf_term chk sgn term =
-  (??)
+and whnf_term chk sgn e =
+  let rec fold e_eq_e' e' =
+
+    match apply_term_beta chk e' with
+
+    | None -> e_eq_e', Whnf e'
+
+    | Some (e'_eq_e'', e'') ->
+       let e_eq_e'' = Nucleus.transitivity_term e_eq_e' e'_eq_e'' in
+       fold e_eq_e'' e''
+  in
+  fold (Nucleus.reflexivity_term sgn e) e

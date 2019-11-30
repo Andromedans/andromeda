@@ -185,6 +185,12 @@ let form_eq_term_convert (EqTerm (_, _, _, t0) as eq1) (EqType (_, t1, _) as eq2
   | Some eq -> eq
   | None -> Error.raise (InvalidConvert (t0, t1))
 
+let reflexivity_type t = Mk.eq_type Assumption.empty t t
+
+let reflexivity_term sgn e =
+  let t = Sanity.type_of_term sgn e in
+  Mk.eq_term Assumption.empty e e t
+
 let symmetry_term (EqTerm (asmp, e1, e2, t)) = Mk.eq_term asmp e2 e1 t
 
 let symmetry_type (EqType (asmp, t1, t2)) = Mk.eq_type asmp t2 t1

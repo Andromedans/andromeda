@@ -323,6 +323,12 @@ val alpha_equal_judgement : judgement -> judgement -> bool
 (** Test whether two boundaries are alpha-equal. *)
 val alpha_equal_boundary : boundary -> boundary -> bool
 
+(** Witness reflexivity of a type. *)
+val reflexivity_type : is_type -> eq_type
+
+(** Witness reflexivity of a term. *)
+val reflexivity_term : signature -> is_term -> eq_term
+
 (** If [e1 == e2 : A] then [e2 == e1 : A] *)
 val symmetry_term : eq_term -> eq_term
 

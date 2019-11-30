@@ -36,6 +36,9 @@ let form_derivation_rap = Form.form_derivation_rap
 let form_is_term_atom = Form.form_is_term_atom
 let form_eq_term_convert = Form.form_eq_term_convert
 let form_is_term_convert = Form.form_is_term_convert
+
+let reflexivity_type = Form.reflexivity_type
+let reflexivity_term = Form.reflexivity_term
 let transitivity_type = Form.transitivity_type
 let transitivity_term = Form.transitivity_term
 let symmetry_type = Form.symmetry_type
