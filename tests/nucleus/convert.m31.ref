@@ -11,5 +11,5 @@ Rule ζ is postulated.
 Rule z is postulated.
 val e :> judgement = ⊢ {u : P z} u
 - : judgement * judgement * judgement * judgement =
-  ((?u₀ : P z ⊢ ?u₀), (⊢ P z type), (?u₀ : P z ⊢ ?u₀), (⊢ P a
+  ((u₀ : P z ⊢ u₀), (⊢ P z type), (u₀ : P z ⊢ u₀), (⊢ P a
    type))

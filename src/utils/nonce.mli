@@ -13,8 +13,9 @@ val equal : t -> t -> bool
 (** Compare nonces. *)
 val compare : t -> t -> int
 
-(** Print a nonce. Each nonce is guaranteed to printed in a unique way *)
-val print : parentheses:bool -> t -> Format.formatter -> unit
+(** Print a nonce, with or without a leading questionmark.
+    Each nonce is guaranteed to printed in a unique way *)
+val print : questionmark:bool -> parentheses:bool -> t -> Format.formatter -> unit
 
 (** A map from nonces to values *)
 type 'a map
