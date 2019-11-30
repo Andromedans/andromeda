@@ -95,8 +95,8 @@ let form_constructor_rap sgn c =
   let rl = Signature.lookup_rule c sgn in
   fold [] rl
 
-(** Form a rap from a derivation *)
-let form_derivation_rap sgn drv =
+(** Form a rap from a rule *)
+let form_rule_rap sgn inst rl =
   let rec fold args = function
     | Premise (_, prem, drv) ->
        let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
@@ -109,27 +109,64 @@ let form_derivation_rap sgn drv =
        in
        RapMore (bdry, rap)
 
-    | Conclusion (JudgementIsType t_schema) ->
-       let t = Instantiate_meta.is_type ~lvl:0 args t_schema in
-       RapDone (JudgementIsType t)
-
-    | Conclusion (JudgementIsTerm e_schema) ->
-       let e = Instantiate_meta.is_term ~lvl:0 args e_schema in
-       RapDone (JudgementIsTerm e)
-
-    | Conclusion (JudgementEqType eq_schema) ->
-       (* order of arguments not important in [Collect_assumptions.arguments],
-          we could try avoiding a list reversal caused by [Indices.to_list]. *)
-       let eq = Instantiate_meta.eq_type ~lvl:0 args eq_schema in
-       RapDone (JudgementEqType eq)
-
-    | Conclusion (JudgementEqTerm eq_schema) ->
-       (* order of arguments not important in [Collect_assumptions.arguments],
-          we could try avoiding a list reversal caused by [Indices.to_list]. *)
-       let eq = Instantiate_meta.eq_term ~lvl:0 args eq_schema in
-       RapDone (JudgementEqTerm eq)
+    | Conclusion concl ->
+       let concl = inst args concl in
+       RapDone concl
   in
-  fold [] drv
+  fold [] rl
+
+let form_derivation_rap sgn drv =
+  form_rule_rap sgn (Instantiate_meta.judgement ~lvl:0) drv
+
+let form_is_type_rap sgn drv =
+  form_rule_rap sgn (Instantiate_meta.is_type ~lvl:0) drv
+
+let form_is_term_rap sgn drv =
+  form_rule_rap sgn (Instantiate_meta.is_term ~lvl:0) drv
+
+let form_eq_type_rap sgn drv =
+  form_rule_rap sgn (Instantiate_meta.eq_type ~lvl:0) drv
+
+let form_eq_term_rap sgn drv =
+  form_rule_rap sgn (Instantiate_meta.eq_term ~lvl:0) drv
+
+
+
+(* (\** Form a rap from a derivation *\)
+ * let form_derivation_rap sgn drv =
+ *   let rec fold args = function
+ *     | Premise (_, prem, drv) ->
+ *        let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
+ *        let rap abstr =
+ *          if not (Check.judgement_boundary_abstraction sgn abstr bdry)
+ *          then Error.raise InvalidArgument ;
+ *          let arg = Judgement.to_argument abstr in
+ *          let args = arg :: args in
+ *          fold args drv
+ *        in
+ *        RapMore (bdry, rap)
+ *
+ *     | Conclusion (JudgementIsType t_schema) ->
+ *        let t = Instantiate_meta.is_type ~lvl:0 args t_schema in
+ *        RapDone (JudgementIsType t)
+ *
+ *     | Conclusion (JudgementIsTerm e_schema) ->
+ *        let e = Instantiate_meta.is_term ~lvl:0 args e_schema in
+ *        RapDone (JudgementIsTerm e)
+ *
+ *     | Conclusion (JudgementEqType eq_schema) ->
+ *        (\* order of arguments not important in [Collect_assumptions.arguments],
+ *           we could try avoiding a list reversal caused by [Indices.to_list]. *\)
+ *        let eq = Instantiate_meta.eq_type ~lvl:0 args eq_schema in
+ *        RapDone (JudgementEqType eq)
+ *
+ *     | Conclusion (JudgementEqTerm eq_schema) ->
+ *        (\* order of arguments not important in [Collect_assumptions.arguments],
+ *           we could try avoiding a list reversal caused by [Indices.to_list]. *\)
+ *        let eq = Instantiate_meta.eq_term ~lvl:0 args eq_schema in
+ *        RapDone (JudgementEqTerm eq)
+ *   in
+ *   fold [] drv *)
 
 (** Formation of a term from an atom *)
 let form_is_term_atom = Mk.atom

@@ -5,6 +5,10 @@ module Signature = Signature
 let form_meta = Meta.form_meta
 
 (** Exponsing the inner structure (safely) *)
+let expose_is_term e = e
+let expose_is_type t = t
+let expose_eq_type eq = eq
+let expose_eq_term eq = eq
 let expose_judgement jdg = jdg
 
 (** Exports from [Sanity] *)
@@ -31,8 +35,16 @@ let form_alpha_equal_term = Form.form_alpha_equal_term
 let form_alpha_equal_type = Form.form_alpha_equal_type
 let form_alpha_equal_abstraction = Form.form_alpha_equal_abstraction
 let form_constructor_rap = Form.form_constructor_rap
+
+(** Construction of rule applications *)
+let form_is_type_rap = Form.form_is_type_rap
+let form_is_term_rap = Form.form_is_term_rap
+let form_eq_type_rap = Form.form_eq_type_rap
+let form_eq_term_rap = Form.form_eq_term_rap
+
 let form_derivation_rap = Form.form_derivation_rap
 
+(** Miscelaneous constructions *)
 let form_is_term_atom = Form.form_is_term_atom
 let form_eq_term_convert = Form.form_eq_term_convert
 let form_is_term_convert = Form.form_is_term_convert

@@ -126,6 +126,10 @@ val form_derivation : (Nonce.t * boundary_abstraction) list -> judgement -> deri
 
 (** Functions that expose abstract types. These are harmless because there is no way
     to map back into the absract types. *)
+val expose_is_term : is_term -> Nucleus_types.is_term
+val expose_is_type : is_type -> Nucleus_types.is_type
+val expose_eq_type : eq_type -> Nucleus_types.eq_type
+val expose_eq_term : eq_term -> Nucleus_types.eq_term
 val expose_judgement : judgement -> Nucleus_types.judgement
 
 (** When we apply a rule application to one more argument two things may happen.
@@ -138,6 +142,18 @@ type 'a rule_application = private
 
 (** Form a fully non-applied rule application for a given constructor *)
 val form_constructor_rap : signature -> Ident.t -> judgement rule_application
+
+(** Form a fully non-applied rule application with a type conclusion *)
+val form_is_type_rap : signature -> is_type rule -> is_type rule_application
+
+(** Form a fully non-applied rule application with a term conclusion *)
+val form_is_term_rap : signature -> is_term rule -> is_term rule_application
+
+(** Form a fully non-applied rule application with a type equality conclusion *)
+val form_eq_type_rap : signature -> eq_type rule -> eq_type rule_application
+
+(** Form a fully non-applied rule application with a term equality conclusion *)
+val form_eq_term_rap : signature -> eq_term rule -> eq_term rule_application
 
 (** Form a fully non-applied derivation application *)
 val form_derivation_rap : signature -> derivation -> judgement rule_application
