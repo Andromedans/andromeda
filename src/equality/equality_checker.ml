@@ -1,14 +1,24 @@
 (** Type-directed equality checking based on user-provided rules. *)
 
 (** The types of beta rules. *)
-type type_beta_rule
-type term_beta_rule
+
+type type_beta_rule =
+  { type_beta_pattern : Rewrite.is_type (* the rewrite pattern to match the left-hand side *)
+  ; type_beta_rule : Nucleus.eq_type Nucleus.rule (* the associated rule *)
+  }
+
+type term_beta_rule =
+  { term_beta_pattern : Rewrite.is_term (* the rewrite pattern to match the left-hand side *)
+  ; term_beta_rule : Nucleus.eq_term Nucleus.rule (* the associated rule *)
+  }
 
 (** The type of extensionality rules. *)
-type extensionality_rule
+type extensionality_rule =
+  { ext_pattern : Rewrite.is_type (* the rewrite pattern to match the type of equality *)
+  ; ext_rule : Nucleus.eq_term Nucleus.rule (* the associated rule *)
+  }
 
-(** We index rules by the heads of expressions, which canb be
-    identifiers or meta-variables (nonces). *)
+(** We index rules by the heads of expressions, which can be identifiers or meta-variables (nonces). *)
 type symbol =
   | Ident of Ident.t
   | Nonce of Nonce.t
@@ -42,14 +52,37 @@ let empty_checker = {
   }
 
 
+(** The head symbol of a term. *)
+let head_symbol_term e =
+  let rec fold = function
+    | Nucleus_types.TermBoundVar _ -> assert false
+    | Nucleus_types.(TermAtom {atom_nonce=n; _}) -> Nonce n
+    | Nucleus_types.TermConstructor (c, _) -> Ident c
+    | Nucleus_types.(TermMeta (MetaFree {meta_nonce=n;_}, _)) -> Nonce n
+    | Nucleus_types.(TermMeta (MetaBound _, _)) -> assert false
+    | Nucleus_types.TermConvert (e, _, _) -> fold e
+  in
+  fold (Nucleus.expose_is_term e)
+
+
+(** The head symbol of a type. *)
+let head_symbol_type t =
+  match Nucleus.expose_is_type t with
+  | Nucleus_types.TypeConstructor (c, _) -> Ident c
+  | Nucleus_types.(TypeMeta (MetaFree {meta_nonce=n;_}, _)) -> Nonce n
+  | Nucleus_types.(TypeMeta (MetaBound _, _)) -> assert false
+
+
 let make_type_beta_rule sgn drv =
-  (??)
+  failwith "make_type_beta_rule"
+
 
 let make_term_beta_rule sgn drv =
-  (??)
+  failwith "make_term_beta_rule"
+
 
 let make_ext_rule sgn drv =
-  (??)
+  failwith "make_ext_rule"
 
 let add_type_beta checker sgn drv =
   let sym, bt = make_type_beta_rule sgn drv in
@@ -63,13 +96,33 @@ let add_extensionality checker sgn drv =
   let sym, bt = make_ext_rule sgn drv in
   { checker with ext_rules = SymbolMap.add sym bt checker.ext_rules }
 
+let apply_type_beta chk ty = failwith "apply_type_beta"
 
-let apply_type_beta chk ty = (??)
+(** Apply a beta rule to [e] at type [t]. *)
+let apply_term_beta chk sgn e t =
+  let s = head_symbol_term e in
+  ignore s ;
+  failwith "apply_term_beta"
 
-let apply_term_beta chk e = (??)
+(** Find an extensionality rule for [e1 == e2 : t], and optionally return a rule
+   application that will prove it. *)
+let find_extensionality chk sgn e1 e2 t =
+  match SymbolMap.find_opt (head_symbol_type t) chk.ext_rules with
+  | None -> None
+  | Some lst ->
+     let fold = function
+       | [] -> None
+       | {ext_pattern=pt; ext_rule=rl} :: lst ->
+          begin match Rewrite.match_is_type sgn t pt with
+          | None -> fold lst
+          | Some args ->
+             let rap = Nucleus.form_eq_term_rap sgn rl in
+             (* XXX apply rap to args, then e1 and e2 *)
+             rap
+          end
 
-let find_extensionality chk sgn e1 e2 ty = (??)
-
+     in
+     fold lst
 
 (** A local exception for signaling failure of equality check. *)
 exception Equality_fail
@@ -100,8 +153,8 @@ and prove_eq_term_abstraction chk sgn abstr =
 
 
 and prove_eq_type chk sgn (ty1, ty2) =
-  let ty1_eq_ty1', ty1' = whnf_type chk sgn ty1
-  and ty2_eq_ty2', ty2' = whnf_type chk sgn ty2 in
+  let ty1_eq_ty1', ty1' = whnf_type' chk sgn ty1
+  and ty2_eq_ty2', ty2' = whnf_type' chk sgn ty2 in
   let ty1'_eq_ty2' = check_whnf_type chk sgn ty1' ty2' in
   Nucleus.transitivity_type
     (Nucleus.transitivity_type ty1_eq_ty1' ty1'_eq_ty2')
@@ -118,8 +171,8 @@ and prove_eq_term chk sgn bdry =
 
   | None ->
      (* normalization phase *)
-     let e1_eq_e1', e1' = whnf_term chk sgn e1 t
-     and e2_eq_e2', e2' = whnf_term chk sgn e2 t in
+     let e1_eq_e1', e1' = whnf_term' chk sgn e1 t
+     and e2_eq_e2', e2' = whnf_term' chk sgn e2 t in
      let e1'_eq_e2' = check_whnf_term chk sgn e1' e2' in
      Nucleus.transitivity_term
        (Nucleus.transitivity_term e1_eq_e1' e1'_eq_e2')
@@ -177,7 +230,7 @@ and prove_boundary_abstraction chk sgn bdry =
   in
   check bdry
 
-and whnf_type chk sgn ty =
+and whnf_type' chk sgn ty =
   let rec fold ty_eq_ty' ty' =
 
     match apply_type_beta chk ty' with
@@ -190,10 +243,10 @@ and whnf_type chk sgn ty =
   in
   fold (Nucleus.reflexivity_type ty) ty
 
-and whnf_term chk sgn e =
+and whnf_term' chk sgn e t =
   let rec fold e_eq_e' e' =
 
-    match apply_term_beta chk e' with
+    match apply_term_beta chk sgn e' t with
 
     | None -> e_eq_e', Whnf e'
 
@@ -202,3 +255,12 @@ and whnf_term chk sgn e =
        fold e_eq_e'' e''
   in
   fold (Nucleus.reflexivity_term sgn e) e
+
+let whnf_type chk sgn t =
+  let eq, Whnf t = whnf_type' chk sgn t in
+  eq, t
+
+let whnf_term chk sgn e =
+  let t = Nucleus.type_of_term sgn e in
+  let eq, Whnf e = whnf_term' chk sgn e t in
+  eq, e

@@ -5,6 +5,7 @@ S src/nucleus
 S src/utils
 S src/runtime
 S src/typing
+S src/equality
 B _build/src
 B _build/src/syntax
 B _build/src/parser
@@ -12,5 +13,6 @@ B _build/src/nucleus
 B _build/src/utils
 B _build/src/runtime
 B _build/src/typing
+B _build/src/equality
 PKG menhirLib
 PKG sedlex
