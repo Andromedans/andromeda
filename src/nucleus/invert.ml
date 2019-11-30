@@ -70,7 +70,13 @@ let invert_is_type sgn = function
 
 let invert_eq_type (EqType (asmp, t1, t2)) = Stump_EqType (asmp, t1, t2)
 
-let invert_eq_term (EqTerm (asmp, e1, e2, t)) = Stump_EqTerm (asmp, e1, e2, t)
+let invert_eq_term sgn (EqTerm (asmp, e1, e2, t)) =
+  let t1 = Sanity.type_of_term sgn e1
+  and t2 = Sanity.type_of_term sgn e2 in
+  let e1 = if Alpha_equal.is_type t1 t then e1 else Mk.term_convert e1 asmp t
+  and e2 = if Alpha_equal.is_type t2 t then e2 else Mk.term_convert e2 asmp t
+  in
+  Stump_EqTerm (asmp, e1, e2, t)
 
 let as_not_abstract = function
   | Abstract _ -> None

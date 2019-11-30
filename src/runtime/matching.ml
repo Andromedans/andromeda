@@ -84,7 +84,7 @@ let rec collect_pattern sgn xvs {Location.it=p'; at} v =
   | Syntax.Patt_EqTerm (pe1, pe2, pt), Runtime.Judgement abstr ->
      begin match Nucleus.as_not_abstract abstr with
      | Some (Nucleus.JudgementEqTerm eq) ->
-        begin match Nucleus.invert_eq_term eq with
+        begin match Nucleus.invert_eq_term sgn eq with
         | Nucleus.Stump_EqTerm (_asmp, e1, e2, t) ->
            let e1_abstr = Nucleus.(abstract_not_abstract (JudgementIsTerm e1))
            and e2_abstr = Nucleus.(abstract_not_abstract (JudgementIsTerm e2))

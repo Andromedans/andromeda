@@ -7,14 +7,17 @@ type is_type =
   | TypeConstructor of Ident.t * argument list
 
 and is_term =
-  | TermBoundVar of bound
-  | TermAtom of is_atom
-  | TermMeta of meta * is_term list
-  | TermConstructor of Ident.t * argument list
-  | TermConvert of is_term * assumption * is_type
+  | TermBoundVar of bound (* de Bruijm index of a bound variable *)
+  | TermAtom of is_atom (* a free variable *)
+  | TermMeta of meta * is_term list (* term meta-variable applied to arguments *)
+  | TermConstructor of Ident.t * argument list (* term constructor applied to arguments *)
+  | TermConvert of is_term * assumption * is_type (* term conversion *)
 
 and eq_type = EqType of assumption * is_type * is_type
 
+(* In a term equality [EqTerm (asmp, e1, e2, t)] we maintain the invariant
+   that [e1] and [e2] are *not* term conversions. Instead, we put such term
+   conversions back in when a term equality is inverted, as necessary. *)
 and eq_term = EqTerm of assumption * is_term * is_term * is_type
 
 and is_atom = { atom_nonce : Nonce.t ; atom_type : is_type }

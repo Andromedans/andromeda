@@ -41,6 +41,7 @@ and is_term e0 ?(lvl=0) = function
        let e = is_term e0 ~lvl e
        and asmp = assumptions e0 ~lvl asmp
        and t = is_type e0 ~lvl t in
+       (* does not create a doubly nested [TermConvert] because original input does not either *)
        TermConvert (e, asmp, t)
 
 (* there are no bound variables in the type of a meta *)
@@ -173,6 +174,7 @@ and is_term_fully ?(lvl=0) es = function
      let e = is_term_fully ~lvl es e
      and asmp = assumptions_fully ~lvl es asmp
      and t = is_type_fully ~lvl es t
+     (* does not create a doubly nested [TermConvert] because original input does not either *)
      in TermConvert (e, asmp, t)
 
 and eq_type_fully ?(lvl=0) es (EqType (asmp, t1, t2)) =

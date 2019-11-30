@@ -46,6 +46,7 @@ and is_term x ?(lvl=0) = function
      let e = is_term x ~lvl e
      and asmp = Assumption.abstract x ~lvl asmp
      and t = is_type x ~lvl t in
+     (* does not create a doubly nested [TermConvert] because original input does not either *)
      TermConvert (e, asmp, t)
 
 and eq_type x ?(lvl=0) (EqType (asmp, t1, t2)) =

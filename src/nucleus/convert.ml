@@ -18,7 +18,6 @@ let rec abstraction inst_u abstr_v converter u eq =
      let v = Abstract.abstraction abstr_v n v in
      Mk.abstract (Nonce.name n) t v
 
-
 let judgement sgn jdg eq =
   match jdg with
   | JudgementIsTerm e -> JudgementIsTerm (opt_fail (Form.form_is_term_convert_opt sgn e eq))

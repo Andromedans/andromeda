@@ -21,6 +21,8 @@ Rule b is postulated.
 Rule ζ is postulated.
 - : list judgement * mlstring =
   ((⊢ a) :: (⊢ b) :: (⊢ A type) :: [], "eqterm")
+- : list judgement * mlstring =
+  ((⊢ a) :: (⊢ b) :: (⊢ B type) :: [], "eqterm")
 - : list judgement * mlstring = ((⊢ a) :: (⊢ B type) :: [], "isterm")
 - : list judgement * mlstring =
   ((?z₀ : A ⊢ ?z₀) :: (⊢ A type) :: (?z₀ : A ⊢ P ?z₀ type) ::

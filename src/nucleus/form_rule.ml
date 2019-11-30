@@ -101,7 +101,7 @@ let rec mk_rule_is_type metas = function
 
 and mk_rule_is_term metas = function
   | TermAtom _ ->
-     (* this will be gone when we eliminate atoms *)
+     (* XXX turn this into a proper runtime error *)
      failwith "a free atom cannot appear in a rule"
 
   | TermMeta (MetaFree mv, args) ->
@@ -126,6 +126,7 @@ and mk_rule_is_term metas = function
      and asmp = mk_rule_assumptions metas asmp
      and t = mk_rule_is_type metas t
      in
+     (* does not create a doubly nested [TermConvert] because original input does not either *)
      TermConvert (e, asmp, t)
 
 and mk_rule_eq_type metas (EqType (asmp, t1, t2)) =

@@ -208,7 +208,10 @@ val invert_is_term : signature -> is_term -> stump_is_term
 
 val invert_eq_type : eq_type -> stump_eq_type
 
-val invert_eq_term : eq_term -> stump_eq_term
+(** Invert a term equality [e1 == e2 : t] to give [e1], [e2] and [t].
+    We guarantee that [e1 : t] and [e2 : t], i.e., if necessary [e1]
+    and [e2] are converted to have type [t]. *)
+val invert_eq_term : signature -> eq_term -> stump_eq_term
 
 val atom_nonce : is_atom -> Nonce.t
 
