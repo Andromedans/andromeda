@@ -120,8 +120,10 @@ module Signature : sig
   val add_rule : Ident.t -> primitive -> signature -> signature
 end
 
+(** Form a primitive rule from a given list of meta-variables and a boundary *)
 val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> primitive
 
+(** Form a derived rule from a given list of meta-variables and a boundary *)
 val form_derivation : (Nonce.t * boundary_abstraction) list -> judgement -> derivation
 
 (** Functions that expose abstract types. These are harmless because there is no way
@@ -131,6 +133,7 @@ val expose_is_type : is_type -> Nucleus_types.is_type
 val expose_eq_type : eq_type -> Nucleus_types.eq_type
 val expose_eq_term : eq_term -> Nucleus_types.eq_term
 val expose_judgement : judgement -> Nucleus_types.judgement
+
 
 (** When we apply a rule application to one more argument two things may happen.
    Either we are done and we get a result, or more arguments are needed, in
@@ -208,6 +211,18 @@ val as_is_type : judgement -> is_type option
 val as_is_term : judgement -> is_term option
 val as_eq_type : judgement -> eq_type option
 val as_eq_term : judgement -> eq_term option
+
+(** Convert the conclusion of a rule from a judgement to a type, if possible. *)
+val as_is_type_rule : derivation -> is_type rule option
+
+(** Convert the conclusion of a rule from a judgement to a term, if possible. *)
+val as_is_term_rule : derivation -> is_term rule option
+
+(** Convert the conclusion of a rule from a judgement to a type equation, if possible. *)
+val as_eq_type_rule : derivation -> eq_type rule option
+
+(** Convert the conclusion of a rule from a judgement to a term equation, if possible. *)
+val as_eq_term_rule : derivation -> eq_term rule option
 
 (** Conversions *)
 val convert_term : signature -> is_term -> eq_type -> is_term option

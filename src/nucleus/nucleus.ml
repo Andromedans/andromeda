@@ -4,7 +4,7 @@ module Signature = Signature
 
 let form_meta = Meta.form_meta
 
-(** Exponsing the inner structure (safely) *)
+(** Exposing the inner structure (safely) *)
 let expose_is_term e = e
 let expose_is_type t = t
 let expose_eq_type eq = eq
@@ -101,16 +101,20 @@ let as_not_abstract = Invert.as_not_abstract
 let atom_name = Invert.atom_name
 let atom_nonce {atom_nonce;_} = atom_nonce
 
-let as_is_type_abstraction = Judgement.as_is_type_abstraction
-let as_is_term_abstraction = Judgement.as_is_term_abstraction
-let as_eq_type_abstraction = Judgement.as_eq_type_abstraction
-let as_eq_term_abstraction = Judgement.as_eq_term_abstraction
+let as_is_type_abstraction = Coerce.as_is_type_abstraction
+let as_is_term_abstraction = Coerce.as_is_term_abstraction
+let as_eq_type_abstraction = Coerce.as_eq_type_abstraction
+let as_eq_term_abstraction = Coerce.as_eq_term_abstraction
 
-let as_is_type = Judgement.as_is_type
-let as_is_term = Judgement.as_is_term
-let as_eq_type = Judgement.as_eq_type
-let as_eq_term = Judgement.as_eq_term
+let as_is_type = Coerce.as_is_type
+let as_is_term = Coerce.as_is_term
+let as_eq_type = Coerce.as_eq_type
+let as_eq_term = Coerce.as_eq_term
 
+let as_is_type_rule = Coerce.as_is_type_rule
+let as_is_term_rule = Coerce.as_is_term_rule
+let as_eq_type_rule = Coerce.as_eq_type_rule
+let as_eq_term_rule = Coerce.as_eq_term_rule
 
 let context_is_type_abstraction = Collect_assumptions.context_of_abstraction Collect_assumptions.is_type
 let context_is_term_abstraction = Collect_assumptions.context_of_abstraction Collect_assumptions.is_term
