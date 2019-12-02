@@ -23,7 +23,7 @@ let rec is_type ~lvl metas = function
   | TypeMeta (MetaBound k, es_schema) ->
      let abstr = lookup_meta k metas in
      let es = List.map (fun e_schema -> is_term ~lvl metas e_schema) es_schema in
-     begin match Judgement.as_is_type (apply_argument abstr es) with
+     begin match Coerce.as_is_type (apply_argument abstr es) with
      | Some t -> t
      | None -> Error.raise IsTypeExpected
      end
@@ -55,7 +55,7 @@ and is_term ~lvl (metas : argument list) = function
   | TermMeta (MetaBound k, es_schema) ->
      let abstr = lookup_meta k metas in
      let es = List.map (fun e_schema -> is_term ~lvl metas e_schema) es_schema in
-     begin match Judgement.as_is_term (apply_argument abstr es) with
+     begin match Coerce.as_is_term (apply_argument abstr es) with
      | Some e -> e
      | None -> Error.raise IsTermExpected
      end

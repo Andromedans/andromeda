@@ -61,7 +61,7 @@ let form_constructor_rap sgn c =
        let rap abstr =
          if not (Check.judgement_boundary_abstraction sgn abstr bdry)
          then Error.raise InvalidArgument ;
-         let arg = Judgement.to_argument abstr in
+         let arg = Coerce.to_argument abstr in
          let args = arg :: args in
          fold args rl
        in
@@ -103,7 +103,7 @@ let form_rule_rap sgn inst rl =
        let rap abstr =
          if not (Check.judgement_boundary_abstraction sgn abstr bdry)
          then Error.raise InvalidArgument ;
-         let arg = Judgement.to_argument abstr in
+         let arg = Coerce.to_argument abstr in
          let args = arg :: args in
          fold args drv
        in

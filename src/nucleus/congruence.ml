@@ -67,7 +67,7 @@ let form_rule_rap sgn form rl args1 args2 =
           let rap_apply eq_abstr =
             if not (Check.judgement_boundary_abstraction sgn eq_abstr bdry)
             then Error.raise InvalidArgument ;
-            let eq_arg = Judgement.to_argument eq_abstr in
+            let eq_arg = Coerce.to_argument eq_abstr in
             let eq_args = eq_arg :: eq_args in
             let es = arg1 :: es in
             fold es eq_args rl args1 args2
