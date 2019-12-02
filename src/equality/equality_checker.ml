@@ -118,7 +118,33 @@ let make_type_beta_rule sgn drv =
 
 
 let make_term_beta_rule sgn drv =
-  failwith "make_term_beta_rule"
+  let rec fold k = function
+
+    | Nucleus_types.Conclusion eq ->
+       let (Nucleus.Stump_EqTerm (_asmp, e1, _e2, _t)) = Nucleus.invert_eq_term sgn eq in
+       begin match Rewrite.make_is_term sgn k e1 with
+
+       | Some patt ->
+          let s = head_symbol_term e1 in
+          (s, patt)
+
+       | None -> raise Invalid_rule
+       end
+
+    | Nucleus_types.Premise (n, bdry, drv) ->
+       if is_object_premise bdry then
+         fold (k+1) drv
+       else
+         raise Invalid_rule
+  in
+  let drv =
+    match Nucleus.as_eq_term_rule drv with
+    | Some drv -> drv
+    | None -> raise Invalid_rule
+  in
+  let (s, patt) = fold 0 (Nucleus.expose_rule drv) in
+  s, { term_beta_pattern = patt; term_beta_rule = drv }
+
 
 
 let make_ext_rule sgn drv =
