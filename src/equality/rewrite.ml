@@ -299,7 +299,7 @@ let metas_to_list k metas =
 (** Match type [t] against pattern [r] with meta-indices [0, ..., k-1]. *)
 let match_is_type sgn t (r, k) =
   try
-    let t = Nucleus.abstract_not_abstract t in
+    let t = Nucleus.(abstract_not_abstract (JudgementIsType t)) in
     metas_to_list k (collect_is_type sgn MetaMap.empty t r)
   with
     Match_fail -> None
@@ -307,7 +307,7 @@ let match_is_type sgn t (r, k) =
 (** Match term [e] against pattern [r] with meta-indices [0, ..., k-1]. *)
 let match_is_term sgn e (r, k) =
   try
-    let e = Nucleus.abstract_not_abstract e in
+    let e = Nucleus.(abstract_not_abstract (JudgementIsTerm e)) in
     metas_to_list k (collect_is_term sgn MetaMap.empty e r)
   with
     Match_fail -> None
@@ -375,7 +375,6 @@ let extract_meta metas abstr =
 (** The [form_XYZ] functions form a pattern from a given judgement. They return the set of
     bound meta-variables that were encountered and turned into pattern variables. *)
 
-(** Form a pattern from the given term [e], abstracting over the given bound meta-variables. *)
 let rec form_is_term metas e =
   match e with
   | Nucleus_types.TermBoundVar _ ->
@@ -475,3 +474,17 @@ and form_argument metas = function
   | Nucleus_types.Arg_Abstract _ as abstr ->
      (* Is this an eta-expanded meta-variable? *)
      extract_meta metas abstr
+
+let make_is_term sgn e =
+  try
+    ignore form_is_term ;
+    failwith "not fone yet"
+  with
+  | Form_fail -> None
+
+let make_is_type sgn e =
+  try
+    ignore form_is_term ;
+    failwith "not fone yet"
+  with
+  | Form_fail -> None

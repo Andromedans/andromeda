@@ -36,6 +36,9 @@ module SymbolMap = Map.Make(
                      let compare = compare_symbol
                    end)
 
+(* An equality checker is given by beta rules and extensionality rules. We organize them
+   as maps taking a symbol to a list of rules which have that symbol at the head. This
+   allows us to quickly determine which rules are potentially applicable. *)
 type checker = {
    type_beta_rules : type_beta_rule list SymbolMap.t ;
    term_beta_rules : term_beta_rule list SymbolMap.t ;
@@ -43,7 +46,6 @@ type checker = {
   }
 
 exception Invalid_rule
-
 
 let empty_checker = {
     type_beta_rules = SymbolMap.empty ;
@@ -74,8 +76,16 @@ let head_symbol_type t =
 
 
 let make_type_beta_rule sgn drv =
-  failwith "make_type_beta_rule"
+  let rec fold metas = function
 
+    | Nucleus.Conclusion jdg ->
+       (??)
+
+    | Nucleus.Premise (n, bdry, drv) ->
+       (??)
+
+  in
+  fold
 
 let make_term_beta_rule sgn drv =
   failwith "make_term_beta_rule"
@@ -84,17 +94,21 @@ let make_term_beta_rule sgn drv =
 let make_ext_rule sgn drv =
   failwith "make_ext_rule"
 
+
 let add_type_beta checker sgn drv =
   let sym, bt = make_type_beta_rule sgn drv in
   { checker with type_beta_rules = SymbolMap.add sym bt checker.type_beta_rules }
+
 
 let add_term_beta checker sgn drv =
   let sym, bt = make_term_beta_rule sgn drv in
   { checker with term_beta_rules = SymbolMap.add sym bt checker.term_beta_rules }
 
+
 let add_extensionality checker sgn drv =
   let sym, bt = make_ext_rule sgn drv in
   { checker with ext_rules = SymbolMap.add sym bt checker.ext_rules }
+
 
 let apply_type_beta chk ty = failwith "apply_type_beta"
 
@@ -104,13 +118,13 @@ let apply_term_beta chk sgn e t =
   ignore s ;
   failwith "apply_term_beta"
 
-(** Find an extensionality rule for [e1 == e2 : t], and optionally return a rule
+(** Find an extensionality rule for [e1 == e2 : t], if there is one, return a rule
    application that will prove it. *)
 let find_extensionality chk sgn e1 e2 t =
   match SymbolMap.find_opt (head_symbol_type t) chk.ext_rules with
   | None -> None
   | Some lst ->
-     let fold = function
+     let rec fold = function
        | [] -> None
        | {ext_pattern=pt; ext_rule=rl} :: lst ->
           begin match Rewrite.match_is_type sgn t pt with
@@ -118,7 +132,7 @@ let find_extensionality chk sgn e1 e2 t =
           | Some args ->
              let rap = Nucleus.form_eq_term_rap sgn rl in
              (* XXX apply rap to args, then e1 and e2 *)
-             rap
+             (??)
           end
 
      in

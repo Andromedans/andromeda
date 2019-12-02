@@ -1,6 +1,6 @@
 # A generic equality checker
 
-We support user-provided beta-rules and extensionality-rules (these are inter-derivable with η-rules, but have a more convenient form).
+We support user-provided β-rules and extensionality-rules (these are inter-derivable with η-rules, but have a more convenient form).
 
 ### Extensionality rules
 
