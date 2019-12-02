@@ -475,16 +475,39 @@ and form_argument metas = function
      (* Is this an eta-expanded meta-variable? *)
      extract_meta metas abstr
 
-let make_is_term sgn e =
+(** Check that the given set of integers contains
+    precisely the numbers 0, 1, ..., k-1 *)
+let is_range s k =
+  let rec scan = function
+    | 0 -> true
+    | k -> Bound_set.mem (k-1) s && scan (k-1)
+  in
+  Bound_set.cardinal s = k && scan k
+
+(** Construct a pattern [p] from type [t], and verify that the pattern captures exactly
+   the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
+   a beta or extensionality rule. *)
+let make_is_type sgn k t =
   try
-    ignore form_is_term ;
-    failwith "not fone yet"
+    let t = Nucleus.expose_is_type t in
+    let metas, patt = form_is_type Bound_set.empty t in
+    if is_range metas k then
+      Some (patt, k)
+    else
+      None
   with
   | Form_fail -> None
 
-let make_is_type sgn e =
+(** Construct a pattern [p] from term [e], and verify that the pattern captures exactly
+   the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
+   a beta or extensionality rule. *)
+let make_is_term sgn k e =
   try
-    ignore form_is_term ;
-    failwith "not fone yet"
+    let t = Nucleus.expose_is_term e in
+    let metas, patt = form_is_term Bound_set.empty t in
+    if is_range metas k then
+      Some (patt, k)
+    else
+      None
   with
   | Form_fail -> None

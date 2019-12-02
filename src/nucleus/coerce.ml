@@ -84,3 +84,23 @@ let from_eq_term_abstraction abstr =
 let rec to_argument = function
   | NotAbstract jdg -> Arg_NotAbstract jdg
   | Abstract (x, _, abstr) -> Arg_Abstract (x, to_argument abstr)
+
+let convert_rule f rl =
+  let rec fold = function
+    | Conclusion concl ->
+       begin match f concl with
+       | Some concl -> Conclusion concl
+       | None -> raise ConversionError
+       end
+
+    | Premise (n, bdry, rl) -> Premise (n, bdry, fold rl)
+  in
+  try
+    Some (fold rl)
+  with
+  | ConversionError -> None
+
+let as_is_type_rule = convert_rule as_is_type
+let as_is_term_rule = convert_rule as_is_term
+let as_eq_type_rule = convert_rule as_eq_type
+let as_eq_term_rule = convert_rule as_eq_term
