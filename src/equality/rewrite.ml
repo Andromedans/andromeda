@@ -489,7 +489,6 @@ let is_range s k =
    a beta or extensionality rule. *)
 let make_is_type sgn k t =
   try
-    let t = Nucleus.expose_is_type t in
     let metas, patt = form_is_type Bound_set.empty t in
     if is_range metas k then
       Some (patt, k)
@@ -503,8 +502,7 @@ let make_is_type sgn k t =
    a beta or extensionality rule. *)
 let make_is_term sgn k e =
   try
-    let t = Nucleus.expose_is_term e in
-    let metas, patt = form_is_term Bound_set.empty t in
+    let metas, patt = form_is_term Bound_set.empty e in
     if is_range metas k then
       Some (patt, k)
     else
