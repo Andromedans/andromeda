@@ -1,12 +1,6 @@
 (** An equality checker *)
 type checker
 
-(** Indicate that a rule is not of the expected form *)
-exception Invalid_rule
-
-(** Indicate failure to verify an equality *)
-exception Equality_fail
-
 (** The default equality checker, it can only check for α-equality. *)
 val empty_checker : checker
 
