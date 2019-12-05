@@ -29,8 +29,6 @@ let rec generalizable c =
   (* no *)
   | Syntax.Operation _
   | Syntax.With _
-  | Syntax.Now _
-  | Syntax.Current _
   | Syntax.Lookup _
   | Syntax.Update _
   | Syntax.Ref _
@@ -378,18 +376,6 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
                  Mlty.error ~at:c.Location.at Mlty.ValueRestriction
             end
        end >>= fun () -> return (c, t)
-
-  | Desugared.Now (x, c1, c2) ->
-     infer_comp x >>= fun (x, tx) ->
-     Tyenv.as_dynamic ~at:x.Location.at tx >>= fun tx ->
-     check_comp c1 tx >>= fun c1 ->
-     infer_comp c2 >>= fun (c2, t) ->
-     return (locate ~at (Syntax.Now (x, c1, c2)), t)
-
-  | Desugared.Current c ->
-     infer_comp c >>= fun (c, t) ->
-     Tyenv.as_dynamic ~at:c.Location.at t >>= fun t ->
-     return (locate ~at (Syntax.Current c), t)
 
   | Desugared.Lookup c ->
     infer_comp c >>= fun (c, t) ->
@@ -925,27 +911,6 @@ let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
           Tyenv.ungeneralize t >>= fun sch ->
           return_located ~at (Syntax.TopComputation (c, sch))
      end
-
-  | Desugared.TopDynamic (x, annot, c) ->
-     infer_comp c >>= fun (c, t) ->
-     begin match annot with
-     | Desugared.Arg_annot_none ->
-        Tyenv.ungeneralize (Mlty.Dynamic t) >>= fun sch ->
-        return (c, sch)
-     | Desugared.Arg_annot_ty t' ->
-        let t' = ml_ty [] t' in
-        Tyenv.add_equation ~at:c.Location.at t t' >>= fun () ->
-        Tyenv.ungeneralize (Mlty.Dynamic t') >>= fun sch ->
-        return (c, sch)
-     end >>= fun (c, sch) ->
-     Tyenv.add_ml_value_poly x sch
-       (return_located ~at (Syntax.TopDynamic (x, sch, c)))
-
-  | Desugared.TopNow (x, c) ->
-       infer_comp x >>= fun (x, tx) ->
-       Tyenv.as_dynamic ~at:x.Location.at tx >>= fun tx ->
-       check_comp c tx >>= fun c ->
-       return_located ~at (Syntax.TopNow (x, c))
 
   | Desugared.Verbosity v ->
     return_located ~at (Syntax.Verbosity v)

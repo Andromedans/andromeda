@@ -11,10 +11,8 @@ let reserved = [
   ("congruence", CONGRUENCE) ;
   ("context", CONTEXT) ;
   ("convert", CONVERT) ;
-  ("current", CURRENT) ;
   ("derive", DERIVE) ;
   ("derivation", MLDERIVATION) ;
-  ("dynamic", DYNAMIC) ;
   ("end", END) ;
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
@@ -34,7 +32,6 @@ let reserved = [
   ("mlunit", MLUNIT) ;
   ("module", MODULE) ;
   ("natural", NATURAL) ;
-  ("now", NOW) ;
   ("occurs", OCCURS) ;
   ("of", OF) ;
   ("open", OPEN) ;

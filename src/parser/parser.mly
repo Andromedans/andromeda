@@ -23,9 +23,6 @@
 (* Let binding *)
 %token LET REC AND IN
 
-(* Dynamic variables *)
-%token DYNAMIC NOW CURRENT
-
 (* Meta-level programming *)
 %token OPERATION
 %token MATCH WHEN END
@@ -144,12 +141,6 @@ top_command_:
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
     { Sugared.TopLetRec lst }
 
-  | DYNAMIC x=ml_name u=dyn_annotation EQ c=term
-    { Sugared.TopDynamic (x, u, c) }
-
-  | NOW x=app_term EQ c=term
-    { Sugared.TopNow (x,c) }
-
   (* | HANDLE lst=top_handler_cases END *)
   (*   { Sugared.TopHandle lst } *)
 
@@ -225,9 +216,6 @@ term_:
   | LET REC lst=separated_nonempty_list(AND, recursive_clause) IN c=term
     { Sugared.LetRec (lst, c) }
 
-  | NOW x=app_term EQ c1=term IN c2=term
-    { Sugared.Now (x,c1,c2) }
-
   | MATCH e=term WITH lst=match_cases END
     { Sugared.Match (e, lst) }
 
@@ -297,9 +285,6 @@ app_term: mark_location(app_term_) { $1 }
 app_term_:
   | e=substitution_term_
     { e }
-
-  | CURRENT c=substitution_term
-    { Sugared.Current c }
 
   | CONGRUENCE e1=substitution_term e2=substitution_term es=list(substitution_term)
     { Sugared.Congruence (e1, e2, es) }
@@ -532,13 +517,6 @@ let_annotation:
   | COLONGT sch=ml_schema
     { Sugared.Let_annot_schema sch }
 
-dyn_annotation:
-  |
-    { Sugared.Arg_annot_none }
-
-  | COLONGT t=mlty
-    { Sugared.Arg_annot_ty t }
-
 maybe_typed_binder:
   | LBRACE xs=anon_name(tt_name)+ RBRACE
     { List.map (fun x -> (x, None)) xs }
@@ -754,9 +732,6 @@ app_mlty_:
 
   | REF t=simple_mlty
     { Sugared.ML_Ref t }
-
-  | DYNAMIC t=simple_mlty
-    { Sugared.ML_Dynamic t }
 
   | c=long(ml_name) args=nonempty_list(simple_mlty)
     { Sugared.ML_TyApply (c, args) }

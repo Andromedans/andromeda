@@ -78,8 +78,6 @@ and comp' =
   | Let of let_clause list  * comp
   | LetRec of letrec_clause list * comp
   | MLAscribe of comp * ml_schema
-  | Now of comp * comp * comp
-  | Current of comp
   | Lookup of comp
   | Update of comp * comp
   | Ref of comp
@@ -154,8 +152,6 @@ and toplevel' =
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
   | TopComputation of comp
-  | TopDynamic of Name.t * arg_annotation * comp
-  | TopNow of comp * comp
   | Verbosity of int
   | Require of Name.t list
   | Include of path

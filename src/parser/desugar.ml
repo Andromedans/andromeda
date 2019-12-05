@@ -360,11 +360,12 @@ module Ctx = struct
     | None | Some (Bound _ | Value _ | TTConstructor _ | MLConstructor _) ->
        assert false
 
-  let get_ml_value x ctx =
-    match find_name x ctx with
-    | Some (Value v) -> v
-    | None | Some (Bound _ | TTConstructor _ | MLConstructor _ | Operation _) ->
-       assert false
+  (* This will be needed if and when there is a builtin global ML value that has to be looked up. *)
+  (* let get_ml_value x ctx =
+   *   match find_name x ctx with
+   *   | Some (Value v) -> v
+   *   | None | Some (Bound _ | TTConstructor _ | MLConstructor _ | Operation _) ->
+   *      assert false *)
 
   (* Get information about the given ML module. *)
   let get_ml_module ~at pth ctx =
@@ -925,16 +926,6 @@ let rec comp ctx {Location.it=c';at} =
      let c = comp ctx c in
      let sch = ml_schema ctx sch in
      locate (Desugared.MLAscribe (c, sch))
-
-  | Sugared.Now (x,c1,c2) ->
-     let x = comp ctx x
-     and c1 = comp ctx c1
-     and c2 = comp ctx c2 in
-     locate (Desugared.Now (x,c1,c2))
-
-  | Sugared.Current c ->
-     let c = comp ctx c in
-     locate (Desugared.Current c)
 
   | Sugared.Lookup c ->
      let c = comp ctx c in
@@ -1596,17 +1587,6 @@ let rec toplevel' ~loading ~basedir ctx {Location.it=cmd; at} =
      let c = comp ctx c in
      (ctx, locate1 (Desugared.TopComputation c))
 
-  | Sugared.TopDynamic (x, annot, c) ->
-     let c = comp ctx c in
-     let ctx = Ctx.add_ml_value ~at x ctx in
-     let annot = arg_annotation ctx annot in
-     (ctx, locate1 (Desugared.TopDynamic (x, annot, c)))
-
-  | Sugared.TopNow (x, c) ->
-     let x = comp ctx x in
-     let c = comp ctx c in
-     (ctx, locate1 (Desugared.TopNow (x, c)))
-
   | Sugared.Verbosity n ->
      (ctx, locate1 (Desugared.Verbosity n))
 
@@ -1732,6 +1712,4 @@ struct
   let equal_term = fst (Ctx.get_ml_operation Name.Builtin.equal_term initial_context)
   let equal_type = fst (Ctx.get_ml_operation Name.Builtin.equal_type initial_context)
   let coerce = fst (Ctx.get_ml_operation Name.Builtin.coerce initial_context)
-
-  let hypotheses = Ctx.get_ml_value Name.Builtin.hypotheses initial_context
 end

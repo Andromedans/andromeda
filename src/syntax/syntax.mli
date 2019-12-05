@@ -45,8 +45,6 @@ and comp' =
   | With of comp * comp
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
-  | Now of comp * comp * comp
-  | Current of comp
   | Lookup of comp
   | Update of comp * comp
   | Ref of comp
@@ -122,8 +120,6 @@ and toplevel' =
   | TopLet of (Name.t * Mlty.ty_schema) list list * let_clause list
   | TopLetRec of (Name.t * Mlty.ty_schema) list * letrec_clause list
   | TopComputation of comp * Mlty.ty_schema
-  | TopDynamic of Name.t * Mlty.ty_schema * comp
-  | TopNow of comp * comp
   | Verbosity of int
   | Open of Path.t
   | MLModule of Name.t * toplevel list

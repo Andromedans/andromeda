@@ -1,7 +1,6 @@
 (** Runtime values and computations *)
 
 type ml_ref = Store.Ref.key
-type ml_dyn = Store.Dyn.key
 
 type coercible =
   | NotCoercible
@@ -151,9 +150,6 @@ and dynamic = {
   (* Toplevel constant declarations *)
   signature : Nucleus.signature;
 
-  (* Current values of dynamic variables *)
-  vars : value Store.Dyn.t;
-
   (* Current printing environment *)
   penv : penv;
 
@@ -180,7 +176,6 @@ and value =
   | Tag of ml_constructor * value list
   | Tuple of value list
   | Ref of ml_ref
-  | Dyn of ml_dyn
   | String of string
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
@@ -235,7 +230,6 @@ type error =
   | ClosureExpected of value
   | HandlerExpected of value
   | RefExpected of value
-  | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvert of Nucleus.judgement_abstraction * Nucleus.eq_type_abstraction
@@ -342,7 +336,6 @@ let name_of v =
     | Tag _ -> "a data tag"
     | Tuple _ -> "a tuple"
     | Ref _ -> "a reference"
-    | Dyn _ -> "a dynamic variable"
     | String _ -> "a string"
 
 (** Coerce values *)
@@ -350,7 +343,7 @@ let name_of v =
 let as_derivation ~at = function
   | Derivation drv -> drv
 
-  | (Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (DerivationExpected v)
 
 let as_not_abstract ~at abstr =
@@ -365,7 +358,7 @@ let as_is_type ~at = function
      | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _)
      | None -> error ~at (IsTypeExpected v)
      end
-  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (IsTypeExpected v)
 
 let as_is_term ~at = function
@@ -375,7 +368,7 @@ let as_is_term ~at = function
      | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _)
      | None -> error ~at (IsTermExpected v)
      end
-  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (IsTermExpected v)
 
 let as_eq_type ~at = function
@@ -385,7 +378,7 @@ let as_eq_type ~at = function
      | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _)
      | None -> error ~at (EqTypeExpected v)
      end
-  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (EqTypeExpected v)
 
 let as_eq_term ~at = function
@@ -395,7 +388,7 @@ let as_eq_term ~at = function
      | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _)
      | None -> error ~at (EqTermExpected v)
      end
-  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (EqTermExpected v)
 
 let as_judgement ~at = function
@@ -404,7 +397,7 @@ let as_judgement ~at = function
      | Some jdg -> jdg
      | None -> error ~at (JudgementExpected v)
      end
-  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (EqTermExpected v)
 
 let as_is_type_abstraction ~at v =
@@ -414,7 +407,7 @@ let as_is_type_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at AbstractionExpected
      end
-  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_is_term_abstraction ~at v =
@@ -424,7 +417,7 @@ let as_is_term_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at AbstractionExpected
      end
-  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_eq_type_abstraction ~at v =
@@ -434,7 +427,7 @@ let as_eq_type_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at AbstractionExpected
      end
-  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_eq_term_abstraction ~at v =
@@ -444,49 +437,43 @@ let as_eq_term_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at AbstractionExpected
      end
-  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_judgement_abstraction ~at v =
   match v with
   | Judgement abstr -> abstr
-  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_boundary_abstraction ~at v =
   match v with
   | Boundary abstr -> abstr
-  | Derivation _ | Judgement _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Judgement _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_closure ~at = function
   | Closure f -> f
   | (Judgement _ | Boundary _ | Derivation _ |
-     Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+     Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (ClosureExpected v)
 
 let as_handler ~at = function
   | Handler h -> h
   | (Judgement _ | Boundary _ | Derivation _ |
-     Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+     Closure _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (HandlerExpected v)
 
 let as_ref ~at = function
   | Ref v -> v
   | (Judgement _ | Boundary _ | Derivation _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | String _) as v ->
+     Closure _ | Handler _ | Tag _ | Tuple _ | String _) as v ->
     error ~at (RefExpected v)
-
-let as_dyn ~at = function
-  | Dyn v -> v
-  | (Judgement _ | Boundary _ | Derivation _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
-    error ~at (DynExpected v)
 
 let as_string ~at = function
   | String v -> v
   | (Judgement _ | Boundary _ | Derivation _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | Ref _) as v ->
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _) as v ->
     error ~at (StringExpected v)
 
 (** Operations *)
@@ -515,9 +502,7 @@ let add_rule rname rule env =
      | Path.Direct (Path.Level (name, _)) -> name
      | Path.Module (_, Path.Level (name, _)) -> name
     ) env.dynamic.penv in
-  let env = { env
-              with dynamic = { env.dynamic with signature; penv }
-            } in
+  let env = { env with dynamic = {signature; penv} } in
   (), env
 
 let get_bound (Path.Index (_, k)) env = List.nth env.lexical.current_values k
@@ -530,16 +515,6 @@ let get_ml_value pth env = SymbolTable.get_ml_value pth env.lexical.table
 
 let lookup_ml_value k env =
   Return (get_ml_value k env), env.state
-
-let hypotheses env =
-  let v = get_ml_value Desugar.Builtin.hypotheses env in
-  let hyps = as_dyn ~at:Location.unknown v in
-  Return hyps, env.state
-
-let get_dyn dyn env = Store.Dyn.lookup dyn env.dynamic.vars
-
-let lookup_dyn dyn env =
-  Return (get_dyn dyn env), env.state
 
 let add_bound0 v env =
   { env with lexical = { env.lexical with
@@ -580,24 +555,6 @@ let add_ml_value0 v env =
 let add_ml_value v ({lexical;_} as env) =
   let env = add_ml_value0 v env in
   (), env
-
-let now0 x v env =
-  { env with dynamic = { env.dynamic with vars = Store.Dyn.update x v env.dynamic.vars } }
-
-let now x v m env =
-  let env = now0 x v env in
-  m env
-
-let top_now x v env =
-  let env = now0 x v env in
-  (), env
-
-let add_dynamic0 x v env =
-  let y, vars = Store.Dyn.fresh v env.dynamic.vars in
-  let env = add_ml_value0 (Dyn y) env in
-  { env with dynamic = {env.dynamic with vars } }
-
-let add_dynamic x v env = (), add_dynamic0 x v env
 
 let add_ml_value_rec0 lst env =
   let r = ref env in
@@ -660,7 +617,7 @@ let top_lookup_signature env =
  *        | Some xs -> Some (x :: xs)
  *      end
  *   | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
- *      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
+ *      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) ->
  *      None *)
 
 (** In the future this routine will be type-driven. One consequence is that
@@ -693,9 +650,6 @@ let rec print_value ?max_level ~penv v ppf =
 
   | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref<%t>"
                   (Store.Ref.print_key v)
-
-  | Dyn v -> Print.print ?max_level ~at_level:Level.highest ppf "dyn<%t>"
-                  (Store.Dyn.print_key v)
 
   | String s -> Format.fprintf ppf "\"%s\"" s
 
@@ -867,9 +821,6 @@ let print_error ~penv err ppf =
   | RefExpected v ->
      Format.fprintf ppf "expected a reference but got %s" (name_of v)
 
-  | DynExpected v ->
-     Format.fprintf ppf "expected a dynamic variable but got %s" (name_of v)
-
   | StringExpected v ->
      Format.fprintf ppf "expected a string but got %s" (name_of v)
 
@@ -905,7 +856,6 @@ let empty = {
   } ;
   dynamic = {
     signature = Nucleus.Signature.empty ;
-    vars = Store.Dyn.empty ;
     penv = { forbidden = Name.set_empty ; opens = Path.set_empty } ;
   } ;
   state = Store.Ref.empty;
@@ -977,10 +927,6 @@ let rec equal_value v1 v2 =
        (* XXX should we compare references by value instead? *)
        Store.Ref.key_eq v1 v2
 
-    | Dyn v1, Dyn v2 ->
-       (* XXX should we compare dynamics by value instead? *)
-       Store.Dyn.key_eq v1 v2
-
     | String s1, String s2 ->
       s1 = s2
 
@@ -990,16 +936,15 @@ let rec equal_value v1 v2 =
        v1 == v2
 
     (* At some level the following is a bit ridiculous *)
-    | Judgement _, (Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Derivation _, (Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Boundary _, (Judgement _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Closure _, (Judgement _ | Boundary _ | Derivation _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Handler _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Tag _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Tuple _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _)
-    | String _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _)
-    | Ref _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Dyn _)
-    | Dyn _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ref _) ->
+    | Judgement _, (Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Derivation _, (Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Boundary _, (Judgement _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Closure _, (Judgement _ | Boundary _ | Derivation _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Handler _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Tag _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tuple _ | Ref _ | String _)
+    | Tuple _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | String _)
+    | String _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _)
+    | Ref _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _) ->
        false
 
 type topenv = env
@@ -1028,8 +973,6 @@ struct
     | Tuple lst -> Json.tag "Tuple" [Json.List (List.map value lst)]
 
     | Ref r -> Json.tag "Reference" []
-
-    | Dyn r -> Json.tag "Dynamic" []
 
     | String s -> Json.tag "String" [Json.String s]
 

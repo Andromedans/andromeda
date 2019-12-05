@@ -27,7 +27,7 @@ let as_bool ~at v =
      else
      Runtime.(error ~at (BoolExpected v))
 
-  | Runtime.(Tag (_, _::_) | Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _) ->
+  | Runtime.(Tag (_, _::_) | Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tuple _ | Ref _ | String _) ->
      Runtime.(error ~at (BoolExpected v))
 
 let as_handler ~at v =
@@ -36,10 +36,6 @@ let as_handler ~at v =
 
 let as_ref ~at v =
   let e = Runtime.as_ref ~at v in
-  return e
-
-let as_dyn ~at v =
-  let e = Runtime.as_dyn ~at v in
   return e
 
 (** Main evaluation loop. *)
@@ -140,16 +136,6 @@ let rec comp {Location.it=c'; at} =
   | Syntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (comp c)
 
-  | Syntax.Now (x,c1,c2) ->
-     let xloc = x.Location.at in
-     comp x >>= as_dyn ~at:xloc >>= fun x ->
-     comp c1 >>= fun v ->
-     Runtime.now x v (comp c2)
-
-  | Syntax.Current c ->
-     comp c >>= as_dyn ~at:(c.Location.at) >>= fun x ->
-     Runtime.lookup_dyn x
-
   | Syntax.Ref c ->
      comp c >>= fun v ->
      Runtime.mk_ref v
@@ -197,19 +183,14 @@ let rec comp {Location.it=c'; at} =
   | Syntax.Abstract (x, Some u, c) ->
      comp_as_is_type u >>= fun u ->
      Runtime.add_free x u
-       (fun a ->
-         Reflect.add_abstracting
-           (Nucleus.form_is_term_atom a)
-           begin comp c >>=
-             function
-             | Runtime.Judgement jdg -> Runtime.return_judgement (Nucleus.abstract_judgement a jdg)
+       (fun a -> comp c >>= function
+        | Runtime.Judgement jdg -> Runtime.return_judgement (Nucleus.abstract_judgement a jdg)
 
-             | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
+        | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-             | Runtime.(Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-                Runtime.(error ~at (JudgementOrBoundaryExpected v))
-           end)
-  
+        | Runtime.(Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+           Runtime.(error ~at (JudgementOrBoundaryExpected v)))
+
   | Syntax.AbstractAtom (a, c) ->
      comp_as_atom a >>= fun a ->
            begin comp c >>=
@@ -218,7 +199,7 @@ let rec comp {Location.it=c'; at} =
 
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-             | Runtime.(Closure _ | Derivation _| Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+             | Runtime.(Closure _ | Derivation _| Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
                 Runtime.(error ~at (JudgementOrBoundaryExpected v))
            end
 
@@ -279,7 +260,7 @@ let rec comp {Location.it=c'; at} =
       | Runtime.Closure f ->
         comp c2 >>= fun v ->
         Runtime.apply_closure f v
-      | Runtime.(Judgement _ | Boundary _ | Derivation _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as h ->
+      | Runtime.(Judgement _ | Boundary _ | Derivation _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as h ->
         Runtime.(error ~at (Inapplicable h))
     end
 
@@ -383,7 +364,6 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.Update _
   | Syntax.Fresh _
   | Syntax.AbstractAtom _
-  | Syntax.Current _
   | Syntax.String _
   | Syntax.Occurs _
   | Syntax.Congruence _
@@ -420,12 +400,6 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
 
   | Syntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (check_judgement c bdry)
-
-  | Syntax.Now (x,c1,c2) ->
-     let xloc = x.Location.at in
-     comp x >>= as_dyn ~at:xloc >>= fun x ->
-     comp c1 >>= fun v ->
-     Runtime.now x v (check_judgement c2 bdry)
 
   | Syntax.Match (c, cases) ->
      comp c >>=
@@ -652,8 +626,6 @@ and local_context lctx cmp =
        comp_as_is_type c >>= fun t ->
        Runtime.add_free x t
          (fun a ->
-            Reflect.add_abstracting
-              (Nucleus.form_is_term_atom a)
               (fold lctx >>= fun abstr ->
                return (Nucleus.abstract_boundary a abstr)
          ))
@@ -807,17 +779,6 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
            (print_annot () sch)
            (Runtime.print_value ~penv v) ;
      return ()
-
-  | Syntax.TopDynamic (x, annot, c) ->
-     comp_value c >>= fun v ->
-     Runtime.add_dynamic x v
-
-  | Syntax.TopNow (x,c) ->
-     let xloc = x.Location.at in
-     comp_value x >>= fun x ->
-     let x = Runtime.as_dyn ~at:xloc x in
-     comp_value c >>= fun v ->
-     Runtime.top_now x v
 
   | Syntax.Open pth ->
      Runtime.top_open_path pth
