@@ -196,7 +196,8 @@ and handler = {
   handler_finally: (value,value) closure option;
 }
 
-and 'a continuation = Continuation of (value -> state -> 'a result * state)
+and 'a continuation =
+  { cont_val : value -> state -> 'a result * state }
 
 type 'a toplevel = env -> 'a * env
 
@@ -260,8 +261,8 @@ let mk_closure f = Closure (Clos f)
 
 let apply_closure (Clos f) v env = f v env
 
-let mk_cont f env = Continuation (fun v state -> f v {env with state})
-let apply_cont (Continuation f) v {state;_} = f v state
+let mk_cont f env = {cont_val = fun v state -> f v {env with state}}
+let apply_cont {cont_val=f} v {state;_} = f v state
 
 (** References *)
 let mk_ref v env =
