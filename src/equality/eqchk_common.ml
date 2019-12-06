@@ -1,3 +1,38 @@
+(** Types for pattern matching *)
+module Patt =
+struct
+
+  type is_type_whnf' =
+    | TypeConstructor of Ident.t * argument list
+    | TypeFreeMeta of Nonce.t * is_term' list
+
+  and is_type' =
+    | TypeAddMeta of int
+    | TypeCheckMeta of int
+    | TypeWhnf of is_type_whnf'
+
+  and is_term_whnf' =
+    | TermConstructor of Ident.t * argument list
+    | TermFreeMeta of Nonce.t * is_term' list
+    | TermAtom of Nonce.t
+
+  and is_term' =
+    | TermAddMeta of int
+    | TermCheckMeta of int
+    | TermWhnf of is_term_whnf'
+
+  and argument =
+    | ArgumentIsType of is_type'
+    | ArgumentIsTerm of is_term'
+
+  (** the exported types also record how many meta-variables we're capturing. *)
+  type is_term = is_term' * int
+  type is_type = is_type' * int
+
+end
+
+
+
 (** We index rules by the heads of expressions, which can be identifiers or meta-variables (nonces). *)
 type symbol =
   | Ident of Ident.t

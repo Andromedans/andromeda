@@ -88,7 +88,6 @@ let rec apply_type_beta betas sgn t =
        | [] -> None
 
        | {type_beta_pattern=patt; type_beta_rule=rl} :: lst ->
-          (* XXX match_is_type should normalize parts of t as necessary *)
           begin match Rewrite.match_is_type sgn t patt with
           | None -> fold lst
           | Some args ->

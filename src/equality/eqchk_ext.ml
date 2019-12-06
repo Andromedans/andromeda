@@ -4,7 +4,7 @@ open Eqchk_common
 
 (** The type of extensionality rules. *)
 type equation =
-  { ext_pattern : Rewrite.is_type (* the rewrite pattern to match the type of equality *)
+  { ext_pattern : Patt.is_type (* the rewrite pattern to match the type of equality *)
   ; ext_rule : Nucleus.eq_term Nucleus.rule (* the associated rule *)
   }
 

@@ -1,38 +1,7 @@
 (** Types describing patterns that we can match against. These are simple and do not
     bother matching anything under an abstraction (as that is acutally quite tricky). *)
 
-type is_type' =
-  | PattTypeAddMeta of int
-  | PattTypeCheckMeta of int
-  | PattTypeConstructor of Ident.t * argument list
-  | PattTypeFreeMeta of Nonce.t * is_term' list
-
-and is_term' =
-  | PattTermAddMeta of int
-  | PattTermCheckMeta of int
-  | PattTermConstructor of Ident.t * argument list
-  | PattTermFreeMeta of Nonce.t * is_term' list
-  | PattTermAtom of Nonce.t
-
-(* and eq_type' =
- *   | PattEqTypeAddMeta of int
- *   | PattEqTypeCheckMeta of int
- *   | PattEqTypeBoundary of is_type' * is_type'
- *
- * and eq_term' =
- *   | PattEqTermAddMeta of int
- *   | PattEqTermCheckMeta of int
- *   | PattEqTermBoundary of is_term' * is_term' * is_type' *)
-
-and argument =
-  | PattArgumentIsType of is_type'
-  | PattArgumentIsTerm of is_term'
-  (* | PattArgumentEqType of eq_type'
-   * | PattArgumentEqTerm of eq_term' *)
-
-(** the exported types also record how many meta-variables we're capturing. *)
-type is_term = is_term' * int
-type is_type = is_type' * int
+open Eqchk_common
 
 exception Match_fail
 
@@ -59,14 +28,14 @@ let check_meta k abstr metas =
 
 let rec collect_is_type sgn metas abstr = function
 
-  | PattTypeAddMeta k ->
+  | Patt.TypeAddMeta k ->
      add_meta k abstr metas
 
-  | PattTypeCheckMeta k ->
+  | Patt.TypeCheckMeta k ->
      check_meta k abstr metas ;
      metas
 
-  | PattTypeConstructor (c, args) ->
+  | Patt.TypeConstructor (c, args) ->
      begin match Nucleus.as_not_abstract abstr with
      | None
      | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -86,7 +55,7 @@ let rec collect_is_type sgn metas abstr = function
         end
      end
 
-  | PattTypeFreeMeta (n, es) ->
+  | Patt.TypeFreeMeta (n, es) ->
      begin match Nucleus.as_not_abstract abstr with
      | None
      | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -109,14 +78,14 @@ let rec collect_is_type sgn metas abstr = function
 
 and collect_is_term sgn metas abstr = function
 
-  | PattTermAddMeta k ->
+  | Patt.TermAddMeta k ->
      add_meta k abstr metas
 
-  | PattTermCheckMeta k ->
+  | Patt.TermCheckMeta k ->
      check_meta k abstr metas ;
      metas
 
-  | PattTermConstructor (c, args) ->
+  | Patt.TermConstructor (c, args) ->
      begin match Nucleus.as_not_abstract abstr with
      | None -> raise Match_fail
      | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -142,7 +111,7 @@ and collect_is_term sgn metas abstr = function
 
      end
 
-  | PattTermAtom n ->
+  | Patt.TermAtom n ->
      begin match Nucleus.as_not_abstract abstr with
        | None -> raise Match_fail
        | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -163,7 +132,7 @@ and collect_is_term sgn metas abstr = function
           fold e
      end
 
-  | PattTermFreeMeta (n, es) ->
+  | Patt.TermFreeMeta (n, es) ->
      begin match Nucleus.as_not_abstract abstr with
      | None
      | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -340,10 +309,10 @@ let extract_meta metas abstr =
           | Nucleus_types.(TermMeta (MetaBound k, es)) ->
              check_es k es ;
              if Bound_set.mem k metas then
-               metas, PattArgumentIsTerm (PattTermCheckMeta k)
+               metas, PattArgumentIsTerm (Patt.TermCheckMeta k)
              else
                let metas = Bound_set.add k metas in
-               metas, PattArgumentIsTerm (PattTermAddMeta k)
+               metas, PattArgumentIsTerm (Patt.TermAddMeta k)
 
           | Nucleus_types.(TermMeta (MetaFree _, _) | TermBoundVar _ | TermAtom _ |
                            TermConstructor _ | TermConvert _) ->
@@ -356,10 +325,10 @@ let extract_meta metas abstr =
           | Nucleus_types.(TypeMeta (MetaBound k, es)) ->
              check_es k es ;
              if Bound_set.mem k metas then
-               metas, PattArgumentIsType (PattTypeCheckMeta k)
+               metas, PattArgumentIsType (Patt.TypeCheckMeta k)
              else
                let metas = Bound_set.add k metas in
-               metas, PattArgumentIsType (PattTypeAddMeta k)
+               metas, PattArgumentIsType (Patt.TypeAddMeta k)
 
           | Nucleus_types.(TypeMeta (MetaFree _, _) | TypeConstructor _) ->
              raise Form_fail
@@ -381,25 +350,25 @@ let rec form_is_term metas e =
      assert false
 
   | Nucleus_types.(TermAtom {atom_nonce=n; _}) ->
-     metas, PattTermAtom n
+     metas, Patt.TermAtom n
 
   | Nucleus_types.TermConstructor (c, args) ->
      let metas, args = form_arguments metas args in
-     metas, PattTermConstructor (c, args)
+     metas, Patt.TermConstructor (c, args)
 
   | Nucleus_types.(TermMeta (MetaBound i, [])) ->
      if Bound_set.mem i metas then
-       metas, PattTermCheckMeta i
+       metas, Patt.TermCheckMeta i
      else
        let metas = Bound_set.add i metas in
-       metas, PattTermAddMeta i
+       metas, Patt.TermAddMeta i
 
   | Nucleus_types.(TermMeta (MetaFree mv, es)) ->
      let rec fold metas es_out = function
 
        | [] ->
           let es_out = List.rev es_out in
-          metas, PattTermFreeMeta (mv.meta_nonce, es_out)
+          metas, Patt.TermFreeMeta (mv.meta_nonce, es_out)
 
        | e :: es ->
           let metas, e = form_is_term metas e in
@@ -415,21 +384,21 @@ and form_is_type metas = function
 
   | Nucleus_types.TypeConstructor (c, args) ->
      let metas, args = form_arguments metas args in
-     metas, PattTypeConstructor (c, args)
+     metas, Patt.TypeConstructor (c, args)
 
   | Nucleus_types.(TypeMeta (MetaBound i, [])) ->
      if Bound_set.mem i metas then
-       metas, PattTypeCheckMeta i
+       metas, Patt.TypeCheckMeta i
      else
        let metas = Bound_set.add i metas in
-       metas, PattTypeAddMeta i
+       metas, Patt.TypeAddMeta i
 
   | Nucleus_types.(TypeMeta (MetaFree mv, es)) ->
      let rec fold metas es_out = function
 
        | [] ->
           let es_out = List.rev es_out in
-          metas, PattTypeFreeMeta (mv.meta_nonce, es_out)
+          metas, Patt.TypeFreeMeta (mv.meta_nonce, es_out)
 
        | e :: es ->
           let metas, e = form_is_term metas e in
