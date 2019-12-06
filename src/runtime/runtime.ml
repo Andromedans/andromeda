@@ -160,9 +160,6 @@ and lexical = {
 
   (* values to which de Bruijn indices are bound *)
   current_values : value list;
-
-  (* current continuation if we're handling an operation *)
-  ml_yield : value continuation option;
 }
 
 and state = value Store.Ref.t
@@ -191,7 +188,7 @@ and operation_args = { args : value list; checking : Nucleus.boundary_abstractio
 
 and handler = {
   handler_val: (value,value) closure option;
-  handler_ops: (value continuation -> (operation_args, value) closure) Ident.map;
+  handler_ops: (operation_args, value) closure Ident.map;
   handler_finally: (value,value) closure option;
 }
 
@@ -309,8 +306,7 @@ let return_handler handler_val handler_ops handler_finally env =
   let option_map g = function None -> None | Some x -> Some (g x) in
   let h = {
     handler_val = option_map (fun v -> mk_closure0 v env) handler_val ;
-    handler_ops = Ident.map (fun f ->
-      fun k -> mk_closure0 f {env with lexical = {env.lexical with ml_yield = Some k}}) handler_ops ;
+    handler_ops = Ident.map (fun f -> mk_closure0 f env) handler_ops ;
     handler_finally = option_map (fun v -> mk_closure0 v env) handler_finally ;
   } in
   Return (Handler h), env.state
@@ -571,11 +567,6 @@ let add_ml_value_rec0 lst env =
 let add_ml_value_rec lst env =
   let env = add_ml_value_rec0 lst env in
   (), env
-
-let continue v ({lexical={ml_yield;_};_} as env) =
-  match ml_yield with
-    | Some cont -> apply_cont cont v env
-    | None -> assert false
 
 (** Printers *)
 
@@ -852,7 +843,6 @@ let empty = {
   lexical = {
     table = SymbolTable.initial ;
     current_values = [] ;
-    ml_yield = None ;
   } ;
   dynamic = {
     signature = Nucleus.Signature.empty ;
@@ -864,7 +854,7 @@ let empty = {
 (** Handling *)
 let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp) : value comp =
   begin fun env -> match r env with
-  | Return v , state ->
+  | Return v, state ->
      let env = {env with state} in
      begin match handler_val with
      | Some f -> apply_closure f v env
@@ -876,7 +866,7 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
      let cont = mk_cont (fun v env -> handle_comp h (apply_cont cont v) env) env in
      begin
        try
-         let f = (Ident.find op handler_ops) cont in
+         let f = Ident.find op handler_ops in
          (apply_closure f {args=vs;checking=jt}) env
        with
          Not_found ->

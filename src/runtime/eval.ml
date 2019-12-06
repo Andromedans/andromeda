@@ -251,10 +251,6 @@ let rec comp {Location.it=c'; at} =
      let drv = Nucleus.form_derivation prems concl in
      Runtime.return (Runtime.Derivation drv)
 
-  | Syntax.Yield c ->
-    comp c >>= fun v ->
-    Runtime.continue v
-
   | Syntax.Apply (c1, c2) ->
     comp c1 >>= begin function
       | Runtime.Closure f ->
@@ -357,7 +353,6 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.TTApply _
   | Syntax.Tuple _
   | Syntax.With _
-  | Syntax.Yield _
   | Syntax.Apply _
   | Syntax.Ref _
   | Syntax.Lookup _

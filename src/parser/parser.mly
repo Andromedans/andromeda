@@ -29,7 +29,7 @@
 %token AS TYPE
 %token EQEQ
 
-%token HANDLE WITH HANDLER BAR VAL FINALLY YIELD
+%token HANDLE WITH HANDLER BAR VAL FINALLY
 %token SEMI
 
 %token NATURAL
@@ -331,9 +331,6 @@ prefix_term_:
 
   | NATURAL t=prefix_term
     { Sugared.Natural t }
-
-  | YIELD e=prefix_term
-    { Sugared.Yield e }
 
 (* simple_term: mark_location(simple_term_) { $1 } *)
 simple_term_:

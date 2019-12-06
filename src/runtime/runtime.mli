@@ -233,9 +233,6 @@ val operation : Ident.t -> ?checking:Nucleus.boundary_abstraction -> value list 
 (** Wrap the given computation with a handler. *)
 val handle_comp : handler -> value comp -> value comp
 
-(** Lookup the current continuation. Only usable while handling an operation. *)
-val continue : value -> value comp
-
 (** Get the printing environment *)
 val lookup_penv : penv comp
 

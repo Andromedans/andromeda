@@ -46,7 +46,6 @@ let reserved = [
   ("verbosity", VERBOSITY) ;
   ("when", WHEN) ;
   ("with", WITH) ;
-  ("yield", YIELD) ;
 ]
 
 let name =

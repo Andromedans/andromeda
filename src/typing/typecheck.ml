@@ -42,7 +42,6 @@ let rec generalizable c =
   | Syntax.Abstract _
   | Syntax.Substitute _
   | Syntax.Derive _
-  | Syntax.Yield _
   | Syntax.Apply _
   | Syntax.Occurs _
   | Syntax.Congruence _
@@ -464,11 +463,6 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
 
   | Desugared.Spine (c, cs) ->
      infer_spine ~at c cs
-
-  | Desugared.Yield c ->
-    Tyenv.lookup_continuation >>= fun (a, b) ->
-    check_comp c a >>= fun c ->
-    return (locate ~at (Syntax.Yield c), b)
 
   | Desugared.String s -> return (locate ~at (Syntax.String s), Mlty.String)
 

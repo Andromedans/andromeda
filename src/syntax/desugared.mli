@@ -77,7 +77,6 @@ and comp' =
   | AbstractAtom of comp * comp
   | Substitute of comp * comp
   | Derive of premise list * comp
-  | Yield of comp
   | String of string
   | Occurs of comp * comp
   | Congruence of comp * comp * comp list

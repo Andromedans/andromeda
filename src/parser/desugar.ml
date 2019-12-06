@@ -120,7 +120,6 @@ type error =
   | InvalidAppliedPatternName : Name.path * info -> error
   | NonlinearPattern : Name.t -> error
   | ArityMismatch of Name.path * int * int
-  | UnboundYield
   | ParallelShadowing of Name.t
   | AppliedTyParam
   | RequiredModuleMissing of Name.t * string list
@@ -181,9 +180,6 @@ let print_error err ppf = match err with
        expected
        used
 
-  | UnboundYield ->
-     Format.fprintf ppf "yield may only appear in a handler"
-
   | ParallelShadowing x ->
      Format.fprintf ppf "%t is bound more than once"
        (Name.print x)
@@ -210,14 +206,11 @@ module Ctx = struct
       (* Partially evaluated nested modules *)
       current_modules : (Path.t option * ml_module) list ;
       ml_bound : Name.t list ; (* the locally bound values, referred to by indices *)
-      ml_yield : bool ; (* Is a continuation available? *)
-
     }
 
   let empty = {
       current_modules = [(None, empty_module)] ;
       ml_bound = [];
-      ml_yield = false;
     }
 
   let current_module {current_modules;_} =
@@ -414,13 +407,6 @@ module Ctx = struct
     | None -> error ~at (UnknownType pth)
     | Some info ->
        info
-
-  (* Make yield available. (It can never be made unavailable, it seems) *)
-  let set_yield ctx = { ctx with ml_yield = true }
-
-  (* Is yield allowed? *)
-  let check_yield ~at ctx =
-    if not ctx.ml_yield then error ~at UnboundYield
 
   (* Add a module to the current module. *)
   let add_ml_module ~at m mdl ctx =
@@ -1024,11 +1010,6 @@ let rec comp ctx {Location.it=c';at} =
 
      end
 
-  | Sugared.Yield c ->
-     Ctx.check_yield ~at ctx ;
-     let c = comp ctx c in
-     locate (Desugared.Yield c)
-
   | Sugared.Function (xs, c) ->
      let rec fold ctx = function
        | [] -> comp ctx c
@@ -1305,7 +1286,7 @@ and handler ~at ctx hcs =
 
        | Operation (pth, arity) ->
           check_ml_arity ~at op (List.length ps) arity ;
-          let case = match_op_case (Ctx.set_yield ctx) c in
+          let case = match_op_case ctx c in
           let my_cases = try List.assoc pth op_cases with Not_found -> [] in
           let my_cases = case::my_cases in
           fold val_cases ((pth, my_cases) :: op_cases) finally_cases hcs

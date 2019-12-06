@@ -92,7 +92,6 @@ and comp' =
   | Substitute of comp * comp list
   | Derive of premise list * comp
   | Spine of comp * comp list
-  | Yield of comp
   | String of string
   | Congruence of comp * comp * comp list
   | Context of comp
