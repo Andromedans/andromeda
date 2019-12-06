@@ -180,7 +180,11 @@ and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
 and 'a result =
   | Return of 'a
-  | Operation of Ident.t * value list * Nucleus.boundary_abstraction option * dynamic * 'a continuation
+  | Operation of { op_id : Ident.t
+                 ; op_args : value list
+                 ; op_boundary : Nucleus.boundary_abstraction option
+                 ; op_dynamic_env : dynamic
+                 ; op_cont : 'a continuation }
 
 and 'a comp = env -> 'a result * state
 
@@ -278,10 +282,10 @@ let rec bind (r:'a comp) (f:'a -> 'b comp) : 'b comp = fun env ->
   match r env with
   | Return v, state ->
      f v { env with state }
-  | Operation (op, vs, jt, d, k), state ->
+  | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}, state ->
      let env = { env with state } in
-     let k = mk_cont (fun x -> bind (apply_cont k x) f) env in
-     Operation (op, vs, jt, d, k), env.state
+     let op_cont = mk_cont (fun x -> bind (apply_cont op_cont x) f) env in
+     Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}, env.state
 
 let (>>=) = bind
 
@@ -474,8 +478,9 @@ let as_string ~at = function
 
 (** Operations *)
 
-let operation op ?checking vs env =
-  Operation (op, vs, checking, env.dynamic, mk_cont return env), env.state
+let operation op_id ?checking vs env =
+  Operation {op_id; op_args=vs; op_boundary=checking; op_dynamic_env=env.dynamic; op_cont=mk_cont return env},
+  env.state
 
 (** Interact with the environment *)
 
@@ -860,17 +865,17 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
      | Some f -> apply_closure f v env
      | None -> Return v, env.state
      end
-  | Operation (op, vs, jt, dynamic, cont), state ->
-     let env = {env with dynamic; state} in
+  | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}, state ->
+     let env = {env with dynamic = op_dynamic_env; state} in
      let h = {handler_val; handler_ops; handler_finally=None} in
-     let cont = mk_cont (fun v env -> handle_comp h (apply_cont cont v) env) env in
+     let op_cont = mk_cont (fun v env -> handle_comp h (apply_cont op_cont v) env) env in
      begin
        try
-         let f = Ident.find op handler_ops in
-         ((apply_closure f {args=vs;checking=jt}) >>= (fun v -> apply_cont cont v)) env
+         let f = Ident.find op_id handler_ops in
+         ((apply_closure f {args=op_args;checking=op_boundary}) >>= (fun v -> apply_cont op_cont v)) env
        with
          Not_found ->
-           Operation (op, vs, jt, dynamic, cont), env.state
+           Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}, env.state
      end
   end >>= fun v ->
   match handler_finally with
@@ -881,8 +886,8 @@ let top_handle ~at c env =
   let r = c env in
   match r with
     | Return v, state -> v, { env with state }
-    | Operation (op, vs, _, _, _), _ ->
-       error ~at (UnhandledOperation (op, vs))
+    | Operation {op_id; op_args; _}, _ ->
+       error ~at (UnhandledOperation (op_id, op_args))
 
 (** Equality *)
 let rec equal_value v1 v2 =
