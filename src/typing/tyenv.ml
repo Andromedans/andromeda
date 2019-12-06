@@ -113,8 +113,6 @@ let lookup_ml_constructor c env =
 let lookup_tt_constructor c env =
   return (Context.lookup_tt_constructor c env.context) env
 
-let lookup_continuation env =
-  return (Context.lookup_continuation env.context) env
 
 (* Whnf for meta instantiations and type aliases *)
 let rec whnf ctx s = function
@@ -301,10 +299,6 @@ let as_dynamic ~at t env =
   | Mlty.(Judgement | Boundary | Derivation | String | Param _ |
           Prod _ | Handler _ | Arrow _ | Apply _ | Ref _) ->
      Mlty.(error ~at (DynamicExpected t))
-
-let op_cases op ~output m env =
-  let oid, argts, context = Context.op_cases op ~output env.context in
-  m oid argts {env with context}
 
 let generalizes_to ~at t (ps, u) env =
   let (), env = add_equation ~at t u env in

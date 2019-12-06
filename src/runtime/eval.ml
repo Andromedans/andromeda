@@ -524,8 +524,7 @@ and match_cases
 and match_op_cases ~at op cases vs checking =
   let rec fold = function
     | [] ->
-      Runtime.operation op ?checking vs >>= fun v ->
-      Runtime.continue v
+      Runtime.operation op ?checking vs
     | (ps, ptopt, c) :: cases ->
       Matching.match_op_pattern ps ptopt vs checking >>=
         begin function

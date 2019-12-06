@@ -867,7 +867,7 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
      begin
        try
          let f = Ident.find op handler_ops in
-         (apply_closure f {args=vs;checking=jt}) env
+         ((apply_closure f {args=vs;checking=jt}) >>= (fun v -> apply_cont cont v)) env
        with
          Not_found ->
            Operation (op, vs, jt, dynamic, cont), env.state

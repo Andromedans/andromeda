@@ -46,10 +46,6 @@ val lookup_ml_constructor : Path.ml_constructor -> (Ident.t * Mlty.ty list * Mlt
 (** Lookup a TT constructor and return its expected form. *)
 val lookup_tt_constructor : Path.t -> Ident.t tyenvM
 
-(** Lookup the continuation and return the expected type of its argument and the type it
-   returns. *)
-val lookup_continuation : (Mlty.ty * Mlty.ty) tyenvM
-
 (** Add a TT constructor to the typing context, globally forever. *)
 val add_tt_constructor : Ident.t -> unit tyenvM
 
@@ -73,12 +69,6 @@ val as_ref : at:Location.t -> Mlty.ty -> Mlty.ty tyenvM
 
 (** Express the given type as a dynamic variable type. *)
 val as_dynamic : at:Location.t -> Mlty.ty -> Mlty.ty tyenvM
-
-(** [op_cases op output m] runs [m] with the expected types of the arguments of [op] and
-   the continuation having the appropriate type. *)
-val op_cases :
-  Path.t -> output:Mlty.ty ->
-    (Ident.t -> Mlty.ty list -> 'a tyenvM) -> 'a tyenvM
 
 (** Generalize the given type as much as possible in the current environment, possibly
    solving unification problems. *)

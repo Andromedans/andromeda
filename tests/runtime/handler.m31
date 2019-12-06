@@ -6,13 +6,13 @@ rule B type ;;
 handle
   auto () : A
 with
-| auto () : ML.Some (?? : X) -> yield a
-| auto () : ML.None -> yield B
+| auto () : ML.Some (?? : X) -> a
+| auto () : ML.None -> B
 end ;;
 
 handle
   auto ()
 with
-| auto () : ML.Some (?? : X) -> yield a
-| auto () : ML.None -> yield B
+| auto () : ML.Some (?? : X) -> a
+| auto () : ML.None -> B
 end

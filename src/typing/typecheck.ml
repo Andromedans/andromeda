@@ -549,7 +549,7 @@ and infer_handler ~at {Desugared.handler_val=handler_val;handler_ops;handler_fin
     | [] ->
       return (List.fold_left (fun acc (x, v) -> Ident.add x v acc) Ident.empty ops)
     | (op, cases) :: rem ->
-      match_op_cases op cases output >>= fun op_cases ->
+      match_op_cases op cases >>= fun op_cases ->
       fold (op_cases :: ops) rem
   in
   fold [] handler_ops >>= fun handler_ops ->
@@ -593,40 +593,37 @@ and match_cases ~at t = function
       in
       fold [(p1, g1, c1)] cases
 
-and match_op_cases op cases t_out =
-  Tyenv.op_cases
-    op ~output:t_out
-    (fun oid ts ->
-      let rec fold_cases cases = function
-        | [] -> return (oid, List.rev cases)
-        | (ps, popt, c) :: rem ->
-           let rec fold_args ps_out xts ps ts =
-             match ps, ts with
+and match_op_cases op cases =
+  Tyenv.lookup_ml_operation op >>= fun (oid, (ts, t_out)) ->
+  let rec fold_cases cases = function
+    | [] -> return (oid, List.rev cases)
+    | (ps, popt, c) :: rem ->
+       let rec fold_args ps_out xts ps ts =
+         match ps, ts with
 
-             | [], [] ->
-                let ps_out = List.rev ps_out in
-                begin match popt with
-                | None -> return (None, xts)
-                | Some p ->
-                   let t = Mlty.Apply (Desugar.Builtin.option, [Mlty.Boundary]) in
-                   check_pattern p t >>= fun (p, xts_p) ->
-                   return (Some p, xts @ xts_p)
-                end >>= fun (popt, xts) ->
-                Tyenv.add_bounds_mono xts
-                  (check_comp c t_out >>= fun c ->
-                   return (ps_out, popt, c))
+         | [], [] ->
+            let ps_out = List.rev ps_out in
+            begin match popt with
+            | None -> return (None, xts)
+            | Some p ->
+               let t = Mlty.Apply (Desugar.Builtin.option, [Mlty.Boundary]) in
+               check_pattern p t >>= fun (p, xts_p) ->
+               return (Some p, xts @ xts_p)
+            end >>= fun (popt, xts) ->
+            Tyenv.add_bounds_mono xts
+              (check_comp c t_out >>= fun c -> return (ps_out, popt, c))
 
-             | p::ps, t::ts ->
-                check_pattern p t >>= fun (p, xts_p) ->
-                fold_args (p :: ps_out) (xts @ xts_p) ps ts
+         | p::ps, t::ts ->
+            check_pattern p t >>= fun (p, xts_p) ->
+            fold_args (p :: ps_out) (xts @ xts_p) ps ts
 
-             | [], _::_ | _::_, [] ->
-                assert false
-           in
-           fold_args [] [] ps ts >>= fun case ->
-           fold_cases (case :: cases) rem
-      in
-      fold_cases [] cases)
+         | [], _::_ | _::_, [] ->
+            assert false
+       in
+       fold_args [] [] ps ts >>= fun case ->
+       fold_cases (case :: cases) rem
+  in
+  fold_cases [] cases
 
 and check_comp c t =
   infer_comp c >>= fun (c, t') ->

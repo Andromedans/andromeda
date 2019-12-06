@@ -152,13 +152,11 @@ end
 
 type t = {
     table : SymbolTable.t;
-    ml_yield : (Mlty.ty * Mlty.ty) option;
     ml_bound : Mlty.ty_schema list
   }
 
 let empty = {
     table = SymbolTable.initial;
-    ml_yield = None;
     ml_bound = [];
   }
 
@@ -198,11 +196,6 @@ let lookup_ml_constructor (t_pth, Path.Level (c_name, c_lvl)) ctx =
      and out = Mlty.Apply (t_pth, List.map snd pus) in
      (c_id, ts, out)
 
-let lookup_continuation {ml_yield;_} =
-  match ml_yield with
-    | Some cont -> cont
-    | None -> assert false
-
 let add_tt_constructor c ctx =
   { ctx with table = SymbolTable.add_tt_constructor c ctx.table }
 
@@ -220,10 +213,6 @@ let add_bound name schema ctx =
 let add_ml_value _name schema ctx =
   { ctx with table = SymbolTable.add_ml_value schema ctx.table }
 
-let op_cases op ~output ctx =
-  let (oid, (args, opout)) = lookup_ml_operation op ctx in
-  oid, args, { ctx with ml_yield = Some (opout, output) }
-
 let unfold ctx t_pth ts =
   match lookup_ml_type t_pth ctx with
     | _, Mlty.Sum _ -> None
@@ -237,15 +226,7 @@ let pop_ml_module ctx = { ctx with table = SymbolTable.pop_ml_module ctx.table }
 
 let gather_known s ctx =
   let subst = Substitution.apply s in
-  let known =
-    SymbolTable.fold_ml_values
-      (fun known (_, t) -> Mlty.MetaSet.union known (Mlty.occuring (subst t)))
-      Mlty.MetaSet.empty
-      ctx.table
-  in
-  let known = match ctx.ml_yield with
-    | Some (t1, t2) ->
-       Mlty.MetaSet.union known (Mlty.MetaSet.union (Mlty.occuring (subst t1)) (Mlty.occuring (subst t2)))
-    | None -> known
-  in
-  known
+  SymbolTable.fold_ml_values
+    (fun known (_, t) -> Mlty.MetaSet.union known (Mlty.occuring (subst t)))
+    Mlty.MetaSet.empty
+    ctx.table

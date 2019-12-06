@@ -24,7 +24,7 @@ rule ξ : A ≡ B ;;
 handle
   a :? (?? : B)
 with
-  ML.coerce _ _ -> yield (ML.Some (convert a ξ))
+  ML.coerce _ _ -> ML.Some (convert a ξ)
 end ;;
 
 rule P (_ : A) type ;;
@@ -33,5 +33,5 @@ rule ζ (x : A) (y : A) : P x ≡ P y ;;
 handle
   a :? {x : A} P x ≡ P x as ??
 with
-  | ML.coerce _ _ -> yield (ML.Some ({z : A} ζ z z))
+  | ML.coerce _ _ -> ML.Some ({z : A} ζ z z)
 end

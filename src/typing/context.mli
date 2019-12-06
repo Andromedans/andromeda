@@ -28,9 +28,6 @@ val lookup_ml_constructor : Path.ml_constructor -> t -> Ident.t * Mlty.ty list *
 (** Lookup the (M)L type of a TT constructor. *)
 val lookup_tt_constructor : Path.t -> t -> Ident.t
 
-(** Lookup the type of the current continuation. *)
-val lookup_continuation : t -> Mlty.ty * Mlty.ty
-
 (** Declare a new TT constructor. *)
 val add_tt_constructor : Ident.t -> t -> t
 
@@ -45,9 +42,6 @@ val add_bound : Name.t -> Mlty.ty_schema -> t -> t
 
 (** Add an ML value with the given schema. *)
 val add_ml_value : Name.t -> Mlty.ty_schema -> t -> t
-
-(** Creates the context for evaluating the operation handling of [op] *)
-val op_cases : Path.t -> output:Mlty.ty -> t -> Ident.t * Mlty.ty list * t
 
 (** Start processing a fresh current module *)
 val push_ml_module : t -> t
