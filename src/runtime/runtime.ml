@@ -1,7 +1,5 @@
 (** Runtime values and computations *)
 
-type ml_ref = Store.Ref.key
-
 type coercible =
   | NotCoercible
   | Convertible of Nucleus.eq_type_abstraction
@@ -142,8 +140,7 @@ let mk_nucleus_penv {forbidden;opens} =
 (** Runtime environment. *)
 type env = {
   dynamic : dynamic;
-  lexical : lexical;
-  state   : state  ;
+  lexical : lexical
 }
 
 and dynamic = {
@@ -162,8 +159,6 @@ and lexical = {
   current_values : value list;
 }
 
-and state = value Store.Ref.t
-
 and value =
   | Judgement of Nucleus.judgement_abstraction
   | Boundary of Nucleus.boundary_abstraction
@@ -172,7 +167,7 @@ and value =
   | Handler of handler
   | Tag of ml_constructor * value list
   | Tuple of value list
-  | Ref of ml_ref
+  | Ref of value ref
   | String of string
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
@@ -186,7 +181,7 @@ and 'a result =
                  ; op_dynamic_env : dynamic
                  ; op_cont : 'a continuation }
 
-and 'a comp = env -> 'a result * state
+and 'a comp = env -> 'a result
 
 and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
 
@@ -197,7 +192,7 @@ and handler = {
 }
 
 and 'a continuation =
-  { cont_val : value -> state -> 'a result * state }
+  { cont_val : value -> 'a result }
 
 type 'a toplevel = env -> 'a * env
 
@@ -261,32 +256,31 @@ let mk_closure f = Closure (Clos f)
 
 let apply_closure (Clos f) v env = f v env
 
-let mk_cont f env = {cont_val = fun v state -> f v {env with state}}
-let apply_cont {cont_val=f} v {state;_} = f v state
+let mk_cont f env = {cont_val = fun v -> f v env}
+let apply_cont {cont_val=f} v _env = f v
 
 (** References *)
-let mk_ref v env =
-  let x, state = Store.Ref.fresh v env.state in
-  Return (Ref x), state
+let mk_ref v _env =
+  let x = ref v in
+  Return (Ref x)
 
-let lookup_ref x env =
-  let v = Store.Ref.lookup x env.state in
-  Return v, env.state
+let lookup_ref x _env =
+  let v = !x in
+  Return v
 
 let update_ref x v env =
-  let state = Store.Ref.update x v env.state in
-  Return (), state
+  x := v ;
+  Return ()
 
 (** The monadic bind [bind r f] feeds the result [r : result]
     into function [f : value -> 'a]. *)
 let rec bind (r:'a comp) (f:'a -> 'b comp) : 'b comp = fun env ->
   match r env with
-  | Return v, state ->
-     f v { env with state }
-  | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}, state ->
-     let env = { env with state } in
+  | Return v ->
+     f v env
+  | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont} ->
      let op_cont = mk_cont (fun x -> bind (apply_cont op_cont x) f) env in
-     Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}, env.state
+     Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}
 
 let (>>=) = bind
 
@@ -299,13 +293,13 @@ let top_return x env = x, env
 
 let top_return_closure f env = mk_closure0 f env, env
 
-let return x env = Return x, env.state
+let return x _env = Return x
 
 let return_judgement jdg = return (Judgement jdg)
 
 let return_boundary bdry = return (Boundary bdry)
 
-let return_closure f env = Return (Closure (mk_closure0 f env)), env.state
+let return_closure f env = Return (Closure (mk_closure0 f env))
 
 let return_handler handler_val handler_ops handler_finally env =
   let option_map g = function None -> None | Some x -> Some (g x) in
@@ -314,7 +308,7 @@ let return_handler handler_val handler_ops handler_finally env =
     handler_ops = Ident.map (fun f -> mk_closure0 f env) handler_ops ;
     handler_finally = option_map (fun v -> mk_closure0 v env) handler_finally ;
   } in
-  Return (Handler h), env.state
+  Return (Handler h)
 
 let return_unit = return (Tuple [])
 
@@ -480,21 +474,20 @@ let as_string ~at = function
 (** Operations *)
 
 let operation op_id ?checking vs env =
-  Operation {op_id; op_args=vs; op_boundary=checking; op_dynamic_env=env.dynamic; op_cont=mk_cont return env},
-  env.state
+  Operation {op_id; op_args=vs; op_boundary=checking; op_dynamic_env=env.dynamic; op_cont=mk_cont return env}
 
 (** Interact with the environment *)
 
-let get_env env = Return env, env.state
+let get_env env = Return env
 
-let with_env env m {state; _} = m {env with state}
+let with_env env m _env' = m env
 
 let top_get_env env = env, env
 
 let get_signature env = env.dynamic.signature
 
 let lookup_signature env =
-  Return env.dynamic.signature, env.state
+  Return env.dynamic.signature
 
 let add_rule rname rule env =
   let signature = Nucleus.Signature.add_rule rname rule env.dynamic.signature
@@ -511,12 +504,12 @@ let get_bound (Path.Index (_, k)) env = List.nth env.lexical.current_values k
 
 let lookup_bound k env =
   let v = get_bound k env in
-  Return v, env.state
+  Return v
 
 let get_ml_value pth env = SymbolTable.get_ml_value pth env.lexical.table
 
 let lookup_ml_value k env =
-  Return (get_ml_value k env), env.state
+  Return (get_ml_value k env)
 
 let add_bound0 v env =
   { env with lexical = { env.lexical with
@@ -583,7 +576,7 @@ let get_nucleus_penv env =
   mk_nucleus_penv (get_penv env)
 
 let lookup_penv env =
-  Return (get_penv env), env.state
+  Return (get_penv env)
 
 let top_lookup_penv env =
   get_penv env, env
@@ -645,8 +638,8 @@ let rec print_value ?max_level ~penv v ppf =
   | Tuple lst -> Print.print ?max_level ~at_level:Level.ml_tuple ppf "@[<hov 1>(%t)@]"
                   (Print.sequence (print_value ~max_level:Level.ml_tuple_arg ~penv) "," lst)
 
-  | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref<%t>"
-                  (Store.Ref.print_key v)
+  | Ref x -> Print.print ?max_level ~at_level:Level.highest ppf "ref@ %t"
+                  (print_value ~max_level:Level.ml_tag ~penv (!x))
 
   | String s -> Format.fprintf ppf "\"%s\"" s
 
@@ -853,21 +846,19 @@ let empty = {
   dynamic = {
     signature = Nucleus.Signature.empty ;
     penv = { forbidden = Name.set_empty ; opens = Path.set_empty } ;
-  } ;
-  state = Store.Ref.empty;
+  }
 }
 
 (** Handling *)
 let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp) : value comp =
   begin fun env -> match r env with
-  | Return v, state ->
-     let env = {env with state} in
+  | Return v ->
      begin match handler_val with
      | Some f -> apply_closure f v env
-     | None -> Return v, env.state
+     | None -> Return v
      end
-  | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}, state ->
-     let env = {env with dynamic = op_dynamic_env; state} in
+  | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont} ->
+     let env = {env with dynamic = op_dynamic_env} in
      let h = {handler_val; handler_ops; handler_finally=None} in
      let op_cont = mk_cont (fun v env -> handle_comp h (apply_cont op_cont v) env) env in
      begin
@@ -876,7 +867,7 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
          ((apply_closure f {args=op_args;checking=op_boundary}) >>= (fun v -> apply_cont op_cont v)) env
        with
          Not_found ->
-           Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}, env.state
+           Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}
      end
   end >>= fun v ->
   match handler_finally with
@@ -886,8 +877,8 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
 let top_handle ~at c env =
   let r = c env in
   match r with
-    | Return v, state -> v, { env with state }
-    | Operation {op_id; op_args; _}, _ ->
+    | Return v -> v, env
+    | Operation {op_id; op_args; _} ->
        error ~at (UnhandledOperation (op_id, op_args))
 
 (** Equality *)
@@ -919,9 +910,9 @@ let rec equal_value v1 v2 =
        in
        fold (lst1, lst2)
 
-    | Ref v1, Ref v2 ->
+    | Ref x1, Ref x2 ->
        (* XXX should we compare references by value instead? *)
-       Store.Ref.key_eq v1 v2
+       x1 == x2
 
     | String s1, String s2 ->
       s1 = s2

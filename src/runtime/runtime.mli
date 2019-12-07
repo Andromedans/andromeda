@@ -8,9 +8,6 @@ type coercible =
   | Convertible of Nucleus.eq_type_abstraction
   | Coercible of Nucleus.is_term_abstraction
 
-(** An ML reference cell. *)
-type ml_ref
-
 type ml_constructor = Ident.t
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
@@ -22,7 +19,7 @@ type value =
   | Handler of handler                         (** Handler value *)
   | Tag of ml_constructor * value list         (** Application of a data constructor *)
   | Tuple of value list                        (** Tuple of values *)
-  | Ref of ml_ref                              (** Ref cell *)
+  | Ref of value ref                           (** Ref cell *)
   | String of string                           (** String constant (opaque, not a list) *)
 
 and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
@@ -109,7 +106,7 @@ val as_closure : at:Location.t -> value -> (value,value) closure
 val as_handler : at:Location.t -> value -> handler
 
 (** Convert, or fail with [RefExpected] *)
-val as_ref : at:Location.t -> value -> ml_ref
+val as_ref : at:Location.t -> value -> value ref
 
 (** Convert, or fail with [StringExpected] *)
 val as_string : at:Location.t -> value -> string
@@ -222,10 +219,10 @@ val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 val mk_ref : value -> value comp
 
 (** A computation that dereferences the given reference cell. *)
-val lookup_ref : ml_ref -> value comp
+val lookup_ref : value ref -> value comp
 
 (** A computation that updates the given reference cell with the given value. *)
-val update_ref : ml_ref -> value -> unit comp
+val update_ref : value ref -> value -> unit comp
 
 (** A computation that invokes the specified operation. *)
 val operation : Ident.t -> ?checking:Nucleus.boundary_abstraction -> value list -> value comp
