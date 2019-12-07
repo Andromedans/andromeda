@@ -169,6 +169,7 @@ type error =
   | InvalidConvert of Nucleus.judgement_abstraction * Nucleus.eq_type_abstraction
   | InvalidCoerce of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnhandledOperation of Ident.t * value list
+  | UncaughtException of Ident.t * value option
   | InvalidPatternMatch of value
 
 (** The exception that is raised on runtime error *)
@@ -190,9 +191,14 @@ val mk_closure : (value -> value comp) -> value
 
 (** {b Monadic structure} *)
 
+(** Monadic bind *)
 val bind: 'a comp -> ('a -> 'b comp)  -> 'b comp
+
+(** Return a value *)
 val return : 'a -> 'a comp
 
+(** Throw an exception *)
+val throw : Ident.t -> value option -> 'a comp
 
 (** {b Monadic shorthand} *)
 
@@ -203,6 +209,7 @@ val return_judgement : Nucleus.judgement_abstraction -> value comp
 val return_boundary : Nucleus.boundary_abstraction -> value comp
 
 val return_closure : (value -> value comp) -> value comp
+
 val return_handler :
    (value -> value comp) option ->
    (operation_args -> value comp) Ident.map ->

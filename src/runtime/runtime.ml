@@ -175,6 +175,7 @@ and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
 and 'a result =
   | Return of 'a
+  | Exception of Ident.t * value option
   | Operation of { op_id : Ident.t
                  ; op_args : value list
                  ; op_boundary : Nucleus.boundary_abstraction option
@@ -232,6 +233,7 @@ type error =
   | InvalidConvert of Nucleus.judgement_abstraction * Nucleus.eq_type_abstraction
   | InvalidCoerce of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnhandledOperation of Ident.t * value list
+  | UncaughtException of Ident.t * value option
   | InvalidPatternMatch of value
 
 exception Error of error Location.located
@@ -276,11 +278,14 @@ let update_ref x v env =
     into function [f : value -> 'a]. *)
 let rec bind (r:'a comp) (f:'a -> 'b comp) : 'b comp = fun env ->
   match r env with
-  | Return v ->
-     f v env
-  | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont} ->
-     let op_cont = mk_cont (fun x -> bind (apply_cont op_cont x) f) env in
-     Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}
+
+  | Return v -> f v env
+
+  | Exception _ as r -> r
+
+  | Operation op_data ->
+     let op_cont = mk_cont (fun x -> bind (apply_cont op_data.op_cont x) f) env in
+     Operation {op_data with op_cont}
 
 let (>>=) = bind
 
@@ -294,6 +299,8 @@ let top_return x env = x, env
 let top_return_closure f env = mk_closure0 f env, env
 
 let return x _env = Return x
+
+let throw exc vopt _env = Exception (exc, vopt)
 
 let return_judgement jdg = return (Judgement jdg)
 
@@ -704,6 +711,25 @@ let print_operation ~penv op vs ppf =
                      (Print.sequence (print_value ~max_level:Level.ml_operation_arg ~penv) "" vs)
      end
 
+let print_exception ~penv exc vopt ppf =
+  match exc, vopt with
+
+  | Path.Direct (Path.Level ({Name.fixity=Name.Prefix;_} as name, _)), Some v ->
+     (* prefix exception applied to one argument *)
+     Print.print ppf ~at_level:Level.prefix "%t@ %t"
+       (Name.print ~parentheses:false name)
+       (print_value ~max_level:Level.prefix_arg ~penv v)
+
+  | (Path.Direct _ | Path.Module _), None ->
+     (* print as identifier *)
+     Path.print ~opens:penv.opens ~parentheses:true exc ppf
+
+  | (Path.Direct _ | Path.Module _), Some v ->
+     (* print as application *)
+     Print.print ~at_level:Level.ml_operation ppf "%t@ %t"
+                     (Path.print ~opens:penv.opens ~parentheses:true exc)
+                     (print_value ~max_level:Level.ml_operation_arg ~penv v)
+
 let print_error ~penv err ppf =
   match err with
 
@@ -834,6 +860,10 @@ let print_error ~penv err ppf =
      Format.fprintf ppf "unhandled operation %t"
                     (print_operation ~penv (Ident.path op) vs)
 
+  | UncaughtException (exc, vopt) ->
+     Format.fprintf ppf "uncaught exception %t"
+                    (print_exception ~penv (Ident.path exc) vopt)
+
   | InvalidPatternMatch v ->
      Format.fprintf ppf "this pattern cannot match@ %t"
                     (print_value ~penv v)
@@ -852,11 +882,17 @@ let empty = {
 (** Handling *)
 let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp) : value comp =
   begin fun env -> match r env with
+
   | Return v ->
      begin match handler_val with
      | Some f -> apply_closure f v env
      | None -> Return v
      end
+
+  | Exception _ as r ->
+     (* XXX in the future handlers will have exception clauses *)
+     r
+
   | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont} ->
      let env = {env with dynamic = op_dynamic_env} in
      let h = {handler_val; handler_ops; handler_finally=None} in
@@ -877,7 +913,12 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
 let top_handle ~at c env =
   let r = c env in
   match r with
+
     | Return v -> v, env
+
+    | Exception (exc_id, v) ->
+       error ~at (UncaughtException (exc_id, v))
+
     | Operation {op_id; op_args; _} ->
        error ~at (UnhandledOperation (op_id, op_args))
 
