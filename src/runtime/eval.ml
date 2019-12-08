@@ -27,7 +27,7 @@ let as_bool ~at v =
      else
      Runtime.(error ~at (BoolExpected v))
 
-  | Runtime.(Tag (_, _::_) | Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tuple _ | Ref _ | String _) ->
+  | Runtime.(Tag (_, _::_) | Exc _ | Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tuple _ | Ref _ | String _) ->
      Runtime.(error ~at (BoolExpected v))
 
 let as_handler ~at v =
@@ -155,6 +155,15 @@ let rec comp {Location.it=c'; at} =
      sequence ~at v >>= fun () ->
      comp c2
 
+  | Syntax.Raise c ->
+     comp c >>= fun v ->
+     let exc = Runtime.as_exception ~at v in
+     Runtime.raise_exception exc
+
+  | Syntax.Try (c, hnd) ->
+     let hnd = exception_handler ~at comp hnd in
+     Runtime.try_with hnd (comp c)
+
   | Syntax.Fresh (xopt, c) ->
      comp_as_is_type c >>= fun t ->
      let x = match xopt with Some x -> x | None -> Name.mk_name "x" in
@@ -188,7 +197,7 @@ let rec comp {Location.it=c'; at} =
 
         | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-        | Runtime.(Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+        | Runtime.(Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
            Runtime.(error ~at (JudgementOrBoundaryExpected v)))
 
   | Syntax.AbstractAtom (a, c) ->
@@ -199,7 +208,7 @@ let rec comp {Location.it=c'; at} =
 
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-             | Runtime.(Closure _ | Derivation _| Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+             | Runtime.(Closure _ | Derivation _| Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
                 Runtime.(error ~at (JudgementOrBoundaryExpected v))
            end
 
@@ -256,7 +265,7 @@ let rec comp {Location.it=c'; at} =
       | Runtime.Closure f ->
         comp c2 >>= fun v ->
         Runtime.apply_closure f v
-      | Runtime.(Judgement _ | Boundary _ | Derivation _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as h ->
+      | Runtime.(Judgement _ | Boundary _ | Derivation _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as h ->
         Runtime.(error ~at (Inapplicable h))
     end
 
@@ -368,6 +377,7 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.Context _
   | Syntax.Natural _
   | Syntax.MLBoundary _
+  | Syntax.Raise _
     ->
 
     comp c >>= fun v ->
@@ -384,6 +394,10 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
           fold (v :: vs) cs
      in
      fold [] cs
+
+  | Syntax.Try (c, hnd) ->
+     let hnd = exception_handler ~at (fun c -> check_judgement c bdry) hnd in
+     Runtime.try_with hnd (check_judgement c bdry)
 
   | Syntax.Let (xcs, c) ->
      let_bind ~at xcs (check_judgement c bdry)
@@ -443,6 +457,24 @@ and check_abstract ~at bdry x uopt c =
                  return jdg
                end
           end
+     end
+
+and exception_handler :
+  'a . at:Location.t ->
+       (Syntax.comp -> 'a Runtime.comp) ->
+       Syntax.exception_cases Ident.map -> Runtime.exc -> 'a Runtime.comp
+  = fun ~at comp hnd ((exc_id, vopt) as exc) ->
+  match Ident.find_opt exc_id hnd with
+  | None -> Runtime.raise_exception exc
+  | Some (Syntax.ExceptionCaseSimple c) ->
+     begin match vopt with
+     | None -> comp c
+     | Some _ -> assert false
+     end
+  | Some (Syntax.ExceptionCasePattern cases) ->
+     begin match vopt with
+     | None -> assert false
+     | Some v -> match_cases ~at cases comp v
      end
 
 and sequence ~at v =

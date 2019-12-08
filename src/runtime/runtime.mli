@@ -17,10 +17,13 @@ type value =
   | Derivation of Nucleus.derivation           (** A hypothetical derivation *)
   | Closure of (value,value) closure           (** An ML function *)
   | Handler of handler                         (** Handler value *)
+  | Exc of exc                                 (** An exception *)
   | Tag of ml_constructor * value list         (** Application of a data constructor *)
   | Tuple of value list                        (** Tuple of values *)
   | Ref of value ref                           (** Ref cell *)
   | String of string                           (** String constant (opaque, not a list) *)
+
+and exc = Ident.t * value option
 
 and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
 
@@ -105,6 +108,9 @@ val as_closure : at:Location.t -> value -> (value,value) closure
 (** Convert, or fail with [HandlerExpected] *)
 val as_handler : at:Location.t -> value -> handler
 
+(** Convert, or fail with [ExceptionExpected] *)
+val as_exception : at:Location.t -> value -> exc
+
 (** Convert, or fail with [RefExpected] *)
 val as_ref : at:Location.t -> value -> value ref
 
@@ -164,6 +170,7 @@ type error =
   | ClosureExpected of value
   | HandlerExpected of value
   | RefExpected of value
+  | ExceptionExpected of value
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvert of Nucleus.judgement_abstraction * Nucleus.eq_type_abstraction
@@ -197,8 +204,10 @@ val bind: 'a comp -> ('a -> 'b comp)  -> 'b comp
 (** Return a value *)
 val return : 'a -> 'a comp
 
-(** Throw an exception *)
-val throw : Ident.t -> value option -> 'a comp
+val raise_exception : exc -> 'a comp
+
+(** Handle exceptions *)
+val try_with : (exc -> 'a comp) -> 'a comp -> 'a comp
 
 (** {b Monadic shorthand} *)
 

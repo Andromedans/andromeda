@@ -15,40 +15,45 @@ type generalizable =
 let rec generalizable c =
   match c.Location.it with
   (* yes *)
-  | (Syntax.Bound _ | Syntax.Value _ | Syntax.Function _
-    | Syntax.Handler _| Syntax.String _) ->
+  | Syntax.(Bound _ | Value _ | Function _ | Handler _| String _ | Raise _) ->
      Generalizable
+
   | Syntax.MLConstructor (_, cs) | Syntax.Tuple cs ->
-    if List.for_all (fun c -> generalizable c = Generalizable) cs
-    then Generalizable
-    else Ungeneralizable
+     if List.for_all (fun c -> generalizable c = Generalizable) cs
+     then
+       Generalizable
+     else
+       Ungeneralizable
+
   | Syntax.Let (_, c)
   | Syntax.LetRec (_, c)
   | Syntax.Sequence (_, c) -> generalizable c
 
   (* no *)
-  | Syntax.Operation _
-  | Syntax.With _
-  | Syntax.Lookup _
-  | Syntax.Update _
-  | Syntax.Ref _
-  | Syntax.Fresh _
-  | Syntax.AbstractAtom _
-  | Syntax.Match _
-  | Syntax.BoundaryAscribe _
-  | Syntax.TypeAscribe _
-  | Syntax.TTConstructor _
-  | Syntax.TTApply _
-  | Syntax.Abstract _
-  | Syntax.Substitute _
-  | Syntax.Derive _
-  | Syntax.Apply _
-  | Syntax.Occurs _
-  | Syntax.Congruence _
-  | Syntax.Convert _
-  | Syntax.Context _
-  | Syntax.Natural _
-  | Syntax.MLBoundary _
+  | Syntax.(
+      Operation _
+    | With _
+    | Lookup _
+    | Update _
+    | Ref _
+    | Fresh _
+    | AbstractAtom _
+    | Try _
+    | Match _
+    | BoundaryAscribe _
+    | TypeAscribe _
+    | TTConstructor _
+    | TTApply _
+    | Abstract _
+    | Substitute _
+    | Derive _
+    | Apply _
+    | Occurs _
+    | Congruence _
+    | Convert _
+    | Context _
+    | Natural _
+    | MLBoundary _)
   -> Ungeneralizable
 
 (* Instantite the bound parameters in a type with the given ones. *)

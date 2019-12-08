@@ -43,7 +43,7 @@ let as_option ~at = function
   | Runtime.Tag (t, []) when (Runtime.equal_tag t tag_none)  -> None
   | Runtime.Tag (t, [x]) when (Runtime.equal_tag t tag_some) -> Some x
   | Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ |
-             Tag _ | Tuple _ | Ref _ | String _) as v ->
+             Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
      Runtime.(error ~at (OptionExpected v))
 
 let as_judgement_option ~at v =
@@ -51,7 +51,7 @@ let as_judgement_option ~at v =
   | None -> None
   | Some (Runtime.Judgement jdg) -> Some jdg
   | Some (Runtime.(Boundary _ | Closure _ | Derivation _ |
-          Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v) ->
+          Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v) ->
      Runtime.(error ~at (JudgementExpected v))
 
 (** Conversion between OCaml coercible and ML coercible *)

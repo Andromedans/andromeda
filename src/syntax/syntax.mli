@@ -5,6 +5,9 @@ type ml_constructor = Ident.t
 (** An operation is referred to by a unique identifier *)
 type operation = Ident.t
 
+(** An exception is referred to by a unique identifier *)
+type exc = Ident.t
+
 (** A rule/constructor is referred to by a unique identifier *)
 type tt_constructor = Ident.t
 
@@ -28,6 +31,7 @@ and pattern' =
   | Patt_BoundaryIsTerm of pattern
   | Patt_BoundaryEqType of pattern * pattern
   | Patt_BoundaryEqTerm of pattern * pattern * pattern
+  | Patt_MLException of exc * pattern option
   | Patt_MLConstructor of ml_constructor * pattern list
   | Patt_Tuple of pattern list
   | Patt_String of string
@@ -49,6 +53,8 @@ and comp' =
   | Update of comp * comp
   | Ref of comp
   | Sequence of comp * comp
+  | Try of comp * exception_cases Ident.map
+  | Raise of comp
   | Fresh of Name.t option * comp
   | Match of comp * match_case list
   | BoundaryAscribe of comp * comp
@@ -91,6 +97,10 @@ and handler = {
   handler_ops: match_op_case list Ident.map;
   handler_finally : match_case list;
 }
+
+and exception_cases =
+  | ExceptionCaseSimple of comp
+  | ExceptionCasePattern of match_case list
 
 and match_case = pattern * comp option * comp
 

@@ -32,6 +32,8 @@ let add = IdentMap.add
 
 let find = IdentMap.find
 
+let find_opt = IdentMap.find_opt
+
 let mem = IdentMap.mem
 
 let map = IdentMap.map

@@ -24,6 +24,13 @@ let rec collect_pattern sgn xvs {Location.it=p'; at} v =
      let xvs = collect_pattern sgn xvs p1 v in
      collect_pattern sgn xvs p2 v
 
+  | Syntax.Patt_MLException (exc, popt), Runtime.Exc (exc', vopt) ->
+     if not (Ident.equal exc exc')
+     then
+       raise Match_fail
+     else
+       collect_pattern_opt sgn xvs popt vopt
+
   | Syntax.Patt_MLConstructor (tag, ps), Runtime.Tag (tag', vs) ->
      if not (Runtime.equal_tag tag tag')
      then
@@ -153,23 +160,26 @@ let rec collect_pattern sgn xvs {Location.it=p'; at} v =
      if String.equal p s then xvs else raise Match_fail
 
   (* mismatches *)
+  | Syntax.Patt_MLException _,
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Tuple _ | String _)
+
   | Syntax.Patt_MLConstructor _,
-    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Ref _ | Tuple _ | String _)
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Ref _ | Tuple _ | String _)
 
   | Syntax.Patt_Abstract _,
-    Runtime.(Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Tuple _ | String _)
+    Runtime.(Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _ | String _)
 
   | Syntax.(Patt_TTConstructor _ | Patt_GenAtom _ | Patt_IsType _ | Patt_IsTerm _ | Patt_EqType _ | Patt_EqTerm _),
-    Runtime.(Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Tuple _ | String _)
+    Runtime.(Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _ | String _)
 
   | Syntax.(Patt_BoundaryIsType | Patt_BoundaryIsTerm _ | Patt_BoundaryEqType _ | Patt_BoundaryEqTerm _) ,
-    Runtime.(Judgement _ | Derivation _  | Closure _ | Handler _ | Tag _ | Ref _ | Tuple _ | String _)
+    Runtime.(Judgement _ | Derivation _  | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _ | String _)
 
   | Syntax.Patt_Tuple _,
-    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | String _)
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | String _)
 
   | Syntax.Patt_String _,
-    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Tuple _) ->
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _) ->
      Runtime.(error ~at (InvalidPatternMatch v))
 
 and collect_judgement sgn xvs p abstr =
@@ -241,6 +251,14 @@ and collect_patterns sgn xvs ps vs =
      (* This should never happen because desugaring checks arities of constructors and patterns. *)
      assert false
 
+and collect_pattern_opt sgn xvs popt vopt =
+  match popt, vopt with
+
+  | None, None -> xvs
+
+  | Some p, Some v -> collect_pattern sgn xvs p v
+
+  | None, Some _ | Some _, None -> raise Match_fail
 
 let match_pattern' sgn p v =
   try
