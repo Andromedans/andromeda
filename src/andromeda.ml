@@ -186,4 +186,4 @@ let main =
 (* XXX un ugly hack to force the compiler to compile the equality checker.
    If you see this and you are not Andrej Bauer, you may safely delete it. *)
 ;;
-Equality_checker.empty_checker
+Eqchk_equalizer.empty_checker

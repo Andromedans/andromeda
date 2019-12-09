@@ -8,38 +8,27 @@ open Eqchk_common (* sorry *)
    as maps taking a symbol to a list of rules which have that symbol at the head. This
    allows us to quickly determine which rules are potentially applicable. *)
 type checker = {
-  type_normalizer : Eqchk_whnf.type_normalizer ;
-  term_normalizer : Eqchck_whnf.term_normalizer ;
+  type_normalizer : Eqchk_normalizer.type_normalizer ;
+  term_normalizer : Eqchk_normalizer.term_normalizer ;
   ext_rules : Eqchk_ext.equation list SymbolMap.t ;
 }
 
 let empty_checker =
-  { type_normalizer = Eqchk_whnf.empty_type_normalizer ;
-    term_normalizer = Eqchk_whnf.empty_term_normalizer ;
+  { type_normalizer = Eqchk_normalizer.empty_type_normalizer ;
+    term_normalizer = Eqchk_normalizer.empty_term_normalizer ;
     ext_rules = SymbolMap.empty}
 
 
 (** The [add_XYZ] functions add a new rule, computed from the given derivation, to the
    given checker, or raise [Invalid_rule] if not possible. *)
 
-let add_type_beta checker sgn drv =
-  let sym, bt = Eqchk_whnf.make_type_equation sgn drv in
-  let rls =
-    match SymbolMap.find_opt sym checker.type_beta_equations with
-    | None -> [bt]
-    | Some rls -> rls @ [bt]
-  in
-  { checker with type_beta_equations = SymbolMap.add sym rls checker.type_beta_equations }
+let add_type_computation checker sgn drv =
+  { checker with
+    type_normalizer = Eqchk_normalizer.add_type_computation sgn checker.type_normalizer drv }
 
-
-let add_term_beta checker sgn drv =
-  let sym, bt = Eqchk_whnf.make_term_equation sgn drv in
-  let rls =
-    match SymbolMap.find_opt sym checker.term_beta_equations with
-    | None -> [bt]
-    | Some rls -> rls @ [bt]
-  in
-  { checker with term_beta_equations = SymbolMap.add sym rls checker.term_beta_equations }
+let add_term_computation checker sgn drv =
+  { checker with
+    term_normalizer = Eqchk_normalizer.add_term_computation sgn checker.term_normalizer drv }
 
 
 let add_extensionality checker sgn drv =
@@ -79,8 +68,8 @@ and prove_eq_term_abstraction chk sgn abstr =
      Nucleus.abstract_eq_term atm abstr
 
 and prove_eq_type chk sgn (ty1, ty2) =
-  let ty1_eq_ty1', ty1' = Eqchk_whnf.whnf_type chk.type_beta_equations sgn ty1
-  and ty2_eq_ty2', ty2' = Eqchk_whnf.whnf_type chk.type_beta_equations sgn ty2 in
+  let ty1_eq_ty1', ty1' = Eqchk_normalizer.whnf_type chk.type_normalizer sgn ty1
+  and ty2_eq_ty2', ty2' = Eqchk_normalizer.whnf_type chk.type_normalizer sgn ty2 in
   let ty1'_eq_ty2' = check_whnf_type chk sgn ty1' ty2' in
   Nucleus.transitivity_type
     (Nucleus.transitivity_type ty1_eq_ty1' ty1'_eq_ty2')
@@ -96,8 +85,8 @@ and prove_eq_term chk sgn bdry =
   | None ->
      let (e1, e2, t) = Nucleus.invert_eq_term_boundary bdry in
      (* normalization phase *)
-     let e1_eq_e1', e1' = Eqchk_whnf.whnf_term chk.term_beta_equations sgn e1
-     and e2_eq_e2', e2' = Eqchk_whnf.whnf_term chk.term_beta_equations sgn e2 in
+     let e1_eq_e1', e1' = Eqchk_normalizer.whnf_term chk.term_normalizer sgn e1
+     and e2_eq_e2', e2' = Eqchk_normalizer.whnf_term chk.term_normalizer sgn e2 in
      (* XXX convert e1_eq_e1' and e2_eq_e2' to be at type t *)
      let e1'_eq_e2' = check_whnf_term chk sgn e1' e2' in
      Nucleus.transitivity_term
@@ -157,11 +146,11 @@ and prove_boundary_abstraction chk sgn bdry =
 
 (** The exported form of weak-head normalization for types *)
 let whnf_type chk sgn t =
-  let eq, Whnf t = Eqchk_whnf.whnf_type chk.type_beta_equations sgn t in
+  let eq, Whnf t = Eqchk_normalizer.whnf_type chk.type_normalizer sgn t in
   eq, t
 
 (** The exported form of weak-head normalization for terms *)
 let whnf_term chk sgn e =
-  let eq, Whnf e = Eqchk_whnf.whnf_term chk.term_beta_equations sgn e in
+  let eq, Whnf e = Eqchk_normalizer.whnf_term chk.term_normalizer sgn e in
   (* XXX convert eq to be at the type of e *)
   eq, e
