@@ -35,7 +35,7 @@ let rec collect_is_type sgn metas abstr = function
      check_meta k abstr metas ;
      metas
 
-  | Patt.TypeConstructor (c, args) ->
+  | Patt.(TypeWhnf TypeConstructor (c, args)) ->
      begin match Nucleus.as_not_abstract abstr with
      | None
      | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -55,7 +55,7 @@ let rec collect_is_type sgn metas abstr = function
         end
      end
 
-  | Patt.TypeFreeMeta (n, es) ->
+  | Patt.(TypeWhnf TypeFreeMeta (n, es)) ->
      begin match Nucleus.as_not_abstract abstr with
      | None
      | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -85,7 +85,7 @@ and collect_is_term sgn metas abstr = function
      check_meta k abstr metas ;
      metas
 
-  | Patt.TermConstructor (c, args) ->
+  | Patt.TermWhnf TermConstructor (c, args) ->
      begin match Nucleus.as_not_abstract abstr with
      | None -> raise Match_fail
      | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -111,7 +111,7 @@ and collect_is_term sgn metas abstr = function
 
      end
 
-  | Patt.TermAtom n ->
+  | Patt.TermWhnf TermAtom n ->
      begin match Nucleus.as_not_abstract abstr with
        | None -> raise Match_fail
        | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -132,7 +132,7 @@ and collect_is_term sgn metas abstr = function
           fold e
      end
 
-  | Patt.TermFreeMeta (n, es) ->
+  | Patt.TermWhnf TermFreeMeta (n, es) ->
      begin match Nucleus.as_not_abstract abstr with
      | None
      | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
@@ -239,9 +239,9 @@ and collect_arguments sgn metas args_e args_r =
 
 and collect_argument sgn metas jdg = function
 
-  | PattArgumentIsType r -> collect_is_type sgn metas jdg r
+  | Patt.ArgumentIsType r -> collect_is_type sgn metas jdg r
 
-  | PattArgumentIsTerm r -> collect_is_term sgn metas jdg r
+  | Patt.ArgumentIsTerm r -> collect_is_term sgn metas jdg r
 
   (* | PattArgumentEqType r -> collect_eq_type sgn metas jdg r
    *
@@ -309,10 +309,10 @@ let extract_meta metas abstr =
           | Nucleus_types.(TermMeta (MetaBound k, es)) ->
              check_es k es ;
              if Bound_set.mem k metas then
-               metas, PattArgumentIsTerm (Patt.TermCheckMeta k)
+               metas, Patt.ArgumentIsTerm (Patt.TermCheckMeta k)
              else
                let metas = Bound_set.add k metas in
-               metas, PattArgumentIsTerm (Patt.TermAddMeta k)
+               metas, Patt.ArgumentIsTerm (Patt.TermAddMeta k)
 
           | Nucleus_types.(TermMeta (MetaFree _, _) | TermBoundVar _ | TermAtom _ |
                            TermConstructor _ | TermConvert _) ->
@@ -325,10 +325,10 @@ let extract_meta metas abstr =
           | Nucleus_types.(TypeMeta (MetaBound k, es)) ->
              check_es k es ;
              if Bound_set.mem k metas then
-               metas, PattArgumentIsType (Patt.TypeCheckMeta k)
+               metas, Patt.ArgumentIsType (Patt.TypeCheckMeta k)
              else
                let metas = Bound_set.add k metas in
-               metas, PattArgumentIsType (Patt.TypeAddMeta k)
+               metas, Patt.ArgumentIsType (Patt.TypeAddMeta k)
 
           | Nucleus_types.(TypeMeta (MetaFree _, _) | TypeConstructor _) ->
              raise Form_fail
@@ -358,7 +358,7 @@ let rec form_is_term metas e =
 
   | Nucleus_types.(TermMeta (MetaBound i, [])) ->
      if Bound_set.mem i metas then
-       metas, Patt.TermCheckMeta i
+       metas, Patt.(TermCheckMeta i)
      else
        let metas = Bound_set.add i metas in
        metas, Patt.TermAddMeta i
@@ -427,11 +427,11 @@ and form_argument metas = function
      begin match jdg with
      | Nucleus_types.JudgementIsTerm e ->
         let metas, e = form_is_term metas e in
-        metas, PattArgumentIsTerm e
+        metas, Patt.ArgumentIsTerm e
 
      | Nucleus_types.JudgementIsType t ->
         let metas, t = form_is_type metas t in
-        metas, PattArgumentIsType t
+        metas, Patt.ArgumentIsType t
 
      | Nucleus_types.JudgementEqType _
      | Nucleus_types.JudgementEqTerm _ ->
