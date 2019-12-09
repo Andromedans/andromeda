@@ -31,6 +31,11 @@ struct
 
 end
 
+(** Sets of integers to indicate where the heads are. *)
+module IntSet = Set.Make(struct
+                          type t = int
+                          let compare = Pervasives.compare
+                        end)
 
 
 (** We index rules by the heads of expressions, which can be identifiers or meta-variables (nonces). *)

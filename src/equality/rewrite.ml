@@ -35,46 +35,41 @@ let rec collect_is_type sgn metas abstr = function
      check_meta k abstr metas ;
      metas
 
-  | Patt.(TypeWhnf TypeConstructor (c, args)) ->
+  | Patt.TypeWhnf patt ->
      begin match Nucleus.as_not_abstract abstr with
      | None
-     | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) ->
+     | Some (Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _)) ->
         raise Match_fail
-
      | Some (Nucleus.JudgementIsType t) ->
-        begin match Nucleus.invert_is_type sgn t with
-
-        | Nucleus.Stump_TypeConstructor (c', args') ->
-           if Ident.equal c c' then
-             collect_arguments sgn metas args' args
-           else
-             raise Match_fail
-
-        | Nucleus.Stump_TypeMeta _ ->
-           raise Match_fail
-        end
+        collect_is_whnf_type sgn metas t patt
      end
 
-  | Patt.(TypeWhnf TypeFreeMeta (n, es)) ->
-     begin match Nucleus.as_not_abstract abstr with
-     | None
-     | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) ->
+and collect_is_whnf_type sgn metas t = function
+
+  | Patt.TypeConstructor (c, args) ->
+     begin match Nucleus.invert_is_type sgn t with
+
+     | Nucleus.Stump_TypeConstructor (c', args') ->
+        if Ident.equal c c' then
+          collect_arguments sgn metas args' args
+        else
+          raise Match_fail
+
+     | Nucleus.Stump_TypeMeta _ ->
         raise Match_fail
-
-     | Some (Nucleus.JudgementIsType t) ->
-        begin match Nucleus.invert_is_type sgn t with
-          | Nucleus.Stump_TypeMeta (n', _, es') ->
-             if Nonce.equal n n' then
-               collect_is_terms sgn metas es' es
-             else
-               raise Match_fail
-
-          | Nucleus.Stump_TypeConstructor _ ->
-             raise Match_fail
-        end
      end
 
+  | Patt.TypeFreeMeta (n, es) ->
+     begin match Nucleus.invert_is_type sgn t with
+     | Nucleus.Stump_TypeMeta (n', _, es') ->
+        if Nonce.equal n n' then
+          collect_is_terms sgn metas es' es
+        else
+          raise Match_fail
 
+     | Nucleus.Stump_TypeConstructor _ ->
+        raise Match_fail
+     end
 
 and collect_is_term sgn metas abstr = function
 
@@ -85,75 +80,64 @@ and collect_is_term sgn metas abstr = function
      check_meta k abstr metas ;
      metas
 
-  | Patt.TermWhnf TermConstructor (c, args) ->
-     begin match Nucleus.as_not_abstract abstr with
-     | None -> raise Match_fail
-     | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
-        raise Match_fail
-
-     | Some (Nucleus.JudgementIsTerm e) ->
-        let rec fold e =
-          match Nucleus.invert_is_term sgn e with
-
-          | Nucleus.Stump_TermConstructor (c', args') ->
-             if Ident.equal c c' then
-               collect_arguments sgn metas args' args
-             else
-               raise Match_fail
-
-          | Nucleus.Stump_TermConvert (e, _) ->
-             fold e
-
-       | Nucleus.(Stump_TermAtom _ | Stump_TermMeta _) ->
-          raise Match_fail
-        in
-        fold e
-
-     end
-
-  | Patt.TermWhnf TermAtom n ->
-     begin match Nucleus.as_not_abstract abstr with
-       | None -> raise Match_fail
-       | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
-          raise Match_fail
-
-       | Some (Nucleus.JudgementIsTerm e) ->
-          let rec fold e =
-            match Nucleus.invert_is_term sgn e with
-            | Nucleus.Stump_TermAtom atm' ->
-               if Nonce.equal n (Nucleus.atom_nonce atm') then
-                 metas
-               else
-                 raise Match_fail
-            | Nucleus.Stump_TermConvert (e, _) -> fold e
-            | Nucleus.(Stump_TermConstructor _ | Stump_TermMeta _) ->
-               raise Match_fail
-          in
-          fold e
-     end
-
-  | Patt.TermWhnf TermFreeMeta (n, es) ->
+  | Patt.TermWhnf patt ->
      begin match Nucleus.as_not_abstract abstr with
      | None
      | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
         raise Match_fail
 
      | Some (Nucleus.JudgementIsTerm e) ->
-        let rec fold e =
-          match Nucleus.invert_is_term sgn e with
-          | Nucleus.Stump_TermMeta (n', _, es') ->
-             if Nonce.equal n n' then
-               collect_is_terms sgn metas es' es
-             else
-               raise Match_fail
-
-          | Nucleus.Stump_TermConvert (e, _) -> fold e
-          | Nucleus.(Stump_TermConstructor _ | Stump_TermAtom _) ->
-             raise Match_fail
-        in
-        fold e
+        collect_whnf_is_term sgn metas e patt
      end
 
+and collect_whnf_is_term sgn metas e = function
+
+  | Patt.TermConstructor (c, args) ->
+     let rec fold e =
+       match Nucleus.invert_is_term sgn e with
+
+       | Nucleus.Stump_TermConstructor (c', args') ->
+          if Ident.equal c c' then
+            collect_arguments sgn metas args' args
+          else
+            raise Match_fail
+
+       | Nucleus.Stump_TermConvert (e, _) ->
+             fold e
+
+       | Nucleus.(Stump_TermAtom _ | Stump_TermMeta _) ->
+          raise Match_fail
+     in
+     fold e
+
+  | Patt.TermAtom n ->
+     let rec fold e =
+       match Nucleus.invert_is_term sgn e with
+       | Nucleus.Stump_TermAtom atm' ->
+          if Nonce.equal n (Nucleus.atom_nonce atm') then
+            metas
+          else
+            raise Match_fail
+       | Nucleus.Stump_TermConvert (e, _) -> fold e
+       | Nucleus.(Stump_TermConstructor _ | Stump_TermMeta _) ->
+          raise Match_fail
+     in
+     fold e
+
+  | Patt.TermFreeMeta (n, es) ->
+     let rec fold e =
+       match Nucleus.invert_is_term sgn e with
+       | Nucleus.Stump_TermMeta (n', _, es') ->
+          if Nonce.equal n n' then
+            collect_is_terms sgn metas es' es
+          else
+            raise Match_fail
+
+       | Nucleus.Stump_TermConvert (e, _) -> fold e
+       | Nucleus.(Stump_TermConstructor _ | Stump_TermAtom _) ->
+          raise Match_fail
+     in
+     fold e
 
 and collect_is_terms sgn metas es es' =
   match es, es' with
@@ -168,63 +152,6 @@ and collect_is_terms sgn metas es es' =
   | [], _::_ | _::_, [] ->
      raise Match_fail
 
-
-(* and collect_eq_type sgn metas abstr = function
- *
- *   | PattEqTypeAddMeta k ->
- *      add_meta k abstr metas
- *
- *   | PattEqTypeCheckMeta k ->
- *      check_meta k abstr metas ;
- *      metas
- *
- *   | PattEqTypeBoundary (r1, r2) ->
- *      begin match Nucleus.as_not_abstract abstr with
- *
- *      | None -> raise Match_fail
- *
- *      | Some (Nucleus.JudgementEqType eq) ->
- *         let Nucleus.Stump_EqType (_asmp, t1, t2) = Nucleus.invert_eq_type eq in
- *         let abstr1 = Nucleus.(abstract_not_abstract (JudgementIsType t1))
- *         and abstr2 = Nucleus.(abstract_not_abstract (JudgementIsType t2)) in
- *         let metas = collect_is_type sgn metas abstr1 r1 in
- *         let metas = collect_is_type sgn metas abstr2 r2 in
- *         metas
- *
- *      | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _) ->
- *         raise Match_fail
- *      end
- *
- *
- * and collect_eq_term sgn metas abstr = function
- *
- *   | PattEqTermAddMeta k ->
- *      add_meta k abstr metas
- *
- *   | PattEqTermCheckMeta k ->
- *      check_meta k abstr metas ;
- *      metas
- *
- *   | PattEqTermBoundary (r1, r2, rt) ->
- *      begin match Nucleus.as_not_abstract abstr with
- *
- *      | None -> raise Match_fail
- *
- *      | Some (Nucleus.JudgementEqTerm eq) ->
- *         let Nucleus.Stump_EqTerm (_asmp, e1, e2, t) = Nucleus.invert_eq_term sgn eq in
- *         let abstr1 = Nucleus.(abstract_not_abstract (JudgementIsTerm e1))
- *         and abstr2 = Nucleus.(abstract_not_abstract (JudgementIsTerm e2))
- *         and abstrt = Nucleus.(abstract_not_abstract (JudgementIsType t)) in
- *         let metas = collect_is_type sgn metas abstrt rt in
- *         let metas = collect_is_term sgn metas abstr1 r1 in
- *         let metas = collect_is_term sgn metas abstr2 r2 in
- *         metas
- *
- *      | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _) ->
- *         raise Match_fail
- *      end *)
-
-
 and collect_arguments sgn metas args_e args_r =
   match args_e, args_r with
   | [], [] -> metas
@@ -236,16 +163,11 @@ and collect_arguments sgn metas args_e args_r =
   | [], _::_ | _::_, [] ->
      raise Match_fail
 
-
 and collect_argument sgn metas jdg = function
 
   | Patt.ArgumentIsType r -> collect_is_type sgn metas jdg r
 
   | Patt.ArgumentIsTerm r -> collect_is_term sgn metas jdg r
-
-  (* | PattArgumentEqType r -> collect_eq_type sgn metas jdg r
-   *
-   * | PattArgumentEqTerm r -> collect_eq_term sgn metas jdg r *)
 
 
 (** Given a mapping of de Bruijn indices [0, ..., k-1] to their values, convert
@@ -344,47 +266,11 @@ let extract_meta metas abstr =
 (** The [form_XYZ] functions form a pattern from a given judgement. They return the set of
     bound meta-variables that were encountered and turned into pattern variables. *)
 
-let rec form_is_term metas e =
-  match e with
-  | Nucleus_types.TermBoundVar _ ->
-     assert false
-
-  | Nucleus_types.(TermAtom {atom_nonce=n; _}) ->
-     metas, Patt.TermAtom n
-
-  | Nucleus_types.TermConstructor (c, args) ->
-     let metas, args = form_arguments metas args in
-     metas, Patt.TermConstructor (c, args)
-
-  | Nucleus_types.(TermMeta (MetaBound i, [])) ->
-     if Bound_set.mem i metas then
-       metas, Patt.(TermCheckMeta i)
-     else
-       let metas = Bound_set.add i metas in
-       metas, Patt.TermAddMeta i
-
-  | Nucleus_types.(TermMeta (MetaFree mv, es)) ->
-     let rec fold metas es_out = function
-
-       | [] ->
-          let es_out = List.rev es_out in
-          metas, Patt.TermFreeMeta (mv.meta_nonce, es_out)
-
-       | e :: es ->
-          let metas, e = form_is_term metas e in
-          fold metas (e :: es_out) es
-     in
-     fold metas [] es
-
-  | Nucleus_types.(TermMeta (MetaBound _, _::_))
-  | Nucleus_types.TermConvert _ ->
-     raise Form_fail
-
-and form_is_type metas = function
+let rec form_is_type metas = function
 
   | Nucleus_types.TypeConstructor (c, args) ->
      let metas, args = form_arguments metas args in
-     metas, Patt.TypeConstructor (c, args)
+     metas, Patt.(TypeWhnf (TypeConstructor (c, args)))
 
   | Nucleus_types.(TypeMeta (MetaBound i, [])) ->
      if Bound_set.mem i metas then
@@ -398,7 +284,7 @@ and form_is_type metas = function
 
        | [] ->
           let es_out = List.rev es_out in
-          metas, Patt.TypeFreeMeta (mv.meta_nonce, es_out)
+          metas, Patt.(TypeWhnf (TypeFreeMeta (mv.meta_nonce, es_out)))
 
        | e :: es ->
           let metas, e = form_is_term metas e in
@@ -408,6 +294,44 @@ and form_is_type metas = function
 
   | Nucleus_types.(TypeMeta (MetaBound _, _::_)) ->
      raise Form_fail
+
+
+and form_is_term metas e =
+  match e with
+  | Nucleus_types.TermBoundVar _ ->
+     assert false
+
+  | Nucleus_types.(TermAtom {atom_nonce=n; _}) ->
+     metas, Patt.(TermWhnf (TermAtom n))
+
+  | Nucleus_types.TermConstructor (c, args) ->
+     let metas, args = form_arguments metas args in
+     metas, Patt.(TermWhnf (TermConstructor (c, args)))
+
+  | Nucleus_types.(TermMeta (MetaBound i, [])) ->
+     if Bound_set.mem i metas then
+       metas, Patt.TermCheckMeta i
+     else
+       let metas = Bound_set.add i metas in
+       metas, Patt.TermAddMeta i
+
+  | Nucleus_types.(TermMeta (MetaFree mv, es)) ->
+     let rec fold metas es_out = function
+
+       | [] ->
+          let es_out = List.rev es_out in
+          metas, Patt.(TermWhnf (TermFreeMeta (mv.meta_nonce, es_out)))
+
+       | e :: es ->
+          let metas, e = form_is_term metas e in
+          fold metas (e :: es_out) es
+     in
+     fold metas [] es
+
+  | Nucleus_types.(TermMeta (MetaBound _, _::_))
+  | Nucleus_types.TermConvert _ ->
+     raise Form_fail
+
 
 and form_arguments metas args =
   let rec fold metas args_out = function

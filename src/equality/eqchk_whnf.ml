@@ -1,22 +1,32 @@
 (** Weak head-normal form normalization *)
 
+open Eqchk_common
+
 (** The types of beta rules. *)
 
-type type_equation =
-  { type_beta_pattern : Rewrite.is_type (* the rewrite pattern to match the left-hand side *)
-  ; type_beta_rule : Nucleus.eq_type Nucleus.rule (* the associated rule *)
+type type_normalizer =
+  { type_computations : (Patt.is_type * Nucleus.eq_type Nucleus.rule) SymbolMap.t ;
+    type_heads : IntSet.t SymbolMap.t
   }
 
-type term_equation =
-  { term_beta_pattern : Rewrite.is_term (* the rewrite pattern to match the left-hand side *)
-  ; term_beta_rule : Nucleus.eq_term Nucleus.rule (* the associated rule *)
+type term_normalizer =
+  { term_computations : (Patt.is_type * Nucleus.eq_term Nucleus.rule) SymbolMap.t ;
+    term_heads : IntSet.t SymbolMap.t
   }
+
+let empty_type_normalizer =
+  { type_computations = SymbolMap.empty ;
+    type_heads = SymbolMap.empty }
+
+let empty_term_normalizer =
+  { term_computations = SymbolMap.empty ;
+    term_heads = SymbolMap.empty }
 
 (** Functions [make_XYZ] convert a derivation to a rewrite rule, or raise
     the exception, or raise the exception [Invalid_rule] when the derivation
     has the wrong form. *)
 
-let make_type_equation sgn drv =
+let make_type_computation sgn drv =
   let rec fold k  = function
 
     | Nucleus_types.(Conclusion eq)  ->
@@ -42,10 +52,10 @@ let make_type_equation sgn drv =
     | None -> Eqchk_common.invalid_rule ()
   in
   let (s, patt) = fold 0 (Nucleus.expose_rule drv) in
-  s, { type_beta_pattern = patt; type_beta_rule = drv }
+  s, (patt, drv)
 
 
-let make_term_equation sgn drv =
+let make_term_computation sgn drv =
   let rec fold k = function
 
     | Nucleus_types.(Conclusion eq) ->
@@ -71,7 +81,7 @@ let make_term_equation sgn drv =
     | None -> Eqchk_common.invalid_rule ()
   in
   let (s, patt) = fold 0 (Nucleus.expose_rule drv) in
-  s, { term_beta_pattern = patt; term_beta_rule = drv }
+  s, (patt, drv)
 
 
 (** Functions that apply rewrite rules *)
@@ -87,7 +97,7 @@ let rec apply_type_beta betas sgn t =
      let rec fold = function
        | [] -> None
 
-       | {type_beta_pattern=patt; type_beta_rule=rl} :: lst ->
+       | (patt, rl) :: lst ->
           begin match Rewrite.match_is_type sgn t patt with
           | None -> fold lst
           | Some args ->
@@ -101,6 +111,7 @@ let rec apply_type_beta betas sgn t =
      in
      fold lst
 
+
 (** Find a term computation rule and apply it to [e]. *)
 and apply_term_beta betas sgn e =
   let s = Eqchk_common.head_symbol_term (Nucleus.expose_is_term e) in
@@ -112,7 +123,7 @@ and apply_term_beta betas sgn e =
      let rec fold = function
        | [] -> None
 
-       | {term_beta_pattern=patt; term_beta_rule=rl} :: lst ->
+       | (patt, rl) :: lst ->
           (* XXX match_is_type should normalize parts of t as necessary *)
           begin match Rewrite.match_is_term sgn e patt with
           | None -> fold lst
@@ -126,6 +137,7 @@ and apply_term_beta betas sgn e =
           end
      in
      fold lst
+
 
 (** Weak head-normal form normalization *)
 and whnf_type chk sgn ty =
@@ -141,6 +153,7 @@ and whnf_type chk sgn ty =
        fold ty_eq_ty'' ty''
   in
   fold (Nucleus.reflexivity_type ty) ty
+
 
 and whnf_term chk sgn e =
   let rec fold e_eq_e' e' =

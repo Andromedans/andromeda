@@ -2,23 +2,21 @@
 
 open Eqchk_common (* sorry *)
 
-
 (** Types and functions for manipulation of rules. *)
 
 (* An equality checker is given by beta rules and extensionality rules. We organize them
    as maps taking a symbol to a list of rules which have that symbol at the head. This
    allows us to quickly determine which rules are potentially applicable. *)
 type checker = {
-   type_beta_equations : Eqchk_whnf.type_equation list SymbolMap.t ;
-   term_beta_equations : Eqchk_whnf.term_equation list SymbolMap.t ;
-   ext_rules : Eqchk_ext.equation list SymbolMap.t
-  }
+  type_normalizer : Eqchk_whnf.type_normalizer ;
+  term_normalizer : Eqchck_whnf.term_normalizer ;
+  ext_rules : Eqchk_ext.equation list SymbolMap.t ;
+}
 
-let empty_checker = {
-    type_beta_equations = SymbolMap.empty ;
-    term_beta_equations = SymbolMap.empty ;
-    ext_rules = SymbolMap.empty
-  }
+let empty_checker =
+  { type_normalizer = Eqchk_whnf.empty_type_normalizer ;
+    term_normalizer = Eqchk_whnf.empty_term_normalizer ;
+    ext_rules = SymbolMap.empty}
 
 
 (** The [add_XYZ] functions add a new rule, computed from the given derivation, to the
