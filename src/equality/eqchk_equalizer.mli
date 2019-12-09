@@ -24,8 +24,8 @@ val prove_eq_type_abstraction :
 val prove_eq_term_abstraction :
   checker -> Nucleus.signature -> Nucleus.eq_term_boundary Nucleus.abstraction -> Nucleus.eq_term_abstraction
 
-(** Compute the weak head-normal form of a type. *)
-val whnf_type : checker -> Nucleus.signature -> Nucleus.is_type -> Nucleus.eq_type * Nucleus.is_type
+(* (\** Compute the weak head-normal form of a type. *\) *)
+(* val normalize_type : checker -> Nucleus.signature -> Nucleus.is_type -> Nucleus.eq_type * Nucleus.is_type *)
 
-(** Compute the weak head-normal form of a term. *)
-val whnf_term : checker -> Nucleus.signature -> Nucleus.is_term -> Nucleus.eq_term * Nucleus.is_term
+(* (\** Compute the weak head-normal form of a term. *\) *)
+(* val normalize_term : checker -> Nucleus.signature -> Nucleus.is_term -> Nucleus.eq_term * Nucleus.is_term *)

@@ -2,16 +2,16 @@
 module Patt =
 struct
 
-  type is_type_whnf' =
+  type is_type_normal' =
     | TypeConstructor of Ident.t * argument list
     | TypeFreeMeta of Nonce.t * is_term' list
 
   and is_type' =
     | TypeAddMeta of int
     | TypeCheckMeta of int
-    | TypeWhnf of is_type_whnf'
+    | TypeNormal of is_type_normal'
 
-  and is_term_whnf' =
+  and is_term_normal' =
     | TermConstructor of Ident.t * argument list
     | TermFreeMeta of Nonce.t * is_term' list
     | TermAtom of Nonce.t
@@ -19,7 +19,7 @@ struct
   and is_term' =
     | TermAddMeta of int
     | TermCheckMeta of int
-    | TermWhnf of is_term_whnf'
+    | TermNormal of is_term_normal'
 
   and argument =
     | ArgumentIsType of is_type'
@@ -47,8 +47,8 @@ exception Equality_fail
 
 exception Invalid_rule
 
-(** A tag to indicate that a term or a type is in whnf form *)
-type 'a whnf = Whnf of 'a
+(** A tag to indicate that a term or a type is normalized *)
+type 'a normal = Normal of 'a
 
 let invalid_rule () = raise Invalid_rule
 

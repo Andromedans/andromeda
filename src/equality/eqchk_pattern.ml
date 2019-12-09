@@ -35,16 +35,16 @@ let rec collect_is_type sgn metas abstr = function
      check_meta k abstr metas ;
      metas
 
-  | Patt.TypeWhnf patt ->
+  | Patt.TypeNormal patt ->
      begin match Nucleus.as_not_abstract abstr with
      | None
      | Some (Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _)) ->
         raise Match_fail
      | Some (Nucleus.JudgementIsType t) ->
-        collect_is_whnf_type sgn metas t patt
+        collect_is_normal_type sgn metas t patt
      end
 
-and collect_is_whnf_type sgn metas t = function
+and collect_is_normal_type sgn metas t = function
 
   | Patt.TypeConstructor (c, args) ->
      begin match Nucleus.invert_is_type sgn t with
@@ -80,17 +80,17 @@ and collect_is_term sgn metas abstr = function
      check_meta k abstr metas ;
      metas
 
-  | Patt.TermWhnf patt ->
+  | Patt.TermNormal patt ->
      begin match Nucleus.as_not_abstract abstr with
      | None
      | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
         raise Match_fail
 
      | Some (Nucleus.JudgementIsTerm e) ->
-        collect_whnf_is_term sgn metas e patt
+        collect_normal_is_term sgn metas e patt
      end
 
-and collect_whnf_is_term sgn metas e = function
+and collect_normal_is_term sgn metas e = function
 
   | Patt.TermConstructor (c, args) ->
      let rec fold e =
@@ -270,7 +270,7 @@ let rec form_is_type metas = function
 
   | Nucleus_types.TypeConstructor (c, args) ->
      let metas, args = form_arguments metas args in
-     metas, Patt.(TypeWhnf (TypeConstructor (c, args)))
+     metas, Patt.(TypeNormal (TypeConstructor (c, args)))
 
   | Nucleus_types.(TypeMeta (MetaBound i, [])) ->
      if Bound_set.mem i metas then
@@ -284,7 +284,7 @@ let rec form_is_type metas = function
 
        | [] ->
           let es_out = List.rev es_out in
-          metas, Patt.(TypeWhnf (TypeFreeMeta (mv.meta_nonce, es_out)))
+          metas, Patt.(TypeNormal (TypeFreeMeta (mv.meta_nonce, es_out)))
 
        | e :: es ->
           let metas, e = form_is_term metas e in
@@ -302,11 +302,11 @@ and form_is_term metas e =
      assert false
 
   | Nucleus_types.(TermAtom {atom_nonce=n; _}) ->
-     metas, Patt.(TermWhnf (TermAtom n))
+     metas, Patt.(TermNormal (TermAtom n))
 
   | Nucleus_types.TermConstructor (c, args) ->
      let metas, args = form_arguments metas args in
-     metas, Patt.(TermWhnf (TermConstructor (c, args)))
+     metas, Patt.(TermNormal (TermConstructor (c, args)))
 
   | Nucleus_types.(TermMeta (MetaBound i, [])) ->
      if Bound_set.mem i metas then
@@ -320,7 +320,7 @@ and form_is_term metas e =
 
        | [] ->
           let es_out = List.rev es_out in
-          metas, Patt.(TermWhnf (TermFreeMeta (mv.meta_nonce, es_out)))
+          metas, Patt.(TermNormal (TermFreeMeta (mv.meta_nonce, es_out)))
 
        | e :: es ->
           let metas, e = form_is_term metas e in

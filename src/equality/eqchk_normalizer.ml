@@ -110,7 +110,6 @@ let add_term_computation sgn normalizer drv =
   in
   { normalizer with term_computations = SymbolMap.add sym rls normalizer.term_computations }
 
-
 (** Functions that apply rewrite rules *)
 
 (** Find a type computation rule and apply it to [t]. *)
@@ -165,14 +164,13 @@ and apply_term_beta betas sgn e =
      in
      fold lst
 
-
-(** Weak head-normal form normalization *)
-and whnf_type chk sgn ty =
+(** Normalize a type *)
+and normalize_type nrm sgn ty =
   let rec fold ty_eq_ty' ty' =
 
-    match apply_type_beta chk.type_computations sgn ty' with
+    match apply_type_beta nrm.type_computations sgn ty' with
 
-    | None -> ty_eq_ty', Eqchk_common.Whnf ty'
+    | None -> ty_eq_ty', Eqchk_common.Normal ty'
 
     | Some ty'_eq_ty'' ->
        let (Nucleus.Stump_EqType (_, _, ty'')) = Nucleus.invert_eq_type ty'_eq_ty'' in
@@ -183,12 +181,12 @@ and whnf_type chk sgn ty =
   fold (Nucleus.reflexivity_type ty) ty
 
 
-and whnf_term chk sgn e =
+and normalize_term nrm sgn e =
   let rec fold e_eq_e' e' =
 
-    match apply_term_beta chk.term_computations sgn e' with
+    match apply_term_beta nrm.term_computations sgn e' with
 
-    | None -> e_eq_e', Eqchk_common.Whnf e'
+    | None -> e_eq_e', Eqchk_common.Normal e'
 
     | Some e'_eq_e'' ->
        let (Nucleus.Stump_EqTerm (_, _, e'', _)) = Nucleus.invert_eq_term sgn e'_eq_e'' in
@@ -199,3 +197,14 @@ and whnf_term chk sgn e =
        fold e_eq_e'' e''
   in
   fold (Nucleus.reflexivity_term sgn e) e
+
+(* (\** The exported form of weak-head normalization for types *\) *)
+(* let normalize_type nrm sgn t = *)
+(*   let eq, Normal t = normalize_type' nrm sgn t in *)
+(*   eq, t *)
+
+(* (\** The exported form of weak-head normalization for terms *\) *)
+(* let normalize_term nrm sgn e = *)
+(*   let eq, Normal e = normalize_term' nrm sgn e in *)
+(*   (\* XXX convert eq to be at the type of e *\) *)
+(*   eq, e *)
