@@ -119,6 +119,8 @@ and resolve_rap :
     | Nucleus.RapDone ty1_eq_ty2 -> ty1_eq_ty2
 
     | Nucleus.RapMore (bdry, rap) ->
+       (* XXX if we're at a head, we should instead proceed by congruence,
+          or else we're going to cycle. *)
        let eq = prove_boundary_abstraction chk sgn bdry in
        fold (rap eq)
   in
