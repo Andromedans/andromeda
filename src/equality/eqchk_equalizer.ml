@@ -68,9 +68,9 @@ and prove_eq_term_abstraction chk sgn abstr =
      Nucleus.abstract_eq_term atm abstr
 
 and prove_eq_type chk sgn (ty1, ty2) =
-  let ty1_eq_ty1', ty1' = Eqchk_normalizer.whnf_type chk.type_normalizer sgn ty1
-  and ty2_eq_ty2', ty2' = Eqchk_normalizer.whnf_type chk.type_normalizer sgn ty2 in
-  let ty1'_eq_ty2' = check_whnf_type chk sgn ty1' ty2' in
+  let ty1_eq_ty1', ty1' = Eqchk_normalizer.normalize_type chk.type_normalizer sgn ty1
+  and ty2_eq_ty2', ty2' = Eqchk_normalizer.normalize_type chk.type_normalizer sgn ty2 in
+  let ty1'_eq_ty2' = check_normal_type chk sgn ty1' ty2' in
   Nucleus.transitivity_type
     (Nucleus.transitivity_type ty1_eq_ty1' ty1'_eq_ty2')
     (Nucleus.symmetry_type ty2_eq_ty2')
@@ -85,15 +85,15 @@ and prove_eq_term chk sgn bdry =
   | None ->
      let (e1, e2, t) = Nucleus.invert_eq_term_boundary bdry in
      (* normalization phase *)
-     let e1_eq_e1', e1' = Eqchk_normalizer.whnf_term chk.term_normalizer sgn e1
-     and e2_eq_e2', e2' = Eqchk_normalizer.whnf_term chk.term_normalizer sgn e2 in
+     let e1_eq_e1', e1' = Eqchk_normalizer.normalize_term chk.term_normalizer sgn e1
+     and e2_eq_e2', e2' = Eqchk_normalizer.normalize_term chk.term_normalizer sgn e2 in
      (* XXX convert e1_eq_e1' and e2_eq_e2' to be at type t *)
-     let e1'_eq_e2' = check_whnf_term chk sgn e1' e2' in
+     let e1'_eq_e2' = check_normal_term chk sgn e1' e2' in
      Nucleus.transitivity_term
        (Nucleus.transitivity_term e1_eq_e1' e1'_eq_e2')
        (Nucleus.symmetry_term e2_eq_e2')
 
-and check_whnf_type chk sgn (Whnf ty1) (Whnf ty2) =
+and check_normal_type chk sgn (Normal ty1) (Normal ty2) =
   match Nucleus.congruence_is_type sgn ty1 ty2 with
 
   | None -> equality_fail ()
@@ -101,7 +101,7 @@ and check_whnf_type chk sgn (Whnf ty1) (Whnf ty2) =
   | Some rap -> resolve_rap chk sgn rap
 
 (* We assume that [e1] and [e2] have the same type. *)
-and check_whnf_term chk sgn (Whnf e1) (Whnf e2) =
+and check_normal_term chk sgn (Normal e1) (Normal e2) =
   match Nucleus.congruence_is_term sgn e1 e2 with
 
   | None -> equality_fail ()
@@ -144,13 +144,13 @@ and prove_boundary_abstraction chk sgn bdry =
   in
   prove bdry
 
-(** The exported form of weak-head normalization for types *)
-let whnf_type chk sgn t =
-  let eq, Whnf t = Eqchk_normalizer.whnf_type chk.type_normalizer sgn t in
+(** The exported form of normalization for types *)
+let normal_type chk sgn t =
+  let eq, Normal t = Eqchk_normalizer.normalize_type chk.type_normalizer sgn t in
   eq, t
 
-(** The exported form of weak-head normalization for terms *)
-let whnf_term chk sgn e =
-  let eq, Whnf e = Eqchk_normalizer.whnf_term chk.term_normalizer sgn e in
+(** The exported form of normalization for terms *)
+let normal_term chk sgn e =
+  let eq, Normal e = Eqchk_normalizer.normalize_term chk.term_normalizer sgn e in
   (* XXX convert eq to be at the type of e *)
   eq, e

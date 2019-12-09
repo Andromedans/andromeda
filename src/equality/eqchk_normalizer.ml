@@ -1,4 +1,4 @@
-(** Weak head-normal form normalization *)
+(** Normalization *)
 
 open Eqchk_common
 
@@ -198,12 +198,12 @@ and normalize_term nrm sgn e =
   in
   fold (Nucleus.reflexivity_term sgn e) e
 
-(* (\** The exported form of weak-head normalization for types *\) *)
+(* (\** The exported form of normalization for types *\) *)
 (* let normalize_type nrm sgn t = *)
 (*   let eq, Normal t = normalize_type' nrm sgn t in *)
 (*   eq, t *)
 
-(* (\** The exported form of weak-head normalization for terms *\) *)
+(* (\** The exported form of normalization for terms *\) *)
 (* let normalize_term nrm sgn e = *)
 (*   let eq, Normal e = normalize_term' nrm sgn e in *)
 (*   (\* XXX convert eq to be at the type of e *\) *)
