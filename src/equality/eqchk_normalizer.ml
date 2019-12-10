@@ -4,22 +4,17 @@ open Eqchk_common
 
 (** The types of beta rules. *)
 
-type type_normalizer =
+type normalizer =
   { type_computations : (Patt.is_type * Nucleus.eq_type Nucleus.rule) list SymbolMap.t ;
-    type_heads : IntSet.t SymbolMap.t
-  }
-
-type term_normalizer =
-  { term_computations : (Patt.is_term * Nucleus.eq_term Nucleus.rule) list SymbolMap.t ;
+    type_heads : IntSet.t SymbolMap.t ;
+    term_computations : (Patt.is_term * Nucleus.eq_term Nucleus.rule) list SymbolMap.t ;
     term_heads : IntSet.t SymbolMap.t
   }
 
-let empty_type_normalizer =
+let empty_normalizer =
   { type_computations = SymbolMap.empty ;
-    type_heads = SymbolMap.empty }
-
-let empty_term_normalizer =
-  { term_computations = SymbolMap.empty ;
+    type_heads = SymbolMap.empty ;
+    term_computations = SymbolMap.empty ;
     term_heads = SymbolMap.empty }
 
 let find_type_computations sym {type_computations;_} =
@@ -210,20 +205,20 @@ and normalize_term nrm sgn e0 =
 
 (* Normalize those arguments of [ty0] which are considered to be heads. *)
 and normalize_heads_type nrm sgn ty0 =
-    (*XXX in normalizing heads we need to be able to normalize both types and terms*) 
-  let sym = head_symbol_type (Nucleus.expose_is_type ty0) in
-  let heads =
-  match SymbolMap.find_opt sym nrm.type_heads with
-    | None -> IntSet.empty
-    | Some heads -> heads
-  in
-    let args = 
-      begin
-      match Nucleus.invert_is_type sgn ty0 with
-        | Nucleus.Stump_TypeConstructor (_, abstrs) -> abstrs
-        | Nucleus.Stump_TypeMeta (_, _, abstrs) -> (List.map (fun x -> Nucleus.   (abstract_not_abstract (JudgementIsTerm x))) abstrs)
-    end in
-    SymbolMap.map (normalize_type nrm sgn ) heads  
+  (*   (\*XXX in normalizing heads we need to be able to normalize both types and terms*\) *)
+  (* let sym = head_symbol_type (Nucleus.expose_is_type ty0) in *)
+  (* let heads = *)
+  (* match SymbolMap.find_opt sym nrm.type_heads with *)
+  (*   | None -> IntSet.empty *)
+  (*   | Some heads -> heads *)
+  (* in *)
+  (*   let args = *)
+  (*     begin *)
+  (*     match Nucleus.invert_is_type sgn ty0 with *)
+  (*       | Nucleus.Stump_TypeConstructor (_, abstrs) -> abstrs *)
+  (*       | Nucleus.Stump_TypeMeta (_, _, abstrs) -> (List.map (fun x -> Nucleus.   (abstract_not_abstract (JudgementIsTerm x))) abstrs) *)
+  (*   end in *)
+  (*   SymbolMap.map (normalize_type nrm sgn ) heads *)
 
   failwith "normalize_heads_type"
 

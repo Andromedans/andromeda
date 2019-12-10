@@ -8,15 +8,13 @@ open Eqchk_common (* sorry *)
    as maps taking a symbol to a list of rules which have that symbol at the head. This
    allows us to quickly determine which rules are potentially applicable. *)
 type checker = {
-  type_normalizer : Eqchk_normalizer.type_normalizer ;
-  term_normalizer : Eqchk_normalizer.term_normalizer ;
+  normalizer : Eqchk_normalizer.normalizer ;
   ext_rules : Eqchk_ext.equation list SymbolMap.t ;
 }
 
 let empty_checker =
-  { type_normalizer = Eqchk_normalizer.empty_type_normalizer ;
-    term_normalizer = Eqchk_normalizer.empty_term_normalizer ;
-    ext_rules = SymbolMap.empty}
+  { normalizer = Eqchk_normalizer.empty_normalizer ;
+    ext_rules = SymbolMap.empty }
 
 
 (** The [add_XYZ] functions add a new rule, computed from the given derivation, to the
@@ -24,11 +22,11 @@ let empty_checker =
 
 let add_type_computation checker sgn drv =
   { checker with
-    type_normalizer = Eqchk_normalizer.add_type_computation sgn checker.type_normalizer drv }
+    normalizer = Eqchk_normalizer.add_type_computation sgn checker.normalizer drv }
 
 let add_term_computation checker sgn drv =
   { checker with
-    term_normalizer = Eqchk_normalizer.add_term_computation sgn checker.term_normalizer drv }
+    normalizer = Eqchk_normalizer.add_term_computation sgn checker.normalizer drv }
 
 
 let add_extensionality checker sgn drv =
@@ -68,8 +66,8 @@ and prove_eq_term_abstraction chk sgn abstr =
      Nucleus.abstract_eq_term atm abstr
 
 and prove_eq_type chk sgn (ty1, ty2) =
-  let ty1_eq_ty1', ty1' = Eqchk_normalizer.normalize_type chk.type_normalizer sgn ty1
-  and ty2_eq_ty2', ty2' = Eqchk_normalizer.normalize_type chk.type_normalizer sgn ty2 in
+  let ty1_eq_ty1', ty1' = Eqchk_normalizer.normalize_type chk.normalizer sgn ty1
+  and ty2_eq_ty2', ty2' = Eqchk_normalizer.normalize_type chk.normalizer sgn ty2 in
   let ty1'_eq_ty2' = check_normal_type chk sgn ty1' ty2' in
   Nucleus.transitivity_type
     (Nucleus.transitivity_type ty1_eq_ty1' ty1'_eq_ty2')
@@ -85,8 +83,8 @@ and prove_eq_term chk sgn bdry =
   | None ->
      let (e1, e2, t) = Nucleus.invert_eq_term_boundary bdry in
      (* normalization phase *)
-     let e1_eq_e1', e1' = Eqchk_normalizer.normalize_term chk.term_normalizer sgn e1
-     and e2_eq_e2', e2' = Eqchk_normalizer.normalize_term chk.term_normalizer sgn e2 in
+     let e1_eq_e1', e1' = Eqchk_normalizer.normalize_term chk.normalizer sgn e1
+     and e2_eq_e2', e2' = Eqchk_normalizer.normalize_term chk.normalizer sgn e2 in
      (* XXX convert e1_eq_e1' and e2_eq_e2' to be at type t *)
      let e1'_eq_e2' = check_normal_term chk sgn e1' e2' in
      Nucleus.transitivity_term
@@ -148,11 +146,11 @@ and prove_boundary_abstraction chk sgn bdry =
 
 (** The exported form of normalization for types *)
 let normal_type chk sgn t =
-  let eq, Normal t = Eqchk_normalizer.normalize_type chk.type_normalizer sgn t in
+  let eq, Normal t = Eqchk_normalizer.normalize_type chk.normalizer sgn t in
   eq, t
 
 (** The exported form of normalization for terms *)
 let normal_term chk sgn e =
-  let eq, Normal e = Eqchk_normalizer.normalize_term chk.term_normalizer sgn e in
+  let eq, Normal e = Eqchk_normalizer.normalize_term chk.normalizer sgn e in
   (* XXX convert eq to be at the type of e *)
   eq, e
