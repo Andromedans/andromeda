@@ -54,6 +54,11 @@ let invalid_rule () = raise Invalid_rule
 
 let equality_fail () = raise Equality_fail
 
+(** Extract an optional value, or declare an equality failure *)
+let deopt = function
+  | None -> equality_fail ()
+  | Some x -> x
+
 let compare_symbol x y =
   match x, y with
   | Ident _, Nonce _ -> -1
@@ -79,7 +84,7 @@ let head_symbol_term e =
     | Nucleus_types.TermBoundVar _ -> assert false
     | Nucleus_types.(TermAtom {atom_nonce=n; _}) -> Nonce n
     | Nucleus_types.TermConstructor (c, _) -> Ident c
-    | Nucleus_types.(TermMeta (MetaFree {meta_nonce=n;_}, _)) -> Nonce n
+    | Nucleus_types.(TermMeta (MetaFree {meta_nonce;_}, _)) -> Nonce meta_nonce
     | Nucleus_types.(TermMeta (MetaBound _, _)) -> assert false
     | Nucleus_types.TermConvert (e, _, _) -> fold e
   in
@@ -93,12 +98,25 @@ let head_symbol_type = function
   | Nucleus_types.(TypeMeta (MetaBound _, _)) -> assert false
 
 (** Apply rap to a list of arguments *)
-let rap_apply_args rap args =
+let rap_apply rap args =
   let rec fold rap args =
   match rap, args with
   | rap, [] -> rap
   | Nucleus.RapMore (_bdry, f), arg :: args -> fold (f arg) args
   | Nucleus.RapDone _, _::_ -> assert false
+  in
+  try
+    Some (fold rap args)
+  with
+  | Nucleus.Error _ -> None
+
+(** Apply rap to a list of arguments, return the judgement *)
+let rap_fully_apply rap args =
+  let rec fold rap args =
+  match rap, args with
+  | Nucleus.RapDone jdg, [] -> jdg
+  | Nucleus.RapMore (_bdry, f), arg :: args -> fold (f arg) args
+  | Nucleus.RapDone _, _::_ | Nucleus.RapMore _, [] -> assert false
   in
   try
     Some (fold rap args)

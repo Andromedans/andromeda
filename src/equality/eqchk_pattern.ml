@@ -61,8 +61,8 @@ and collect_is_normal_type sgn metas t = function
 
   | Patt.TypeFreeMeta (n, es) ->
      begin match Nucleus.invert_is_type sgn t with
-     | Nucleus.Stump_TypeMeta (n', _, es') ->
-        if Nonce.equal n n' then
+     | Nucleus.Stump_TypeMeta (mv, es') ->
+        if Nonce.equal n (Nucleus.meta_nonce mv) then
           collect_is_terms sgn metas es' es
         else
           raise Match_fail
@@ -127,8 +127,8 @@ and collect_normal_is_term sgn metas e = function
   | Patt.TermFreeMeta (n, es) ->
      let rec fold e =
        match Nucleus.invert_is_term sgn e with
-       | Nucleus.Stump_TermMeta (n', _, es') ->
-          if Nonce.equal n n' then
+       | Nucleus.Stump_TermMeta (mv, es') ->
+          if Nonce.equal n (Nucleus.meta_nonce mv) then
             collect_is_terms sgn metas es' es
           else
             raise Match_fail
@@ -279,12 +279,12 @@ let rec form_is_type metas = function
        let metas = Bound_set.add i metas in
        metas, Patt.TypeAddMeta i
 
-  | Nucleus_types.(TypeMeta (MetaFree mv, es)) ->
+  | Nucleus_types.(TypeMeta (MetaFree {meta_nonce=n;_}, es)) ->
      let rec fold metas es_out = function
 
        | [] ->
           let es_out = List.rev es_out in
-          metas, Patt.(TypeNormal (TypeFreeMeta (mv.meta_nonce, es_out)))
+          metas, Patt.(TypeNormal (TypeFreeMeta (n, es_out)))
 
        | e :: es ->
           let metas, e = form_is_term metas e in
@@ -315,12 +315,12 @@ and form_is_term metas e =
        let metas = Bound_set.add i metas in
        metas, Patt.TermAddMeta i
 
-  | Nucleus_types.(TermMeta (MetaFree mv, es)) ->
+  | Nucleus_types.(TermMeta (MetaFree {meta_nonce=n;_}, es)) ->
      let rec fold metas es_out = function
 
        | [] ->
           let es_out = List.rev es_out in
-          metas, Patt.(TermNormal (TermFreeMeta (mv.meta_nonce, es_out)))
+          metas, Patt.(TermNormal (TermFreeMeta (n, es_out)))
 
        | e :: es ->
           let metas, e = form_is_term metas e in

@@ -48,7 +48,7 @@ let make_equation sgn drv =
        | None -> invalid_rule ()
        end
 
-    | Nucleus_types.Premise (_, bdry, drv) ->
+    | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
        if is_object_premise bdry then
          begin
            if n_eq > 0 then invalid_rule () ;
@@ -84,7 +84,7 @@ and find ext_eqs sgn bdry =
              let rap = Nucleus.form_eq_term_rap sgn rl in
              let arg1 = Nucleus.(abstract_not_abstract (JudgementIsTerm e1))
              and arg2 = Nucleus.(abstract_not_abstract (JudgementIsTerm e2)) in
-             begin match rap_apply_args rap (args @ [arg1; arg2]) with
+             begin match rap_apply rap (args @ [arg1; arg2]) with
              | None -> fold lst
              | Some rap -> Some rap
              end
