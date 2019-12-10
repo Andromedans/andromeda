@@ -210,12 +210,21 @@ and normalize_term nrm sgn e0 =
 
 (* Normalize those arguments of [ty0] which are considered to be heads. *)
 and normalize_heads_type nrm sgn ty0 =
-  (* let sym = head_symbol_type (Nucleus.expose_is_type ty0) in *)
-  (* let heads = *)
-  (*   match SymbolMap.find_opt sym nrm.type_heads with *)
-  (*   | None -> IntSet.empty *)
-  (*   | Some heads -> heads *)
-  (* in *)
+    (*XXX in normalizing heads we need to be able to normalize both types and terms*) 
+  let sym = head_symbol_type (Nucleus.expose_is_type ty0) in
+  let heads =
+  match SymbolMap.find_opt sym nrm.type_heads with
+    | None -> IntSet.empty
+    | Some heads -> heads
+  in
+    let args = 
+      begin
+      match Nucleus.invert_is_type sgn ty0 with
+        | Nucleus.Stump_TypeConstructor (_, abstrs) -> abstrs
+        | Nucleus.Stump_TypeMeta (_, _, abstrs) -> (List.map (fun x -> Nucleus.   (abstract_not_abstract (JudgementIsTerm x))) abstrs)
+    end in
+    SymbolMap.map (normalize_type nrm sgn ) heads  
+
   failwith "normalize_heads_type"
 
 (* Normalize those arguments of [e0] which are considered to be heads. *)
