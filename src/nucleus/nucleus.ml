@@ -4,6 +4,9 @@ module Signature = Signature
 
 let form_meta = Meta.form_meta
 
+let meta_nonce {meta_nonce;_} = meta_nonce
+let meta_boundary {meta_boundary;_} = meta_boundary
+
 (** Exposing the inner structure (safely) *)
 let expose_is_term e = e
 let expose_is_type t = t

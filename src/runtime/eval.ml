@@ -672,7 +672,7 @@ and premise {Location.it=Syntax.Premise(x, lctx, bdry); at} =
    the conclusion [cmp]. Return the evaulated premises and conclusion for
    further processing. *)
 and premises :
-  'a . Syntax.premise list -> 'a Runtime.comp -> ((Nonce.t * Nucleus.boundary_abstraction) list * 'a) Runtime.comp
+  'a . Syntax.premise list -> 'a Runtime.comp -> ((Nucleus.meta * Nucleus.boundary_abstraction) list * 'a) Runtime.comp
 = fun prems cmp ->
   let rec fold prems_out = function
 

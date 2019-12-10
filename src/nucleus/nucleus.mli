@@ -83,12 +83,12 @@ type meta
 
 type nonrec stump_is_type =
   | Stump_TypeConstructor of Ident.t * judgement_abstraction list
-  | Stump_TypeMeta of Nonce.t * boundary_abstraction * is_term list
+  | Stump_TypeMeta of meta * is_term list
 
 and stump_is_term =
   | Stump_TermAtom of is_atom
   | Stump_TermConstructor of Ident.t * judgement_abstraction list
-  | Stump_TermMeta of Nonce.t * boundary_abstraction * is_term list
+  | Stump_TermMeta of meta * is_term list
   | Stump_TermConvert of is_term * eq_type
 
 and stump_eq_type =
@@ -119,10 +119,10 @@ module Signature : sig
 end
 
 (** Form a primitive rule from a given list of meta-variables and a boundary *)
-val form_rule : (Nonce.t * boundary_abstraction) list -> boundary -> primitive
+val form_rule : (meta * boundary_abstraction) list -> boundary -> primitive
 
 (** Form a derived rule from a given list of meta-variables and a boundary *)
-val form_derivation : (Nonce.t * boundary_abstraction) list -> judgement -> derivation
+val form_derivation : (meta * boundary_abstraction) list -> judgement -> derivation
 
 (** Functions that expose abstract types. These are harmless because there is no way
     to map back into the absract types. *)
@@ -162,12 +162,15 @@ val form_derivation_rap : signature -> derivation -> judgement rule_application
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
 
-(** [form_meta x abstr] creates an eta-expanded fresh meta-variable with
-    the given boundary abstraction for an object boundary. For an equality
-    boundary is creates an abstracted equality judgement. It returns the nonce
-    of the meta-variable that it created. For equality judgements, it returns
-    a dummy nonce that does not appear anywhere. *)
-val form_meta : Name.t -> boundary_abstraction -> Nonce.t * judgement_abstraction
+(** [form_meta x abstr] creates an eta-expanded fresh meta-variable with the given
+   boundary abstraction for an object boundary. For an equality boundary it creates an
+   abstracted equality judgement. It returns the meta-variable that it created, and the
+   created judgement. For equality judgements, it returns a dummy meta that does not
+   appear anywhere. *)
+val form_meta : Name.t -> boundary_abstraction -> meta * judgement_abstraction
+
+val meta_nonce : meta -> Nonce.t
+val meta_boundary : meta -> boundary_abstraction
 
 (** Convert the given term along the given equality type. *)
 val form_is_term_convert : signature -> is_term -> eq_type -> is_term

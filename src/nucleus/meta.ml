@@ -2,17 +2,19 @@ open Nucleus_types
 
 (** Meta-variables *)
 
+let equal {meta_nonce=n1;_} {meta_nonce=n2;_} = Nonce.equal n1 n2
+
 let form_meta x abstr =
-  let n, mv = Mk.fresh_meta x abstr in
+  let mv = Mk.free_meta x abstr in
   let rec fold k args = function
     | NotAbstract bdry ->
 
        begin match bdry with
        | BoundaryIsType () ->
-          Mk.not_abstract (JudgementIsType (Mk.type_meta mv args))
+          Mk.not_abstract (JudgementIsType (Mk.type_meta (MetaFree mv) args))
 
        | BoundaryIsTerm _ ->
-          Mk.not_abstract (JudgementIsTerm (Mk.term_meta mv args))
+          Mk.not_abstract (JudgementIsTerm (Mk.term_meta (MetaFree mv) args))
 
        | BoundaryEqType (t1, t2) ->
           Mk.not_abstract (JudgementEqType (Mk.eq_type Assumption.empty t1 t2))
@@ -31,4 +33,4 @@ let form_meta x abstr =
      computed when the a rule is formed. It just so happens that the nonces corresponding
      to the equality premises never get referenced. The alternative would be to have
      optional onces, and optional binding, and that's really error-prone, we tried. *)
-  n, fold 0 [] abstr
+  mv, fold 0 [] abstr

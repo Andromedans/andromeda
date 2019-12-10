@@ -6,9 +6,9 @@ let fresh_atom x t =
 
 let atom a = TermAtom a
 
-let fresh_meta x abstr =
+let free_meta x abstr =
   let n = Nonce.create x in
-  n, MetaFree { meta_nonce =  n ; meta_boundary = abstr }
+  { meta_nonce =  n ; meta_boundary = abstr }
 
 let bound k = TermBoundVar k
 
