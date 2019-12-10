@@ -125,6 +125,7 @@ and toplevel' =
   | DefMLType of Path.t list (* we only need the names *)
   | DefMLTypeRec of Path.t list
   | DeclOperation of Path.t * (Mlty.ty list * Mlty.ty)
+  | DeclException of Path.t * Mlty.ty option
   | DeclExternal of Name.t * Mlty.ty_schema * string
   | TopLet of (Name.t * Mlty.ty_schema) list list * let_clause list
   | TopLetRec of (Name.t * Mlty.ty_schema) list * letrec_clause list

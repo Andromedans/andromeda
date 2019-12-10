@@ -72,6 +72,8 @@ and comp' =
   | Handler of handle_case list
   | Handle of comp * handle_case list
   | With of comp * comp
+  | Raise of comp
+  | Try of comp * exception_case list
   | List of comp list
   | Tuple of comp list
   | Match of comp * match_case list
@@ -86,8 +88,6 @@ and comp' =
   | BoundaryAscribe of comp * comp
   | TypeAscribe of comp * comp
   | Abstract of (Name.t * comp option) list * comp
-  (* Multi-argument substitutions are *not* treated as parallel substitutions
-     but desugared to consecutive substitutions. *)
   | AbstractAtom of comp * comp
   | Substitute of comp * comp list
   | Derive of premise list * comp
@@ -112,11 +112,15 @@ and let_clause =
    (irrefutable) pattern. Thus, [ml_arg] should be defined using patterns in place of variable names. *)
 and letrec_clause = Name.t * ml_arg * ml_arg list * let_annotation * comp
 
-(** Handle cases *)
+(** Handler cases *)
 and handle_case =
   | CaseVal of match_case (* val p -> c *)
   | CaseOp of path * match_op_case (* op p1 ... pn -> c *)
   | CaseFinally of match_case (* finally p -> c *)
+
+and exception_case =
+  | ExceptionCaseSimple of path * comp
+  | ExceptionCasePattern of path * match_case
 
 and match_case = pattern * comp option * comp
 
@@ -147,6 +151,7 @@ and toplevel' =
   | DefMLType of (Name.t * (Name.t option list * ml_tydef)) list
   | DefMLTypeRec of (Name.t * (Name.t option list * ml_tydef)) list
   | DeclOperation of Name.t * (ml_ty list * ml_ty)
+  | DeclException of Name.t * ml_ty option
   | DeclExternal of Name.t * ml_schema * string
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list

@@ -775,6 +775,13 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
           (Path.print ~opens ~parentheses:true op)) ;
      return ()
 
+  | Syntax.DeclException (exc, topt) ->
+     Runtime.top_lookup_opens >>= fun opens ->
+     (if not quiet then
+        Format.printf "@[<hov 2>Exception %t is declared.@]@."
+          (Path.print ~opens ~parentheses:true exc)) ;
+     return ()
+
   | Syntax.DeclExternal (x, sch, s) ->
      begin
        match External.lookup s with

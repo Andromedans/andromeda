@@ -94,6 +94,8 @@ let empty_module = {
     ml_values = Assoc.empty
 }
 
+type exception_arity = Nullary | Unary
+
 (** Information about names *)
 type info =
   | Bound of Path.index
@@ -101,12 +103,14 @@ type info =
   | TTConstructor of Path.t * tt_arity
   | MLConstructor of Path.ml_constructor * ml_arity
   | Operation of Path.t * ml_arity
+  | Exception of Path.t * exception_arity
 
 let print_info info ppf = match info with
   | Bound _ | Value _ -> Format.fprintf ppf "a value"
   | TTConstructor _ -> Format.fprintf ppf "a constructor"
   | MLConstructor _ -> Format.fprintf ppf "an ML constructor"
   | Operation _ -> Format.fprintf ppf "an operation"
+  | Exception _ -> Format.fprintf ppf "an exception"
 
 type error =
   | UnknownPath of Name.path
@@ -116,6 +120,7 @@ type error =
   | MLTypeAlreadyDeclared of Name.t
   | MLModuleAlreadyDeclared of Name.t
   | OperationExpected : Name.path * info -> error
+  | ExceptionExpected : Name.path * info -> error
   | InvalidPatternName : Name.path * info -> error
   | InvalidAppliedPatternName : Name.path * info -> error
   | NonlinearPattern : Name.t -> error
@@ -157,6 +162,11 @@ let print_error err ppf = match err with
 
   | OperationExpected (pth, info) ->
      Format.fprintf ppf "%t should be an operation but is %t"
+       (Name.print_path pth)
+       (print_info info)
+
+  | ExceptionExpected (pth, info) ->
+     Format.fprintf ppf "%t should be an exception but is %t"
        (Name.print_path pth)
        (print_info info)
 
@@ -343,14 +353,14 @@ module Ctx = struct
   let get_ml_constructor pth ctx =
     match find_name pth ctx with
     | Some (MLConstructor (pth, arity)) -> pth, arity
-    | None |Some (Bound _ | Value _ | TTConstructor _ | Operation _) ->
+    | None |Some (Bound _ | Value _ | TTConstructor _ | Operation _ | Exception _) ->
        assert false
 
   (* Get information about the given ML operation. *)
   let get_ml_operation op ctx =
     match find_name op ctx with
     | Some (Operation (pth, arity)) -> pth, arity
-    | None | Some (Bound _ | Value _ | TTConstructor _ | MLConstructor _) ->
+    | None | Some (Bound _ | Value _ | TTConstructor _ | MLConstructor _ | Exception _) ->
        assert false
 
   (* This will be needed if and when there is a builtin global ML value that has to be looked up. *)
@@ -649,6 +659,10 @@ let rec pattern ~toplevel ctx {Location.it=p; at} =
            check_tt_arity ~at (Name.PName x) 0 arity ;
            ctx, locate (Desugared.Patt_TTConstructor (pth, []))
 
+        | Some (Exception _ as info) ->
+           (* XXX we should have exception patterns *)
+           error ~at (InvalidPatternName (pth, info))
+
         | Some (Operation _ as info) ->
            error ~at (InvalidPatternName (pth, info))
         end
@@ -664,7 +678,7 @@ let rec pattern ~toplevel ctx {Location.it=p; at} =
            check_tt_arity ~at pth 0 arity ;
            ctx, locate (Desugared.Patt_TTConstructor (c_pth, []))
 
-        | (Value _ | Operation _) as info ->
+        | (Value _ | Operation _ | Exception _) as info ->
            error ~at (InvalidPatternName (pth, info))
 
         | Bound _ -> assert false
@@ -694,7 +708,7 @@ let rec pattern ~toplevel ctx {Location.it=p; at} =
         let ctx, ps = patterns ~at ~toplevel ctx ps in
         ctx, locate (Desugared.Patt_TTConstructor (pth, ps))
 
-     | (Bound _ | Value _ | Operation _) as info ->
+     | (Bound _ | Value _ | Operation _ | Exception _) as info ->
         error ~at (InvalidAppliedPatternName (c, info))
      end
 
@@ -898,6 +912,15 @@ let rec comp ctx {Location.it=c';at} =
      and c2 = comp ctx c2 in
      locate (Desugared.With (c1, c2))
 
+  | Sugared.Raise c ->
+     let c = comp ctx c in
+     locate (Desugared.Raise c)
+
+  | Sugared.Try (c, hnd) ->
+     let c = comp ctx c
+     and hnd = exception_handler ~at ctx hnd in
+     locate (Desugared.Try (c, hnd))
+
   | Sugared.Let (lst, c) ->
      let ctx, lst = let_clauses ~at ~toplevel:false ctx lst in
      let c = comp ctx c in
@@ -1008,6 +1031,9 @@ let rec comp ctx {Location.it=c';at} =
         check_ml_arity ~at x 0 arity ;
         locate (Desugared.Operation (pth, []))
 
+     | Exception (pth, arity) ->
+        check_exception_arity ~at x Nullary ;
+        locate (Desugared.MLException (pth, Nullary))
      end
 
   | Sugared.Function (xs, c) ->
@@ -1264,6 +1290,18 @@ and spine ~at ctx ({Location.it=c'; at=c_at} as c) cs =
      let cs = List.map (comp ctx) cs in
      Location.mark ~at (Desugared.Spine (head, cs))
 
+and exception_handler ~at ctx hnd =
+  List.map
+  (function
+    | Sugared.ExceptionCaseSimple (exc, c) ->
+       begin match Ctx.get_name ~at exc ctx with
+         | Exception (pth, Nullary) -> (??)
+       end
+
+    | Sugared.ExceptionCasePattern (exc, (p, c_when, c)) ->
+       (??)
+  )
+  hnd
 
 (* Desugar handler cases. *)
 and handler ~at ctx hcs =

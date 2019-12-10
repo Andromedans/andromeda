@@ -60,6 +60,9 @@ and comp' =
   | Tuple of comp list
   | Operation of Path.t * comp list
   | With of comp * comp
+  | MLException of Path.t * comp option
+  | Raise of comp
+  | Try of comp * exception_case list
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
   | MLAscribe of comp * ml_schema
@@ -103,6 +106,10 @@ and handler = {
   handler_finally : match_case list;
 }
 
+and exception_case =
+  | ExceptionCaseSimple of Path.t * comp
+  | ExceptionCasePattern of Path.t * match_case
+
 and match_case = pattern * comp option * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
@@ -124,6 +131,7 @@ and toplevel' =
   | DefMLType of (Path.t * (Name.t option list * ml_tydef)) list
   | DefMLTypeRec of (Path.t * (Name.t option list * ml_tydef)) list
   | DeclOperation of Path.t * (ml_ty list * ml_ty)
+  | DeclException of Path.t * ml_ty option
   | DeclExternal of Name.t * ml_schema * string
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
