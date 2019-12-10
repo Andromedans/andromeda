@@ -41,7 +41,7 @@ let form_alpha_equal_abstraction = Form.form_alpha_equal_abstraction
 
 (** Construction of rule applications *)
 let form_constructor_rap = Form.form_constructor_rap
-(* let form_meta_rap = Form.form_meta_rap *)
+let form_meta_rap = Form.form_meta_rap
 let form_is_type_rap = Form.form_is_type_rap
 let form_is_term_rap = Form.form_is_term_rap
 let form_eq_type_rap = Form.form_eq_type_rap

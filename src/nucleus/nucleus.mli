@@ -143,7 +143,7 @@ type 'a rule_application = private
 val form_constructor_rap : signature -> Ident.t -> judgement rule_application
 
 (** Form a fully non-applied meta-variable application for a given meta-variable *)
-(* val form_meta_rap : signature -> meta -> judgement rule_application *)
+val form_meta_rap : signature -> meta -> judgement rule_application
 
 (** Form a fully non-applied rule application with a type conclusion *)
 val form_is_type_rap : signature -> is_type rule -> is_type rule_application

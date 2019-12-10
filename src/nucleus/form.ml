@@ -96,25 +96,43 @@ let form_constructor_rap sgn c =
   fold [] rl
 
 (** Form a meta-variable application for the given meta-variable [mv] *)
-(* let form_meta_rap sgn mv = *)
-(*   let rec fold es = function *)
+let form_meta_rap sgn mv =
+  let rec fold es = function
 
-(*     | Abstract (x, t, bdry) -> *)
-(*        let t = Instantiate_bound.is_type_fully ~lvl:0 es t in *)
-(*        let bdry = NotAbstract (JudgementIsType t) in *)
-(*        let rap e = *)
-(*          if not (Check.judgement_boundary_abstraction sgn e bdry) *)
-(*          then Error.raise InvalidArgument ; *)
-(*          let e = Coerce.as_is_term e in *)
-(*          let es = e :: es in *)
-(*          fold es bdry *)
-(*        in *)
-(*        RapMore (bdry, rap) *)
+    | Abstract (_, t, bdry) ->
+       let t = Instantiate_bound.is_type_fully ~lvl:0 es t in
+       let t_bdry = NotAbstract (BoundaryIsTerm t) in
+       let rap = function
+         | NotAbstract (JudgementIsTerm e) ->
+            if not (Check.is_term_boundary sgn e t)
+            then Error.raise InvalidArgument ;
+            let es = e :: es in
+            fold es bdry
+         | Abstract _
+         | NotAbstract (JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _)
+           -> Error.raise InvalidArgument
+       in
+       RapMore (t_bdry, rap)
 
-(*     | NotAbstract bdry -> *)
-(*        (??) *)
-(*   in *)
-(*   fold [] mv.meta_boundary *)
+    | NotAbstract bdry ->
+       let args = List.rev es in
+       let jdg =
+         match bdry with
+         | BoundaryIsType _ -> JudgementIsType (Mk.type_meta (MetaFree mv) args)
+         | BoundaryIsTerm _ -> JudgementIsTerm (Mk.term_meta (MetaFree mv) args)
+         | BoundaryEqType (t1, t2) ->
+            let t1 = Instantiate_bound.is_type_fully ~lvl:0 es t1
+            and t2 = Instantiate_bound.is_type_fully ~lvl:0 es t2 in
+            JudgementEqType (Mk.eq_type_meta (MetaFree mv) t1 t2)
+         | BoundaryEqTerm (e1, e2, t) ->
+            let e1 = Instantiate_bound.is_term_fully ~lvl:0 es e1
+            and e2 = Instantiate_bound.is_term_fully ~lvl:0 es e2
+            and t = Instantiate_bound.is_type_fully ~lvl:0 es t in
+            JudgementEqTerm (Mk.eq_term_meta (MetaFree mv) e1 e2 t)
+       in
+       RapDone jdg
+  in
+  fold [] mv.meta_boundary
 
 (** Form a rap from a rule *)
 let form_rule_rap sgn inst rl =
