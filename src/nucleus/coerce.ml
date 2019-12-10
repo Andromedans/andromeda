@@ -93,7 +93,7 @@ let convert_rule f rl =
        | None -> raise ConversionError
        end
 
-    | Premise (n, bdry, rl) -> Premise (n, bdry, fold rl)
+    | Premise (mv, rl) -> Premise (mv, fold rl)
   in
   try
     Some (fold rl)

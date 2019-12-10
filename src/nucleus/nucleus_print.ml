@@ -301,16 +301,16 @@ let eq_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
   abstraction Occurs_bound.eq_term thesis_eq_term ?max_level ~penv abstr ppf
 
-let premise ~penv {meta_nonce=n;_} prem ppf =
+let premise ~penv {meta_nonce=n; meta_boundary=prem} ppf =
   boundary_abstraction' ~penv:(forbid (Nonce.name n) penv) ~print_head:(Name.print ~parentheses:true (Nonce.name n)) prem ppf
 
 let derivation ?max_level ~penv drv ppf =
   let rec fold ~penv drv ppf =
     match drv with
     | Conclusion jdg -> Print.print ppf "%s@ %t" (Print.char_arrow ()) (thesis_judgement ~penv jdg)
-    | Premise (mv, prem, drv) ->
+    | Premise (mv, drv) ->
        Print.print ppf "(%t)@ %t"
-                   (premise ~penv mv prem)
+                   (premise ~penv mv)
                    (fold ~penv:(debruijn_meta mv penv) drv)
   in
   Print.print ppf ?max_level ~at_level:Level.derive "derive@ %t" (fold ~penv drv)

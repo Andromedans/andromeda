@@ -101,8 +101,6 @@ and 'a stump_abstraction =
   | Stump_NotAbstract of 'a
   | Stump_Abstract of is_atom * 'a abstraction
 
-type premise = boundary_abstraction
-
 (** An inference rule *)
 type 'a rule
 
@@ -119,10 +117,10 @@ module Signature : sig
 end
 
 (** Form a primitive rule from a given list of meta-variables and a boundary *)
-val form_rule : (meta * boundary_abstraction) list -> boundary -> primitive
+val form_rule : meta list -> boundary -> primitive
 
 (** Form a derived rule from a given list of meta-variables and a boundary *)
-val form_derivation : (meta * boundary_abstraction) list -> judgement -> derivation
+val form_derivation : meta list -> judgement -> derivation
 
 (** Functions that expose abstract types. These are harmless because there is no way
     to map back into the absract types. *)
@@ -143,6 +141,9 @@ type 'a rule_application = private
 
 (** Form a fully non-applied rule application for a given constructor *)
 val form_constructor_rap : signature -> Ident.t -> judgement rule_application
+
+(** Form a fully non-applied meta-variable application for a given meta-variable *)
+(* val form_meta_rap : signature -> meta -> judgement rule_application *)
 
 (** Form a fully non-applied rule application with a type conclusion *)
 val form_is_type_rap : signature -> is_type rule -> is_type rule_application

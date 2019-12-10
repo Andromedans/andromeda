@@ -53,10 +53,10 @@ let rec form_alpha_equal_abstraction equal_u abstr1 abstr2 =
 
 (** Partial rule applications *)
 
-(* Form a rule application for the given constructor [c] *)
+(** Form a rule application for the given constructor [c] *)
 let form_constructor_rap sgn c =
   let rec fold args = function
-    | Premise (_, prem, rl) ->
+    | Premise ({meta_boundary=prem;_}, rl) ->
        let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
        let rap abstr =
          if not (Check.judgement_boundary_abstraction sgn abstr bdry)
@@ -95,10 +95,31 @@ let form_constructor_rap sgn c =
   let rl = Signature.lookup_rule c sgn in
   fold [] rl
 
+(** Form a meta-variable application for the given meta-variable [mv] *)
+(* let form_meta_rap sgn mv = *)
+(*   let rec fold es = function *)
+
+(*     | Abstract (x, t, bdry) -> *)
+(*        let t = Instantiate_bound.is_type_fully ~lvl:0 es t in *)
+(*        let bdry = NotAbstract (JudgementIsType t) in *)
+(*        let rap e = *)
+(*          if not (Check.judgement_boundary_abstraction sgn e bdry) *)
+(*          then Error.raise InvalidArgument ; *)
+(*          let e = Coerce.as_is_term e in *)
+(*          let es = e :: es in *)
+(*          fold es bdry *)
+(*        in *)
+(*        RapMore (bdry, rap) *)
+
+(*     | NotAbstract bdry -> *)
+(*        (??) *)
+(*   in *)
+(*   fold [] mv.meta_boundary *)
+
 (** Form a rap from a rule *)
 let form_rule_rap sgn inst rl =
   let rec fold args = function
-    | Premise (_, prem, drv) ->
+    | Premise ({meta_boundary=prem;_}, drv) ->
        let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
        let rap abstr =
          if not (Check.judgement_boundary_abstraction sgn abstr bdry)

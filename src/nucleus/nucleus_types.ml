@@ -64,11 +64,9 @@ and boundary =
 
 and boundary_abstraction = boundary abstraction
 
-type premise = boundary_abstraction
-
 type 'a rule =
   | Conclusion of 'a
-  | Premise of meta * premise * 'a rule
+  | Premise of meta * 'a rule
 
 type primitive = boundary rule
 

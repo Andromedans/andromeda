@@ -662,17 +662,16 @@ and local_context lctx cmp =
 
 and premise {Location.it=Syntax.Premise(x, lctx, bdry); at} =
   local_context lctx (eval_boundary ~at bdry) >>= fun bdry ->
-  Runtime.lookup_signature >>= fun sgn ->
-  let n, jdg = Nucleus.form_meta x bdry in
+  let mv, jdg = Nucleus.form_meta x bdry in
   let v = Runtime.Judgement jdg in
-  return ((n, bdry), v)
+  return (mv, v)
 
 
 (** Evaluate the premises of a rule, bind them to meta-variables, then evaluate
    the conclusion [cmp]. Return the evaulated premises and conclusion for
    further processing. *)
 and premises :
-  'a . Syntax.premise list -> 'a Runtime.comp -> ((Nucleus.meta * Nucleus.boundary_abstraction) list * 'a) Runtime.comp
+  'a . Syntax.premise list -> 'a Runtime.comp -> (Nucleus.meta list * 'a) Runtime.comp
 = fun prems cmp ->
   let rec fold prems_out = function
 

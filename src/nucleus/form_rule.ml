@@ -211,10 +211,11 @@ let fold_prems prems form_concl =
   let rec fold metas = function
     | [] -> Conclusion (form_concl metas)
 
-    | (mv, prem) :: prems ->
-       let prem = mk_rule_abstraction mk_rule_premise metas prem in
+    |  {meta_nonce; meta_boundary=bdry} :: prems ->
+       let bdry = mk_rule_abstraction mk_rule_premise metas bdry in
+       let mv = {meta_nonce; meta_boundary=bdry} in
        let rl = fold (mv :: metas) prems in
-       Premise (mv, prem, rl)
+       Premise (mv, rl)
   in
   fold [] prems
 
