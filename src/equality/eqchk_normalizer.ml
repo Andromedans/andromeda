@@ -241,15 +241,65 @@ and normalize_heads_type nrm sgn ty0 =
 
 (* Normalize those arguments of [e0] which are considered to be heads. *)
 and normalize_heads_term nrm sgn e0 =
-  (* let sym = head_symbol_term (Nucleus.expose_is_term e0) in *)
-  (* let heads = *)
-  (*   match SymbolMap.find_opt sym nrm.term_heads with *)
-  (*   | None -> IntSet.empty *)
-  (*   | Some heads -> heads *)
-  (* in *)
-  failwith "normalize_heads_term"
 
-and normalize_arguments _ = failwith "normalize_arguents"
+  let get_heads sym =
+    match SymbolMap.find_opt sym nrm.term_heads with
+    | None -> IntSet.empty (* could short-circuit here *)
+    | Some heads -> heads
+  in
+
+  match Nucleus.invert_is_term sgn e0 with
+
+  | Nucleus.Stump_TermConstructor (s, args) ->
+     let heads = get_heads (Ident s) in
+     let args', eqs = normalize_arguments sgn nrm heads args in
+     let e1 =
+       let jdg1 = deopt (rap_fully_apply (Nucleus.form_constructor_rap sgn s) args') in
+       deopt (Nucleus.as_is_term jdg1) in
+     let e0_eq_e1 =
+       let rap = deopt (Nucleus.congruence_is_term sgn e0 e1) in
+       deopt (rap_fully_apply rap eqs)
+     in
+     e0_eq_e1, e1
+
+  | Nucleus.Stump_TermMeta (mv, es) ->
+     let heads = get_heads (Nonce (Nucleus.meta_nonce mv)) in
+     let es', es_eq_es' = normalize_is_terms sgn nrm heads es in
+     let e1 =
+       let jdg1 = deopt (rap_fully_apply (Nucleus.form_meta_rap sgn mv) es') in
+       deopt (Nucleus.as_is_term jdg1)
+     in
+     let e0_eq_e1 =
+       let rap = deopt (Nucleus.congruence_is_term sgn e0 e1) in
+       deopt (rap_fully_apply rap es_eq_es')
+     in
+     e0_eq_e1, e1
+
+  | Nucleus.Stump_TermAtom _ ->
+     let e0_eq_e0 = Nucleus.reflexivity_term sgn e0 in
+     e0_eq_e0, e0
+
+  | Nucleus.Stump_TermConvert (e0', t) ->
+     let e0'_eq_e1', e1' = normalize_heads_term nrm sgn e0' in
+     (??)
+
+and normalize_arguments nrm sgn heads args =
+  let rec fold k args' eqs = function
+
+    | [] -> List.rev args', List.rev eqs
+
+    | arg :: args ->
+       let arg', eq =
+         if IntSet.mem k heads then
+           normalize_argument nrm sgn arg
+         else
+           Nucleus.reflexivity_argument sgn arg
+       in
+       fold (k+1) (arg' :: args') (eq :: eqs) args
+  in
+  fold 1 [] [] args
+
+and normalize_argument nrm sgn = (??)
 
 and normalize_is_terms _ = failwith "normalize_is_terms"
 
