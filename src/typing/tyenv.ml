@@ -107,6 +107,9 @@ let lookup_ml_value v env =
 let lookup_ml_operation op env =
   return (Context.lookup_ml_operation op env.context) env
 
+let lookup_ml_exception exc env =
+  return (Context.lookup_ml_exception exc env.context) env
+
 let lookup_ml_constructor c env =
   return (Context.lookup_ml_constructor c env.context) env
 
@@ -130,7 +133,7 @@ let rec whnf ctx s = function
      end
 
   | Mlty.(Judgement | Boundary | Derivation | String | Param _ | Prod _ | Arrow _ |
-     Handler _ | Ref _ | Dynamic _) as t -> t
+     Handler _ | Ref _ | Exn) as t -> t
 
 (** Unify types [t] and [t'] under current substitition [s],
     and return the updated substitution, or [None] if the types
@@ -144,7 +147,8 @@ let rec unifiable ctx s t t' =
   | Mlty.(Judgement, Judgement)
   | Mlty.(Boundary, Boundary)
   | Mlty.(Derivation, Derivation)
-  | Mlty.(String, String) ->
+  | Mlty.(String, String)
+  | Mlty.(Exn, Exn) ->
      Some s
 
   | Mlty.Meta m, Mlty.Meta m' when Mlty.eq_meta m m' ->
@@ -160,9 +164,6 @@ let rec unifiable ctx s t t' =
      Some s
 
   | Mlty.Ref t, Mlty.Ref t' ->
-     unifiable ctx s t t'
-
-  | Mlty.Dynamic t, Mlty.Dynamic t' ->
      unifiable ctx s t t'
 
   | Mlty.Prod ts, Mlty.Prod ts' ->
@@ -199,7 +200,7 @@ let rec unifiable ctx s t t' =
         fold s ts ts'
      end
 
-  | Mlty.(Judgement | Boundary | Derivation | String | Ref _ | Dynamic _ | Prod _ |
+  | Mlty.(Judgement | Boundary | Derivation | String | Ref _ | Exn | Prod _ |
      Param _ | Arrow _ | Handler _ | Apply _), _ ->
      None
 
@@ -229,7 +230,7 @@ let as_judgement_or_boundary ~at t env =
   | Mlty.Meta _ ->
      Mlty.error ~at Mlty.UninferrableExpression
 
-  | Mlty.(Derivation | String | Ref _ | Dynamic _ |  Param _ | Handler _ | Prod _ | Arrow _ | Apply _) ->
+  | Mlty.(Derivation | String | Ref _ | Exn |  Param _ | Handler _ | Prod _ | Arrow _ | Apply _) ->
      Mlty.(error ~at (JudgementOrBoundaryExpected t))
 
 let as_derivation_or_function ~at t env =
@@ -245,7 +246,7 @@ let as_derivation_or_function ~at t env =
      and t2 = Mlty.fresh_type () in
      (add_equation ~at t (Mlty.Arrow (t1, t2)) >>= fun () -> return (Is_function (t1, t2))) env
 
-  | Mlty.(Judgement | Boundary | String | Ref _ | Dynamic _ | Param _ | Handler _ | Prod _ | Apply _) ->
+  | Mlty.(Judgement | Boundary | String | Ref _ | Exn | Param _ | Handler _ | Prod _ | Apply _) ->
      Mlty.(error ~at (DerivationOrFunctionExpected t))
 
 let as_handler ~at t env =
@@ -262,7 +263,7 @@ let as_handler ~at t env =
            | None -> assert false
      end
 
-  | Mlty.(Judgement | Boundary | Derivation | String | Ref _ | Dynamic _ |  Param _ |
+  | Mlty.(Judgement | Boundary | Derivation | String | Ref _ | Exn |  Param _ |
      Prod _ | Arrow _ | Apply _) ->
      Mlty.(error ~at (HandlerExpected t))
 
@@ -280,25 +281,9 @@ let as_ref ~at t env =
      end
 
   | Mlty.(Judgement | Boundary | Derivation | String | Param _ | Prod _ | Handler _ |
-     Arrow _ | Apply _ | Dynamic _) ->
+     Arrow _ | Apply _ | Exn) ->
      Mlty.(error ~at (RefExpected t))
 
-let as_dynamic ~at t env =
-  let t = whnf env.context env.substitution t in
-  match t with
-
-  | Mlty.Dynamic t -> return t env
-
-  | Mlty.Meta m ->
-     let a = Mlty.fresh_type () in
-     begin match Substitution.add m (Mlty.Dynamic a) env.substitution with
-           | Some substitution -> return a {env with substitution}
-           | None -> assert false
-     end
-
-  | Mlty.(Judgement | Boundary | Derivation | String | Param _ |
-          Prod _ | Handler _ | Arrow _ | Apply _ | Ref _) ->
-     Mlty.(error ~at (DynamicExpected t))
 
 let generalizes_to ~at t (ps, u) env =
   let (), env = add_equation ~at t u env in
@@ -339,4 +324,8 @@ let add_ml_type t d env =
 
 let add_ml_operation op opty env =
   let context = Context.add_ml_operation op opty env.context in
+  (), { env with context }
+
+let add_ml_exception exc opty env =
+  let context = Context.add_ml_exception exc opty env.context in
   (), { env with context }

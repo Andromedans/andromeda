@@ -9,7 +9,7 @@ and ml_ty' =
   | ML_Apply of Path.t * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
-  | ML_Dynamic of ml_ty
+  | ML_Exn
   | ML_Judgement
   | ML_Boundary
   | ML_Derivation
@@ -46,6 +46,7 @@ and pattern' =
   | Patt_BoundaryEqType of pattern * pattern
   | Patt_BoundaryEqTerm of pattern * pattern * pattern
   | Patt_MLConstructor of Path.ml_constructor * pattern list
+  | Patt_MLException of Path.t * pattern option
   | Patt_Tuple of pattern list
   | Patt_String of string
 
@@ -62,7 +63,7 @@ and comp' =
   | With of comp * comp
   | MLException of Path.t * comp option
   | Raise of comp
-  | Try of comp * exception_case list
+  | Try of comp * match_case list
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
   | MLAscribe of comp * ml_schema
@@ -105,10 +106,6 @@ and handler = {
   handler_ops: (Path.t * match_op_case list) list ;
   handler_finally : match_case list;
 }
-
-and exception_case =
-  | ExceptionCaseSimple of Path.t * comp
-  | ExceptionCasePattern of Path.t * match_case
 
 and match_case = pattern * comp option * comp
 

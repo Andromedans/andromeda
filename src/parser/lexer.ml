@@ -14,6 +14,7 @@ let reserved = [
   ("derive", DERIVE) ;
   ("derivation", MLDERIVATION) ;
   ("end", END) ;
+  ("exception", EXCEPTION) ;
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
   ("fresh", FRESH) ;
@@ -36,12 +37,14 @@ let reserved = [
   ("of", OF) ;
   ("open", OPEN) ;
   ("operation", OPERATION) ;
+  ("raise", RAISE) ;
   ("rec", REC) ;
   ("ref", REF) ;
   ("rule", RULE) ;
   ("type", TYPE) ;
   ("require", REQUIRE) ;
   ("struct", STRUCT) ;
+  ("try", TRY) ;
   ("val", VAL) ;
   ("verbosity", VERBOSITY) ;
   ("when", WHEN) ;

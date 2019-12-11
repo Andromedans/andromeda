@@ -6,6 +6,9 @@ type ml_constructor = Ident.t
 type operation = Ident.t
 
 (** An exception is referred to by a unique identifier *)
+type ml_exception = Ident.t
+
+(** An exception is referred to by a unique identifier *)
 type exc = Ident.t
 
 (** A rule/constructor is referred to by a unique identifier *)
@@ -45,6 +48,7 @@ and comp' =
   | Handler of handler
   | MLConstructor of ml_constructor * comp list
   | Tuple of comp list
+  | MLException of ml_exception * comp option
   | Operation of operation * comp list
   | With of comp * comp
   | Let of let_clause list * comp
@@ -53,7 +57,7 @@ and comp' =
   | Update of comp * comp
   | Ref of comp
   | Sequence of comp * comp
-  | Try of comp * exception_cases Ident.map
+  | Try of comp * exception_case list
   | Raise of comp
   | Fresh of Name.t option * comp
   | Match of comp * match_case list
@@ -98,9 +102,7 @@ and handler = {
   handler_finally : match_case list;
 }
 
-and exception_cases =
-  | ExceptionCaseSimple of comp
-  | ExceptionCasePattern of match_case list
+and exception_case = match_case
 
 and match_case = pattern * comp option * comp
 

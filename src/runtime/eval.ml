@@ -69,6 +69,16 @@ let rec comp {Location.it=c'; at} =
        let v = Runtime.mk_tag t vs in
        return v
 
+    | Syntax.MLException (exc, copt) ->
+       begin match copt with
+       | None ->
+          let v = Runtime.Exc (exc, None) in
+          return v
+       | Some c ->
+          comp c >>= fun v ->
+          return (Runtime.Exc (exc, Some v))
+       end
+
     | Syntax.TTConstructor (cnstr, cs) ->
        Runtime.lookup_signature >>= fun sgn ->
        let rap = Nucleus.form_constructor_rap sgn cnstr in
@@ -359,6 +369,7 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.TypeAscribe _
   | Syntax.MLConstructor _
   | Syntax.TTConstructor _
+  | Syntax.MLException _
   | Syntax.TTApply _
   | Syntax.Tuple _
   | Syntax.With _
@@ -462,20 +473,10 @@ and check_abstract ~at bdry x uopt c =
 and exception_handler :
   'a . at:Location.t ->
        (Syntax.comp -> 'a Runtime.comp) ->
-       Syntax.exception_cases Ident.map -> Runtime.exc -> 'a Runtime.comp
-  = fun ~at comp hnd ((exc_id, vopt) as exc) ->
-  match Ident.find_opt exc_id hnd with
-  | None -> Runtime.raise_exception exc
-  | Some (Syntax.ExceptionCaseSimple c) ->
-     begin match vopt with
-     | None -> comp c
-     | Some _ -> assert false
-     end
-  | Some (Syntax.ExceptionCasePattern cases) ->
-     begin match vopt with
-     | None -> assert false
-     | Some v -> match_cases ~at cases comp v
-     end
+       Syntax.exception_case list -> Runtime.exc -> 'a Runtime.comp
+  = fun ~at comp hnd exc ->
+  let v = Runtime.Exc exc in
+  match_cases ~at hnd comp v
 
 and sequence ~at v =
   match v with

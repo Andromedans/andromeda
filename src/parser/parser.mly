@@ -29,6 +29,7 @@
 %token AS TYPE
 %token EQEQ
 
+%token EXCEPTION RAISE TRY
 %token HANDLE WITH HANDLER BAR VAL FINALLY
 %token SEMI
 
@@ -153,6 +154,12 @@ top_command_:
   | OPERATION op=op_name COLON opsig=op_mlsig
     { Sugared.DeclOperation (op, opsig) }
 
+  | EXCEPTION exc=exc_name
+    { Sugared.DeclException (exc, None) }
+
+  | EXCEPTION exc=exc_name OF t=mlty
+    { Sugared.DeclException (exc, Some t) }
+
   | VERBOSITY n=NUMERAL
     { Sugared.Verbosity n }
 
@@ -218,6 +225,9 @@ term_:
 
   | MATCH e=term WITH lst=match_cases END
     { Sugared.Match (e, lst) }
+
+  | TRY c=term WITH lst=match_cases END
+    { Sugared.Try (c, lst) }
 
   | HANDLE c=term WITH hcs=handler_cases END
     { Sugared.Handle (c, hcs) }
@@ -285,6 +295,9 @@ app_term: mark_location(app_term_) { $1 }
 app_term_:
   | e=substitution_term_
     { e }
+
+  | RAISE c=substitution_term
+    { Sugared.Raise c }
 
   | CONGRUENCE e1=substitution_term e2=substitution_term es=list(substitution_term)
     { Sugared.Congruence (e1, e2, es) }
@@ -376,6 +389,11 @@ ml_name:
 
 (* ML operation name *)
 op_name:
+  | NAME
+    { $1 }
+
+(* ML exception name *)
+exc_name:
   | NAME
     { $1 }
 

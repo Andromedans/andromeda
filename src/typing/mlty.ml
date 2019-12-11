@@ -48,8 +48,8 @@ type ty =
   | Arrow of ty * ty
   | Handler of ty * ty
   | Apply of Path.t * ty list
+  | Exn
   | Ref of ty
-  | Dynamic of ty
 
 let unit_ty = Prod []
 
@@ -169,8 +169,7 @@ let rec print_ty ~penv ?max_level t ppf =
   | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "ref@ %t"
                         (print_ty ~penv ~max_level:Level.ml_app_arg t)
 
-  | Dynamic t -> Print.print ?max_level~at_level:Level.ml_app ppf "dynamic@ %t"
-                        (print_ty ~penv ~max_level:Level.ml_app_arg t)
+  | Exn -> Format.fprintf ppf "exn"
 
 let print_ty_schema ~penv ?max_level (ms, t) ppf =
   match ms with
@@ -233,7 +232,8 @@ let rec occurs m = function
   | Meta m' -> eq_meta m m'
   | Prod ts  | Apply (_, ts) -> List.exists (occurs m) ts
   | Arrow (t1, t2) | Handler (t1, t2) -> occurs m t1 || occurs m t2
-  | Ref t | Dynamic t -> occurs m t
+  | Ref t -> occurs m t
+  | Exn -> false
 
 let rec occuring = function
   | Judgement | Boundary | Derivation | String | Param _ -> MetaSet.empty
@@ -242,7 +242,8 @@ let rec occuring = function
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
   | Arrow (t1, t2) | Handler (t1, t2) ->
     MetaSet.union (occuring t1) (occuring t2)
-  | Ref t | Dynamic t -> occuring t
+  | Ref t -> occuring t
+  | Exn -> MetaSet.empty
 
 let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
   occuring t
@@ -250,7 +251,7 @@ let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
 let instantiate pus t =
   let rec inst = function
 
-    | Judgement | Boundary | Derivation | String | Meta _ as t -> t
+    | Exn | Judgement | Boundary | Derivation | String | Meta _ as t -> t
 
     | Param p as t ->
        begin
@@ -281,21 +282,17 @@ let instantiate pus t =
        let t = inst t in
        Ref t
 
-    | Dynamic t ->
-       let t = inst t in
-       Dynamic t
-
   in
   inst t
 
 let params_occur ps t =
   let rec occurs = function
-  | Judgement | Boundary | Derivation | String | Meta _ -> false
+  | Exn | Judgement | Boundary | Derivation | String | Meta _ -> false
   | Param p -> List.mem p ps
   | Prod ts  | Apply (_, ts) ->
     List.exists occurs ts
   | Arrow (t1, t2) | Handler (t1, t2) ->
     occurs t1 || occurs t2
-  | Ref t | Dynamic t -> occurs t
+  | Ref t -> occurs t
   in
   occurs t

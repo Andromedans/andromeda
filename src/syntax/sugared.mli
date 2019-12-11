@@ -19,7 +19,7 @@ and ml_ty' =
   | ML_TyApply of path * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
-  | ML_Dynamic of ml_ty
+  | ML_Exn
   | ML_Judgement
   | ML_Boundary
   | ML_Derivation
@@ -73,7 +73,7 @@ and comp' =
   | Handle of comp * handle_case list
   | With of comp * comp
   | Raise of comp
-  | Try of comp * exception_case list
+  | Try of comp * match_case list
   | List of comp list
   | Tuple of comp list
   | Match of comp * match_case list
@@ -117,10 +117,6 @@ and handle_case =
   | CaseVal of match_case (* val p -> c *)
   | CaseOp of path * match_op_case (* op p1 ... pn -> c *)
   | CaseFinally of match_case (* finally p -> c *)
-
-and exception_case =
-  | ExceptionCaseSimple of path * comp
-  | ExceptionCasePattern of path * match_case
 
 and match_case = pattern * comp option * comp
 

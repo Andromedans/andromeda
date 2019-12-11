@@ -17,6 +17,7 @@ let apply (s : t) t =
   then t
   else begin
       let rec app = function
+        | Mlty.Exn
         | Mlty.Judgement
         | Mlty.Boundary
         | Mlty.Derivation
@@ -51,9 +52,6 @@ let apply (s : t) t =
            let t = app t in
            Mlty.Ref t
 
-        | Mlty.Dynamic t ->
-           let t = app t in
-           Mlty.Dynamic t
       in
       app t
     end

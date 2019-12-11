@@ -32,6 +32,7 @@ let rec generalizable c =
   (* no *)
   | Syntax.(
       Operation _
+    | MLException _
     | With _
     | Lookup _
     | Update _
@@ -82,9 +83,8 @@ let rec ml_ty params {Location.it=t; at} =
      let t = ml_ty params t in
      Mlty.Ref t
 
-  | Desugared.ML_Dynamic t ->
-     let t = ml_ty params t in
-     Mlty.Dynamic t
+  | Desugared.ML_Exn ->
+     Mlty.Exn
 
   | Desugared.ML_Judgement ->
      Mlty.Judgement
@@ -240,7 +240,7 @@ and check_pattern ({Location.it=p'; at} as p) t =
         return (locate ~at (Syntax.Patt_Tuple ps), xts)
 
      | Mlty.(Prod _ | Judgement | Boundary | Derivation | String | Meta _ | Param _ |
-             Arrow _ | Handler _ | Apply _ | Ref _ | Dynamic _) ->
+             Arrow _ | Handler _ | Apply _ | Ref _ | Exn) ->
         infer_pattern p >>= fun (p, t', xts) ->
         Tyenv.add_equation ~at t' t >>= fun () ->
         return (p, xts)
@@ -323,6 +323,18 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
     in
     fold [] tcs
 
+  | Desugared.MLException (exc, copt) ->
+     Tyenv.lookup_ml_exception exc >>= fun (exc_id, topt) ->
+       begin match copt, topt with
+       | None, None ->
+          return (locate ~at (Syntax.MLException (exc_id, None)), Mlty.Exn)
+       | Some c, Some t ->
+          check_comp c t >>= fun c ->
+          return (locate ~at (Syntax.MLException (exc_id, Some c)), Mlty.Exn)
+       | None, Some _ | Some _, None ->
+          assert false (* desugaring took care of this *)
+       end
+
   | Desugared.Tuple cs ->
     let rec fold annot ts = function
       | [] ->
@@ -347,6 +359,16 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
         fold (c :: cs) tcs
     in
     fold [] tcs
+
+  | Desugared.Raise c ->
+     check_comp c Mlty.Exn >>= fun c ->
+     let t = Mlty.fresh_type () in
+     return (locate ~at (Syntax.Raise c), t)
+
+  | Desugared.Try (c, hnd) ->
+     infer_comp c >>= fun (c, tc) ->
+     check_match_cases ~at Mlty.Exn tc hnd >>= fun hnd ->
+     return (locate ~at (Syntax.Try (c, hnd)), tc)
 
   | Desugared.With (h, c) ->
     infer_comp h >>= fun (h, th) ->
@@ -539,7 +561,6 @@ and infer_spine ~at c_head cs =
   infer_comp c_head >>= fun (c_head, t_head) ->
   fold t_head c_head cs
 
-
 and infer_handler ~at {Desugared.handler_val=handler_val;handler_ops;handler_finally} =
   let input = Mlty.fresh_type () in
   begin match handler_val with
@@ -581,6 +602,18 @@ and check_match_case p tp g c tc =
     (when_guard g >>= fun g ->
      check_comp c tc >>= fun c ->
      return (p, g, c))
+
+and check_match_cases ~at tp tc cases =
+  let rec fold cases' = function
+  | [] ->
+     let cases' = List.rev cases' in
+     return cases'
+
+  | (p, g, c) :: cases ->
+     check_match_case p tp g c tc >>= fun (p, g, c) ->
+     fold ((p, g, c) :: cases') cases
+  in
+  fold [] cases
 
 and match_cases ~at t = function
   | [] ->
@@ -882,6 +915,15 @@ let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
     let ty_out = ml_ty [] ty_out in
     Tyenv.add_ml_operation op (tys_in, ty_out) >>= fun () ->
     return_located ~at (Syntax.DeclOperation (op, (tys_in, ty_out)))
+
+  | Desugared.DeclException (exc, tyopt) ->
+    let tyopt =
+      match tyopt with
+      | None -> None
+      | Some ty -> Some (ml_ty [] ty)
+    in
+    Tyenv.add_ml_exception exc tyopt >>= fun () ->
+    return_located ~at (Syntax.DeclException (exc, tyopt))
 
   | Desugared.DeclExternal (x, sch, s) ->
      let sch = ml_schema sch in
