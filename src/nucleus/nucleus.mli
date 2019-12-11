@@ -365,14 +365,22 @@ val reflexivity_type : is_type -> eq_type
 (** Witness reflexivity of a term. *)
 val reflexivity_term : signature -> is_term -> eq_term
 
+(** Witness reflexivity of an abstracted object judgement, return [None] if given an equality judgement. *)
+val reflexivity_judgement_abstraction : signature -> judgement_abstraction -> judgement_abstraction option
+
 (** If [e1 == e2 : A] then [e2 == e1 : A] *)
 val symmetry_term : eq_term -> eq_term
 
 (** If [A == B] then [B == A] *)
 val symmetry_type : eq_type -> eq_type
 
-(** If [e1 == e2 : A] and [e2 == e3 : A] then [e1 == e2 : A] *)
+(** If [e1 == e2 : A] and [e2 == e3 : B] then [e1 == e2 : A]. The rule is valid by
+   uniqueness of typing: [e2] has both type [A] and [B]. *)
 val transitivity_term : eq_term -> eq_term -> eq_term
+
+(** If [e1 == e2 : A] and [e2 == e3 : B] then [e1 == e2 : B]. The rule is valid by
+   uniqueness of typing: [e2] has both type [A] and [B]. *)
+val transitivity_term' : eq_term -> eq_term -> eq_term
 
 (** If [A == B] and [B == C] then [A == C] *)
 val transitivity_type : eq_type -> eq_type -> eq_type

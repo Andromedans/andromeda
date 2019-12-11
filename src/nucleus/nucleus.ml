@@ -56,8 +56,11 @@ let form_is_term_convert = Form.form_is_term_convert
 
 let reflexivity_type = Form.reflexivity_type
 let reflexivity_term = Form.reflexivity_term
+let reflexivity_judgement_abstraction = Form.reflexivity_judgement_abstraction
+
 let transitivity_type = Form.transitivity_type
 let transitivity_term = Form.transitivity_term
+let transitivity_term' = Form.transitivity_term'
 let symmetry_type = Form.symmetry_type
 let symmetry_term = Form.symmetry_term
 

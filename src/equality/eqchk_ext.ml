@@ -12,10 +12,10 @@ let make_equation sgn drv =
 
   (* Check that e is the bound meta-variable k *)
   let check_meta k = function
-    | Nucleus_types.(TermMeta (MetaBound j, [])) -> if j <> k then invalid_rule ()
+    | Nucleus_types.(TermMeta (MetaBound j, [])) -> if j <> k then raise Invalid_rule
     | Nucleus_types.(TermMeta (MetaFree _, _) | TermMeta (MetaBound _, _::_) | TermBoundVar _ | TermAtom _ |
                      TermConstructor _ | TermConvert _) ->
-       invalid_rule ()
+       raise Invalid_rule
   in
 
   (* Extract a type from an optional boundary *)
@@ -23,7 +23,7 @@ let make_equation sgn drv =
     | Some (Nucleus_types.(NotAbstract (BoundaryIsTerm t))) -> t
     | Some (Nucleus_types.(NotAbstract (BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _) | Abstract _))
     | None ->
-       invalid_rule ()
+       raise Invalid_rule
   in
 
   (* do the main work where:
@@ -40,18 +40,18 @@ let make_equation sgn drv =
        let t1' = Shift_meta.is_type (n_eq+1) t1
        and t2' = Shift_meta.is_type n_eq (extract_type bdry2opt) in
        (* check that types are equal *)
-       if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then invalid_rule () ;
+       if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then raise Invalid_rule ;
        begin match Eqchk_pattern.make_is_type sgn (n_ob-2) t1 with
        | Some patt ->
           let s = head_symbol_type t1 in
           (s, patt)
-       | None -> invalid_rule ()
+       | None -> raise Invalid_rule
        end
 
     | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
        if is_object_premise bdry then
          begin
-           if n_eq > 0 then invalid_rule () ;
+           if n_eq > 0 then raise Invalid_rule ;
            fold (bdry2opt, Some bdry) (n_ob + 1) n_eq drv
          end
        else
@@ -62,7 +62,7 @@ let make_equation sgn drv =
   let drv =
     match Nucleus.as_eq_term_rule drv with
     | Some drv -> drv
-    | None -> invalid_rule ()
+    | None -> raise Invalid_rule
   in
   (* Collect head symbol and pattern (and verify that drv has the correct form) *)
   let s, patt = fold (None, None) 0 0 (Nucleus.expose_rule drv) in

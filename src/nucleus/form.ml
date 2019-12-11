@@ -267,21 +267,49 @@ let reflexivity_term sgn e =
   let t = Sanity.type_of_term sgn e in
   Mk.eq_term Assumption.empty e e t
 
+
+exception ObjectJudgementExpected
+
+let reflexivity_judgement_abstraction sgn abstr =
+  let rec fold abstr =
+    match Invert.invert_judgement_abstraction abstr with
+
+    | Stump_Abstract (atm, abstr) ->
+       let abstr = fold abstr in
+       Abstract.judgement_abstraction atm abstr
+
+    | Stump_NotAbstract (JudgementIsType t) ->
+       Abstract.not_abstract (JudgementEqType (reflexivity_type t))
+
+    | Stump_NotAbstract (JudgementIsTerm e) ->
+       Abstract.not_abstract (JudgementEqTerm (reflexivity_term sgn e))
+
+    | Stump_NotAbstract (JudgementEqType _ | JudgementEqTerm _) ->
+       raise ObjectJudgementExpected
+  in
+  try
+    Some (fold abstr)
+  with
+  | ObjectJudgementExpected -> None
+
+
 let symmetry_term (EqTerm (asmp, e1, e2, t)) = Mk.eq_term asmp e2 e1 t
 
 let symmetry_type (EqType (asmp, t1, t2)) = Mk.eq_type asmp t2 t1
 
 let transitivity_term (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t')) =
-  match Alpha_equal.is_type t t' with
-  | false -> Error.raise (AlphaEqualTypeMismatch (t, t'))
+  match Alpha_equal.is_term e2 e1' with
+  | false -> Error.raise (AlphaEqualTermMismatch (e2, e1'))
   | true ->
-     begin match Alpha_equal.is_term e2 e1' with
-     | false -> Error.raise (AlphaEqualTermMismatch (e2, e1'))
-     | true ->
-        (* XXX could use assumptions of [e1'] instead, or whichever is better. *)
-        let asmp = Assumption.union asmp (Assumption.union asmp' (Collect_assumptions.is_term e2))
-        in Mk.eq_term asmp e1 e2' t
-     end
+     let asmp = Assumption.union asmp (Assumption.union asmp' (Collect_assumptions.is_term e1'))
+     in Mk.eq_term asmp e1 e2' t
+
+let transitivity_term' (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t')) =
+  match Alpha_equal.is_term e2 e1' with
+  | false -> Error.raise (AlphaEqualTermMismatch (e2, e1'))
+  | true ->
+     let asmp = Assumption.union asmp (Assumption.union asmp' (Collect_assumptions.is_term e2))
+     in Mk.eq_term asmp e1 e2' t'
 
 let transitivity_type (EqType (asmp1, t1, t2)) (EqType (asmp2, u1, u2)) =
   begin match Alpha_equal.is_type t2 u1 with

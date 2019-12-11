@@ -66,8 +66,8 @@ and prove_eq_term_abstraction chk sgn abstr =
      Nucleus.abstract_eq_term atm abstr
 
 and prove_eq_type chk sgn (ty1, ty2) =
-  let ty1_eq_ty1', ty1' = Eqchk_normalizer.normalize_type chk.normalizer sgn ty1
-  and ty2_eq_ty2', ty2' = Eqchk_normalizer.normalize_type chk.normalizer sgn ty2 in
+  let ty1_eq_ty1', ty1' = Eqchk_normalizer.normalize_type sgn chk.normalizer ty1
+  and ty2_eq_ty2', ty2' = Eqchk_normalizer.normalize_type sgn chk.normalizer ty2 in
   let ty1'_eq_ty2' = check_normal_type chk sgn ty1' ty2' in
   Nucleus.transitivity_type
     (Nucleus.transitivity_type ty1_eq_ty1' ty1'_eq_ty2')
@@ -83,8 +83,8 @@ and prove_eq_term chk sgn bdry =
   | None ->
      let (e1, e2, t) = Nucleus.invert_eq_term_boundary bdry in
      (* normalization phase *)
-     let e1_eq_e1', e1' = Eqchk_normalizer.normalize_term chk.normalizer sgn e1
-     and e2_eq_e2', e2' = Eqchk_normalizer.normalize_term chk.normalizer sgn e2 in
+     let e1_eq_e1', e1' = Eqchk_normalizer.normalize_term sgn chk.normalizer e1
+     and e2_eq_e2', e2' = Eqchk_normalizer.normalize_term sgn chk.normalizer e2 in
      (* XXX convert e1_eq_e1' and e2_eq_e2' to be at type t *)
      let e1'_eq_e2' = check_normal_term chk sgn e1' e2' in
      Nucleus.transitivity_term
@@ -94,7 +94,7 @@ and prove_eq_term chk sgn bdry =
 and check_normal_type chk sgn (Normal ty1) (Normal ty2) =
   match Nucleus.congruence_is_type sgn ty1 ty2 with
 
-  | None -> equality_fail ()
+  | None -> raise Equality_fail
 
   | Some rap -> resolve_rap chk sgn rap
 
@@ -102,7 +102,7 @@ and check_normal_type chk sgn (Normal ty1) (Normal ty2) =
 and check_normal_term chk sgn (Normal e1) (Normal e2) =
   match Nucleus.congruence_is_term sgn e1 e2 with
 
-  | None -> equality_fail ()
+  | None -> raise Equality_fail
 
   | Some rap -> resolve_rap chk sgn rap
 
@@ -146,11 +146,10 @@ and prove_boundary_abstraction chk sgn bdry =
 
 (** The exported form of normalization for types *)
 let normal_type chk sgn t =
-  let eq, Normal t = Eqchk_normalizer.normalize_type chk.normalizer sgn t in
+  let eq, Normal t = Eqchk_normalizer.normalize_type sgn chk.normalizer t in
   eq, t
 
 (** The exported form of normalization for terms *)
 let normal_term chk sgn e =
-  let eq, Normal e = Eqchk_normalizer.normalize_term chk.normalizer sgn e in
-  (* XXX convert eq to be at the type of e *)
+  let eq, Normal e = Eqchk_normalizer.normalize_term sgn chk.normalizer e in
   eq, e

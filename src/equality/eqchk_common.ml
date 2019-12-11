@@ -47,17 +47,10 @@ exception Equality_fail
 
 exception Invalid_rule
 
+exception Normalization_fail
+
 (** A tag to indicate that a term or a type is normalized *)
 type 'a normal = Normal of 'a
-
-let invalid_rule () = raise Invalid_rule
-
-let equality_fail () = raise Equality_fail
-
-(** Extract an optional value, or declare an equality failure *)
-let deopt = function
-  | None -> equality_fail ()
-  | Some x -> x
 
 let compare_symbol x y =
   match x, y with
