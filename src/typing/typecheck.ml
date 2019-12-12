@@ -135,6 +135,16 @@ let rec infer_pattern {Location.it=p; at} =
     check_patterns ps ts >>= fun (ps, xts) ->
     return (locate ~at (Syntax.Patt_MLConstructor (tag_id, ps)), out, xts)
 
+  | Desugared.Patt_MLException (exc, popt) ->
+    Tyenv.lookup_ml_exception exc >>= fun (exc, topt) ->
+    begin match popt, topt with
+    | None, None -> return (locate ~at (Syntax.Patt_MLException (exc, None)), Mlty.Exn, [])
+    | Some p, Some t ->
+       check_pattern p t >>= fun (p, xts) ->
+       return (locate ~at (Syntax.Patt_MLException (exc, Some p)), Mlty.Exn, xts)
+    | Some _, None | None, Some _ -> assert false (* prevented by desugaring *)
+    end
+
   | Desugared.Patt_TTConstructor (c, ps) ->
      Tyenv.lookup_tt_constructor c >>= fun c ->
      let ts = List.map (fun _ -> Mlty.Judgement) ps in
@@ -246,7 +256,7 @@ and check_pattern ({Location.it=p'; at} as p) t =
         return (p, xts)
      end
 
-  | Desugared.(Patt_MLConstructor _ | Patt_TTConstructor _ | Patt_String _ |
+  | Desugared.(Patt_MLException _ | Patt_MLConstructor _ | Patt_TTConstructor _ | Patt_String _ |
              Patt_BoundaryIsType | Patt_BoundaryIsTerm _ | Patt_BoundaryEqType _ | Patt_BoundaryEqTerm _ |
              Patt_GenAtom _ | Patt_IsType _ | Patt_IsTerm _ | Patt_EqType _ | Patt_EqTerm _ | Patt_Abstraction _)->
      infer_pattern p >>= fun (p, t', xts) ->

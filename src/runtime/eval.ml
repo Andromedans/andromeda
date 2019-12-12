@@ -475,8 +475,9 @@ and exception_handler :
        (Syntax.comp -> 'a Runtime.comp) ->
        Syntax.exception_case list -> Runtime.exc -> 'a Runtime.comp
   = fun ~at comp hnd exc ->
+  let default ~at _ = Runtime.raise_exception exc in
   let v = Runtime.Exc exc in
-  match_cases ~at hnd comp v
+  match_cases ~at ~default hnd comp v
 
 and sequence ~at v =
   match v with
@@ -526,14 +527,15 @@ and letrec_bind
    successful continues on the computation using [eval] with the pattern variables bound.
    *)
 and match_cases
-  : 'a . at:Location.t -> Syntax.match_case list -> (Syntax.comp -> 'a Runtime.comp)
+  : 'a . at:Location.t -> ?default:(at:Location.t -> Runtime.value -> 'a Runtime.comp)
+         -> Syntax.match_case list -> (Syntax.comp -> 'a Runtime.comp)
          -> Runtime.value -> 'a Runtime.comp
-  = fun ~at cases eval v ->
+  = fun ~at ?(default=(fun ~at v -> Runtime.(error ~at (MatchFail v)))) cases eval v ->
   let bind_pattern_vars vs cmp =
     List.fold_left (fun cmp v -> Runtime.add_bound v cmp) cmp vs
   in
   let rec fold = function
-    | [] -> Runtime.(error ~at (MatchFail v))
+    | [] -> default ~at v
     | (p, g, c) :: cases ->
       Matching.match_pattern p v >>= begin function
         | None -> fold cases
