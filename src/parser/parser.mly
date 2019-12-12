@@ -793,8 +793,8 @@ mlty_def_body:
     { Sugared.ML_Sum lst }
 
 mlty_constructor:
-  | c=constr_name OF lst=separated_nonempty_list(WITH, mlty)
-    { (c, lst) }
+  | c=constr_name OF t=mlty
+    { (c, [t]) }
 
   | c=constr_name
     { (c, []) }
