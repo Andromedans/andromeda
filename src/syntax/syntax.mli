@@ -97,8 +97,9 @@ and letrec_clause =
   | Letrec_clause of comp
 
 and handler = {
-  handler_val: match_case list;
-  handler_ops: match_op_case list Ident.map
+  handler_val: match_case list ;
+  handler_ops: match_op_case list Ident.map ;
+  handler_exc : exception_case list
 }
 
 and exception_case = match_case

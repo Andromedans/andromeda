@@ -1334,16 +1334,15 @@ and spine ~at ctx ({Location.it=c'; at=c_at} as c) cs =
 (* Desugar handler cases. *)
 and handler ~at ctx hcs =
   (* for every case | op p => c we do op binder => match binder with | p => c end *)
-  let rec fold val_cases op_cases = function
+  let rec fold val_cases op_cases exc_cases = function
     | [] ->
        List.rev val_cases,
-       List.map (fun (op, cs) -> (op, List.rev cs)) op_cases
+       List.map (fun (op, cs) -> (op, List.rev cs)) op_cases,
+       List.rev exc_cases
 
     | Sugared.CaseVal c :: hcs ->
-       (* XXX if this handler is in a outer handler's operation case, should we use its yield?
-          eg handle ... with | op => handler | val x => yield x end end *)
        let case = match_case ctx c in
-       fold (case::val_cases) op_cases hcs
+       fold (case::val_cases) op_cases exc_cases hcs
 
     | Sugared.CaseOp (op, ((ps,_,_) as c)) :: hcs ->
 
@@ -1354,15 +1353,20 @@ and handler ~at ctx hcs =
           let case = match_op_case ctx c in
           let my_cases = try List.assoc pth op_cases with Not_found -> [] in
           let my_cases = case::my_cases in
-          fold val_cases ((pth, my_cases) :: op_cases) hcs
+          fold val_cases ((pth, my_cases) :: op_cases) exc_cases hcs
 
        | (Bound _ | Value _ | Exception _ | TTConstructor _ | MLConstructor _) as info ->
           error ~at (OperationExpected (op, info))
 
        end
+
+    | Sugared.CaseExc c :: hcs ->
+       let case = match_case ctx c in
+       fold val_cases op_cases (case :: exc_cases) hcs
+
   in
-  let handler_val, handler_ops = fold [] [] hcs in
-  Location.mark ~at (Desugared.Handler (Desugared.{ handler_val ; handler_ops }))
+  let handler_val, handler_ops, handler_exc = fold [] [] [] hcs in
+  Location.mark ~at Desugared.(Handler {handler_val ; handler_ops; handler_exc })
 
 (* Desugare an exception handler *)
 and exception_handler ~at ctx hnd =

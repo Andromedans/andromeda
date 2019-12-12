@@ -190,8 +190,9 @@ and 'a comp = env -> 'a result
 and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
 
 and handler = {
-  handler_val : (value,value) closure option;
-  handler_ops : (operation_args, value) closure Ident.map
+  handler_val : (value, value) closure option ;
+  handler_ops : (operation_args, value) closure Ident.map ;
+  handler_exc : exc -> value comp
 }
 
 and 'a continuation =
@@ -332,11 +333,12 @@ let return_boundary bdry = return (Boundary bdry)
 
 let return_closure f env = Return (Closure (mk_closure0 f env))
 
-let return_handler handler_val handler_ops env =
+let return_handler handler_val handler_ops handler_exc env =
   let option_map g = function None -> None | Some x -> Some (g x) in
   let h = {
     handler_val = option_map (fun v -> mk_closure0 v env) handler_val ;
     handler_ops = Ident.map (fun f -> mk_closure0 f env) handler_ops ;
+    handler_exc
   } in
   Return (Handler h)
 
@@ -924,7 +926,7 @@ let empty = {
 }
 
 (** Handling *)
-let rec handle_comp {handler_val; handler_ops} (r : value comp) : value comp =
+let rec handle_comp {handler_val; handler_ops; handler_exc} (r : value comp) : value comp =
   fun env -> match r env with
 
   | Return v ->
@@ -933,14 +935,14 @@ let rec handle_comp {handler_val; handler_ops} (r : value comp) : value comp =
      | None -> Return v
      end
 
-  | Exception _ as r ->
-     (* XXX in the future handlers will have exception clauses *)
-     r
+  | Exception exc ->
+     handler_exc exc env
 
   | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont={cont_val; cont_exc}} ->
      let env = {env with dynamic = op_dynamic_env} in
-     let h = {handler_val; handler_ops} in
-     let op_cont = { cont_val = (fun v -> handle_comp h (cont_val v)) ; cont_exc }
+     let h = {handler_val; handler_ops; handler_exc} in
+     let op_cont = { cont_val = (fun v -> handle_comp h (cont_val v)) ;
+                     cont_exc = (fun exc -> handle_comp h (cont_exc exc)) }
      in
      begin
        match Ident.find_opt op_id handler_ops with

@@ -1,17 +1,14 @@
 exception Cow of mlstring ;;
 operation moo : mlunit -> mlstring ;;
 
-try
-  handle
-    try
-      let x = moo () in
-      ("operation", x)
-    with
-    | Cow c -> ("correct", c)
-    end
+handle
+  try
+     let x = moo () in
+     ("operation", x)
   with
-  | moo () -> raise (Cow "moo")
+  | Cow c -> ("correct", c)
   end
 with
-| Cow c -> ("wrong", c)
+| moo () -> raise (Cow "moo")
+| raise (Cow c) -> ("wrong", c)
 end

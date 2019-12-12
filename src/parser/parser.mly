@@ -562,6 +562,9 @@ handler_case:
   | VAL c=match_case
     { Sugared.CaseVal c }
 
+  | RAISE c=match_case
+    { Sugared.CaseExc c }
+
   | op=long(op_name) ps=prefix_pattern* pt=handler_checking ARROW t=term
     { Sugared.CaseOp (op, (ps, pt, t)) }
 

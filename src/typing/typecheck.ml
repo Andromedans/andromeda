@@ -571,12 +571,18 @@ and infer_spine ~at c_head cs =
   infer_comp c_head >>= fun (c_head, t_head) ->
   fold t_head c_head cs
 
-and infer_handler ~at Desugared.{handler_val=handler_val;handler_ops} =
+and infer_handler ~at Desugared.{handler_val=handler_val;handler_ops;handler_exc} =
   let input = Mlty.fresh_type () in
+  (* value case *)
   begin match handler_val with
     | [] -> return ([], input)
     | _ :: _ -> match_cases ~at input handler_val
-  end >>= fun (handler_val, output) ->
+  end >>=
+  (* handler cases *)
+  fun (handler_val, output) ->
+  check_match_cases ~at Mlty.Exn output handler_exc >>=
+  fun handler_exc ->
+  (* operation cases *)
   let rec fold ops = function
     | [] ->
       return (List.fold_left (fun acc (x, v) -> Ident.add x v acc) Ident.empty ops)
@@ -585,7 +591,7 @@ and infer_handler ~at Desugared.{handler_val=handler_val;handler_ops} =
       fold (op_cases :: ops) rem
   in
   fold [] handler_ops >>= fun handler_ops ->
-  return ({Syntax.handler_val=handler_val;handler_ops}, Mlty.Handler (input, output))
+  return (Syntax.{handler_val; handler_ops; handler_exc}, Mlty.Handler (input, output))
 
 and match_case p t g c =
   check_pattern p t >>= fun (p, xts) ->

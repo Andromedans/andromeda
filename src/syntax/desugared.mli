@@ -63,7 +63,7 @@ and comp' =
   | With of comp * comp
   | MLException of Path.t * comp option
   | Raise of comp
-  | Try of comp * match_case list
+  | Try of comp * exception_case list
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
   | MLAscribe of comp * ml_schema
@@ -103,10 +103,13 @@ and letrec_clause =
 
 and handler = {
   handler_val: match_case list ;
-  handler_ops: (Path.t * match_op_case list) list
+  handler_ops: (Path.t * match_op_case list) list ;
+  handler_exc : exception_case list
 }
 
 and match_case = pattern * comp option * comp
+
+and exception_case = match_case
 
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = pattern list * pattern option * comp
