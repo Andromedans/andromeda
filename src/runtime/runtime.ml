@@ -190,9 +190,8 @@ and 'a comp = env -> 'a result
 and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
 
 and handler = {
-  handler_val: (value,value) closure option;
-  handler_ops: (operation_args, value) closure Ident.map;
-  handler_finally: (value, value) closure option;
+  handler_val : (value,value) closure option;
+  handler_ops : (operation_args, value) closure Ident.map
 }
 
 and 'a continuation =
@@ -303,8 +302,6 @@ let rec bind r f env =
      in
      Operation {op_data with op_cont}
 
-let (>>=) = bind
-
 let top_bind m f env =
   let x, env = m env in
   f x env
@@ -335,12 +332,11 @@ let return_boundary bdry = return (Boundary bdry)
 
 let return_closure f env = Return (Closure (mk_closure0 f env))
 
-let return_handler handler_val handler_ops handler_finally env =
+let return_handler handler_val handler_ops env =
   let option_map g = function None -> None | Some x -> Some (g x) in
   let h = {
     handler_val = option_map (fun v -> mk_closure0 v env) handler_val ;
     handler_ops = Ident.map (fun f -> mk_closure0 f env) handler_ops ;
-    handler_finally = option_map (fun v -> mk_closure0 v env) handler_finally ;
   } in
   Return (Handler h)
 
@@ -928,8 +924,8 @@ let empty = {
 }
 
 (** Handling *)
-let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp) : value comp =
-  begin fun env -> match r env with
+let rec handle_comp {handler_val; handler_ops} (r : value comp) : value comp =
+  fun env -> match r env with
 
   | Return v ->
      begin match handler_val with
@@ -943,7 +939,7 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
 
   | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont={cont_val; cont_exc}} ->
      let env = {env with dynamic = op_dynamic_env} in
-     let h = {handler_val; handler_ops; handler_finally=None} in
+     let h = {handler_val; handler_ops} in
      let op_cont = { cont_val = (fun v -> handle_comp h (cont_val v)) ; cont_exc }
      in
      begin
@@ -954,10 +950,6 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
        | None ->
           Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}
      end
-  end >>= fun v ->
-  match handler_finally with
-    | Some f -> apply_closure f v
-    | None -> return v
 
 
 let top_handle ~at c env =

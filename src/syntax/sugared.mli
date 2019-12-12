@@ -116,7 +116,6 @@ and letrec_clause = Name.t * ml_arg * ml_arg list * let_annotation * comp
 and handle_case =
   | CaseVal of match_case (* val p -> c *)
   | CaseOp of path * match_op_case (* op p1 ... pn -> c *)
-  | CaseFinally of match_case (* finally p -> c *)
 
 and match_case = pattern * comp option * comp
 

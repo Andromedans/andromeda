@@ -102,9 +102,8 @@ and letrec_clause =
   | Letrec_clause of Name.t * (Name.t * arg_annotation) * let_annotation * comp
 
 and handler = {
-  handler_val: match_case list;
-  handler_ops: (Path.t * match_op_case list) list ;
-  handler_finally : match_case list;
+  handler_val: match_case list ;
+  handler_ops: (Path.t * match_op_case list) list
 }
 
 and match_case = pattern * comp option * comp

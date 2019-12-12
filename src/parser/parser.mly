@@ -30,7 +30,7 @@
 %token EQEQ
 
 %token EXCEPTION RAISE TRY
-%token HANDLE WITH HANDLER BAR VAL FINALLY
+%token HANDLE WITH HANDLER BAR VAL
 %token SEMI
 
 %token NATURAL
@@ -564,9 +564,6 @@ handler_case:
 
   | op=long(op_name) ps=prefix_pattern* pt=handler_checking ARROW t=term
     { Sugared.CaseOp (op, (ps, pt, t)) }
-
-  | FINALLY c=match_case
-    { Sugared.CaseFinally c }
 
 handler_checking:
   |

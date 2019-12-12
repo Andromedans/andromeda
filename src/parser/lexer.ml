@@ -16,7 +16,6 @@ let reserved = [
   ("end", END) ;
   ("exception", EXCEPTION) ;
   ("external", EXTERNAL) ;
-  ("finally", FINALLY) ;
   ("fresh", FRESH) ;
   ("fun", FUN) ;
   ("handle", HANDLE) ;

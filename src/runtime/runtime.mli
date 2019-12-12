@@ -222,7 +222,6 @@ val return_closure : (value -> value comp) -> value comp
 val return_handler :
    (value -> value comp) option ->
    (operation_args -> value comp) Ident.map ->
-   (value -> value comp) option ->
    value comp
 
 (** {b Monadic interface} *)

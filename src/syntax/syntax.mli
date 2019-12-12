@@ -98,8 +98,7 @@ and letrec_clause =
 
 and handler = {
   handler_val: match_case list;
-  handler_ops: match_op_case list Ident.map;
-  handler_finally : match_case list;
+  handler_ops: match_op_case list Ident.map
 }
 
 and exception_case = match_case

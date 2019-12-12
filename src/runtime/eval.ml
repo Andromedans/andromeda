@@ -97,7 +97,7 @@ let rec comp {Location.it=c'; at} =
       in
       fold [] cs
 
-    | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
+    | Syntax.(Handler {handler_val; handler_ops}) ->
         let handler_val =
           begin match handler_val with
           | [] -> None
@@ -113,17 +113,8 @@ let rec comp {Location.it=c'; at} =
             in
             f)
           handler_ops
-        and handler_finally =
-          begin match handler_finally with
-          | [] -> None
-          | _ :: _ ->
-            let f v =
-              match_cases ~at handler_finally comp v
-            in
-            Some f
-          end
         in
-        Runtime.return_handler handler_val handler_ops handler_finally
+        Runtime.return_handler handler_val handler_ops
 
   | Syntax.Operation (op, cs) ->
      let rec fold vs = function
