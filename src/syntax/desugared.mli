@@ -110,6 +110,8 @@ and match_case = pattern * comp option * comp
 
 and exception_case = match_case
 
+and top_operation_case = Path.t * match_op_case
+
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = pattern list * pattern option * comp
 
@@ -133,6 +135,7 @@ and toplevel' =
   | DeclExternal of Name.t * ml_schema * string
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
+  | TopWith of top_operation_case list
   | TopComputation of comp
   | Verbosity of int
   | Open of Path.t

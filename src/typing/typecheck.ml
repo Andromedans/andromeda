@@ -944,6 +944,9 @@ let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
      letrec_clauses ~toplevel:true clauses (return ()) >>= fun (info, clauses, ()) ->
      return_located ~at (Syntax.TopLetRec (info, clauses))
 
+  | Desugared.TopWith lst ->
+     (??)
+
   | Desugared.TopComputation c ->
      infer_comp c >>= fun (c, t) ->
      begin

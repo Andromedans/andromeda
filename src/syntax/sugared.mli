@@ -123,6 +123,8 @@ and exception_case = match_case
 
 and match_op_case = pattern list * pattern option * comp
 
+and top_operation_case = path * match_op_case
+
 (** The local context of a premise to a rule. *)
 and local_context = (Name.t * comp) list
 
@@ -152,6 +154,7 @@ and toplevel' =
   | DeclExternal of Name.t * ml_schema * string
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
+  | TopWith of top_operation_case list
   | TopComputation of comp
   | Verbosity of int
   | Require of Name.t list

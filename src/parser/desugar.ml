@@ -1339,21 +1339,11 @@ and handler ~at ctx hcs =
        let case = match_case ctx c in
        fold (case::val_cases) op_cases exc_cases hcs
 
-    | Sugared.CaseOp (op, ((ps,_,_) as c)) :: hcs ->
-
-       begin match Ctx.get_name ~at op ctx with
-
-       | Operation (pth, arity) ->
-          check_ml_arity ~at op (List.length ps) arity ;
-          let case = match_op_case ctx c in
-          let my_cases = try List.assoc pth op_cases with Not_found -> [] in
+    | Sugared.CaseOp (op, case) :: hcs ->
+         let (pth, case) = match_op_case ~at ctx op case in
+          let my_cases = match List.assoc_opt pth op_cases with Some lst -> lst | None -> [] in
           let my_cases = case::my_cases in
           fold val_cases ((pth, my_cases) :: op_cases) exc_cases hcs
-
-       | (Bound _ | Value _ | Exception _ | TTConstructor _ | MLConstructor _) as info ->
-          error ~at (OperationExpected (op, info))
-
-       end
 
     | Sugared.CaseExc c :: hcs ->
        let case = match_case ctx c in
@@ -1377,27 +1367,36 @@ and when_guard ctx = function
      let c = comp ctx c in
      Some c
 
-and match_op_case ctx (ps, pt, c) =
-  let rec fold ctx qs = function
-    | [] ->
-       let qs = List.rev qs in
-       let ctx, pt =
-         begin match pt with
-         | None -> ctx, None
-         | Some p ->
-            ignore (check_linear p) ;
-            let ctx, p = pattern ~toplevel:false ctx p in
-            ctx, Some p
-         end
-       in
-       let c = comp ctx c in
-       (qs, pt, c)
 
-    | p :: ps ->
-       let ctx, q = pattern ~toplevel:false ctx p in
-       fold ctx (q :: qs) ps
-  in
-  fold ctx [] ps
+and match_op_case ~at ctx op (ps, pt, c) =
+  match Ctx.get_name ~at op ctx with
+
+  | (Bound _ | Value _ | Exception _ | TTConstructor _ | MLConstructor _) as info ->
+     error ~at (OperationExpected (op, info))
+
+  | Operation (pth, arity) ->
+     check_ml_arity ~at op (List.length ps) arity ;
+     let rec fold ctx qs = function
+       | [] ->
+          let qs = List.rev qs in
+          let ctx, pt =
+            begin match pt with
+            | None -> ctx, None
+            | Some p ->
+               ignore (check_linear p) ;
+               let ctx, p = pattern ~toplevel:false ctx p in
+               ctx, Some p
+            end
+          in
+          let c = comp ctx c in
+          pth, (qs, pt, c)
+
+       | p :: ps ->
+          let ctx, q = pattern ~toplevel:false ctx p in
+          fold ctx (q :: qs) ps
+     in
+     fold ctx [] ps
+
 
 and ml_constructor ~at ctx x cs =
   let cs = List.map (comp ctx) cs in
@@ -1551,6 +1550,7 @@ let mlty_rec_defs ~at ctx defs =
     List.map (fun (t, (params, def)) -> (t, (params, mlty_def ~at ctx params def))) defs_out in
   ctx, defs_out
 
+
 let rec toplevel' ~loading ~basedir ctx {Location.it=cmd; at} =
   let locate1 cmd = [Location.mark ~at cmd] in
 
@@ -1635,6 +1635,10 @@ let rec toplevel' ~loading ~basedir ctx {Location.it=cmd; at} =
   | Sugared.TopLetRec lst ->
      let ctx, lst = letrec_clauses ~at ~toplevel:true ctx lst in
      (ctx, locate1 (Desugared.TopLetRec lst))
+
+  | Sugared.TopWith lst ->
+     let lst = List.map (fun (op, case) -> match_op_case ~at ctx op case) lst in
+     (ctx, locate1 (Desugared.TopWith lst))
 
   | Sugared.TopComputation c ->
      let c = comp ctx c in
