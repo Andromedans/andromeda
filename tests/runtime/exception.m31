@@ -1,0 +1,56 @@
+exception Cow of mlstring ;;
+exception Horn ;;
+exception Tail ;;
+
+let f e =
+  match e with
+  | Cow s -> Cow s
+  | Horn -> Cow "horn"
+  | Tail when ML.false -> Cow "wrong_tail"
+  | Tail -> Cow "tail"
+  end
+;;
+
+f (Cow "horn") ;;
+f Horn ;;
+f Tail ;;
+
+try
+  ("foo", "bar")
+with
+| Cow s -> ("cow", s)
+| Horn when ML.true -> ("horn", "")
+end
+;;
+
+try
+  raise Horn
+with
+| Cow s -> ("cow", s)
+| Horn when ML.true -> ("horn", "")
+end
+;;
+
+try
+  try
+    raise Tail
+  with
+  | Cow s -> ("cow", s)
+  | Horn when ML.true -> ("horn", "")
+  end
+with
+| Tail -> ("tail", "")
+end
+;;
+
+try
+  try
+    raise Tail
+  with
+  | e -> raise Horn
+  end
+with
+| Tail -> "tail"
+| Horn -> "horn"
+end
+;;

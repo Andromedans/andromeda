@@ -196,8 +196,8 @@ and handler = {
 }
 
 and 'a continuation =
-  { cont_val : value -> 'a result
-  ; cont_exc : Ident.t -> value option -> 'a result }
+  { cont_val : value -> 'a comp
+  ; cont_exc : exc -> 'a comp }
 
 type 'a toplevel = env -> 'a * env
 
@@ -263,10 +263,18 @@ let mk_closure f = Closure (Clos f)
 
 let apply_closure (Clos f) v env = f v env
 
-let mk_cont f env = { cont_val = (fun v -> f v env)
-                    ; cont_exc = (fun exc vopt -> Exception (exc, vopt)) }
+let rec bind_cont (r : value comp) ({cont_val=f_val; cont_exc=f_exc} as cont) : 'a comp =
+  fun env ->
+  match r env with
+  | Return v -> f_val v env
 
-let apply_cont {cont_val=f;_} v _env = f v
+  | Exception exc -> f_exc exc env
+
+  | Operation ({op_cont={cont_val=g_val; cont_exc=g_exc};_} as op_data) ->
+     let op_cont = { cont_val = (fun v env -> bind_cont (g_val v) cont env) ;
+                     cont_exc = (fun exc env -> bind_cont (g_exc exc) cont env) }
+     in
+     Operation {op_data with op_cont}
 
 (** References *)
 let mk_ref v _env =
@@ -283,15 +291,16 @@ let update_ref x v env =
 
 (** The monadic bind [bind r f] feeds the result [r : result]
     into function [f : value -> 'a]. *)
-let rec bind (r:'a comp) (f:'a -> 'b comp) : 'b comp = fun env ->
+let rec bind r f env =
   match r env with
-
-  | Return v -> f v env
+  | Return v -> (f v env : 'b result)
 
   | Exception _ as r -> r
 
-  | Operation op_data ->
-     let op_cont = mk_cont (fun x -> bind (apply_cont op_data.op_cont x) f) env in
+  | Operation ({op_cont={cont_val=g_val; cont_exc=g_exc};_} as op_data) ->
+     let op_cont = { cont_val = (fun v -> bind (g_val v) f) ;
+                     cont_exc = (fun exc -> bind (g_exc exc) f) }
+     in
      Operation {op_data with op_cont}
 
 let (>>=) = bind
@@ -309,19 +318,16 @@ let return x _env = Return x
 
 let raise_exception exc _env = Exception exc
 
-let try_with hnd c =
-  fun env ->
-  let rec fold = function
+let rec try_with hnd c env =
+  match c env with
     | Return _ as r -> r
 
     | Exception exc -> hnd exc env
 
     | Operation ({op_cont={cont_val; cont_exc};_} as op_data) ->
-       let cont_val = fun v -> fold (cont_val v)
-       and cont_exc = fun exc v -> fold (cont_exc exc v) in
+       let cont_val = fun v -> try_with hnd (cont_val v)
+       and cont_exc = fun exc -> try_with hnd (cont_exc exc) in
        Operation {op_data with op_cont = {cont_val; cont_exc}}
-  in
-  fold (c env)
 
 let return_judgement jdg = return (Judgement jdg)
 
@@ -508,8 +514,15 @@ let as_string ~at = function
 
 (** Operations *)
 
+(** Generic operation *)
 let operation op_id ?checking vs env =
-  Operation {op_id; op_args=vs; op_boundary=checking; op_dynamic_env=env.dynamic; op_cont=mk_cont return env}
+  Operation {
+    op_id ;
+    op_args = vs ;
+    op_boundary = checking ;
+    op_dynamic_env = env.dynamic ;
+    op_cont = {cont_val = return ; cont_exc = raise_exception }
+  }
 
 (** Interact with the environment *)
 
@@ -928,14 +941,16 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
      (* XXX in the future handlers will have exception clauses *)
      r
 
-  | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont} ->
+  | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont={cont_val; cont_exc}} ->
      let env = {env with dynamic = op_dynamic_env} in
      let h = {handler_val; handler_ops; handler_finally=None} in
-     let op_cont = mk_cont (fun v env -> handle_comp h (apply_cont op_cont v) env) env in
+     let op_cont = { cont_val = (fun v -> handle_comp h (cont_val v)) ; cont_exc }
+     in
      begin
        match Ident.find_opt op_id handler_ops with
-       | Some f ->
-         ((apply_closure f {args=op_args;checking=op_boundary}) >>= (fun v -> apply_cont op_cont v)) env
+       | Some f_op ->
+         let r = apply_closure f_op {args=op_args; checking=op_boundary} in
+         bind_cont r op_cont env
        | None ->
           Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}
      end
@@ -943,6 +958,7 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
   match handler_finally with
     | Some f -> apply_closure f v
     | None -> return v
+
 
 let top_handle ~at c env =
   let r = c env in
