@@ -950,11 +950,6 @@ let rec comp ctx {Location.it=c';at} =
      let c = comp ctx c in
      locate (Desugared.Raise c)
 
-  | Sugared.Try (c, hnd) ->
-     let c = comp ctx c
-     and hnd = exception_handler ~at ctx hnd in
-     locate (Desugared.Try (c, hnd))
-
   | Sugared.Let (lst, c) ->
      let ctx, lst = let_clauses ~at ~toplevel:false ctx lst in
      let c = comp ctx c in
@@ -1367,10 +1362,6 @@ and handler ~at ctx hcs =
   in
   let handler_val, handler_ops, handler_exc = fold [] [] [] hcs in
   Location.mark ~at Desugared.(Handler {handler_val ; handler_ops; handler_exc })
-
-(* Desugare an exception handler *)
-and exception_handler ~at ctx hnd =
-  List.map (match_case ctx) hnd
 
 (* Desugar a match case *)
 and match_case ctx (p, g, c) =

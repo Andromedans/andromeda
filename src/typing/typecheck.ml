@@ -39,7 +39,6 @@ let rec generalizable c =
     | Ref _
     | Fresh _
     | AbstractAtom _
-    | Try _
     | Match _
     | BoundaryAscribe _
     | TypeAscribe _
@@ -374,11 +373,6 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      check_comp c Mlty.Exn >>= fun c ->
      let t = Mlty.fresh_type () in
      return (locate ~at (Syntax.Raise c), t)
-
-  | Desugared.Try (c, hnd) ->
-     infer_comp c >>= fun (c, tc) ->
-     check_match_cases ~at Mlty.Exn tc hnd >>= fun hnd ->
-     return (locate ~at (Syntax.Try (c, hnd)), tc)
 
   | Desugared.With (h, c) ->
     infer_comp h >>= fun (h, th) ->

@@ -43,7 +43,6 @@ let reserved = [
   ("type", TYPE) ;
   ("require", REQUIRE) ;
   ("struct", STRUCT) ;
-  ("try", TRY) ;
   ("val", VAL) ;
   ("verbosity", VERBOSITY) ;
   ("when", WHEN) ;

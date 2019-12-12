@@ -2,11 +2,11 @@ exception Cow of mlstring ;;
 operation moo : mlunit -> mlstring ;;
 
 handle
-  try
+  handle
      let x = moo () in
      ("operation", x)
   with
-  | Cow c -> ("correct", c)
+  | raise (Cow c) -> ("correct", c)
   end
 with
 | moo () -> raise (Cow "moo")

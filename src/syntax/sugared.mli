@@ -73,7 +73,6 @@ and comp' =
   | Handle of comp * handle_case list
   | With of comp * comp
   | Raise of comp
-  | Try of comp * match_case list
   | List of comp list
   | Tuple of comp list
   | Match of comp * match_case list

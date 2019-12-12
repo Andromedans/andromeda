@@ -29,7 +29,7 @@
 %token AS TYPE
 %token EQEQ
 
-%token EXCEPTION RAISE TRY
+%token EXCEPTION RAISE
 %token HANDLE WITH HANDLER BAR VAL
 %token SEMI
 
@@ -225,9 +225,6 @@ term_:
 
   | MATCH e=term WITH lst=match_cases END
     { Sugared.Match (e, lst) }
-
-  | TRY c=term WITH lst=match_cases END
-    { Sugared.Try (c, lst) }
 
   | HANDLE c=term WITH hcs=handler_cases END
     { Sugared.Handle (c, hcs) }

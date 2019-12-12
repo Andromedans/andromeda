@@ -162,10 +162,6 @@ let rec comp {Location.it=c'; at} =
      let exc = Runtime.as_exception ~at v in
      Runtime.raise_exception exc
 
-  | Syntax.Try (c, hnd) ->
-     let hnd = exception_handler ~at comp hnd in
-     Runtime.try_with hnd (comp c)
-
   | Syntax.Fresh (xopt, c) ->
      comp_as_is_type c >>= fun t ->
      let x = match xopt with Some x -> x | None -> Name.mk_name "x" in
@@ -397,10 +393,6 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
           fold (v :: vs) cs
      in
      fold [] cs
-
-  | Syntax.Try (c, hnd) ->
-     let hnd = exception_handler ~at (fun c -> check_judgement c bdry) hnd in
-     Runtime.try_with hnd (check_judgement c bdry)
 
   | Syntax.Let (xcs, c) ->
      let_bind ~at xcs (check_judgement c bdry)

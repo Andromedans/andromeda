@@ -316,17 +316,6 @@ let return x _env = Return x
 
 let raise_exception exc _env = Exception exc
 
-let rec try_with hnd c env =
-  match c env with
-    | Return _ as r -> r
-
-    | Exception exc -> hnd exc env
-
-    | Operation ({op_cont={cont_val; cont_exc};_} as op_data) ->
-       let cont_val = fun v -> try_with hnd (cont_val v)
-       and cont_exc = fun exc -> try_with hnd (cont_exc exc) in
-       Operation {op_data with op_cont = {cont_val; cont_exc}}
-
 let return_judgement jdg = return (Judgement jdg)
 
 let return_boundary bdry = return (Boundary bdry)

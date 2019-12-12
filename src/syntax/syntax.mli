@@ -57,7 +57,6 @@ and comp' =
   | Update of comp * comp
   | Ref of comp
   | Sequence of comp * comp
-  | Try of comp * exception_case list
   | Raise of comp
   | Fresh of Name.t option * comp
   | Match of comp * match_case list

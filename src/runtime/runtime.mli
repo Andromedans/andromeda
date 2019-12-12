@@ -206,9 +206,6 @@ val return : 'a -> 'a comp
 
 val raise_exception : exc -> 'a comp
 
-(** Handle exceptions *)
-val try_with : (exc -> 'a comp) -> 'a comp -> 'a comp
-
 (** {b Monadic shorthand} *)
 
 val return_unit : value comp

@@ -15,42 +15,42 @@ f (Cow "horn") ;;
 f Horn ;;
 f Tail ;;
 
-try
+handle
   ("foo", "bar")
 with
-| Cow s -> ("cow", s)
-| Horn when ML.true -> ("horn", "")
+| raise (Cow s) -> ("cow", s)
+| raise Horn when ML.true -> ("horn", "")
 end
 ;;
 
-try
+handle
   raise Horn
 with
-| Cow s -> ("cow", s)
-| Horn when ML.true -> ("horn", "")
+| raise (Cow s) -> ("cow", s)
+| raise Horn when ML.true -> ("horn", "")
 end
 ;;
 
-try
-  try
+handle
+  handle
     raise Tail
   with
-  | Cow s -> ("cow", s)
-  | Horn when ML.true -> ("horn", "")
+  | raise (Cow s) -> ("cow", s)
+  | raise Horn when ML.true -> ("horn", "")
   end
 with
-| Tail -> ("tail", "")
+| raise Tail -> ("tail", "")
 end
 ;;
 
-try
-  try
+handle
+  handle
     raise Tail
   with
-  | e -> raise Horn
+  | raise e -> raise Horn
   end
 with
-| Tail -> "tail"
-| Horn -> "horn"
+| raise Tail -> "tail"
+| raise Horn -> "horn"
 end
 ;;
