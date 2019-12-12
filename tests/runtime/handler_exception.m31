@@ -1,8 +1,8 @@
 exception Cow of mlstring ;;
 operation moo : mlunit -> mlstring ;;
 
-handle
-  handle
+try
+  try
      let x = moo () in
      ("operation", x)
   with

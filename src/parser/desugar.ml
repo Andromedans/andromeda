@@ -936,7 +936,7 @@ and check_linear_abstraction ~at ~forbidden = function
 let rec comp ctx {Location.it=c';at} =
   let locate x = Location.mark ~at x in
   match c' with
-  | Sugared.Handle (c, hcs) ->
+  | Sugared.Try (c, hcs) ->
      let c = comp ctx c
      and h = handler ~at ctx hcs in
      locate (Desugared.With (h, c))

@@ -15,7 +15,7 @@ f (Cow "horn") ;;
 f Horn ;;
 f Tail ;;
 
-handle
+try
   ("foo", "bar")
 with
 | raise (Cow s) -> ("cow", s)
@@ -23,7 +23,7 @@ with
 end
 ;;
 
-handle
+try
   raise Horn
 with
 | raise (Cow s) -> ("cow", s)
@@ -31,8 +31,8 @@ with
 end
 ;;
 
-handle
-  handle
+try
+  try
     raise Tail
   with
   | raise (Cow s) -> ("cow", s)
@@ -43,8 +43,8 @@ with
 end
 ;;
 
-handle
-  handle
+try
+  try
     raise Tail
   with
   | raise e -> raise Horn

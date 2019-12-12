@@ -70,7 +70,7 @@ and comp' =
   | Name of path
   | Function of ml_arg list * comp
   | Handler of handle_case list
-  | Handle of comp * handle_case list
+  | Try of comp * handle_case list
   | With of comp * comp
   | Raise of comp
   | List of comp list

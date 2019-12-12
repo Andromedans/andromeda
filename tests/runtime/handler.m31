@@ -3,14 +3,14 @@ rule A type ;;
 rule a : A ;;
 rule B type ;;
 
-handle
+try
   auto () : A
 with
 | auto () : ML.Some (?? : X) -> a
 | auto () : ML.None -> B
 end ;;
 
-handle
+try
   auto ()
 with
 | auto () : ML.Some (?? : X) -> a

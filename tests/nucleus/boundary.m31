@@ -21,7 +21,7 @@ a ≡ b : A as ?? ;;
 
 rule ξ : A ≡ B ;;
 
-handle
+try
   a :? (?? : B)
 with
   ML.coerce _ _ -> ML.Some (convert a ξ)
@@ -30,7 +30,7 @@ end ;;
 rule P (_ : A) type ;;
 rule ζ (x : A) (y : A) : P x ≡ P y ;;
 
-handle
+try
   a :? {x : A} P x ≡ P x as ??
 with
   | ML.coerce _ _ -> ML.Some ({z : A} ζ z z)

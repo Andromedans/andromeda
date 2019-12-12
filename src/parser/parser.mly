@@ -30,7 +30,7 @@
 %token EQEQ
 
 %token EXCEPTION RAISE
-%token HANDLE WITH HANDLER BAR VAL
+%token TRY WITH HANDLER BAR VAL
 %token SEMI
 
 %token NATURAL
@@ -226,8 +226,8 @@ term_:
   | MATCH e=term WITH lst=match_cases END
     { Sugared.Match (e, lst) }
 
-  | HANDLE c=term WITH hcs=handler_cases END
-    { Sugared.Handle (c, hcs) }
+  | TRY c=term WITH hcs=handler_cases END
+    { Sugared.Try (c, hcs) }
 
   | FUN xs=ml_arg+ ARROW e=term
     { Sugared.Function (xs, e) }
@@ -235,7 +235,7 @@ term_:
   | DERIVE ps=nonempty_list(premise) ARROW e=term
     { Sugared.Derive (ps, e) }
 
-  | WITH h=term HANDLE c=term
+  | WITH h=term TRY c=term
     { Sugared.With (h, c) }
 
   | HANDLER hcs=handler_cases END
