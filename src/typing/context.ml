@@ -16,11 +16,13 @@ sig
 
   val add_ml_type : Ident.t * Mlty.ty_def -> t -> t
   val add_ml_operation : Ident.t * (Mlty.ty list * Mlty.ty) -> t -> t
+  val add_ml_exception : Ident.t * Mlty.ty option -> t -> t
   val add_tt_constructor : Ident.t -> t -> t
   val add_ml_value : Mlty.ty_schema -> t -> t
 
   val get_ml_type : Path.t -> t -> Ident.t * Mlty.ty_def
   val get_ml_operation : Path.t -> t -> Ident.t * (Mlty.ty list * Mlty.ty)
+  val get_ml_exception : Path.t -> t -> Ident.t * Mlty.ty option
   val get_tt_constructor : Path.t -> t -> Ident.t
   val get_ml_value : Path.t -> t -> Mlty.ty_schema
 
@@ -60,6 +62,7 @@ struct
       ml_modules : ml_module table;
       ml_types : (Ident.t * Mlty.ty_def) table;
       ml_operations : (Ident.t * (Mlty.ty list * Mlty.ty)) table;
+      ml_exceptions : (Ident.t * Mlty.ty option) table;
       tt_constructors : Ident.t table;
       ml_values : Mlty.ty_schema table;
   }
@@ -69,6 +72,7 @@ struct
     { ml_modules = empty;
       ml_types = empty;
       ml_operations = empty;
+      ml_exceptions = empty;
       tt_constructors = empty;
       ml_values = empty
     }
@@ -102,6 +106,9 @@ struct
   let add_ml_operation info =
     at_current (fun mdl -> { mdl with ml_operations = add info mdl.ml_operations })
 
+  let add_ml_exception info =
+    at_current (fun mdl -> { mdl with ml_exceptions = add info mdl.ml_exceptions })
+
   let add_tt_constructor info =
     at_current (fun mdl -> { mdl with tt_constructors = add info mdl.tt_constructors })
 
@@ -128,6 +135,9 @@ struct
   let get_ml_operation =
     get_path (fun (Path.Level (_, k)) mdl -> get k mdl.ml_operations)
 
+  let get_ml_exception =
+    get_path (fun (Path.Level (_, k)) mdl -> get k mdl.ml_exceptions)
+
   let get_tt_constructor =
     get_path (fun (Path.Level (_, k)) mdl -> get k mdl.tt_constructors)
 
@@ -152,13 +162,11 @@ end
 
 type t = {
     table : SymbolTable.t;
-    ml_yield : (Mlty.ty * Mlty.ty) option;
     ml_bound : Mlty.ty_schema list
   }
 
 let empty = {
     table = SymbolTable.initial;
-    ml_yield = None;
     ml_bound = [];
   }
 
@@ -180,6 +188,9 @@ let lookup_ml_value pth ctx =
 let lookup_ml_operation pth ctx =
   SymbolTable.get_ml_operation pth ctx.table
 
+let lookup_ml_exception pth ctx =
+  SymbolTable.get_ml_exception pth ctx.table
+
 let lookup_tt_constructor pth ctx =
   SymbolTable.get_tt_constructor pth ctx.table
 
@@ -198,11 +209,6 @@ let lookup_ml_constructor (t_pth, Path.Level (c_name, c_lvl)) ctx =
      and out = Mlty.Apply (t_pth, List.map snd pus) in
      (c_id, ts, out)
 
-let lookup_continuation {ml_yield;_} =
-  match ml_yield with
-    | Some cont -> cont
-    | None -> assert false
-
 let add_tt_constructor c ctx =
   { ctx with table = SymbolTable.add_tt_constructor c ctx.table }
 
@@ -214,15 +220,15 @@ let add_ml_operation op opty ctx =
   let op = Ident.create op in
   { ctx with table = SymbolTable.add_ml_operation (op,opty) ctx.table }
 
+let add_ml_exception exc tyopt ctx =
+  let exc = Ident.create exc in
+  { ctx with table = SymbolTable.add_ml_exception (exc, tyopt) ctx.table }
+
 let add_bound name schema ctx =
   { ctx with ml_bound = schema :: ctx.ml_bound }
 
 let add_ml_value _name schema ctx =
   { ctx with table = SymbolTable.add_ml_value schema ctx.table }
-
-let op_cases op ~output ctx =
-  let (oid, (args, opout)) = lookup_ml_operation op ctx in
-  oid, args, { ctx with ml_yield = Some (opout, output) }
 
 let unfold ctx t_pth ts =
   match lookup_ml_type t_pth ctx with
@@ -237,15 +243,7 @@ let pop_ml_module ctx = { ctx with table = SymbolTable.pop_ml_module ctx.table }
 
 let gather_known s ctx =
   let subst = Substitution.apply s in
-  let known =
-    SymbolTable.fold_ml_values
-      (fun known (_, t) -> Mlty.MetaSet.union known (Mlty.occuring (subst t)))
-      Mlty.MetaSet.empty
-      ctx.table
-  in
-  let known = match ctx.ml_yield with
-    | Some (t1, t2) ->
-       Mlty.MetaSet.union known (Mlty.MetaSet.union (Mlty.occuring (subst t1)) (Mlty.occuring (subst t2)))
-    | None -> known
-  in
-  known
+  SymbolTable.fold_ml_values
+    (fun known (_, t) -> Mlty.MetaSet.union known (Mlty.occuring (subst t)))
+    Mlty.MetaSet.empty
+    ctx.table

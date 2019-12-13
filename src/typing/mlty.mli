@@ -28,8 +28,8 @@ type ty =
   | Arrow of ty * ty
   | Handler of ty * ty
   | Apply of Path.t * ty list
+  | Exn
   | Ref of ty
-  | Dynamic of ty
 
 (** The unit type encoded as an empty product. *)
 val unit_ty : ty

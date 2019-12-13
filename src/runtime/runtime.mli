@@ -8,12 +8,6 @@ type coercible =
   | Convertible of Nucleus.eq_type_abstraction
   | Coercible of Nucleus.is_term_abstraction
 
-(** An ML reference cell. *)
-type ml_ref
-
-(** An ML dynamic variable. *)
-type ml_dyn
-
 type ml_constructor = Ident.t
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
@@ -23,11 +17,13 @@ type value =
   | Derivation of Nucleus.derivation           (** A hypothetical derivation *)
   | Closure of (value,value) closure           (** An ML function *)
   | Handler of handler                         (** Handler value *)
+  | Exc of exc                                 (** An exception *)
   | Tag of ml_constructor * value list         (** Application of a data constructor *)
   | Tuple of value list                        (** Tuple of values *)
-  | Ref of ml_ref                              (** Ref cell *)
-  | Dyn of ml_dyn                              (** Dynamic variable *)
+  | Ref of value ref                           (** Ref cell *)
   | String of string                           (** String constant (opaque, not a list) *)
+
+and exc = Ident.t * value option
 
 and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
 
@@ -112,11 +108,11 @@ val as_closure : at:Location.t -> value -> (value,value) closure
 (** Convert, or fail with [HandlerExpected] *)
 val as_handler : at:Location.t -> value -> handler
 
-(** Convert, or fail with [RefExpected] *)
-val as_ref : at:Location.t -> value -> ml_ref
+(** Convert, or fail with [ExceptionExpected] *)
+val as_exception : at:Location.t -> value -> exc
 
-(** Convert, or fail with [DynExpected] *)
-val as_dyn : at:Location.t -> value -> ml_dyn
+(** Convert, or fail with [RefExpected] *)
+val as_ref : at:Location.t -> value -> value ref
 
 (** Convert, or fail with [StringExpected] *)
 val as_string : at:Location.t -> value -> string
@@ -174,12 +170,13 @@ type error =
   | ClosureExpected of value
   | HandlerExpected of value
   | RefExpected of value
-  | DynExpected of value
+  | ExceptionExpected of value
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvert of Nucleus.judgement_abstraction * Nucleus.eq_type_abstraction
   | InvalidCoerce of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnhandledOperation of Ident.t * value list
+  | UncaughtException of Ident.t * value option
   | InvalidPatternMatch of value
 
 (** The exception that is raised on runtime error *)
@@ -201,9 +198,13 @@ val mk_closure : (value -> value comp) -> value
 
 (** {b Monadic structure} *)
 
+(** Monadic bind *)
 val bind: 'a comp -> ('a -> 'b comp)  -> 'b comp
+
+(** Return a value *)
 val return : 'a -> 'a comp
 
+val raise_exception : exc -> 'a comp
 
 (** {b Monadic shorthand} *)
 
@@ -214,10 +215,11 @@ val return_judgement : Nucleus.judgement_abstraction -> value comp
 val return_boundary : Nucleus.boundary_abstraction -> value comp
 
 val return_closure : (value -> value comp) -> value comp
+
 val return_handler :
    (value -> value comp) option ->
    (operation_args -> value comp) Ident.map ->
-   (value -> value comp) option ->
+   (exc -> value comp) ->
    value comp
 
 (** {b Monadic interface} *)
@@ -230,22 +232,16 @@ val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 val mk_ref : value -> value comp
 
 (** A computation that dereferences the given reference cell. *)
-val lookup_ref : ml_ref -> value comp
+val lookup_ref : value ref -> value comp
 
 (** A computation that updates the given reference cell with the given value. *)
-val update_ref : ml_ref -> value -> unit comp
+val update_ref : value ref -> value -> unit comp
 
 (** A computation that invokes the specified operation. *)
 val operation : Ident.t -> ?checking:Nucleus.boundary_abstraction -> value list -> value comp
 
 (** Wrap the given computation with a handler. *)
 val handle_comp : handler -> value comp -> value comp
-
-(** Wrap the given computation with a dynamic variable binding. *)
-val now : ml_dyn -> value -> 'a comp -> 'a comp
-
-(** Lookup the current continuation. Only usable while handling an operation. *)
-val continue : value -> value comp
 
 (** Get the printing environment *)
 val lookup_penv : penv comp
@@ -272,9 +268,6 @@ val lookup_bound : Path.index -> value comp
 (** Lookup a value *)
 val lookup_ml_value : Path.t -> value comp
 
-(** Lookup the current value of a dynamic variable. *)
-val lookup_dyn : ml_dyn -> value comp
-
 (** {6 Toplevel} *)
 
 (** state environment, no operations *)
@@ -300,12 +293,6 @@ val add_ml_value : value -> unit toplevel
 
 (** Add a list of mutually recursive definitions to the toplevel environment. *)
 val add_ml_value_rec : (value -> value comp) list -> unit toplevel
-
-(** Add a dynamic variable. *)
-val add_dynamic : Name.t -> value -> unit toplevel
-
-(** Modify the value bound by a dynamic variable *)
-val top_now : ml_dyn -> value -> unit toplevel
 
 (** Extend the signature with a new rule *)
 val add_rule : Ident.t -> Nucleus.primitive -> unit toplevel
@@ -357,9 +344,6 @@ val with_env : env -> 'a comp -> 'a comp
 val top_get_env : env toplevel
 
 val get_signature : env -> Nucleus.signature
-
-(** Get the [hypotheses]. *)
-val hypotheses : ml_dyn comp
 
 (** For matching *)
 val get_bound : Path.index -> env -> value

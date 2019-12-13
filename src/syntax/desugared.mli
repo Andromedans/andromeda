@@ -9,7 +9,7 @@ and ml_ty' =
   | ML_Apply of Path.t * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
-  | ML_Dynamic of ml_ty
+  | ML_Exn
   | ML_Judgement
   | ML_Boundary
   | ML_Derivation
@@ -46,6 +46,7 @@ and pattern' =
   | Patt_BoundaryEqType of pattern * pattern
   | Patt_BoundaryEqTerm of pattern * pattern * pattern
   | Patt_MLConstructor of Path.ml_constructor * pattern list
+  | Patt_MLException of Path.t * pattern option
   | Patt_Tuple of pattern list
   | Patt_String of string
 
@@ -60,11 +61,11 @@ and comp' =
   | Tuple of comp list
   | Operation of Path.t * comp list
   | With of comp * comp
+  | MLException of Path.t * comp option
+  | Raise of comp
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
   | MLAscribe of comp * ml_schema
-  | Now of comp * comp * comp
-  | Current of comp
   | Lookup of comp
   | Update of comp * comp
   | Ref of comp
@@ -79,7 +80,6 @@ and comp' =
   | AbstractAtom of comp * comp
   | Substitute of comp * comp
   | Derive of premise list * comp
-  | Yield of comp
   | String of string
   | Occurs of comp * comp
   | Congruence of comp * comp * comp list
@@ -101,12 +101,14 @@ and letrec_clause =
   | Letrec_clause of Name.t * (Name.t * arg_annotation) * let_annotation * comp
 
 and handler = {
-  handler_val: match_case list;
+  handler_val: match_case list ;
   handler_ops: (Path.t * match_op_case list) list ;
-  handler_finally : match_case list;
+  handler_exc : exception_case list
 }
 
 and match_case = pattern * comp option * comp
+
+and exception_case = match_case
 
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = pattern list * pattern option * comp
@@ -127,12 +129,11 @@ and toplevel' =
   | DefMLType of (Path.t * (Name.t option list * ml_tydef)) list
   | DefMLTypeRec of (Path.t * (Name.t option list * ml_tydef)) list
   | DeclOperation of Path.t * (ml_ty list * ml_ty)
+  | DeclException of Path.t * ml_ty option
   | DeclExternal of Name.t * ml_schema * string
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
   | TopComputation of comp
-  | TopDynamic of Name.t * arg_annotation * comp
-  | TopNow of comp * comp
   | Verbosity of int
   | Open of Path.t
   | MLModule of Name.t * toplevel list

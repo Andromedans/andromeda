@@ -30,6 +30,9 @@ val add : t -> 'a -> 'a map -> 'a map
 (** Map the given key to its value, raise [Not_found] if the key is not found *)
 val find :  t -> 'a map -> 'a
 
+(** Map the given key to its value, return [None] if the key is not found *)
+val find_opt :  t -> 'a map -> 'a option
+
 (** Is the given key bound in the map? *)
 val mem : t -> 'a map -> bool
 
