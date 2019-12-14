@@ -201,14 +201,9 @@ and 'a continuation =
   { cont_val : value -> 'a comp
   ; cont_exc : exc -> 'a comp }
 
-
-(** Top-level handler is a list of operation cases which return [None] when they do not
-   match. *)
-type top_handler = (operation_args, value option) closure Ident.map
-
 type topenv = {
   top_runtime : env ;
-  top_handler : top_handler ;
+  top_handler : (operation_args, value) closure Ident.map ;
 }
 
 type 'a toplevel = topenv -> 'a * topenv
@@ -315,7 +310,7 @@ let rec bind r f env =
      in
      Operation {op_data with op_cont}
 
-let top_bind m f (topenv : topenv) =
+let top_bind m f topenv =
   let x, topenv = m topenv in
   f x topenv
 
@@ -972,18 +967,28 @@ let rec handle_comp {handler_val; handler_ops; handler_exc} (r : value comp) : v
           Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}
      end
 
+let top_handle ~at c ({top_handler=hnd;_} as topenv) =
+  let rec handle env = function
 
-let top_handle ~at c ({top_handler=hnd; top_runtime=env} as topenv) =
-  let r = c env in
-  match r with
-
-    | Return v -> v, topenv
+    | Return v -> v, { topenv with top_runtime=env }
 
     | Exception (exc_id, v) ->
        error ~at (UncaughtException (exc_id, v))
 
-    | Operation {op_id; op_args; _} ->
-       error ~at (UnhandledOperation (op_id, op_args))
+    | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont} ->
+       begin match Ident.find_opt op_id hnd with
+
+       | Some f_op ->
+         let env = {env with dynamic = op_dynamic_env} in
+         let r = apply_closure f_op {args=op_args; checking=op_boundary} in
+         handle env (bind_cont r op_cont env)
+
+       | None ->
+          error ~at (UnhandledOperation (op_id, op_args))
+       end
+  in
+  let r = c topenv.top_runtime in
+  handle topenv.top_runtime r
 
 (** Equality *)
 let rec equal_value v1 v2 =
