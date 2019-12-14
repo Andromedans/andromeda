@@ -9,11 +9,13 @@ type coercible =
 type ml_constructor = Ident.t
 
 (** This module defines 2 monads:
-    - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
-      Primitives are like [add_value].
+    - the computation monad [comp], providing operations and an environment of which part
+      is dynamically scoped.Primitives are like [add_value].
     - the toplevel monad [toplevel], a standard state monad with restricted accessors.
       Primitives are like [top_add_value].
-      Some modifications of the environment may only be done at the top level, for instance declaring constants.
+      Some modifications of the environment may only be done at the top level, for
+      instance declaring constants.
+
     For internal use, functions which work on the environment may be defined, eg [add_value0].
 
     Finally in a small number of restricted circumstances the environment is accessed outside the monads.
@@ -152,6 +154,7 @@ and dynamic = {
 }
 
 and lexical = {
+  (* lookup table for globally defined values *)
   table : value SymbolTable.t ;
 
   (* values to which de Bruijn indices are bound *)
@@ -198,7 +201,17 @@ and 'a continuation =
   { cont_val : value -> 'a comp
   ; cont_exc : exc -> 'a comp }
 
-type 'a toplevel = env -> 'a * env
+
+(** Top-level handler is a list of operation cases which return [None] when they do not
+   match. *)
+type top_handler = (operation_args, value option) closure Ident.map
+
+type topenv = {
+  top_runtime : env ;
+  top_handler : top_handler ;
+}
+
+type 'a toplevel = topenv -> 'a * topenv
 
 (** Error reporting *)
 type error =
@@ -302,14 +315,14 @@ let rec bind r f env =
      in
      Operation {op_data with op_cont}
 
-let top_bind m f env =
-  let x, env = m env in
-  f x env
+let top_bind m f (topenv : topenv) =
+  let x, topenv = m topenv in
+  f x topenv
 
 (** Returns *)
-let top_return x env = x, env
+let top_return x topenv = x, topenv
 
-let top_return_closure f env = mk_closure0 f env, env
+let top_return_closure f topenv = mk_closure0 f topenv.top_runtime, topenv
 
 let return x _env = Return x
 
@@ -336,10 +349,15 @@ let rec top_fold f acc = function
   | [] -> top_return acc
   | x::rem -> top_bind (f acc x) (fun acc -> top_fold f acc rem)
 
-let as_ml_module m ({lexical;_} as env) =
+let top_as_ml_module (m : unit toplevel) ({top_runtime=({lexical;_} as env);_} as topenv) =
+  (* push a new module onto the stack of currently evaluating modules *)
   let table = SymbolTable.push_ml_module lexical.table in
-  let r, env = m { env with lexical = { lexical with table } } in
-  r, { env with lexical = { lexical with table = SymbolTable.pop_ml_module env.lexical.table } }
+  (* Whatever gets defined by [m] goes to the newly started module *)
+  let r, topenv = m { topenv with top_runtime = { env with lexical = { lexical with table } } } in
+  (* seal the newly created module *)
+  let table = SymbolTable.pop_ml_module topenv.top_runtime.lexical.table in
+  (* continue in the updated module *)
+  r, { topenv with top_runtime = { topenv.top_runtime with lexical = { lexical with table }} }
 
 let name_of v =
   match v with
@@ -516,14 +534,14 @@ let get_env env = Return env
 
 let with_env env m _env' = m env
 
-let top_get_env env = env, env
+let top_get_env topenv = topenv.top_runtime, topenv
 
 let get_signature env = env.dynamic.signature
 
 let lookup_signature env =
   Return env.dynamic.signature
 
-let add_rule rname rule env =
+let top_add_rule rname rule ({top_runtime=env;_} as topenv) =
   let signature = Nucleus.Signature.add_rule rname rule env.dynamic.signature
   and penv =
     penv_forbid
@@ -532,7 +550,7 @@ let add_rule rname rule env =
      | Path.Module (_, Path.Level (name, _)) -> name
     ) env.dynamic.penv in
   let env = { env with dynamic = {signature; penv} } in
-  (), env
+  (), {topenv with top_runtime=env}
 
 let get_bound (Path.Index (_, k)) env = List.nth env.lexical.current_values k
 
@@ -581,9 +599,9 @@ let push_bound = add_bound0
 let add_ml_value0 v env =
   { env with lexical = { env.lexical with table = SymbolTable.add_ml_value v env.lexical.table } }
 
-let add_ml_value v ({lexical;_} as env) =
+let top_add_ml_value v ({top_runtime=({lexical;_} as env);_} as topenv) =
   let env = add_ml_value0 v env in
-  (), env
+  (), {topenv with top_runtime=env}
 
 let add_ml_value_rec0 lst env =
   let r = ref env in
@@ -597,34 +615,42 @@ let add_ml_value_rec0 lst env =
   r := env ;
   env
 
-let add_ml_value_rec lst env =
+let top_add_ml_value_rec lst ({top_runtime=env;_} as topenv) =
   let env = add_ml_value_rec0 lst env in
-  (), env
+  (), {topenv with top_runtime=env}
 
 (** Printers *)
 
 (** Generate a printing environment from runtime environment *)
+
 let get_penv env = env.dynamic.penv
 
-let get_nucleus_penv env =
-  mk_nucleus_penv (get_penv env)
+let top_get_penv {top_runtime;_} = get_penv top_runtime
+
+let top_get_nucleus_penv {top_runtime;_} =
+  mk_nucleus_penv (get_penv top_runtime)
 
 let lookup_penv env =
   Return (get_penv env)
 
-let top_lookup_penv env =
-  get_penv env, env
+let top_lookup_penv topenv =
+  top_get_penv topenv, topenv
 
-let top_lookup_opens env =
-  let penv = get_penv env in
-  penv.opens, env
+let top_lookup_opens topenv =
+  let penv = top_get_penv topenv in
+  penv.opens, topenv
 
-let top_open_path pth env =
-  let env = { env with dynamic = { env.dynamic with penv = penv_open pth env.dynamic.penv } } in
-  (), env
+let top_open_path pth ({top_runtime;_} as topenv) =
+  let top_runtime =
+    { top_runtime with
+      dynamic = {
+        top_runtime.dynamic with
+        penv = penv_open pth top_runtime.dynamic.penv } }
+  in
+  (), { topenv with top_runtime }
 
-let top_lookup_signature env =
-  get_signature env, env
+let top_lookup_signature topenv =
+  get_signature topenv.top_runtime, topenv
 
 (* A hack, until we have proper type-driven printing routines. At that point we should consider
    equipping type definitions with custom printers, so that not only lists but other datatypes
@@ -902,7 +928,7 @@ let print_error ~penv err ppf =
      Format.fprintf ppf "this pattern cannot match@ %t"
                     (print_value ~penv v)
 
-let empty = {
+let empty_env = {
   lexical = {
     table = SymbolTable.initial ;
     current_values = [] ;
@@ -911,6 +937,11 @@ let empty = {
     signature = Nucleus.Signature.empty ;
     penv = { forbidden = Name.set_empty ; opens = Path.set_empty } ;
   }
+}
+
+let empty = {
+  top_runtime = empty_env ;
+  top_handler = Ident.empty
 }
 
 (** Handling *)
@@ -942,11 +973,11 @@ let rec handle_comp {handler_val; handler_ops; handler_exc} (r : value comp) : v
      end
 
 
-let top_handle ~at c env =
+let top_handle ~at c ({top_handler=hnd; top_runtime=env} as topenv) =
   let r = c env in
   match r with
 
-    | Return v -> v, env
+    | Return v -> v, topenv
 
     | Exception (exc_id, v) ->
        error ~at (UncaughtException (exc_id, v))
@@ -1015,10 +1046,7 @@ let rec equal_value v1 v2 =
     | Ref _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | String _) ->
        false
 
-type topenv = env
-
 let exec m env = m env
-
 
 module Json =
 struct

@@ -27,7 +27,8 @@ let as_bool ~at v =
      else
      Runtime.(error ~at (BoolExpected v))
 
-  | Runtime.(Tag (_, _::_) | Exc _ | Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tuple _ | Ref _ | String _) ->
+  | Runtime.(Tag (_, _::_) | Exc _ | Judgement _ | Boundary _ | Derivation _ |
+             Closure _ | Handler _ | Tuple _ | Ref _ | String _) ->
      Runtime.(error ~at (BoolExpected v))
 
 let as_handler ~at v =
@@ -689,7 +690,7 @@ let toplet_bind ~at ~quiet ~print_annot info clauses =
     | [] ->
        (* parallel let: only bind at the end *)
        List.fold_left
-         (List.fold_left (fun cmp u -> Runtime.add_ml_value u >>= fun () -> cmp))
+         (List.fold_left (fun cmp u -> Runtime.top_add_ml_value u >>= fun () -> cmp))
          (return uss)
          uss
 
@@ -725,7 +726,7 @@ let topletrec_bind ~at ~quiet ~print_annot info fxcs =
       (fun (Syntax.Letrec_clause c) v -> Runtime.add_bound v (comp c))
       fxcs
   in
-  Runtime.add_ml_value_rec gs >>= fun () ->
+  Runtime.top_add_ml_value_rec gs >>= fun () ->
   if not quiet then
     (List.iter
       (fun (f, annot) ->
@@ -744,7 +745,7 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
      let rule = Nucleus.form_rule premises head in
      (if not quiet then
         Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~opens ~parentheses:false x));
-     Runtime.add_rule x rule
+     Runtime.top_add_rule x rule
 
   | Syntax.DefMLType lst
   | Syntax.DefMLTypeRec lst ->
@@ -774,7 +775,7 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
        match External.lookup s with
        | None -> Runtime.error ~at (Runtime.UnknownExternal s)
        | Some v ->
-          Runtime.add_ml_value v >>= (fun () ->
+          Runtime.top_add_ml_value v >>= (fun () ->
            if not quiet then
              Format.printf "@[<hov 2>external %t :@ %t = \"%s\"@]@."
                (Name.print x)
@@ -792,7 +793,7 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
      topletrec_bind ~at ~quiet ~print_annot info fxcs
 
   | Syntax.TopWith lst ->
-     failwith "eval TopWith"
+     failwith "TopWith"
 
   | Syntax.TopComputation (c, sch) ->
      comp_value c >>= fun v ->
@@ -808,7 +809,7 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
 
   | Syntax.MLModule (mdl_name, cmds) ->
      if not quiet then Format.printf "@[<hov 2>Processing module %t@]@." (Name.print mdl_name) ;
-     Runtime.as_ml_module (toplevels ~quiet ~print_annot cmds)
+     Runtime.top_as_ml_module (toplevels ~quiet ~print_annot cmds)
 
   | Syntax.Verbosity i -> Config.verbosity := i; return ()
 
