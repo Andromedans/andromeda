@@ -144,12 +144,11 @@ type env = {
 }
 
 and dynamic = {
-  (* Toplevel constant declarations *)
+  (* Current signature *)
   signature : Nucleus.signature;
 
   (* Current printing environment *)
   penv : penv;
-
 }
 
 and lexical = {
@@ -192,7 +191,7 @@ and operation_args = { args : value list; checking : Nucleus.boundary_abstractio
 and handler = {
   handler_val : (value, value) closure option ;
   handler_ops : (operation_args, value) closure Ident.map ;
-  handler_exc : exc -> value comp
+  handler_exc : (exc, value) closure
 }
 
 and 'a continuation =
@@ -327,7 +326,7 @@ let return_handler handler_val handler_ops handler_exc env =
   let h = {
     handler_val = option_map (fun v -> mk_closure0 v env) handler_val ;
     handler_ops = Ident.map (fun f -> mk_closure0 f env) handler_ops ;
-    handler_exc
+    handler_exc = mk_closure0 handler_exc env
   } in
   Return (Handler h)
 
@@ -350,7 +349,7 @@ let name_of v =
     | Closure _ -> "a function"
     | Handler _ -> "a handler"
     | Exc _ -> "an exception"
-    | Tag _ -> "a data tag"
+    | Tag _ -> "an ML constructor"
     | Tuple _ -> "a tuple"
     | Ref _ -> "a reference"
     | String _ -> "a string"
@@ -925,7 +924,7 @@ let rec handle_comp {handler_val; handler_ops; handler_exc} (r : value comp) : v
      end
 
   | Exception exc ->
-     handler_exc exc env
+     apply_closure handler_exc exc env
 
   | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont={cont_val; cont_exc}} ->
      let env = {env with dynamic = op_dynamic_env} in

@@ -130,6 +130,7 @@ and toplevel' =
   | DeclExternal of Name.t * Mlty.ty_schema * string
   | TopLet of (Name.t * Mlty.ty_schema) list list * let_clause list
   | TopLetRec of (Name.t * Mlty.ty_schema) list * letrec_clause list
+  | TopWith of (operation * match_op_case) list
   | TopComputation of comp * Mlty.ty_schema
   | Verbosity of int
   | Open of Path.t

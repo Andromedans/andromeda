@@ -791,6 +791,9 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
      let print_annot = print_annot () in
      topletrec_bind ~at ~quiet ~print_annot info fxcs
 
+  | Syntax.TopWith lst ->
+     failwith "eval TopWith"
+
   | Syntax.TopComputation (c, sch) ->
      comp_value c >>= fun v ->
      Runtime.top_lookup_penv >>= fun penv ->
