@@ -108,12 +108,7 @@ let rec comp {Location.it=c'; at} =
             in
             Some f
           end
-        and handler_ops = Ident.mapi (fun op cases ->
-            let f {Runtime.args=vs;checking} =
-              match_op_cases op cases vs checking
-            in
-            f)
-          handler_ops
+        and handler_ops = Ident.mapi match_op_cases handler_ops
         and handler_exc = exception_handler ~at comp handler_exc
         in
         Runtime.return_handler handler_val handler_ops handler_exc
@@ -541,20 +536,19 @@ and match_cases
   in
   fold cases
 
-and match_op_cases op cases vs checking =
-  let rec fold = function
-    | [] ->
-      Runtime.operation op ?checking vs
-    | case :: cases ->
-       match_op_case case vs checking (fold cases)
+and match_op_cases op cases =
+  let rec fold cases (Runtime.{args; checking} as op_args) =
+    match cases with
+    | [] -> Runtime.operation op ?checking args
+    | case :: cases -> match_op_case (fold cases) case op_args
   in
   fold cases
 
-and match_op_case (ps, ptopt, c) vs checking cont =
-  Matching.match_op_pattern ps ptopt vs checking >>=
+and match_op_case other (ps, ptopt, c) (Runtime.{args; checking} as op_args) =
+  Matching.match_op_pattern ps ptopt args checking >>=
     function
     | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (comp c) vs
-    | None -> cont
+    | None -> other op_args
 
 (** Run [c] and convert the result to a derivation. *)
 and comp_as_derivation c =
@@ -797,7 +791,7 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
      let rec fold = function
        | [] -> return ()
        | (op, case) :: cases ->
-          let case = match_op_case case in
+          let case other = match_op_case other case in
           Runtime.top_add_handle op case >>= fun () ->
           fold cases
      in

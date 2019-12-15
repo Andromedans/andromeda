@@ -266,7 +266,7 @@ let mk_string s = String s
 let mk_closure0 f {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical})
 
-let mk_closure f = Closure (Clos f)
+let mk_closure_external f = Closure (Clos f)
 
 let apply_closure (Clos f) v env = f v env
 
@@ -970,7 +970,7 @@ let rec handle_comp {handler_val; handler_ops; handler_exc} (r : value comp) : v
 let top_add_handle op_id op_case ({top_handler;_} as topenv) =
   let g_op =
     match Ident.find_opt op_id top_handler with
-    | None -> (??)
+    | None -> failwith "top_add_handle"
     | Some g_op -> g_op
   in
   let top_handler = Ident.add op_id (op_case g_op) top_handler in
