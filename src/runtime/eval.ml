@@ -110,7 +110,7 @@ let rec comp {Location.it=c'; at} =
           end
         and handler_ops = Ident.mapi (fun op cases ->
             let f {Runtime.args=vs;checking} =
-              match_op_cases ~at op cases vs checking
+              match_op_cases op cases vs checking
             in
             f)
           handler_ops
@@ -541,19 +541,20 @@ and match_cases
   in
   fold cases
 
-and match_op_cases ~at op cases vs checking =
+and match_op_cases op cases vs checking =
   let rec fold = function
     | [] ->
       Runtime.operation op ?checking vs
-    | (ps, ptopt, c) :: cases ->
-      Matching.match_op_pattern ps ptopt vs checking >>=
-        begin function
-        | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (comp c) vs
-        | None -> fold cases
-      end
+    | case :: cases ->
+       match_op_case case vs checking (fold cases)
   in
   fold cases
 
+and match_op_case (ps, ptopt, c) vs checking cont =
+  Matching.match_op_pattern ps ptopt vs checking >>=
+    function
+    | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (comp c) vs
+    | None -> cont
 
 (** Run [c] and convert the result to a derivation. *)
 and comp_as_derivation c =
@@ -792,8 +793,15 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
      let print_annot = print_annot () in
      topletrec_bind ~at ~quiet ~print_annot info fxcs
 
-  | Syntax.TopWith lst ->
-     failwith "TopWith"
+  | Syntax.TopWith cases ->
+     let rec fold = function
+       | [] -> return ()
+       | (op, case) :: cases ->
+          let case = match_op_case case in
+          Runtime.top_add_handle op case >>= fun () ->
+          fold cases
+     in
+     fold cases
 
   | Syntax.TopComputation (c, sch) ->
      comp_value c >>= fun v ->

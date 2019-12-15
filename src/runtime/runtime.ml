@@ -967,6 +967,16 @@ let rec handle_comp {handler_val; handler_ops; handler_exc} (r : value comp) : v
           Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}
      end
 
+let top_add_handle op_id op_case ({top_handler;_} as topenv) =
+  let g_op =
+    match Ident.find_opt op_id top_handler with
+    | None -> (??)
+    | Some g_op -> g_op
+  in
+  let top_handler = Ident.add op_id (op_case g_op) top_handler in
+  (), { topenv with top_handler }
+
+
 let top_handle ~at c ({top_handler=hnd;_} as topenv) =
   let rec handle env = function
 

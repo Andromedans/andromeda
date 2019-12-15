@@ -194,6 +194,9 @@ val error : at:Location.t -> error -> 'a
 (** computations provide a dynamically scoped environment and operations *)
 type 'a comp
 
+(** Convert a function to a closure. Only use this when the function does not access its
+    lexical scope, i.e., when it is an external OCaml function that does not care what
+    lexical environment it is run in. *)
 val mk_closure : (value -> value comp) -> value
 
 (** {b Monadic structure} *)
@@ -297,6 +300,8 @@ val top_add_ml_value_rec : (value -> value comp) list -> unit toplevel
 
 (** Extend the signature with a new rule *)
 val top_add_rule : Ident.t -> Nucleus.primitive -> unit toplevel
+
+val top_add_handle : Ident.t -> (operation_args, value) closure -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
 val top_handle : at:Location.t -> 'a comp -> 'a toplevel
