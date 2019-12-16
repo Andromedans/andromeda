@@ -70,6 +70,9 @@ let externals =
          | _ -> Runtime.(error ~at:Location.unknown (UnknownConfig s))
     ));
 
+    ("eqchk_empty_checker", (* Eq.checker *)
+     Runtime.(External (EqualityChecker Eqchk_equalizer.empty_checker)));
+
     ("exit", (* forall a, mlunit -> a *)
      Runtime.mk_closure_external (fun _ -> Stdlib.exit 0));
 

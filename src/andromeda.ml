@@ -182,8 +182,3 @@ let main =
   if !Config.interactive_shell
   then interactive_shell state
   else ()
-
-(* XXX un ugly hack to force the compiler to compile the equality checker.
-   If you see this and you are not Andrej Bauer, you may safely delete it. *)
-;;
-Eqchk_equalizer.empty_checker
