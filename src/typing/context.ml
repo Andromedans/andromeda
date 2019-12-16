@@ -202,6 +202,7 @@ let lookup_ml_type_id pth ctx = fst (lookup_ml_type pth ctx)
 let lookup_ml_constructor (t_pth, Path.Level (c_name, c_lvl)) ctx =
   match lookup_ml_type t_pth ctx with
   | _, Mlty.Alias _ -> assert false
+  | _, Mlty.Abstract _ -> assert false
   | _, Mlty.Sum (ps, cs) ->
      let (c_id, ts) = List.nth cs c_lvl in
      let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
@@ -233,6 +234,7 @@ let add_ml_value _name schema ctx =
 let unfold ctx t_pth ts =
   match lookup_ml_type t_pth ctx with
     | _, Mlty.Sum _ -> None
+    | _, Mlty.Abstract _ -> None
     | _, Mlty.Alias (ps, t) ->
        let pus = List.combine ps ts in
        Some (Mlty.instantiate pus t)

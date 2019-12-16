@@ -1615,9 +1615,9 @@ let rec toplevel' ~loading ~basedir ctx {Location.it=cmd; at} =
      let pth, ctx = Ctx.add_exception ~at exc (ml_exception_arity tyopt) ctx in
      (ctx, locate1 (Desugared.DeclException (pth, tyopt)))
 
-  | Sugared.DefMLTypeAbstract t ->
-     let t_pth, ctx = Ctx.add_ml_type ~at t (0, None) ctx in
-     (ctx, locate1 (Desugared.DefMLTypeAbstract t_pth))
+  | Sugared.DefMLTypeAbstract (t, params) ->
+     let t_pth, ctx = Ctx.add_ml_type ~at t (List.length params, None) ctx in
+     (ctx, locate1 (Desugared.DefMLTypeAbstract (t_pth, params)))
 
   | Sugared.DefMLType defs ->
      let ctx, defs = mlty_defs ~at ctx defs in

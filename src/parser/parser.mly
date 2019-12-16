@@ -145,8 +145,8 @@ top_command_:
   | WITH lst=top_operation_cases END
     { Sugared.TopWith lst }
 
-  | MLTYPE t=ml_name
-    { Sugared.DefMLTypeAbstract t }
+  | MLTYPE t=ml_name xs=list(opt_name(ml_name))
+    { Sugared.DefMLTypeAbstract (t, xs) }
 
   | MLTYPE lst=mlty_defs
     { Sugared.DefMLType lst }

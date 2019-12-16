@@ -62,6 +62,7 @@ type 'a forall = param list * 'a
 type ty_schema = ty forall
 
 type ty_def =
+  | Abstract of unit forall
   | Alias of ty forall
   | Sum of (Ident.t * ty list) list forall
 

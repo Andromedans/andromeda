@@ -903,8 +903,10 @@ let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
      Tyenv.add_tt_constructor r >>= fun () ->
      return_located ~at (Syntax.Rule (r, ps, bdry))
 
-  | Desugared.DefMLTypeAbstract t_pth ->
-     return_located ~at (Syntax.DefMLTypeAbstract t_pth)
+  | Desugared.DefMLTypeAbstract (t, params) ->
+     let params = List.map (fun _ -> Mlty.fresh_param ()) params in
+     Tyenv.add_ml_type t (Mlty.Abstract (params, ())) >>= fun () ->
+     return_located ~at (Syntax.DefMLTypeAbstract t)
 
   (* Desugar is the only place where recursion/nonrecursion matters,
      so [DefMLType] and [DefMLTypeRec] behave the same way in typechecking. *)
