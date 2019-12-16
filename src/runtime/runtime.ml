@@ -967,13 +967,16 @@ let rec handle_comp {handler_val; handler_ops; handler_exc} (r : value comp) : v
           Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}
      end
 
-let top_add_handle op_id op_case ({top_handler;_} as topenv) =
-  let g_op =
+let top_add_handle ~at op_id op_case ({top_handler; top_runtime} as topenv) =
+  let f_op =
     match Ident.find_opt op_id top_handler with
-    | None -> failwith "top_add_handle"
-    | Some g_op -> g_op
+    | None ->
+       (* the default handler just reports an unhandled operation (with the wrong location...) *)
+       mk_closure0 (fun {args;_} _env -> error ~at (UnhandledOperation (op_id, args))) top_runtime
+    | Some f_op -> f_op
   in
-  let top_handler = Ident.add op_id (op_case g_op) top_handler in
+  let f_op = mk_closure0 (op_case (apply_closure f_op)) top_runtime in
+  let top_handler = Ident.add op_id f_op top_handler in
   (), { topenv with top_handler }
 
 

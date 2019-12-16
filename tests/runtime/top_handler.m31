@@ -1,0 +1,25 @@
+operation auto : judgement ;;
+
+rule A type ;;
+rule a : A ;;
+rule B type ;;
+rule b : B ;;
+
+rule prod (X type) (Y type) type ;;
+rule pair (X type) (Y type) (x : X) (y : Y) : prod X Y ;;
+
+exception Auto_cannot_infer ;;
+
+(* this looks cool, but it's not useful at large scale because
+   one loses control over what's going on *)
+with
+| operation auto : ML.None -> raise Auto_cannot_infer
+| operation auto : ML.Some (?? : A) -> a
+| operation auto : ML.Some (?? : B) -> b
+| operation auto : ML.Some (?? : prod X Y) -> pair X Y auto auto
+end ;;
+
+(auto : A) ;;
+(auto : prod A B) ;;
+(auto : prod (prod A B) A) ;;
+auto ;;

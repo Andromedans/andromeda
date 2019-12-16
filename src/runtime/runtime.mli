@@ -302,7 +302,8 @@ val top_add_ml_value_rec : (value -> value comp) list -> unit toplevel
 val top_add_rule : Ident.t -> Nucleus.primitive -> unit toplevel
 
 val top_add_handle :
-  Ident.t -> ((operation_args, value) closure -> (operation_args, value) closure) -> unit toplevel
+  at:Location.t ->   Ident.t ->
+  ((operation_args -> value comp) -> (operation_args -> value comp)) -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
 val top_handle : at:Location.t -> 'a comp -> 'a toplevel

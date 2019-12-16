@@ -792,7 +792,7 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
        | [] -> return ()
        | (op, case) :: cases ->
           let case other = match_op_case other case in
-          Runtime.top_add_handle op case >>= fun () ->
+          Runtime.top_add_handle ~at op case >>= fun () ->
           fold cases
      in
      fold cases
