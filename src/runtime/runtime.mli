@@ -301,8 +301,11 @@ val top_add_ml_value_rec : (value -> value comp) list -> unit toplevel
 (** Extend the signature with a new rule *)
 val top_add_rule : Ident.t -> Nucleus.primitive -> unit toplevel
 
+(** A top-level handler case is handled by a map which get operation arguments
+   and computes an option. If the option is [None] then it did not match, if it
+   is [Some c] then it matched and we should proceed with computation [c]. *)
 val top_add_handle :
-  Ident.t -> ((operation_args, value) closure -> (operation_args, value) closure) -> unit toplevel
+  Ident.t -> (operation_args -> value comp option comp) -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
 val top_handle : at:Location.t -> 'a comp -> 'a toplevel

@@ -269,23 +269,20 @@ let match_pattern' sgn p v =
 
 let top_match_pattern p v =
   let (>>=) = Runtime.top_bind in
-  Runtime.top_get_env >>= fun env ->
-  let sgn = Runtime.get_signature env in
+  Runtime.top_lookup_signature >>= fun sgn ->
   let r = match_pattern' sgn p v in
   Runtime.top_return r
 
 let match_pattern p v =
   (* collect values of pattern variables *)
-  Runtime.get_env >>= fun env ->
-  let sgn = Runtime.get_signature env in
+  Runtime.lookup_signature >>= fun sgn ->
   let r = match_pattern' sgn p v in
   return r
 
 let collect_boundary_pattern = collect_pattern
 
 let match_op_pattern ps p_bdry vs bdry =
-  Runtime.get_env >>= fun env ->
-  let sgn = Runtime.get_signature env in
+  Runtime.lookup_signature >>= fun sgn ->
   let r =
     begin
       try

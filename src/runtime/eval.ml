@@ -536,19 +536,25 @@ and match_cases
   in
   fold cases
 
-and match_op_cases op cases =
-  let rec fold cases (Runtime.{args; checking} as op_args) =
+and match_op_cases op cases (Runtime.{args; checking} as op_args) =
+  let rec fold cases =
     match cases with
     | [] -> Runtime.operation op ?checking args
-    | case :: cases -> match_op_case (fold cases) case op_args
+    | case :: cases ->
+       begin match match_op_case case op_args with
+       | Some c -> c
+       | None -> fold cases
+       end
   in
   fold cases
 
-and match_op_case other (ps, ptopt, c) (Runtime.{args; checking} as op_args) =
+and match_op_case (ps, ptopt, c) (Runtime.{args; checking} as op_args) : Runtime.value Runtime.comp option =
   Matching.match_op_pattern ps ptopt args checking >>=
     function
-    | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (comp c) vs
-    | None -> other op_args
+    | Some vs ->
+       let r = List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (comp c) vs in
+       Some r
+    | None -> None
 
 (** Run [c] and convert the result to a derivation. *)
 and comp_as_derivation c =
@@ -791,8 +797,7 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
      let rec fold = function
        | [] -> return ()
        | (op, case) :: cases ->
-          let case other = match_op_case other case in
-          Runtime.top_add_handle op case >>= fun () ->
+          Runtime.top_add_handle op (match_op_case case) >>= fun () ->
           fold cases
      in
      fold cases
