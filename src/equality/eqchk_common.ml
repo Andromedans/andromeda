@@ -34,7 +34,7 @@ end
 (** Sets of integers to indicate where the heads are. *)
 module IntSet = Set.Make(struct
                           type t = int
-                          let compare = Pervasives.compare
+                          let compare = Stdlib.compare
                         end)
 
 

@@ -1,6 +1,6 @@
 (** Type-directed equality checking based on user-provided rules. *)
 
-open Eqchk_common (* sorry *)
+open Eqchk_common
 
 (** Types and functions for manipulation of rules. *)
 
