@@ -1,5 +1,5 @@
 Processing module A
-val x :> ref mlstring = ref<0>
+val x :> ref mlstring = ref "A.x"
 Processing module B
 - : mlstring = "A.x"
 - : mlstring = "A.x"

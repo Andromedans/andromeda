@@ -29,7 +29,7 @@ let rec thesis_is_type ?max_level ~penv t ppf =
 and thesis_is_term ?max_level ~penv e ppf =
   match e with
   | TermAtom {atom_nonce=x; _} ->
-     Nonce.print ~parentheses:true x ppf
+     Nonce.print ~questionmark:false ~parentheses:true x ppf
 
   | TermBoundVar k -> Name.print_debruijn_var penv.debruijn_var k ppf
 
@@ -114,7 +114,7 @@ and boundary_eq_term ?max_level ~penv ~print_head (e1, e2, t) ppf =
 and meta ?max_level ~penv mv args ppf =
   let print_mv =
     match mv with
-    | MetaFree {meta_nonce; _} -> Nonce.print ~parentheses:true meta_nonce
+    | MetaFree {meta_nonce; _} -> Nonce.print ~questionmark:true ~parentheses:true meta_nonce
     | MetaBound k -> (fun ppf -> Name.print_debruijn_meta penv.debruijn_meta k ppf)
   and print_arg arg ppf =
     Format.fprintf ppf "{%t}" (thesis_is_term ~penv arg)
@@ -169,12 +169,16 @@ and print_assumptions ?max_level ~penv {free_var; free_meta; bound_var=_; bound_
   Print.print
     ?max_level ppf "%t%s%t%s"
     (Print.sequence
-       (fun (x,t) ppf -> Print.print ppf "%t@ :@ %t" (Nonce.print ~parentheses:true x) (thesis_is_type ~max_level:Level.ascribe ~penv t))
-       "," (Nonce.map_bindings free_var))
+       (fun (x, abstr) ppf -> boundary_abstraction'
+                                ~penv:(forbid (Nonce.name x) penv)
+                                ~print_head:(Nonce.print ~questionmark:true ~parentheses:true x) abstr ppf)
+       "," (Nonce.map_bindings free_meta))
     (if empty_free_var || empty_free_meta then "" else ", ") (* XXX maybe put in something more visible than a , here, such as ; *)
     (Print.sequence
-       (fun (x, abstr) ppf -> boundary_abstraction' ~penv:(forbid (Nonce.name x) penv) ~print_head:(Nonce.print ~parentheses:true x) abstr ppf)
-       "," (Nonce.map_bindings free_meta))
+       (fun (x,t) ppf -> Print.print ppf "%t@ :@ %t"
+                           (Nonce.print ~questionmark:false ~parentheses:true x)
+                           (thesis_is_type ~max_level:Level.ascribe ~penv t))
+       "," (Nonce.map_bindings free_var))
     (if empty_free_var && empty_free_meta then "" else " ")
 
 and abstraction

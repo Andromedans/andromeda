@@ -1,0 +1,8 @@
+mltype cow ;;
+
+mltype pretty _ ;;
+
+let f (x :> pretty cow) = x ;;
+
+[f; f] ;;
+

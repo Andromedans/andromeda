@@ -1,0 +1,13 @@
+Operation auto is declared.
+Rule A is postulated.
+Rule a is postulated.
+Rule B is postulated.
+Rule b is postulated.
+Rule prod is postulated.
+Rule pair is postulated.
+Exception Auto_cannot_infer is declared.
+- : judgement = ⊢ a
+- : judgement = ⊢ pair A B a b
+- : judgement = ⊢ pair (prod A B) A (pair A B a b) a
+File "./runtime/top_handler.m31", line 25, characters 1-4:
+Runtime error: uncaught exception Auto_cannot_infer

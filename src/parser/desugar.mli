@@ -61,5 +61,4 @@ sig
   val equal_term : Path.t
   val equal_type : Path.t
   val coerce : Path.t
-  val hypotheses : Path.t
 end

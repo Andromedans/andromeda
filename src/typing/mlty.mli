@@ -28,8 +28,8 @@ type ty =
   | Arrow of ty * ty
   | Handler of ty * ty
   | Apply of Path.t * ty list
+  | Exn
   | Ref of ty
-  | Dynamic of ty
 
 (** The unit type encoded as an empty product. *)
 val unit_ty : ty
@@ -51,6 +51,7 @@ type ty_schema = ty forall
 
 (** The type of type definitions. *)
 type ty_def =
+  | Abstract of unit forall
   | Alias of ty forall
   | Sum of (Ident.t * ty list) list forall
 

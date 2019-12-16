@@ -25,8 +25,8 @@ Rule ζ is postulated.
   ((⊢ a) :: (⊢ b) :: (⊢ B type) :: [], "eqterm")
 - : list judgement * mlstring = ((⊢ a) :: (⊢ B type) :: [], "isterm")
 - : list judgement * mlstring =
-  ((?z₀ : A ⊢ ?z₀) :: (⊢ A type) :: (?z₀ : A ⊢ P ?z₀ type) ::
-   [], "abstraction")
+  ((z₀ : A ⊢ z₀) :: (⊢ A type) :: (z₀ : A ⊢ P z₀ type) :: [],
+   "abstraction")
 val test_boundary :> boundary → list judgement * list boundary * mlstring =
   <function>
 - : list judgement * list boundary * mlstring = ([], [], "istype boundary")
@@ -42,9 +42,9 @@ val test_boundary :> boundary → list judgement * list boundary * mlstring =
 - : list judgement * list boundary * mlstring =
   ((⊢ a) :: (⊢ b) :: (⊢ B type) :: [], [], "eqterm boundary")
 - : list judgement * list boundary * mlstring =
-  ((?z₁ : A ⊢ ?z₁) :: (⊢ A type) :: [], (?z₁ : A ⊢ ⁇ : P ?z₁)
-   :: [], "abstraction boundary")
+  ((z₁ : A ⊢ z₁) :: (⊢ A type) :: [], (z₁ : A ⊢ ⁇ : P z₁) ::
+   [], "abstraction boundary")
 Rule θ is postulated.
 - : list judgement * list boundary * mlstring =
-  ((?z₂ : B ⊢ ?z₂) :: (⊢ B type) :: [], (?z₂ : B ⊢ ⁇ : P ?z₂)
-   :: [], "abstraction boundary")
+  ((z₂ : B ⊢ z₂) :: (⊢ B type) :: [], (z₂ : B ⊢ ⁇ : P z₂) ::
+   [], "abstraction boundary")

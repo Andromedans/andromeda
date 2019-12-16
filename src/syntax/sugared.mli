@@ -19,7 +19,7 @@ and ml_ty' =
   | ML_TyApply of path * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
-  | ML_Dynamic of ml_ty
+  | ML_Exn
   | ML_Judgement
   | ML_Boundary
   | ML_Derivation
@@ -70,16 +70,15 @@ and comp' =
   | Name of path
   | Function of ml_arg list * comp
   | Handler of handle_case list
-  | Handle of comp * handle_case list
+  | Try of comp * handle_case list
   | With of comp * comp
+  | Raise of comp
   | List of comp list
   | Tuple of comp list
   | Match of comp * match_case list
   | Let of let_clause list  * comp
   | LetRec of letrec_clause list * comp
   | MLAscribe of comp * ml_schema
-  | Now of comp * comp * comp
-  | Current of comp
   | Lookup of comp
   | Update of comp * comp
   | Ref of comp
@@ -88,13 +87,10 @@ and comp' =
   | BoundaryAscribe of comp * comp
   | TypeAscribe of comp * comp
   | Abstract of (Name.t * comp option) list * comp
-  (* Multi-argument substitutions are *not* treated as parallel substitutions
-     but desugared to consecutive substitutions. *)
   | AbstractAtom of comp * comp
   | Substitute of comp * comp list
   | Derive of premise list * comp
   | Spine of comp * comp list
-  | Yield of comp
   | String of string
   | Congruence of comp * comp * comp list
   | Context of comp
@@ -115,15 +111,19 @@ and let_clause =
    (irrefutable) pattern. Thus, [ml_arg] should be defined using patterns in place of variable names. *)
 and letrec_clause = Name.t * ml_arg * ml_arg list * let_annotation * comp
 
-(** Handle cases *)
+(** Handler cases *)
 and handle_case =
   | CaseVal of match_case (* val p -> c *)
   | CaseOp of path * match_op_case (* op p1 ... pn -> c *)
-  | CaseFinally of match_case (* finally p -> c *)
+  | CaseExc of exception_case (* raise p -> c *)
 
 and match_case = pattern * comp option * comp
 
+and exception_case = match_case
+
 and match_op_case = pattern list * pattern option * comp
+
+and top_operation_case = path * match_op_case
 
 (** The local context of a premise to a rule. *)
 and local_context = (Name.t * comp) list
@@ -147,15 +147,16 @@ and toplevel' =
   | RuleIsTerm of Name.t * premise list * comp
   | RuleEqType of Name.t * premise list * (comp * comp)
   | RuleEqTerm of Name.t * premise list * (comp * comp * comp)
+  | DefMLTypeAbstract of Name.t * Name.t option list
   | DefMLType of (Name.t * (Name.t option list * ml_tydef)) list
   | DefMLTypeRec of (Name.t * (Name.t option list * ml_tydef)) list
   | DeclOperation of Name.t * (ml_ty list * ml_ty)
+  | DeclException of Name.t * ml_ty option
   | DeclExternal of Name.t * ml_schema * string
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
+  | TopWith of top_operation_case list
   | TopComputation of comp
-  | TopDynamic of Name.t * arg_annotation * comp
-  | TopNow of comp * comp
   | Verbosity of int
   | Require of Name.t list
   | Include of path
