@@ -203,7 +203,7 @@ and 'a continuation =
 
 type topenv = {
   top_runtime : env ;
-  top_handler : (operation_args, value comp option) closure list Ident.map ;
+  top_handler : (operation_args, value) closure Ident.map ;
 }
 
 type 'a toplevel = topenv -> 'a * topenv
@@ -647,6 +647,24 @@ let top_open_path pth ({top_runtime;_} as topenv) =
 let top_lookup_signature topenv =
   get_signature topenv.top_runtime, topenv
 
+(* A hack, until we have proper type-driven printing routines. At that point we should consider
+   equipping type definitions with custom printers, so that not only lists but other datatypes
+   can have their own printers. (And we're not going to implement Haskell classes.) *)
+(* let rec as_list_opt =
+ *   let (_, tag_nil) = Desugar.Builtin.nil
+ *   and (_, tag_cons) = Desugar.Builtin.cons in
+ *   function
+ *   | Tag (t, []) when equal_tag t tag_nil -> Some []
+ *   | Tag (t, [x;xs]) when equal_tag t tag_cons ->
+ *      begin
+ *        match as_list_opt xs with
+ *        | None -> None
+ *        | Some xs -> Some (x :: xs)
+ *      end
+ *   | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+ *      Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) ->
+ *      None *)
+
 (** In the future this routine will be type-driven. One consequence is that
     constructor tags will be printed by looking up their names in type
     definitions. *)
@@ -949,17 +967,18 @@ let rec handle_comp {handler_val; handler_ops; handler_exc} (r : value comp) : v
           Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}
      end
 
-let top_add_handle op_id op_case ({top_handler; top_runtime} as topenv) =
-  let op_cases =
+let top_add_handle op_id op_case ({top_handler;_} as topenv) =
+  let g_op =
     match Ident.find_opt op_id top_handler with
-    | None -> []
-    | Some op_cases -> op_cases
+    | None -> failwith "top_add_handle"
+    | Some g_op -> g_op
   in
-  let top_handler = Ident.add op_id (op_case :: op_cases) top_handler in
+  let top_handler = Ident.add op_id (op_case g_op) top_handler in
   (), { topenv with top_handler }
 
-let top_handle ~at c ({top_handler=hnd; top_runtime=env} as topenv) =
-  let rec handle = function
+
+let top_handle ~at c ({top_handler=hnd;_} as topenv) =
+  let rec handle env = function
 
     | Return v -> v, { topenv with top_runtime=env }
 
@@ -967,27 +986,19 @@ let top_handle ~at c ({top_handler=hnd; top_runtime=env} as topenv) =
        error ~at (UncaughtException (exc_id, v))
 
     | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont} ->
-       let args = {args=op_args; checking=op_boundary} in
-       let rec fold = function
-         | [] -> error ~at (UnhandledOperation (op_id, op_args))
-         | case :: cases ->
-             case args >>= function
-            | None -> fold cases
-            | Some c ->
-               let env = { env with dynamic = op_dynamic_env } in
-               let r = bind_cont c op_cont env in
-               handle r
-            end
-       in
-       let cases =
-         match Ident.find_opt op_id hnd with
-         | None -> []
-         | Some cases -> cases
-       in
-       fold cases
+       begin match Ident.find_opt op_id hnd with
+
+       | Some f_op ->
+         let env = {env with dynamic = op_dynamic_env} in
+         let r = apply_closure f_op {args=op_args; checking=op_boundary} in
+         handle env (bind_cont r op_cont env)
+
+       | None ->
+          error ~at (UnhandledOperation (op_id, op_args))
+       end
   in
   let r = c topenv.top_runtime in
-  handle r
+  handle topenv.top_runtime r
 
 (** Equality *)
 let rec equal_value v1 v2 =
