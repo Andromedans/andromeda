@@ -20,13 +20,13 @@ let empty_checker =
 (** The [add_XYZ] functions add a new rule, computed from the given derivation, to the
    given checker, or raise [Invalid_rule] if not possible. *)
 
-let add_type_computation checker sgn drv =
+let add_type_computation checker drv =
   { checker with
-    normalizer = Eqchk_normalizer.add_type_computation sgn checker.normalizer drv }
+    normalizer = Eqchk_normalizer.add_type_computation checker.normalizer drv }
 
-let add_term_computation checker sgn drv =
+let add_term_computation checker drv =
   { checker with
-    normalizer = Eqchk_normalizer.add_term_computation sgn checker.normalizer drv }
+    normalizer = Eqchk_normalizer.add_term_computation checker.normalizer drv }
 
 
 let add_extensionality checker sgn drv =

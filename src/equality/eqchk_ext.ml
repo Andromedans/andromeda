@@ -41,7 +41,7 @@ let make_equation sgn drv =
        and t2' = Shift_meta.is_type n_eq (extract_type bdry2opt) in
        (* check that types are equal *)
        if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then raise Invalid_rule ;
-       begin match Eqchk_pattern.make_is_type sgn (n_ob-2) t1 with
+       begin match Eqchk_pattern.make_is_type (n_ob-2) t1 with
        | Some patt ->
           let s = head_symbol_type t1 in
           (s, patt)

@@ -33,12 +33,12 @@ let find_term_computations sym {term_computations;_} =
     the exception, or raise the exception [Invalid_rule] when the derivation
     has the wrong form. *)
 
-let make_type_computation sgn drv =
+let make_type_computation drv =
   let rec fold k  = function
 
     | Nucleus_types.(Conclusion eq)  ->
        let (Nucleus_types.EqType (_asmp, t1, _t2)) = Nucleus.expose_eq_type eq in
-       begin match Eqchk_pattern.make_is_type sgn k t1 with
+       begin match Eqchk_pattern.make_is_type k t1 with
 
        | Some patt ->
           let s = head_symbol_type t1 in
@@ -62,12 +62,12 @@ let make_type_computation sgn drv =
   s, (patt, drv)
 
 
-let make_term_computation sgn drv =
+let make_term_computation drv =
   let rec fold k = function
 
     | Nucleus_types.(Conclusion eq) ->
        let (Nucleus_types.EqTerm (_asmp, e1, _e2, _t)) = Nucleus.expose_eq_term eq in
-       begin match Eqchk_pattern.make_is_term sgn k e1 with
+       begin match Eqchk_pattern.make_is_term k e1 with
 
        | Some patt ->
           let s = head_symbol_term e1 in
@@ -91,8 +91,8 @@ let make_term_computation sgn drv =
   s, (patt, drv)
 
 
-let add_type_computation sgn normalizer drv =
-  let sym, bt = make_type_computation sgn drv in
+let add_type_computation normalizer drv =
+  let sym, bt = make_type_computation drv in
   let rls =
     match find_type_computations sym normalizer with
     | None -> [bt]
@@ -101,8 +101,8 @@ let add_type_computation sgn normalizer drv =
   { normalizer with type_computations = SymbolMap.add sym rls normalizer.type_computations }
 
 
-let add_term_computation sgn normalizer drv =
-  let sym, bt = make_term_computation sgn drv in
+let add_term_computation normalizer drv =
+  let sym, bt = make_term_computation drv in
   let rls =
     match find_term_computations sym normalizer with
     | None -> [bt]

@@ -380,7 +380,7 @@ let is_range s k =
 (** Construct a pattern [p] from type [t], and verify that the pattern captures exactly
    the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
    a beta or extensionality rule. *)
-let make_is_type sgn k t =
+let make_is_type k t =
   try
     let metas, patt = form_is_type Bound_set.empty t in
     if is_range metas k then
@@ -393,7 +393,7 @@ let make_is_type sgn k t =
 (** Construct a pattern [p] from term [e], and verify that the pattern captures exactly
    the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
    a beta or extensionality rule. *)
-let make_is_term sgn k e =
+let make_is_term k e =
   try
     let metas, patt = form_is_term Bound_set.empty e in
     if is_range metas k then
