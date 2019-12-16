@@ -194,7 +194,10 @@ val error : at:Location.t -> error -> 'a
 (** computations provide a dynamically scoped environment and operations *)
 type 'a comp
 
-val mk_closure : (value -> value comp) -> value
+(** Convert an external function to a closure. Only use this when the function
+   does not access its lexical scope, i.e., when it is an external OCaml
+   function that does not care what lexical environment it is run in. *)
+val mk_closure_external : (value -> value comp) -> value
 
 (** {b Monadic structure} *)
 
@@ -270,10 +273,10 @@ val lookup_ml_value : Path.t -> value comp
 
 (** {6 Toplevel} *)
 
-(** state environment, no operations *)
-type 'a toplevel
+(** {b Monadic structure of top-level} *)
 
-(** {b Monadic structure } *)
+(** Top-level computation monad *)
+type 'a toplevel
 
 val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
 val top_return : 'a -> 'a toplevel
@@ -284,18 +287,23 @@ val top_return_closure : ('a -> 'b comp) -> ('a,'b) closure toplevel
 
 val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 
-val as_ml_module : 'a toplevel -> 'a toplevel
+(** Evaluate a top-level computation as an ML module *)
+val top_as_ml_module : unit toplevel -> unit toplevel
 
 (** {b Monadic interface} *)
 
 (** Add a bound variable with the given name to the environment. *)
-val add_ml_value : value -> unit toplevel
+val top_add_ml_value : value -> unit toplevel
 
 (** Add a list of mutually recursive definitions to the toplevel environment. *)
-val add_ml_value_rec : (value -> value comp) list -> unit toplevel
+val top_add_ml_value_rec : (value -> value comp) list -> unit toplevel
 
 (** Extend the signature with a new rule *)
-val add_rule : Ident.t -> Nucleus.primitive -> unit toplevel
+val top_add_rule : Ident.t -> Nucleus.primitive -> unit toplevel
+
+val top_add_handle :
+  at:Location.t ->   Ident.t ->
+  ((operation_args -> value comp) -> (operation_args -> value comp)) -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
 val top_handle : at:Location.t -> 'a comp -> 'a toplevel
@@ -314,17 +322,17 @@ val top_lookup_signature : Nucleus.signature toplevel
 
 (** {6 Running a toplevel computation} *)
 
-(** toplevel environment *)
+(** Toplevel environment *)
 type topenv
 
 (** The empty toplevel environment. *)
 val empty : topenv
 
 (** Get the current printing environment. *)
-val get_penv : topenv -> penv
+val top_get_penv : topenv -> penv
 
 (** Get the current printing environment for the nucleus *)
-val get_nucleus_penv : topenv -> Nucleus.print_environment
+val top_get_nucleus_penv : topenv -> Nucleus.print_environment
 
 (** Execute a toplevel command in the given environment. *)
 val exec : 'a toplevel -> topenv -> 'a * topenv

@@ -27,7 +27,8 @@ let as_bool ~at v =
      else
      Runtime.(error ~at (BoolExpected v))
 
-  | Runtime.(Tag (_, _::_) | Exc _ | Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tuple _ | Ref _ | String _) ->
+  | Runtime.(Tag (_, _::_) | Exc _ | Judgement _ | Boundary _ | Derivation _ |
+             Closure _ | Handler _ | Tuple _ | Ref _ | String _) ->
      Runtime.(error ~at (BoolExpected v))
 
 let as_handler ~at v =
@@ -107,12 +108,7 @@ let rec comp {Location.it=c'; at} =
             in
             Some f
           end
-        and handler_ops = Ident.mapi (fun op cases ->
-            let f {Runtime.args=vs;checking} =
-              match_op_cases ~at op cases vs checking
-            in
-            f)
-          handler_ops
+        and handler_ops = Ident.mapi match_op_cases handler_ops
         and handler_exc = exception_handler ~at comp handler_exc
         in
         Runtime.return_handler handler_val handler_ops handler_exc
@@ -540,19 +536,19 @@ and match_cases
   in
   fold cases
 
-and match_op_cases ~at op cases vs checking =
-  let rec fold = function
-    | [] ->
-      Runtime.operation op ?checking vs
-    | (ps, ptopt, c) :: cases ->
-      Matching.match_op_pattern ps ptopt vs checking >>=
-        begin function
-        | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (comp c) vs
-        | None -> fold cases
-      end
+and match_op_cases op cases =
+  let rec fold cases (Runtime.{args; checking} as op_args) =
+    match cases with
+    | [] -> Runtime.operation op ?checking args
+    | case :: cases -> match_op_case (fold cases) case op_args
   in
   fold cases
 
+and match_op_case other (ps, ptopt, c) (Runtime.{args; checking} as op_args) =
+  Matching.match_op_pattern ps ptopt args checking >>=
+    function
+    | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (comp c) vs
+    | None -> other op_args
 
 (** Run [c] and convert the result to a derivation. *)
 and comp_as_derivation c =
@@ -689,7 +685,7 @@ let toplet_bind ~at ~quiet ~print_annot info clauses =
     | [] ->
        (* parallel let: only bind at the end *)
        List.fold_left
-         (List.fold_left (fun cmp u -> Runtime.add_ml_value u >>= fun () -> cmp))
+         (List.fold_left (fun cmp u -> Runtime.top_add_ml_value u >>= fun () -> cmp))
          (return uss)
          uss
 
@@ -725,7 +721,7 @@ let topletrec_bind ~at ~quiet ~print_annot info fxcs =
       (fun (Syntax.Letrec_clause c) v -> Runtime.add_bound v (comp c))
       fxcs
   in
-  Runtime.add_ml_value_rec gs >>= fun () ->
+  Runtime.top_add_ml_value_rec gs >>= fun () ->
   if not quiet then
     (List.iter
       (fun (f, annot) ->
@@ -744,7 +740,13 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
      let rule = Nucleus.form_rule premises head in
      (if not quiet then
         Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~opens ~parentheses:false x));
-     Runtime.add_rule x rule
+     Runtime.top_add_rule x rule
+
+  | Syntax.DefMLTypeAbstract t ->
+     Runtime.top_lookup_opens >>= fun opens ->
+     (if not quiet then
+        Format.printf "@[<hov 2>ML type %t declared.@]@." (Path.print ~opens ~parentheses:true t)) ;
+     return ()
 
   | Syntax.DefMLType lst
   | Syntax.DefMLTypeRec lst ->
@@ -774,7 +776,7 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
        match External.lookup s with
        | None -> Runtime.error ~at (Runtime.UnknownExternal s)
        | Some v ->
-          Runtime.add_ml_value v >>= (fun () ->
+          Runtime.top_add_ml_value v >>= (fun () ->
            if not quiet then
              Format.printf "@[<hov 2>external %t :@ %t = \"%s\"@]@."
                (Name.print x)
@@ -791,6 +793,16 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
      let print_annot = print_annot () in
      topletrec_bind ~at ~quiet ~print_annot info fxcs
 
+  | Syntax.TopWith cases ->
+     let rec fold = function
+       | [] -> return ()
+       | (op, case) :: cases ->
+          let case other = match_op_case other case in
+          Runtime.top_add_handle ~at op case >>= fun () ->
+          fold cases
+     in
+     fold cases
+
   | Syntax.TopComputation (c, sch) ->
      comp_value c >>= fun v ->
      Runtime.top_lookup_penv >>= fun penv ->
@@ -805,7 +817,7 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
 
   | Syntax.MLModule (mdl_name, cmds) ->
      if not quiet then Format.printf "@[<hov 2>Processing module %t@]@." (Name.print mdl_name) ;
-     Runtime.as_ml_module (toplevels ~quiet ~print_annot cmds)
+     Runtime.top_as_ml_module (toplevels ~quiet ~print_annot cmds)
 
   | Syntax.Verbosity i -> Config.verbosity := i; return ()
 

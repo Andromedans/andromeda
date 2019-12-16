@@ -5,14 +5,14 @@ let (>>=) = Runtime.bind
 let externals =
   [
     ("print", (* forall a, a -> mlunit *)
-     Runtime.mk_closure (fun v ->
+     Runtime.mk_closure_external (fun v ->
          Runtime.lookup_penv >>= fun penv ->
          Format.printf "%t@." (Runtime.print_value ~penv v) ;
          Runtime.return_unit
     ));
 
     ("print_json", (* forall a, a -> mlunit *)
-     Runtime.mk_closure (fun v ->
+     Runtime.mk_closure_external (fun v ->
          let j = Runtime.Json.value v in
          (* Temporarily set printing depth to infinity *)
          let b = Format.get_max_boxes () in
@@ -23,7 +23,7 @@ let externals =
     ));
 
     ("compare", (* forall a, a -> a -> ML.order *)
-     Runtime.mk_closure (fun v ->
+     Runtime.mk_closure_external (fun v ->
          Runtime.return_closure (fun w ->
              try
                let c = Stdlib.compare v w in
@@ -38,7 +38,7 @@ let externals =
     ));
 
     ("time", (* forall a, mlunit -> (a -> a) *)
-     Runtime.mk_closure (fun _ ->
+     Runtime.mk_closure_external (fun _ ->
          let time0 = ref (Sys.time ()) in
          Runtime.return_closure
            (fun v ->
@@ -48,7 +48,7 @@ let externals =
     ));
 
     ("config", (* mlstring -> mlunit *)
-     Runtime.mk_closure (fun v ->
+     Runtime.mk_closure_external (fun v ->
          let s = Runtime.as_string ~at:Location.unknown v in
          match s with
          | "ascii" ->
@@ -71,10 +71,10 @@ let externals =
     ));
 
     ("exit", (* forall a, mlunit -> a *)
-     Runtime.mk_closure (fun _ -> Stdlib.exit 0));
+     Runtime.mk_closure_external (fun _ -> Stdlib.exit 0));
 
     ("magic", (* forall a b, a -> b *)
-     Runtime.mk_closure (fun v -> Runtime.return v));
+     Runtime.mk_closure_external (fun v -> Runtime.return v));
   ]
 
 let lookup s =

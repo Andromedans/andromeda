@@ -142,8 +142,11 @@ top_command_:
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
     { Sugared.TopLetRec lst }
 
-  (* | HANDLE lst=top_handler_cases END *)
-  (*   { Sugared.TopHandle lst } *)
+  | WITH lst=top_operation_cases END
+    { Sugared.TopWith lst }
+
+  | MLTYPE t=ml_name xs=list(opt_name(ml_name))
+    { Sugared.DefMLTypeAbstract (t, xs) }
 
   | MLTYPE lst=mlty_defs
     { Sugared.DefMLType lst }
@@ -565,6 +568,17 @@ handler_case:
   | op=long(op_name) ps=prefix_pattern* pt=handler_checking ARROW t=term
     { Sugared.CaseOp (op, (ps, pt, t)) }
 
+top_operation_case:
+  | OPERATION op=long(op_name) ps=prefix_pattern* pt=handler_checking ARROW t=term
+    { (op, (ps, pt, t)) }
+
+top_operation_cases:
+  | BAR lst=separated_nonempty_list(BAR, top_operation_case)
+    { lst }
+
+  | lst=separated_list(BAR, top_operation_case)
+    { lst }
+
 handler_checking:
   |
     { None }
@@ -793,8 +807,8 @@ mlty_def_body:
     { Sugared.ML_Sum lst }
 
 mlty_constructor:
-  | c=constr_name OF lst=separated_nonempty_list(WITH, mlty)
-    { (c, lst) }
+  | c=constr_name OF t=mlty
+    { (c, [t]) }
 
   | c=constr_name
     { (c, []) }

@@ -639,35 +639,39 @@ and match_cases ~at t = function
 
 and match_op_cases op cases =
   Tyenv.lookup_ml_operation op >>= fun (oid, (ts, t_out)) ->
-  let rec fold_cases cases = function
-    | [] -> return (oid, List.rev cases)
-    | (ps, popt, c) :: rem ->
-       let rec fold_args ps_out xts ps ts =
-         match ps, ts with
-
-         | [], [] ->
-            let ps_out = List.rev ps_out in
-            begin match popt with
-            | None -> return (None, xts)
-            | Some p ->
-               let t = Mlty.Apply (Desugar.Builtin.option, [Mlty.Boundary]) in
-               check_pattern p t >>= fun (p, xts_p) ->
-               return (Some p, xts @ xts_p)
-            end >>= fun (popt, xts) ->
-            Tyenv.add_bounds_mono xts
-              (check_comp c t_out >>= fun c -> return (ps_out, popt, c))
-
-         | p::ps, t::ts ->
-            check_pattern p t >>= fun (p, xts_p) ->
-            fold_args (p :: ps_out) (xts @ xts_p) ps ts
-
-         | [], _::_ | _::_, [] ->
-            assert false
-       in
-       fold_args [] [] ps ts >>= fun case ->
-       fold_cases (case :: cases) rem
+  let rec fold_cases cases' = function
+    | [] -> return (oid, List.rev cases')
+    | case :: cases ->
+       match_op_case ts t_out case >>= fun case ->
+       fold_cases (case :: cases') cases
   in
   fold_cases [] cases
+
+and match_op_case ts t_out (ps, popt, c) =
+  let rec fold_args ps_out xts ps ts =
+    match ps, ts with
+
+    | [], [] ->
+       let ps_out = List.rev ps_out in
+       begin match popt with
+       | None -> return (None, xts)
+       | Some p ->
+          let t = Mlty.Apply (Desugar.Builtin.option, [Mlty.Boundary]) in
+          check_pattern p t >>= fun (p, xts_p) ->
+          return (Some p, xts @ xts_p)
+       end >>= fun (popt, xts) ->
+       Tyenv.add_bounds_mono xts
+         (check_comp c t_out >>= fun c -> return (ps_out, popt, c))
+
+    | p::ps, t::ts ->
+       check_pattern p t >>= fun (p, xts_p) ->
+       fold_args (p :: ps_out) (xts @ xts_p) ps ts
+
+    | [], _::_ | _::_, [] ->
+       assert false
+  in
+  fold_args [] [] ps ts
+
 
 and check_comp c t =
   infer_comp c >>= fun (c, t') ->
@@ -899,6 +903,11 @@ let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
      Tyenv.add_tt_constructor r >>= fun () ->
      return_located ~at (Syntax.Rule (r, ps, bdry))
 
+  | Desugared.DefMLTypeAbstract (t, params) ->
+     let params = List.map (fun _ -> Mlty.fresh_param ()) params in
+     Tyenv.add_ml_type t (Mlty.Abstract (params, ())) >>= fun () ->
+     return_located ~at (Syntax.DefMLTypeAbstract t)
+
   (* Desugar is the only place where recursion/nonrecursion matters,
      so [DefMLType] and [DefMLTypeRec] behave the same way in typechecking. *)
   | Desugared.DefMLType tydefs ->
@@ -943,6 +952,18 @@ let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
   | Desugared.TopLetRec clauses ->
      letrec_clauses ~toplevel:true clauses (return ()) >>= fun (info, clauses, ()) ->
      return_located ~at (Syntax.TopLetRec (info, clauses))
+
+  | Desugared.TopWith lst ->
+     let rec fold lst' = function
+       | [] ->
+          let lst' = List.rev lst' in
+          return_located ~at (Syntax.TopWith lst')
+       | (op, case) :: lst ->
+          Tyenv.lookup_ml_operation op >>= fun (oid, (ts, t_out)) ->
+          match_op_case ts t_out case >>= fun case ->
+          fold ((oid, case) :: lst') lst
+     in
+     fold [] lst
 
   | Desugared.TopComputation c ->
      infer_comp c >>= fun (c, t) ->

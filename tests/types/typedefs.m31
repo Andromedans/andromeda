@@ -11,9 +11,9 @@ mltype fruit = ananas | banana
 mltype part a = ear | tail | paw of a * a | wing
 
 mltype rec rodent a =
-  | Hare of part (rodent (a * fruit)) with a with a
+  | Hare of part (rodent (a * fruit)) * a * a
   | Squirrel of part fruit * part fruit
 
 and insect =
   | Bee
-  | Ant of part fruit with rodent insect -> part (part fruit)
+  | Ant of part fruit * (rodent insect -> part (part fruit))

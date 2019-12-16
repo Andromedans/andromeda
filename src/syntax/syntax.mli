@@ -123,6 +123,7 @@ type ml_tydef =
 type toplevel = toplevel' located
 and toplevel' =
   | Rule of tt_constructor * premise list * boundary
+  | DefMLTypeAbstract of Path.t
   | DefMLType of Path.t list (* we only need the names *)
   | DefMLTypeRec of Path.t list
   | DeclOperation of Path.t * (Mlty.ty list * Mlty.ty)
@@ -130,6 +131,7 @@ and toplevel' =
   | DeclExternal of Name.t * Mlty.ty_schema * string
   | TopLet of (Name.t * Mlty.ty_schema) list list * let_clause list
   | TopLetRec of (Name.t * Mlty.ty_schema) list * letrec_clause list
+  | TopWith of (operation * match_op_case) list
   | TopComputation of comp * Mlty.ty_schema
   | Verbosity of int
   | Open of Path.t

@@ -51,6 +51,7 @@ type ty_schema = ty forall
 
 (** The type of type definitions. *)
 type ty_def =
+  | Abstract of unit forall
   | Alias of ty forall
   | Sum of (Ident.t * ty list) list forall
 
