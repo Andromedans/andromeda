@@ -742,6 +742,12 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
         Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~opens ~parentheses:false x));
      Runtime.top_add_rule x rule
 
+  | Syntax.DefMLTypeAbstract t ->
+     Runtime.top_lookup_opens >>= fun opens ->
+     (if not quiet then
+        Format.printf "@[<hov 2>ML type %t declared.@]@." (Path.print ~opens ~parentheses:true t)) ;
+     return ()
+
   | Syntax.DefMLType lst
   | Syntax.DefMLTypeRec lst ->
      Runtime.top_lookup_opens >>= fun opens ->

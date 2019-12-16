@@ -147,6 +147,7 @@ and toplevel' =
   | RuleIsTerm of Name.t * premise list * comp
   | RuleEqType of Name.t * premise list * (comp * comp)
   | RuleEqTerm of Name.t * premise list * (comp * comp * comp)
+  | DefMLTypeAbstract of Name.t
   | DefMLType of (Name.t * (Name.t option list * ml_tydef)) list
   | DefMLTypeRec of (Name.t * (Name.t option list * ml_tydef)) list
   | DeclOperation of Name.t * (ml_ty list * ml_ty)
