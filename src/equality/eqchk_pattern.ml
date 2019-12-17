@@ -173,16 +173,15 @@ and collect_argument sgn metas jdg = function
 (** Given a mapping of de Bruijn indices [0, ..., k-1] to their values, convert
    them to a list. *)
 let metas_to_list k metas =
-  let rec fold lst = function
-    | 0 -> Some lst
-    | i ->
-       let i = i - 1 in
-       begin match MetaMap.find_opt i metas with
+  let rec fold lst i =
+    if i >= k then
+      Some lst
+    else
+       match MetaMap.find_opt i metas with
        | None -> None
-       | Some x -> fold (x :: lst) i
-       end
+       | Some x -> fold (x :: lst) (i + 1)
   in
-  fold [] k
+  fold [] 0
 
 (** The [match_XYZ] functions match judgements against patterns, making sure
     to collect precisely [k] meta-variables. *)
