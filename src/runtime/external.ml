@@ -122,13 +122,13 @@ let externals =
            )));
 
     ("Eqchk_equalizer.add_extensionality",
-    Runtime.mk_closure_external (fun chk ->
-    Runtime.return_closure (fun der ->
-        let chk = Runtime.as_equality_checker ~at:Location.unknown chk
-        and drv = Runtime.as_derivation ~at:Location.unknown der in
-        let chk = Eqchk_equalizer.add_extensionality chk drv in
-        Runtime.(return (External (EqualityChecker chk)))
-      )));
+     Runtime.mk_closure_external (fun chk ->
+         Runtime.return_closure (fun der ->
+             let chk = Runtime.as_equality_checker ~at:Location.unknown chk
+             and drv = Runtime.as_derivation ~at:Location.unknown der in
+             let chk = Eqchk_equalizer.add_extensionality chk drv in
+             Runtime.(return (External (EqualityChecker chk)))
+    )));
 
     ("Eqchk_equalizer.prove_eq_type_abstraction",
      Runtime.mk_closure_external (fun chk ->
@@ -136,9 +136,27 @@ let externals =
              Runtime.lookup_signature >>= fun sgn ->
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and bdry = Runtime.as_boundary_abstraction ~at:Location.unknown bdry in
-             let eq = Eqchk_equalizer.prove_eq_type_abstraction chk sgn bdry in
-             Runtime.(return (Judgement eq))
-           )));
+             match Nucleus.as_eq_type_boundary_abstraction bdry with
+             | None -> failwith "some error about wrong use of prove_eq_type_abstraction"
+             | Some bdry ->
+                let eq = Eqchk_equalizer.prove_eq_type_abstraction chk sgn bdry in
+                let eq = Nucleus.from_eq_type_abstraction eq in
+                Runtime.(return (Judgement eq))
+    )));
+
+    ("Eqchk_equalizer.prove_eq_term_abstraction",
+     Runtime.mk_closure_external (fun chk ->
+         Runtime.return_closure (fun bdry ->
+             Runtime.lookup_signature >>= fun sgn ->
+             let chk = Runtime.as_equality_checker ~at:Location.unknown chk
+             and bdry = Runtime.as_boundary_abstraction ~at:Location.unknown bdry in
+             match Nucleus.as_eq_term_boundary_abstraction bdry with
+             | None -> failwith "some error about wrong use of prove_eq_term_abstraction"
+             | Some bdry ->
+                let eq = Eqchk_equalizer.prove_eq_term_abstraction chk sgn bdry in
+                let eq = Nucleus.from_eq_term_abstraction eq in
+                Runtime.(return (Judgement eq))
+    )));
 
   ]
 

@@ -16,3 +16,12 @@ external normalize_type : checker -> judgement -> judgement * judgement
 
 external normalize_term : checker -> judgement -> judgement * judgement 
   = "Eqchk_equalizer.normalize_term" ;;
+
+external add_extensionality : checker -> derivation -> checker
+  = "Eqchk_equalizer.add_extensionality" ;;
+
+external prove_eq_type_abstraction : checker -> boundary -> judgement
+  = "Eqchk_equalizer.prove_eq_type_abstraction" ;;
+
+external prove_eq_term_abstraction : checker -> boundary -> judgement
+  = "Eqchk_equalizer.prove_eq_term_abstraction" ;;

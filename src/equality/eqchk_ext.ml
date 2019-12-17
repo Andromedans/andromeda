@@ -34,11 +34,11 @@ let make_equation drv =
 
     | Nucleus_types.(Conclusion eq) ->
        let (Nucleus_types.EqTerm (_asmp, e1, e2, t)) = Nucleus.expose_eq_term eq in
-       check_meta (n_ob-1) e1 ; (* check LHS *)
-       check_meta n_ob e2 ; (* check RHS *)
+       check_meta (n_eq+1) e1 ; (* check LHS *)
+       check_meta n_eq e2 ; (* check RHS *)
        let t1 = extract_type bdry1opt in
-       let t1' = Shift_meta.is_type (n_eq+1) t1
-       and t2' = Shift_meta.is_type n_eq (extract_type bdry2opt) in
+       let t1' = Shift_meta.is_type (n_eq+2) t1
+       and t2' = Shift_meta.is_type (n_eq+1) (extract_type bdry2opt) in
        (* check that types are equal *)
        if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then raise Invalid_rule ;
        begin match Eqchk_pattern.make_is_type (n_ob-2) t1 with
