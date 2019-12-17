@@ -22,9 +22,9 @@ val prove_eq_term_abstraction :
   checker -> Nucleus.signature -> Nucleus.eq_term_boundary Nucleus.abstraction -> Nucleus.eq_term_abstraction
 
 (** Normalize a type *)
-val normal_type :
+val normalize_type :
   checker -> Nucleus.signature -> Nucleus.is_type -> Nucleus.eq_type * Nucleus.is_type
 
 (** Normalize a term *)
-val normal_term :
+val normalize_term :
   checker -> Nucleus.signature -> Nucleus.is_term -> Nucleus.eq_term * Nucleus.is_term
