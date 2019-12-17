@@ -104,3 +104,77 @@ let as_is_type_rule = convert_rule as_is_type
 let as_is_term_rule = convert_rule as_is_term
 let as_eq_type_rule = convert_rule as_eq_type
 let as_eq_term_rule = convert_rule as_eq_term
+
+(** Conversion from abstracted general boundaries to particular ones *)
+
+let as_is_type_boundary = function
+  | BoundaryIsType () -> Some ()
+  | BoundaryIsTerm _ | BoundaryEqType _ | BoundaryEqTerm _ -> None
+
+let as_is_term_boundary = function
+  | BoundaryIsTerm t -> Some t
+  | BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _ -> None
+
+let as_eq_type_boundary = function
+  | BoundaryEqType eq -> Some eq
+  | BoundaryIsType _ | BoundaryIsTerm _ | BoundaryEqTerm _ -> None
+
+let as_eq_term_boundary = function
+  | BoundaryEqTerm eq -> Some eq
+  | BoundaryIsType _ | BoundaryIsTerm _ | BoundaryEqType _ -> None
+
+let as_is_type_boundary_abstraction abstr =
+  try
+    Some
+      (convert
+         (function
+          | BoundaryIsType () -> ()
+          | BoundaryIsTerm _ | BoundaryEqType _ | BoundaryEqTerm _ -> raise ConversionError)
+         abstr)
+  with
+  | ConversionError -> None
+
+let as_is_term_boundary_abstraction abstr =
+  try
+    Some
+      (convert
+         (function
+          | BoundaryIsTerm t -> t
+          | BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _ -> raise ConversionError)
+         abstr)
+  with
+  | ConversionError -> None
+
+let as_eq_type_boundary_abstraction abstr =
+  try
+    Some
+      (convert
+         (function
+          | BoundaryEqType eq -> eq
+          | BoundaryIsType _ | BoundaryIsTerm _ | BoundaryEqTerm _ -> raise ConversionError)
+         abstr)
+  with
+  | ConversionError -> None
+
+let as_eq_term_boundary_abstraction abstr =
+  try
+    Some
+      (convert
+         (function
+          | BoundaryEqTerm eq -> eq
+          | BoundaryIsType _ | BoundaryIsTerm _ | BoundaryEqType _ -> raise ConversionError)
+         abstr)
+  with
+  | ConversionError -> None
+
+let from_is_type_boundary_abstraction abstr =
+  convert (fun t -> BoundaryIsType t) abstr
+
+let from_is_term_boundary_abstraction abstr =
+  convert (fun t -> BoundaryIsTerm t) abstr
+
+let from_eq_type_boundary_abstraction abstr =
+  convert (fun t -> BoundaryEqType t) abstr
+
+let from_eq_term_boundary_abstraction abstr =
+  convert (fun t -> BoundaryEqTerm t) abstr

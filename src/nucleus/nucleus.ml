@@ -109,6 +109,8 @@ let as_not_abstract = Invert.as_not_abstract
 let atom_name = Invert.atom_name
 let atom_nonce {atom_nonce;_} = atom_nonce
 
+(** Coercions *)
+
 let as_is_type_abstraction = Coerce.as_is_type_abstraction
 let as_is_term_abstraction = Coerce.as_is_term_abstraction
 let as_eq_type_abstraction = Coerce.as_eq_type_abstraction
@@ -119,10 +121,30 @@ let as_is_term = Coerce.as_is_term
 let as_eq_type = Coerce.as_eq_type
 let as_eq_term = Coerce.as_eq_term
 
+let from_is_type_abstraction = Coerce.from_is_type_abstraction
+let from_is_term_abstraction = Coerce.from_is_term_abstraction
+let from_eq_type_abstraction = Coerce.from_eq_type_abstraction
+let from_eq_term_abstraction = Coerce.from_eq_term_abstraction
+
 let as_is_type_rule = Coerce.as_is_type_rule
 let as_is_term_rule = Coerce.as_is_term_rule
 let as_eq_type_rule = Coerce.as_eq_type_rule
 let as_eq_term_rule = Coerce.as_eq_term_rule
+
+let as_is_type_boundary_abstraction = Coerce.as_is_type_boundary_abstraction
+let as_is_term_boundary_abstraction = Coerce.as_is_term_boundary_abstraction
+let as_eq_type_boundary_abstraction = Coerce.as_eq_type_boundary_abstraction
+let as_eq_term_boundary_abstraction = Coerce.as_eq_term_boundary_abstraction
+
+let as_is_type_boundary = Coerce.as_is_type_boundary
+let as_is_term_boundary = Coerce.as_is_term_boundary
+let as_eq_type_boundary = Coerce.as_eq_type_boundary
+let as_eq_term_boundary = Coerce.as_eq_term_boundary
+
+let from_is_type_boundary_abstraction = Coerce.from_is_type_boundary_abstraction
+let from_is_term_boundary_abstraction = Coerce.from_is_term_boundary_abstraction
+let from_eq_type_boundary_abstraction = Coerce.from_eq_type_boundary_abstraction
+let from_eq_term_boundary_abstraction = Coerce.from_eq_term_boundary_abstraction
 
 let context_is_type_abstraction = Collect_assumptions.context_of_abstraction Collect_assumptions.is_type
 let context_is_term_abstraction = Collect_assumptions.context_of_abstraction Collect_assumptions.is_term

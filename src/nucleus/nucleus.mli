@@ -204,6 +204,8 @@ val fresh_atom : Name.t -> is_type -> is_atom
 (** Verify that an abstraction is in fact not abstract. *)
 val as_not_abstract : 'a abstraction -> 'a option
 
+(** Various coercion functions between general and specific forms *)
+
 val as_is_type_abstraction : judgement_abstraction -> is_type abstraction option
 val as_is_term_abstraction : judgement_abstraction -> is_term abstraction option
 val as_eq_type_abstraction : judgement_abstraction -> eq_type abstraction option
@@ -213,6 +215,26 @@ val as_is_type : judgement -> is_type option
 val as_is_term : judgement -> is_term option
 val as_eq_type : judgement -> eq_type option
 val as_eq_term : judgement -> eq_term option
+
+val from_is_type_abstraction : is_type_abstraction -> judgement_abstraction
+val from_is_term_abstraction : is_term_abstraction -> judgement_abstraction
+val from_eq_type_abstraction : eq_type_abstraction -> judgement_abstraction
+val from_eq_term_abstraction : eq_term_abstraction -> judgement_abstraction
+
+val as_is_type_boundary_abstraction : boundary_abstraction -> is_type_boundary abstraction option
+val as_is_term_boundary_abstraction : boundary_abstraction -> is_term_boundary abstraction option
+val as_eq_type_boundary_abstraction : boundary_abstraction -> eq_type_boundary abstraction option
+val as_eq_term_boundary_abstraction : boundary_abstraction -> eq_term_boundary abstraction option
+
+val as_is_type_boundary : boundary -> is_type_boundary option
+val as_is_term_boundary : boundary -> is_term_boundary option
+val as_eq_type_boundary : boundary -> eq_type_boundary option
+val as_eq_term_boundary : boundary -> eq_term_boundary option
+
+val from_is_type_boundary_abstraction : is_type_boundary abstraction -> boundary_abstraction
+val from_is_term_boundary_abstraction : is_term_boundary abstraction -> boundary_abstraction
+val from_eq_type_boundary_abstraction : eq_type_boundary abstraction -> boundary_abstraction
+val from_eq_term_boundary_abstraction : eq_term_boundary abstraction -> boundary_abstraction
 
 (** Convert the conclusion of a rule from a judgement to a type, if possible. *)
 val as_is_type_rule : derivation -> is_type rule option
