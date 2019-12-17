@@ -1,0 +1,18 @@
+(* Equality checking *)
+
+mltype checker ;;
+
+external empty : checker
+  = "Eqchk_equalizer.empty_checker" ;;
+
+external add_type_computation : checker -> derivation -> checker
+  = "Eqchk_equalizer.add_type_computation" ;;
+
+external add_term_computation : checker -> derivation -> checker
+  = "Eqchk_equalizer.add_term_computation" ;;
+
+external normalize_type : checker -> judgement -> judgement * judgement 
+  = "Eqchk_equalizer.normalize_type" ;;
+
+external normalize_term : checker -> judgement -> judgement * judgement 
+  = "Eqchk_equalizer.normalize_term" ;;
