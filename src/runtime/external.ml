@@ -86,9 +86,6 @@ let externals =
      (??));
   ]
 
-
-  ]
-
 let lookup s =
   try
     Some (List.assoc s externals)

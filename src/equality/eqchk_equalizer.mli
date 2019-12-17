@@ -28,6 +28,3 @@ val normal_type :
 (** Normalize a term *)
 val normal_term :
   checker -> Nucleus.signature -> Nucleus.is_term -> Nucleus.eq_term * Nucleus.is_term
-
-(** Interface to AML *)
-val externals : (string * Runtime.value) list
