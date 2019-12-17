@@ -8,7 +8,7 @@ type equation =
   ; ext_rule : Nucleus.eq_term Nucleus.rule (* the associated rule *)
   }
 
-let make_equation sgn drv =
+let make_equation drv =
 
   (* Check that e is the bound meta-variable k *)
   let check_meta k = function

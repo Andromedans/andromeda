@@ -29,8 +29,8 @@ let add_term_computation checker drv =
     normalizer = Eqchk_normalizer.add_term_computation checker.normalizer drv }
 
 
-let add_extensionality checker sgn drv =
-  let sym, bt = Eqchk_ext.make_equation sgn drv in
+let add_extensionality checker drv =
+  let sym, bt = Eqchk_ext.make_equation drv in
   let rls =
     match SymbolMap.find_opt sym checker.ext_rules with
     | None -> [bt]

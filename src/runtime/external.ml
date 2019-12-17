@@ -70,14 +70,23 @@ let externals =
          | _ -> Runtime.(error ~at:Location.unknown (UnknownConfig s))
     ));
 
-    ("Eqchk_equalizer.empty_checker",
-     Runtime.(External (EqualityChecker Eqchk_equalizer.empty_checker)));
-
     ("exit", (* forall a, mlunit -> a *)
      Runtime.mk_closure_external (fun _ -> Stdlib.exit 0));
 
     ("magic", (* forall a b, a -> b *)
      Runtime.mk_closure_external (fun v -> Runtime.return v));
+
+    ("Eqchk_equalizer.empty_checker",
+     Runtime.(External (EqualityChecker Eqchk_equalizer.empty_checker)));
+
+    ("Eqchk_equalizer.empty_checker",
+     Runtime.(External (EqualityChecker Eqchk_equalizer.empty_checker)));
+
+    ("Eqchk_equalizer.add_type_computation",
+     (??));
+  ]
+
+
   ]
 
 let lookup s =
