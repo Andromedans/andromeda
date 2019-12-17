@@ -266,6 +266,7 @@ let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
 let mk_tuple lst = Tuple lst
 let mk_string s = String s
+let mk_external v = External v
 
 let mk_closure0 f {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical})
@@ -518,6 +519,18 @@ let as_string ~at = function
   | (Judgement _ | Boundary _ | Derivation _ | External _ |
      Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _) as v ->
     error ~at (StringExpected v)
+
+let as_external ~at = function
+  | External v -> v
+  | (Judgement _ | Boundary _ | Derivation _ | String _ |
+     Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _) as v ->
+    error ~at (StringExpected v)
+
+let as_equality_checker ~at v =
+  let v = as_external ~at v in
+  match v with 
+  | EqualityChecker chk -> chk
+  
 
 (** Operations *)
 
