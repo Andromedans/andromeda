@@ -73,6 +73,9 @@ let externals =
     ("Eqchk_equalizer.empty_checker",
      Runtime.(External (EqualityChecker Eqchk_equalizer.empty_checker)));
 
+    ("Eqchk_equalizer.add_type_computation",
+     Runtime.mk_closure_external( fun chk der -> External (EqualityChecker Eqchk_equalizer.add_type_computation chk der)));
+
     ("exit", (* forall a, mlunit -> a *)
      Runtime.mk_closure_external (fun _ -> Stdlib.exit 0));
 
