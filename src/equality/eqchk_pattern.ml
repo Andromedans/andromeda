@@ -227,13 +227,13 @@ let extract_meta metas abstr =
 
        | Nucleus_types.JudgementIsTerm e ->
           begin match e with
-          | Nucleus_types.(TermMeta (MetaBound k, es)) ->
+          | Nucleus_types.(TermMeta (MetaBound m, es)) ->
              check_es k es ;
-             if Bound_set.mem k metas then
-               metas, Patt.ArgumentIsTerm (Patt.TermCheckMeta k)
+             if Bound_set.mem m metas then
+               metas, Patt.ArgumentIsTerm (Patt.TermCheckMeta m)
              else
-               let metas = Bound_set.add k metas in
-               metas, Patt.ArgumentIsTerm (Patt.TermAddMeta k)
+               let metas = Bound_set.add m metas in
+               metas, Patt.ArgumentIsTerm (Patt.TermAddMeta m)
 
           | Nucleus_types.(TermMeta (MetaFree _, _) | TermBoundVar _ | TermAtom _ |
                            TermConstructor _ | TermConvert _) ->
@@ -243,13 +243,13 @@ let extract_meta metas abstr =
 
        | Nucleus_types.JudgementIsType t ->
           begin match t with
-          | Nucleus_types.(TypeMeta (MetaBound k, es)) ->
+          | Nucleus_types.(TypeMeta (MetaBound m, es)) ->
              check_es k es ;
-             if Bound_set.mem k metas then
-               metas, Patt.ArgumentIsType (Patt.TypeCheckMeta k)
+             if Bound_set.mem m metas then
+               metas, Patt.ArgumentIsType (Patt.TypeCheckMeta m)
              else
-               let metas = Bound_set.add k metas in
-               metas, Patt.ArgumentIsType (Patt.TypeAddMeta k)
+               let metas = Bound_set.add m metas in
+               metas, Patt.ArgumentIsType (Patt.TypeAddMeta m)
 
           | Nucleus_types.(TypeMeta (MetaFree _, _) | TypeConstructor _) ->
              raise Form_fail
@@ -372,7 +372,8 @@ and form_argument metas = function
 let is_range s k =
   let rec scan = function
     | 0 -> true
-    | k -> Bound_set.mem (k-1) s && scan (k-1)
+    | k -> 
+    Bound_set.mem (k-1) s && scan (k-1)
   in
   Bound_set.cardinal s = k && scan k
 
