@@ -67,6 +67,9 @@ val mk_string : string -> value
 
 (** {b Value extraction} *)
 
+(** Convert to an equality checker, or fail with [EqualityCheckerExcpected] *)
+val as_equality_checker : at:Location.t -> value -> Eqchk_equalizer.checker
+
 (** Convert to a derivation, or fail with [DerivationExpected] *)
 val as_derivation : at:Location.t -> value -> Nucleus.derivation
 
@@ -170,6 +173,7 @@ type error =
   | AbstractionExpected
   | JudgementExpected of value
   | JudgementOrBoundaryExpected of value
+  | EqualityCheckerExpected of value
   | DerivationExpected of value
   | ClosureExpected of value
   | HandlerExpected of value

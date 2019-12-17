@@ -1,6 +1,6 @@
 (** Type-directed equality checking based on user-provided rules. *)
 
-open Eqchk_common (* sorry *)
+open Eqchk_common
 
 (** Types and functions for manipulation of rules. *)
 
@@ -29,8 +29,8 @@ let add_term_computation checker drv =
     normalizer = Eqchk_normalizer.add_term_computation checker.normalizer drv }
 
 
-let add_extensionality checker sgn drv =
-  let sym, bt = Eqchk_ext.make_equation sgn drv in
+let add_extensionality checker drv =
+  let sym, bt = Eqchk_ext.make_equation drv in
   let rls =
     match SymbolMap.find_opt sym checker.ext_rules with
     | None -> [bt]
@@ -145,11 +145,11 @@ and prove_boundary_abstraction chk sgn bdry =
   prove bdry
 
 (** The exported form of normalization for types *)
-let normal_type chk sgn t =
+let normalize_type chk sgn t =
   let eq, Normal t = Eqchk_normalizer.normalize_type sgn chk.normalizer t in
   eq, t
 
 (** The exported form of normalization for terms *)
-let normal_term chk sgn e =
+let normalize_term chk sgn e =
   let eq, Normal e = Eqchk_normalizer.normalize_term sgn chk.normalizer e in
   eq, e

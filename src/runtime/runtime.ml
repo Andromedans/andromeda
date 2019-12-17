@@ -239,6 +239,7 @@ type error =
   | AbstractionExpected
   | JudgementExpected of value
   | JudgementOrBoundaryExpected of value
+  | EqualityCheckerExpected of value
   | DerivationExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
@@ -377,6 +378,12 @@ let name_of v =
     | External v -> name_of_external v
 
 (** Coerce values *)
+
+let as_equality_checker ~at = function
+  | External (EqualityChecker chk) -> chk
+
+  | (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+    error ~at (EqualityCheckerExpected v)
 
 let as_derivation ~at = function
   | Derivation drv -> drv
@@ -906,6 +913,9 @@ let print_error ~penv err ppf =
 
   | DerivationExpected v ->
      Format.fprintf ppf "expected a derivation but got %s" (name_of v)
+
+  | EqualityCheckerExpected v ->
+     Format.fprintf ppf "expected an equality checker but got %s" (name_of v)
 
   | ClosureExpected v ->
      Format.fprintf ppf "expected a function but got %s" (name_of v)
