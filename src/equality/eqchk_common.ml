@@ -1,16 +1,3 @@
-(* XXX hack, delete *)
-let penv = Nucleus.{
-      forbidden = Name.set_empty ;
-      opens = Path.set_empty ;
-      debruijn_var = [] ;
-      debruijn_meta = [] }
-
-let penv' = Nucleus_types.{
-      forbidden = Name.set_empty ;
-      opens = Path.set_empty ;
-      debruijn_var = [] ;
-      debruijn_meta = [] }
-
 (** Types for pattern matching *)
 module Patt =
 struct
