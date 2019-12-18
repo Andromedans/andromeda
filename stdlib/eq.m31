@@ -2,6 +2,8 @@
 
 mltype checker ;;
 
+exception Invalid_equality_rule ;;
+
 external empty : checker
   = "Eqchk.empty_checker" ;;
 
@@ -10,6 +12,9 @@ external add_type_computation : checker -> derivation -> ML.option checker
 
 external add_term_computation : checker -> derivation -> ML.option checker
   = "Eqchk.add_term_computation" ;;
+
+external add : checker -> derivation -> ML.option checker
+  = "Eqchk.add" ;;
 
 external normalize_type : checker -> judgement -> judgement * judgement
   = "Eqchk.normalize_type" ;;
@@ -20,8 +25,8 @@ external normalize_term : checker -> judgement -> judgement * judgement
 external add_extensionality : checker -> derivation -> ML.option checker
   = "Eqchk.add_extensionality" ;;
 
-external prove_eq_type_abstraction : checker -> boundary -> ML.option judgement
+external prove_eqtype_abstraction : checker -> boundary -> ML.option judgement
   = "Eqchk.prove_eq_type_abstraction" ;;
 
-external prove_eq_term_abstraction : checker -> boundary -> ML.option judgement
+external prove_eqterm_abstraction : checker -> boundary -> ML.option judgement
   = "Eqchk.prove_eq_term_abstraction" ;;

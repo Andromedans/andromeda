@@ -98,6 +98,7 @@ let add_type_computation normalizer drv =
     | None -> [bt]
     | Some rls -> rls @ [bt]
   in
+  sym, bt,
   { normalizer with type_computations = SymbolMap.add sym rls normalizer.type_computations }
 
 
@@ -108,6 +109,7 @@ let add_term_computation normalizer drv =
     | None -> [bt]
     | Some rls -> rls @ [bt]
   in
+  sym, bt,
   { normalizer with term_computations = SymbolMap.add sym rls normalizer.term_computations }
 
 let set_type_heads nrm sym heads =

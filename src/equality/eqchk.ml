@@ -20,19 +20,31 @@ let empty_checker =
 (** The [add_XYZ] functions add a new rule, computed from the given derivation, to the
    given checker, or raise [Invalid_rule] if not possible. *)
 
-let add_type_computation checker drv =
+let add_type_computation' checker drv =
   try
-    Some { checker with normalizer = Eqchk_normalizer.add_type_computation checker.normalizer drv }
+    let sym, bt, normalizer = Eqchk_normalizer.add_type_computation checker.normalizer drv in
+    Some (sym, {checker with normalizer})
+  with
+    Invalid_rule -> None
+
+let add_type_computation checker drv =
+  match add_type_computation' checker drv with
+  | None -> None
+  | Some (_, checker) -> Some checker
+
+let add_term_computation' checker drv =
+  try
+    let sym, bt, normalizer = Eqchk_normalizer.add_term_computation checker.normalizer drv in
+    Some (sym, {checker with normalizer})
   with
     Invalid_rule -> None
 
 let add_term_computation checker drv =
-  try
-    Some { checker with normalizer = Eqchk_normalizer.add_term_computation checker.normalizer drv }
-  with
-    Invalid_rule -> None
+  match add_term_computation' checker drv with
+  | None -> None
+  | Some (_, checker) -> Some checker
 
-let add_extensionality checker drv =
+let add_extensionality' checker drv =
   try
     let sym, bt = Eqchk_extensionality.make_equation drv in
     let rls =
@@ -40,9 +52,14 @@ let add_extensionality checker drv =
       | None -> [bt]
       | Some rls -> rls @ [bt]
     in
-    Some { checker with ext_rules = SymbolMap.add sym rls checker.ext_rules }
+    Some (sym, {checker with ext_rules = SymbolMap.add sym rls checker.ext_rules})
   with
   | Invalid_rule -> None
+
+let add_extensionality checker drv =
+  match add_extensionality' checker drv with
+  | None -> None
+  | Some (_, checker) -> Some checker
 
 (** General equality checking functions *)
 
@@ -177,5 +194,35 @@ let set_type_heads ({normalizer; _} as chk) s hs =
 let set_term_heads ({normalizer; _} as chk) s hs =
   { chk with normalizer = Eqchk_normalizer.set_term_heads normalizer (Ident s) hs }
 
-let add ~quiet chk drv =
-  failwith "add"
+let add ~quiet ~penv chk drv =
+  match add_extensionality' chk drv with
+
+  | Some (sym, chk) ->
+     if not quiet then
+       Format.printf "Extensionality rule for %t:@ %t@."
+         (print_symbol ~penv sym)
+         (Nucleus.print_derivation ~penv drv) ;
+     Some chk
+
+  | None ->
+     begin match add_type_computation' chk drv with
+
+     | Some (sym, chk) ->
+        if not quiet then
+          Format.printf "Type computation rule for %t:@ %t@."
+            (print_symbol ~penv sym)
+            (Nucleus.print_derivation ~penv drv) ;
+        Some chk
+
+     | None ->
+        begin match add_term_computation' chk drv with
+          | Some (sym, chk) ->
+             if not quiet then
+               Format.printf "Term computation rule for %t:@ %t@."
+                 (print_symbol ~penv sym)
+                 (Nucleus.print_derivation ~penv drv) ;
+             Some chk
+
+          | None -> None
+        end
+     end

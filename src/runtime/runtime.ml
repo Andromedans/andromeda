@@ -644,6 +644,10 @@ let top_get_nucleus_penv {top_runtime;_} =
 let lookup_penv env =
   Return (get_penv env)
 
+let lookup_nucleus_penv env =
+  let penv = mk_nucleus_penv (get_penv env) in
+  Return penv
+
 let top_lookup_penv topenv =
   top_get_penv topenv, topenv
 

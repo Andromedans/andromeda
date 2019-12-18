@@ -257,6 +257,9 @@ val handle_comp : handler -> value comp -> value comp
 (** Get the printing environment *)
 val lookup_penv : penv comp
 
+(** Get the printing environment *)
+val lookup_nucleus_penv : Nucleus.print_environment comp
+
 (** Gets the current rules of inference. *)
 val lookup_signature : Nucleus.signature comp
 

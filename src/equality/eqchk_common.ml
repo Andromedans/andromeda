@@ -52,6 +52,11 @@ exception Normalization_fail
 (** A tag to indicate that a term or a type is normalized *)
 type 'a normal = Normal of 'a
 
+let print_symbol ~penv sym ppf =
+  match sym with
+  | Ident x -> Ident.print ~opens:penv.Nucleus.opens ~parentheses:false x ppf
+  | Nonce n -> Nonce.print ~questionmark:false ~parentheses:false n ppf
+
 let compare_symbol x y =
   match x, y with
   | Ident _, Nonce _ -> -1

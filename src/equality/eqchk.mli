@@ -21,7 +21,7 @@ val set_term_heads : checker -> Ident.t -> int list -> checker
 
 (** The user-friendly interface, which figures out which kind of rule we are
    adding, and it guesses the heads. *)
-val add : quiet:bool -> checker -> Nucleus.derivation -> checker option
+val add : quiet:bool -> penv:Nucleus.print_environment -> checker -> Nucleus.derivation -> checker option
 
 (** Prove an abstracted type equality *)
 val prove_eq_type_abstraction :

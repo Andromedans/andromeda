@@ -133,6 +133,17 @@ let externals =
              | None -> Runtime.return (Reflect.mk_option None)
     )));
 
+    ("Eqchk.add",
+     Runtime.mk_closure_external (fun chk ->
+         Runtime.return_closure (fun der ->
+             Runtime.lookup_nucleus_penv >>= fun penv ->
+             let chk = Runtime.as_equality_checker ~at:Location.unknown chk
+             and drv = Runtime.as_derivation ~at:Location.unknown der in
+             match Eqchk.add ~quiet:false ~penv chk drv with
+             | Some chk -> Runtime.return (Reflect.mk_option (Some Runtime.(External (EqualityChecker chk))))
+             | None -> Runtime.return (Reflect.mk_option None)
+    )));
+
     ("Eqchk.prove_eq_type_abstraction",
      Runtime.mk_closure_external (fun chk ->
          Runtime.return_closure (fun bdry ->
@@ -166,7 +177,6 @@ let externals =
                 | None -> Runtime.return (Reflect.mk_option None)
                 end
     )));
-
   ]
 
 let lookup s =
