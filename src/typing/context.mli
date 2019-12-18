@@ -22,14 +22,14 @@ val lookup_ml_value : Path.t -> t -> Mlty.ty
 (** Lookup the type of an operation. *)
 val lookup_ml_operation : Path.t -> t -> Ident.t * (Mlty.ty list * Mlty.ty)
 
+(** Lookup the type of an exception. *)
+val lookup_ml_exception : Path.t -> t -> Ident.t * Mlty.ty option
+
 (** Lookup the type of an ML constructor. *)
 val lookup_ml_constructor : Path.ml_constructor -> t -> Ident.t * Mlty.ty list * Mlty.ty
 
 (** Lookup the (M)L type of a TT constructor. *)
 val lookup_tt_constructor : Path.t -> t -> Ident.t
-
-(** Lookup the type of the current continuation. *)
-val lookup_continuation : t -> Mlty.ty * Mlty.ty
 
 (** Declare a new TT constructor. *)
 val add_tt_constructor : Ident.t -> t -> t
@@ -40,14 +40,14 @@ val add_ml_type : Path.t -> Mlty.ty_def -> t -> t
 (** Declare a new operation. *)
 val add_ml_operation : Path.t -> Mlty.ty list * Mlty.ty -> t -> t
 
+(** Declare a new exception. *)
+val add_ml_exception : Path.t -> Mlty.ty option -> t -> t
+
 (** Add a locally bound value with the given schema. *)
 val add_bound : Name.t -> Mlty.ty_schema -> t -> t
 
 (** Add an ML value with the given schema. *)
 val add_ml_value : Name.t -> Mlty.ty_schema -> t -> t
-
-(** Creates the context for evaluating the operation handling of [op] *)
-val op_cases : Path.t -> output:Mlty.ty -> t -> Ident.t * Mlty.ty list * t
 
 (** Start processing a fresh current module *)
 val push_ml_module : t -> t

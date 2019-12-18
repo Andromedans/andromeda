@@ -11,16 +11,14 @@ let reserved = [
   ("congruence", CONGRUENCE) ;
   ("context", CONTEXT) ;
   ("convert", CONVERT) ;
-  ("current", CURRENT) ;
   ("derive", DERIVE) ;
   ("derivation", MLDERIVATION) ;
-  ("dynamic", DYNAMIC) ;
   ("end", END) ;
+  ("exception", EXCEPTION) ;
   ("external", EXTERNAL) ;
-  ("finally", FINALLY) ;
   ("fresh", FRESH) ;
   ("fun", FUN) ;
-  ("handle", HANDLE) ;
+  ("try", TRY) ;
   ("handler", HANDLER) ;
   ("in", IN) ;
   ("include", INCLUDE) ;
@@ -34,11 +32,11 @@ let reserved = [
   ("mlunit", MLUNIT) ;
   ("module", MODULE) ;
   ("natural", NATURAL) ;
-  ("now", NOW) ;
   ("occurs", OCCURS) ;
   ("of", OF) ;
   ("open", OPEN) ;
   ("operation", OPERATION) ;
+  ("raise", RAISE) ;
   ("rec", REC) ;
   ("ref", REF) ;
   ("rule", RULE) ;
@@ -49,7 +47,6 @@ let reserved = [
   ("verbosity", VERBOSITY) ;
   ("when", WHEN) ;
   ("with", WITH) ;
-  ("yield", YIELD) ;
 ]
 
 let name =

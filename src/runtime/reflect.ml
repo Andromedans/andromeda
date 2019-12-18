@@ -43,7 +43,7 @@ let as_option ~at = function
   | Runtime.Tag (t, []) when (Runtime.equal_tag t tag_none)  -> None
   | Runtime.Tag (t, [x]) when (Runtime.equal_tag t tag_some) -> Some x
   | Runtime.(Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ |
-             Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+             Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
      Runtime.(error ~at (OptionExpected v))
 
 let as_judgement_option ~at v =
@@ -51,7 +51,7 @@ let as_judgement_option ~at v =
   | None -> None
   | Some (Runtime.Judgement jdg) -> Some jdg
   | Some (Runtime.(Boundary _ | Closure _ | Derivation _ |
-          Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v) ->
+          Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v) ->
      Runtime.(error ~at (JudgementExpected v))
 
 (** Conversion between OCaml coercible and ML coercible *)
@@ -96,14 +96,3 @@ let operation_coerce ~at jdg bdry =
   and v2 = Runtime.Boundary bdry in
   Runtime.operation coerce [v1;v2] >>= fun v ->
   return (as_judgement_option ~at v)
-
-let add_abstracting e m =
-  (* The given variable as an ML value *)
-  let v = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsTerm e))) in
-  (* Get the ML list of [hypotheses] *)
-  Runtime.hypotheses >>= fun hyps_dyn ->
-  Runtime.lookup_dyn hyps_dyn >>= fun hyps ->
-  (* Add v to the front of that ML list *)
-  let hyps = list_cons v hyps in
-  (* Run computation m in this dynamic scope *)
-  Runtime.now hyps_dyn hyps m

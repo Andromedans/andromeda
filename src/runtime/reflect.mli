@@ -31,6 +31,3 @@ val operation_equal_type :
  *)
 val operation_coerce :
   at:Location.t -> Nucleus.judgement_abstraction -> Nucleus.boundary_abstraction -> Nucleus.judgement_abstraction option Runtime.comp
-
-(** A hack which will probably disappear: add an atom to the dynamic variable [hypotheses] *)
-val add_abstracting : Nucleus.is_term -> 'a Runtime.comp -> 'a Runtime.comp

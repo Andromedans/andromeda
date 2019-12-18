@@ -15,43 +15,45 @@ type generalizable =
 let rec generalizable c =
   match c.Location.it with
   (* yes *)
-  | (Syntax.Bound _ | Syntax.Value _ | Syntax.Function _
-    | Syntax.Handler _| Syntax.String _) ->
+  | Syntax.(Bound _ | Value _ | Function _ | Handler _| String _ | Raise _) ->
      Generalizable
+
   | Syntax.MLConstructor (_, cs) | Syntax.Tuple cs ->
-    if List.for_all (fun c -> generalizable c = Generalizable) cs
-    then Generalizable
-    else Ungeneralizable
+     if List.for_all (fun c -> generalizable c = Generalizable) cs
+     then
+       Generalizable
+     else
+       Ungeneralizable
+
   | Syntax.Let (_, c)
   | Syntax.LetRec (_, c)
   | Syntax.Sequence (_, c) -> generalizable c
 
   (* no *)
-  | Syntax.Operation _
-  | Syntax.With _
-  | Syntax.Now _
-  | Syntax.Current _
-  | Syntax.Lookup _
-  | Syntax.Update _
-  | Syntax.Ref _
-  | Syntax.Fresh _
-  | Syntax.AbstractAtom _
-  | Syntax.Match _
-  | Syntax.BoundaryAscribe _
-  | Syntax.TypeAscribe _
-  | Syntax.TTConstructor _
-  | Syntax.TTApply _
-  | Syntax.Abstract _
-  | Syntax.Substitute _
-  | Syntax.Derive _
-  | Syntax.Yield _
-  | Syntax.Apply _
-  | Syntax.Occurs _
-  | Syntax.Congruence _
-  | Syntax.Convert _
-  | Syntax.Context _
-  | Syntax.Natural _
-  | Syntax.MLBoundary _
+  | Syntax.(
+      Operation _
+    | MLException _
+    | With _
+    | Lookup _
+    | Update _
+    | Ref _
+    | Fresh _
+    | AbstractAtom _
+    | Match _
+    | BoundaryAscribe _
+    | TypeAscribe _
+    | TTConstructor _
+    | TTApply _
+    | Abstract _
+    | Substitute _
+    | Derive _
+    | Apply _
+    | Occurs _
+    | Congruence _
+    | Convert _
+    | Context _
+    | Natural _
+    | MLBoundary _)
   -> Ungeneralizable
 
 (* Instantite the bound parameters in a type with the given ones. *)
@@ -80,9 +82,8 @@ let rec ml_ty params {Location.it=t; at} =
      let t = ml_ty params t in
      Mlty.Ref t
 
-  | Desugared.ML_Dynamic t ->
-     let t = ml_ty params t in
-     Mlty.Dynamic t
+  | Desugared.ML_Exn ->
+     Mlty.Exn
 
   | Desugared.ML_Judgement ->
      Mlty.Judgement
@@ -132,6 +133,16 @@ let rec infer_pattern {Location.it=p; at} =
     Tyenv.lookup_ml_constructor tag >>= fun (tag_id, ts, out) ->
     check_patterns ps ts >>= fun (ps, xts) ->
     return (locate ~at (Syntax.Patt_MLConstructor (tag_id, ps)), out, xts)
+
+  | Desugared.Patt_MLException (exc, popt) ->
+    Tyenv.lookup_ml_exception exc >>= fun (exc, topt) ->
+    begin match popt, topt with
+    | None, None -> return (locate ~at (Syntax.Patt_MLException (exc, None)), Mlty.Exn, [])
+    | Some p, Some t ->
+       check_pattern p t >>= fun (p, xts) ->
+       return (locate ~at (Syntax.Patt_MLException (exc, Some p)), Mlty.Exn, xts)
+    | Some _, None | None, Some _ -> assert false (* prevented by desugaring *)
+    end
 
   | Desugared.Patt_TTConstructor (c, ps) ->
      Tyenv.lookup_tt_constructor c >>= fun c ->
@@ -238,13 +249,13 @@ and check_pattern ({Location.it=p'; at} as p) t =
         return (locate ~at (Syntax.Patt_Tuple ps), xts)
 
      | Mlty.(Prod _ | Judgement | Boundary | Derivation | String | Meta _ | Param _ |
-             Arrow _ | Handler _ | Apply _ | Ref _ | Dynamic _) ->
+             Arrow _ | Handler _ | Apply _ | Ref _ | Exn) ->
         infer_pattern p >>= fun (p, t', xts) ->
         Tyenv.add_equation ~at t' t >>= fun () ->
         return (p, xts)
      end
 
-  | Desugared.(Patt_MLConstructor _ | Patt_TTConstructor _ | Patt_String _ |
+  | Desugared.(Patt_MLException _ | Patt_MLConstructor _ | Patt_TTConstructor _ | Patt_String _ |
              Patt_BoundaryIsType | Patt_BoundaryIsTerm _ | Patt_BoundaryEqType _ | Patt_BoundaryEqTerm _ |
              Patt_GenAtom _ | Patt_IsType _ | Patt_IsTerm _ | Patt_EqType _ | Patt_EqTerm _ | Patt_Abstraction _)->
      infer_pattern p >>= fun (p, t', xts) ->
@@ -321,6 +332,18 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
     in
     fold [] tcs
 
+  | Desugared.MLException (exc, copt) ->
+     Tyenv.lookup_ml_exception exc >>= fun (exc_id, topt) ->
+       begin match copt, topt with
+       | None, None ->
+          return (locate ~at (Syntax.MLException (exc_id, None)), Mlty.Exn)
+       | Some c, Some t ->
+          check_comp c t >>= fun c ->
+          return (locate ~at (Syntax.MLException (exc_id, Some c)), Mlty.Exn)
+       | None, Some _ | Some _, None ->
+          assert false (* desugaring took care of this *)
+       end
+
   | Desugared.Tuple cs ->
     let rec fold annot ts = function
       | [] ->
@@ -345,6 +368,11 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
         fold (c :: cs) tcs
     in
     fold [] tcs
+
+  | Desugared.Raise c ->
+     check_comp c Mlty.Exn >>= fun c ->
+     let t = Mlty.fresh_type () in
+     return (locate ~at (Syntax.Raise c), t)
 
   | Desugared.With (h, c) ->
     infer_comp h >>= fun (h, th) ->
@@ -378,18 +406,6 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
                  Mlty.error ~at:c.Location.at Mlty.ValueRestriction
             end
        end >>= fun () -> return (c, t)
-
-  | Desugared.Now (x, c1, c2) ->
-     infer_comp x >>= fun (x, tx) ->
-     Tyenv.as_dynamic ~at:x.Location.at tx >>= fun tx ->
-     check_comp c1 tx >>= fun c1 ->
-     infer_comp c2 >>= fun (c2, t) ->
-     return (locate ~at (Syntax.Now (x, c1, c2)), t)
-
-  | Desugared.Current c ->
-     infer_comp c >>= fun (c, t) ->
-     Tyenv.as_dynamic ~at:c.Location.at t >>= fun t ->
-     return (locate ~at (Syntax.Current c), t)
 
   | Desugared.Lookup c ->
     infer_comp c >>= fun (c, t) ->
@@ -479,11 +495,6 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
   | Desugared.Spine (c, cs) ->
      infer_spine ~at c cs
 
-  | Desugared.Yield c ->
-    Tyenv.lookup_continuation >>= fun (a, b) ->
-    check_comp c a >>= fun c ->
-    return (locate ~at (Syntax.Yield c), b)
-
   | Desugared.String s -> return (locate ~at (Syntax.String s), Mlty.String)
 
   | Desugared.Occurs (c1, c2) ->
@@ -554,26 +565,27 @@ and infer_spine ~at c_head cs =
   infer_comp c_head >>= fun (c_head, t_head) ->
   fold t_head c_head cs
 
-
-and infer_handler ~at {Desugared.handler_val=handler_val;handler_ops;handler_finally} =
+and infer_handler ~at Desugared.{handler_val=handler_val;handler_ops;handler_exc} =
   let input = Mlty.fresh_type () in
+  (* value case *)
   begin match handler_val with
     | [] -> return ([], input)
     | _ :: _ -> match_cases ~at input handler_val
-  end >>= fun (handler_val, output) ->
-  begin match handler_finally with
-    | [] -> return ([], output)
-    | _ :: _ -> match_cases ~at output handler_finally
-  end >>= fun (handler_finally, final) ->
+  end >>=
+  (* handler cases *)
+  fun (handler_val, output) ->
+  check_match_cases ~at Mlty.Exn output handler_exc >>=
+  fun handler_exc ->
+  (* operation cases *)
   let rec fold ops = function
     | [] ->
       return (List.fold_left (fun acc (x, v) -> Ident.add x v acc) Ident.empty ops)
     | (op, cases) :: rem ->
-      match_op_cases op cases output >>= fun op_cases ->
+      match_op_cases op cases >>= fun op_cases ->
       fold (op_cases :: ops) rem
   in
   fold [] handler_ops >>= fun handler_ops ->
-  return ({Syntax.handler_val=handler_val;handler_ops;handler_finally}, Mlty.Handler (input, final))
+  return (Syntax.{handler_val; handler_ops; handler_exc}, Mlty.Handler (input, output))
 
 and match_case p t g c =
   check_pattern p t >>= fun (p, xts) ->
@@ -597,6 +609,18 @@ and check_match_case p tp g c tc =
      check_comp c tc >>= fun c ->
      return (p, g, c))
 
+and check_match_cases ~at tp tc cases =
+  let rec fold cases' = function
+  | [] ->
+     let cases' = List.rev cases' in
+     return cases'
+
+  | (p, g, c) :: cases ->
+     check_match_case p tp g c tc >>= fun (p, g, c) ->
+     fold ((p, g, c) :: cases') cases
+  in
+  fold [] cases
+
 and match_cases ~at t = function
   | [] ->
      return ([], Mlty.fresh_type ())
@@ -613,40 +637,41 @@ and match_cases ~at t = function
       in
       fold [(p1, g1, c1)] cases
 
-and match_op_cases op cases t_out =
-  Tyenv.op_cases
-    op ~output:t_out
-    (fun oid ts ->
-      let rec fold_cases cases = function
-        | [] -> return (oid, List.rev cases)
-        | (ps, popt, c) :: rem ->
-           let rec fold_args ps_out xts ps ts =
-             match ps, ts with
+and match_op_cases op cases =
+  Tyenv.lookup_ml_operation op >>= fun (oid, (ts, t_out)) ->
+  let rec fold_cases cases' = function
+    | [] -> return (oid, List.rev cases')
+    | case :: cases ->
+       match_op_case ts t_out case >>= fun case ->
+       fold_cases (case :: cases') cases
+  in
+  fold_cases [] cases
 
-             | [], [] ->
-                let ps_out = List.rev ps_out in
-                begin match popt with
-                | None -> return (None, xts)
-                | Some p ->
-                   let t = Mlty.Apply (Desugar.Builtin.option, [Mlty.Boundary]) in
-                   check_pattern p t >>= fun (p, xts_p) ->
-                   return (Some p, xts @ xts_p)
-                end >>= fun (popt, xts) ->
-                Tyenv.add_bounds_mono xts
-                  (check_comp c t_out >>= fun c ->
-                   return (ps_out, popt, c))
+and match_op_case ts t_out (ps, popt, c) =
+  let rec fold_args ps_out xts ps ts =
+    match ps, ts with
 
-             | p::ps, t::ts ->
-                check_pattern p t >>= fun (p, xts_p) ->
-                fold_args (p :: ps_out) (xts @ xts_p) ps ts
+    | [], [] ->
+       let ps_out = List.rev ps_out in
+       begin match popt with
+       | None -> return (None, xts)
+       | Some p ->
+          let t = Mlty.Apply (Desugar.Builtin.option, [Mlty.Boundary]) in
+          check_pattern p t >>= fun (p, xts_p) ->
+          return (Some p, xts @ xts_p)
+       end >>= fun (popt, xts) ->
+       Tyenv.add_bounds_mono xts
+         (check_comp c t_out >>= fun c -> return (ps_out, popt, c))
 
-             | [], _::_ | _::_, [] ->
-                assert false
-           in
-           fold_args [] [] ps ts >>= fun case ->
-           fold_cases (case :: cases) rem
-      in
-      fold_cases [] cases)
+    | p::ps, t::ts ->
+       check_pattern p t >>= fun (p, xts_p) ->
+       fold_args (p :: ps_out) (xts @ xts_p) ps ts
+
+    | [], _::_ | _::_, [] ->
+       assert false
+  in
+  fold_args [] [] ps ts
+
 
 and check_comp c t =
   infer_comp c >>= fun (c, t') ->
@@ -878,6 +903,11 @@ let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
      Tyenv.add_tt_constructor r >>= fun () ->
      return_located ~at (Syntax.Rule (r, ps, bdry))
 
+  | Desugared.DefMLTypeAbstract (t, params) ->
+     let params = List.map (fun _ -> Mlty.fresh_param ()) params in
+     Tyenv.add_ml_type t (Mlty.Abstract (params, ())) >>= fun () ->
+     return_located ~at (Syntax.DefMLTypeAbstract t)
+
   (* Desugar is the only place where recursion/nonrecursion matters,
      so [DefMLType] and [DefMLTypeRec] behave the same way in typechecking. *)
   | Desugared.DefMLType tydefs ->
@@ -901,6 +931,15 @@ let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
     Tyenv.add_ml_operation op (tys_in, ty_out) >>= fun () ->
     return_located ~at (Syntax.DeclOperation (op, (tys_in, ty_out)))
 
+  | Desugared.DeclException (exc, tyopt) ->
+    let tyopt =
+      match tyopt with
+      | None -> None
+      | Some ty -> Some (ml_ty [] ty)
+    in
+    Tyenv.add_ml_exception exc tyopt >>= fun () ->
+    return_located ~at (Syntax.DeclException (exc, tyopt))
+
   | Desugared.DeclExternal (x, sch, s) ->
      let sch = ml_schema sch in
      Tyenv.add_ml_value_poly x sch
@@ -914,6 +953,18 @@ let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
      letrec_clauses ~toplevel:true clauses (return ()) >>= fun (info, clauses, ()) ->
      return_located ~at (Syntax.TopLetRec (info, clauses))
 
+  | Desugared.TopWith lst ->
+     let rec fold lst' = function
+       | [] ->
+          let lst' = List.rev lst' in
+          return_located ~at (Syntax.TopWith lst')
+       | (op, case) :: lst ->
+          Tyenv.lookup_ml_operation op >>= fun (oid, (ts, t_out)) ->
+          match_op_case ts t_out case >>= fun case ->
+          fold ((oid, case) :: lst') lst
+     in
+     fold [] lst
+
   | Desugared.TopComputation c ->
      infer_comp c >>= fun (c, t) ->
      begin
@@ -925,27 +976,6 @@ let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
           Tyenv.ungeneralize t >>= fun sch ->
           return_located ~at (Syntax.TopComputation (c, sch))
      end
-
-  | Desugared.TopDynamic (x, annot, c) ->
-     infer_comp c >>= fun (c, t) ->
-     begin match annot with
-     | Desugared.Arg_annot_none ->
-        Tyenv.ungeneralize (Mlty.Dynamic t) >>= fun sch ->
-        return (c, sch)
-     | Desugared.Arg_annot_ty t' ->
-        let t' = ml_ty [] t' in
-        Tyenv.add_equation ~at:c.Location.at t t' >>= fun () ->
-        Tyenv.ungeneralize (Mlty.Dynamic t') >>= fun sch ->
-        return (c, sch)
-     end >>= fun (c, sch) ->
-     Tyenv.add_ml_value_poly x sch
-       (return_located ~at (Syntax.TopDynamic (x, sch, c)))
-
-  | Desugared.TopNow (x, c) ->
-       infer_comp x >>= fun (x, tx) ->
-       Tyenv.as_dynamic ~at:x.Location.at tx >>= fun tx ->
-       check_comp c tx >>= fun c ->
-       return_located ~at (Syntax.TopNow (x, c))
 
   | Desugared.Verbosity v ->
     return_located ~at (Syntax.Verbosity v)
