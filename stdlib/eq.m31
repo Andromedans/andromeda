@@ -16,10 +16,10 @@ external add_term_computation : checker -> derivation -> ML.option checker
 external add : checker -> derivation -> ML.option checker
   = "Eqchk.add" ;;
 
-external normalize_type : checker -> judgement -> judgement * judgement
+external normalize_type : ML.bool -> checker -> judgement -> judgement * judgement
   = "Eqchk.normalize_type" ;;
 
-external normalize_term : checker -> judgement -> judgement * judgement 
+external normalize_term : ML.bool -> checker -> judgement -> judgement * judgement 
   = "Eqchk.normalize_term" ;;
 
 external add_extensionality : checker -> derivation -> ML.option checker
@@ -81,8 +81,15 @@ end ;;
 
 let normalize jdg =
   match jdg with
-  | (A type) -> normalize_type (!ch) A
-  | (a : _) -> normalize_term (!ch) a
+  | (A type) -> normalize_type ML.false (!ch) A
+  | (a : _) -> normalize_term ML.false (!ch) a
+  end
+;;
+
+let compute jdg =
+  match jdg with
+  | (A type) -> normalize_type ML.true (!ch) A
+  | (a : _) -> normalize_term ML.true (!ch) a
   end
 ;;
 

@@ -124,6 +124,9 @@ val as_ref : at:Location.t -> value -> value ref
 (** Convert, or fail with [StringExpected] *)
 val as_string : at:Location.t -> value -> string
 
+(** Convert, or fail with [BoolExpected] *)
+val as_bool : at:Location.t -> value -> bool
+
 
 (** {b Other operations} *)
 
