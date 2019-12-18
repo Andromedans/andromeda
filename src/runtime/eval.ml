@@ -80,6 +80,11 @@ let rec comp {Location.it=c'; at} =
           return (Runtime.Exc (exc, Some v))
        end
 
+    | Syntax.AsDerivation cnstr ->
+       Runtime.lookup_signature >>= fun sgn ->
+       let drv = Nucleus.rule_as_derivation sgn cnstr in
+       return (Runtime.Derivation drv)
+
     | Syntax.TTConstructor (cnstr, cs) ->
        Runtime.lookup_signature >>= fun sgn ->
        let rap = Nucleus.form_constructor_rap sgn cnstr in
@@ -371,6 +376,7 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.TypeAscribe _
   | Syntax.MLConstructor _
   | Syntax.TTConstructor _
+  | Syntax.AsDerivation _
   | Syntax.MLException _
   | Syntax.TTApply _
   | Syntax.Tuple _

@@ -74,6 +74,7 @@ and comp' =
   | Match of comp * match_case list
   | BoundaryAscribe of comp * comp
   | TypeAscribe of comp * comp
+  | AsDerivation of Path.t
   | TTConstructor of Path.t * comp list
   | Spine of comp * comp list
   | Abstract of Name.t * comp option * comp

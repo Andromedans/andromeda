@@ -1049,8 +1049,10 @@ let rec comp ctx {Location.it=c';at} =
      | Value pth -> locate (Desugared.Value pth)
 
      | TTConstructor (pth, arity) ->
-        check_tt_arity ~at x 0 arity ;
-        locate (Desugared.TTConstructor (pth, []))
+        if arity = 0 then
+          locate (Desugared.TTConstructor (pth, []))
+        else
+          locate (Desugared.AsDerivation pth)
 
      | MLConstructor (pth, arity) ->
         check_ml_arity ~at x 0 arity ;

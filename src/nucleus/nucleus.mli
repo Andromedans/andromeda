@@ -122,6 +122,9 @@ val form_rule : meta list -> boundary -> primitive
 (** Form a derived rule from a given list of meta-variables and a boundary *)
 val form_derivation : meta list -> judgement -> derivation
 
+(** Form a derivation that corresponds to a primitive rule *)
+val rule_as_derivation : signature -> Ident.t -> derivation
+
 (** Functions that expose abstract types. These are harmless because there is no way
     to map back into the absract types. *)
 val expose_is_term : is_term -> Nucleus_types.is_term

@@ -42,6 +42,7 @@ let rec generalizable c =
     | Match _
     | BoundaryAscribe _
     | TypeAscribe _
+    | AsDerivation _
     | TTConstructor _
     | TTApply _
     | Abstract _
@@ -308,17 +309,21 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      return (locate ~at (Syntax.Handler h), t)
 
   | Desugared.TTConstructor (pth, cs) ->
-    Tyenv.lookup_tt_constructor pth >>= fun c ->
+    Tyenv.lookup_tt_constructor pth >>= fun c_id ->
     let rec fold cs_out = function
       | [] ->
         let cs_out = List.rev cs_out in
-        let e = Syntax.TTConstructor (c, cs_out) in
+        let e = Syntax.TTConstructor (c_id, cs_out) in
         return (locate ~at e, Mlty.Judgement)
       | c :: cs->
         check_comp c Mlty.Judgement >>= fun c ->
         fold (c :: cs_out) cs
     in
     fold [] cs
+
+  | Desugared.AsDerivation pth ->
+    Tyenv.lookup_tt_constructor pth >>= fun c_id ->
+    return (locate ~at (Syntax.AsDerivation c_id), Mlty.Derivation)
 
   | Desugared.MLConstructor (tag, cs) ->
     Tyenv.lookup_ml_constructor tag >>= fun (tag_id, ts, out) ->
