@@ -526,6 +526,15 @@ let as_string ~at = function
      Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _) as v ->
     error ~at (StringExpected v)
 
+let as_bool ~at v =
+  let (tag_true, _, _) = Typecheck.Builtin.mltrue
+  and (tag_false, _, _) = Typecheck.Builtin.mlfalse in
+  match v with
+  | Tag (t, []) when equal_tag t tag_true -> true
+  | Tag (t, []) when equal_tag t tag_false -> false
+  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+     Closure _ | Handler _ | Exc _ | Tag _ | String _ | Tuple _ | Ref _) as v ->
+    error ~at (BoolExpected v)
 
 (** Operations *)
 
@@ -666,24 +675,6 @@ let top_open_path pth ({top_runtime;_} as topenv) =
 
 let top_lookup_signature topenv =
   get_signature topenv.top_runtime, topenv
-
-(* A hack, until we have proper type-driven printing routines. At that point we should consider
-   equipping type definitions with custom printers, so that not only lists but other datatypes
-   can have their own printers. (And we're not going to implement Haskell classes.) *)
-(* let rec as_list_opt =
- *   let (_, tag_nil) = Desugar.Builtin.nil
- *   and (_, tag_cons) = Desugar.Builtin.cons in
- *   function
- *   | Tag (t, []) when equal_tag t tag_nil -> Some []
- *   | Tag (t, [x;xs]) when equal_tag t tag_cons ->
- *      begin
- *        match as_list_opt xs with
- *        | None -> None
- *        | Some xs -> Some (x :: xs)
- *      end
- *   | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
- *      Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) ->
- *      None *)
 
 let print_external ?max_level ~penv v ppf =
   match v with

@@ -33,8 +33,8 @@ val prove_eq_term_abstraction :
 
 (** Normalize a type *)
 val normalize_type :
-  checker -> Nucleus.signature -> Nucleus.is_type -> Nucleus.eq_type * Nucleus.is_type
+  strong:bool -> checker -> Nucleus.signature -> Nucleus.is_type -> Nucleus.eq_type * Nucleus.is_type
 
 (** Normalize a term *)
 val normalize_term :
-  checker -> Nucleus.signature -> Nucleus.is_term -> Nucleus.eq_term * Nucleus.is_term
+  strong:bool -> checker -> Nucleus.signature -> Nucleus.is_term -> Nucleus.eq_term * Nucleus.is_term

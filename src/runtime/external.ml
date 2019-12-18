@@ -100,28 +100,32 @@ let externals =
            )));
 
     ("Eqchk.normalize_type",
-     Runtime.mk_closure_external (fun chk ->
-         Runtime.return_closure (fun t ->
-             Runtime.lookup_signature >>= fun sgn ->
-             let chk = Runtime.as_equality_checker ~at:Location.unknown chk
-             and t = Runtime.as_is_type ~at:Location.unknown t in
-             let (t_eq_t', t') = Eqchk.normalize_type chk sgn t in
-             let t_eq_t' = Nucleus.(abstract_not_abstract (JudgementEqType t_eq_t'))
-             and t' = Nucleus.(abstract_not_abstract (JudgementIsType t')) in
-             Runtime.(return (Tuple [Judgement t_eq_t'; Judgement t']))
-           )));
+     Runtime.mk_closure_external (fun strong ->
+     Runtime.return_closure (fun chk ->
+     Runtime.return_closure (fun t ->
+       Runtime.lookup_signature >>= fun sgn ->
+       let strong = Runtime.as_bool ~at:Location.unknown strong
+       and chk = Runtime.as_equality_checker ~at:Location.unknown chk
+       and t = Runtime.as_is_type ~at:Location.unknown t in
+       let (t_eq_t', t') = Eqchk.normalize_type ~strong chk sgn t in
+       let t_eq_t' = Nucleus.(abstract_not_abstract (JudgementEqType t_eq_t'))
+       and t' = Nucleus.(abstract_not_abstract (JudgementIsType t')) in
+       Runtime.(return (Tuple [Judgement t_eq_t'; Judgement t']))
+       ))));
 
     ("Eqchk.normalize_term",
-     Runtime.mk_closure_external (fun chk ->
-         Runtime.return_closure (fun e ->
-             Runtime.lookup_signature >>= fun sgn ->
-             let chk = Runtime.as_equality_checker ~at:Location.unknown chk
-             and e = Runtime.as_is_term ~at:Location.unknown e in
-             let (e_eq_e', e') = Eqchk.normalize_term chk sgn e in
-             let e_eq_e' = Nucleus.(abstract_not_abstract (JudgementEqTerm e_eq_e'))
-             and e' = Nucleus.(abstract_not_abstract (JudgementIsTerm e')) in
-             Runtime.(return (Tuple [Judgement e_eq_e'; Judgement e']))
-           )));
+     Runtime.mk_closure_external (fun strong ->
+     Runtime.return_closure (fun chk ->
+     Runtime.return_closure (fun e ->
+       Runtime.lookup_signature >>= fun sgn ->
+       let strong = Runtime.as_bool ~at:Location.unknown strong
+       and chk = Runtime.as_equality_checker ~at:Location.unknown chk
+       and e = Runtime.as_is_term ~at:Location.unknown e in
+       let (e_eq_e', e') = Eqchk.normalize_term ~strong chk sgn e in
+       let e_eq_e' = Nucleus.(abstract_not_abstract (JudgementEqTerm e_eq_e'))
+       and e' = Nucleus.(abstract_not_abstract (JudgementIsTerm e')) in
+       Runtime.(return (Tuple [Judgement e_eq_e'; Judgement e']))
+    ))));
 
     ("Eqchk.add_extensionality",
      Runtime.mk_closure_external (fun chk ->
