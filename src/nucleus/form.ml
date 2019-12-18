@@ -169,43 +169,66 @@ let form_eq_type_rap sgn drv =
 let form_eq_term_rap sgn drv =
   form_rule_rap sgn (Instantiate_meta.eq_term ~lvl:0) drv
 
+(* A rather finicky and dangerous operation that directly makes a derivation out
+   of a primitive rule, by directly manipulating bound meta-variables. *)
+let rule_as_derivation sgn cnstr =
+  (* look up the rule *)
+  let rl = Signature.lookup_rule cnstr sgn in
+  (* compute the arity of the rule *)
+  let arity =
+    let rec count = function
+      | Conclusion _ -> 0
+      | Premise (_, bdry) -> 1 + count bdry
+    in
+    count rl
+  in
+  let rec fold k args = function
+    | Conclusion bdry ->
+       let args = List.rev args in
+       let jdg =
+         match bdry with
+         | BoundaryIsType () -> JudgementIsType (Mk.type_constructor cnstr args)
+         | BoundaryIsTerm _ -> JudgementIsTerm (Mk.term_constructor cnstr args)
+         | BoundaryEqType (t1, t2) ->
+            let asmp = Collect_assumptions.arguments args in
+            JudgementEqType (Mk.eq_type asmp t1 t2)
+         | BoundaryEqTerm (e1, e2, t) ->
+            let asmp = Collect_assumptions.arguments args in
+            JudgementEqTerm (Mk.eq_term asmp e1 e2 t)
+       in
+       Conclusion jdg
 
-
-(* (\** Form a rap from a derivation *\)
- * let form_derivation_rap sgn drv =
- *   let rec fold args = function
- *     | Premise (_, prem, drv) ->
- *        let bdry = Instantiate_meta.abstraction Form_rule.instantiate_premise ~lvl:0 args prem in
- *        let rap abstr =
- *          if not (Check.judgement_boundary_abstraction sgn abstr bdry)
- *          then Error.raise InvalidArgument ;
- *          let arg = Judgement.to_argument abstr in
- *          let args = arg :: args in
- *          fold args drv
- *        in
- *        RapMore (bdry, rap)
- *
- *     | Conclusion (JudgementIsType t_schema) ->
- *        let t = Instantiate_meta.is_type ~lvl:0 args t_schema in
- *        RapDone (JudgementIsType t)
- *
- *     | Conclusion (JudgementIsTerm e_schema) ->
- *        let e = Instantiate_meta.is_term ~lvl:0 args e_schema in
- *        RapDone (JudgementIsTerm e)
- *
- *     | Conclusion (JudgementEqType eq_schema) ->
- *        (\* order of arguments not important in [Collect_assumptions.arguments],
- *           we could try avoiding a list reversal caused by [Indices.to_list]. *\)
- *        let eq = Instantiate_meta.eq_type ~lvl:0 args eq_schema in
- *        RapDone (JudgementEqType eq)
- *
- *     | Conclusion (JudgementEqTerm eq_schema) ->
- *        (\* order of arguments not important in [Collect_assumptions.arguments],
- *           we could try avoiding a list reversal caused by [Indices.to_list]. *\)
- *        let eq = Instantiate_meta.eq_term ~lvl:0 args eq_schema in
- *        RapDone (JudgementEqTerm eq)
- *   in
- *   fold [] drv *)
+    | Premise (prem, bdry) ->
+       (* compute the k-th argument *)
+       let rec mk_arg i args = function
+         | NotAbstract bdry ->
+            let args = List.rev args in
+            let jdg =
+              match bdry with
+              | BoundaryIsType () -> JudgementIsType (Mk.type_meta (MetaBound k) args)
+              | BoundaryIsTerm _ -> JudgementIsTerm (Mk.term_meta (MetaBound k) args)
+              | BoundaryEqType (t1, t2) ->
+                 let t1 = Shift_meta.is_type (k+1) t1
+                 and t2 = Shift_meta.is_type (k+1) t2 in
+                 let asmp = Collect_assumptions.term_arguments ~lvl:k args in
+                 JudgementEqType (Mk.eq_type asmp t1 t2)
+              | BoundaryEqTerm (e1, e2, t) ->
+                 let e1 = Shift_meta.is_term (k+1) e1
+                 and e2 = Shift_meta.is_term (k+1) e2
+                 and t = Shift_meta.is_type (k+1) t in
+                 let asmp = Collect_assumptions.term_arguments ~lvl:k args in
+                 JudgementEqTerm (Mk.eq_term asmp e1 e2 t)
+            in
+            Arg_NotAbstract jdg
+         | Abstract (x, t, bdry) ->
+            let args = (TermBoundVar i) :: args in
+            Arg_Abstract (x, mk_arg (i+1) args bdry)
+       in
+       let arg = mk_arg 0 [] prem.meta_boundary in
+       let drv = fold (k-1) (arg :: args) bdry in
+       Premise (prem, drv)
+  in
+  fold (arity-1) [] rl
 
 (** Formation of a term from an atom *)
 let form_is_term_atom = Mk.atom

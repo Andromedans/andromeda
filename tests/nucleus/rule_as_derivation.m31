@@ -1,0 +1,14 @@
+rule bull type ;;
+bull ;;
+rule tail : bull ;;
+tail ;;
+rule eq : tail ≡ tail : bull ;;
+eq ;;
+rule Id (A type) (a : A) (b : A) type ;;
+Id ;;
+rule Pi (A type) ({x : A} B type) type ;;
+Pi ;;
+rule cow (A type) (a : A) ({x : A} a ≡ x : A as ξ) type ;;
+cow ;;
+rule reflect (A type) (a : A) (b : A) (p : Id A a b) : a ≡ b : A ;;
+reflect ;;

@@ -48,6 +48,7 @@ let form_eq_type_rap = Form.form_eq_type_rap
 let form_eq_term_rap = Form.form_eq_term_rap
 
 let form_derivation_rap = Form.form_derivation_rap
+let rule_as_derivation = Form.rule_as_derivation
 
 (** Miscelaneous constructions *)
 let form_is_term_atom = Form.form_is_term_atom
