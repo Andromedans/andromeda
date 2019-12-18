@@ -27,7 +27,7 @@ let as_bool ~at v =
      else
      Runtime.(error ~at (BoolExpected v))
 
-  | Runtime.(Tag (_, _::_) | Exc _ | Judgement _ | Boundary _ | Derivation _ |
+  | Runtime.(Tag (_, _::_) | Exc _ | Judgement _ | Boundary _ | Derivation _ | External _ |
              Closure _ | Handler _ | Tuple _ | Ref _ | String _) ->
      Runtime.(error ~at (BoolExpected v))
 
@@ -191,7 +191,7 @@ let rec comp {Location.it=c'; at} =
 
         | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-        | Runtime.(Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+        | Runtime.(Derivation _ | External  _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
            Runtime.(error ~at (JudgementOrBoundaryExpected v)))
 
   | Syntax.AbstractAtom (a, c) ->
@@ -202,7 +202,7 @@ let rec comp {Location.it=c'; at} =
 
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-             | Runtime.(Closure _ | Derivation _| Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+             | Runtime.(External _ | Closure _ | Derivation _| Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
                 Runtime.(error ~at (JudgementOrBoundaryExpected v))
            end
 
@@ -259,7 +259,7 @@ let rec comp {Location.it=c'; at} =
       | Runtime.Closure f ->
         comp c2 >>= fun v ->
         Runtime.apply_closure f v
-      | Runtime.(Judgement _ | Boundary _ | Derivation _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as h ->
+      | Runtime.(Judgement _ | Boundary _ | Derivation _ | External _ |  Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as h ->
         Runtime.(error ~at (Inapplicable h))
     end
 
@@ -284,7 +284,7 @@ let rec comp {Location.it=c'; at} =
      let jdg2 = Runtime.as_not_abstract ~at abstr2 in
      Runtime.get_env >>= fun env ->
      let sgn = Runtime.get_signature env in
-     let rap = Nucleus.congruence_rap sgn jdg1 jdg2 in
+     let rap = Nucleus.congruence_judgement sgn jdg1 jdg2 in
      check_arguments ~at rap cs
 
   | Syntax.Convert (c1, c2) ->
@@ -643,17 +643,16 @@ and local_context lctx cmp =
 
 and premise {Location.it=Syntax.Premise(x, lctx, bdry); at} =
   local_context lctx (eval_boundary ~at bdry) >>= fun bdry ->
-  Runtime.lookup_signature >>= fun sgn ->
-  let n, jdg = Nucleus.form_meta x bdry in
+  let mv, jdg = Nucleus.form_meta x bdry in
   let v = Runtime.Judgement jdg in
-  return ((n, bdry), v)
+  return (mv, v)
 
 
 (** Evaluate the premises of a rule, bind them to meta-variables, then evaluate
    the conclusion [cmp]. Return the evaulated premises and conclusion for
    further processing. *)
 and premises :
-  'a . Syntax.premise list -> 'a Runtime.comp -> ((Nonce.t * Nucleus.boundary_abstraction) list * 'a) Runtime.comp
+  'a . Syntax.premise list -> 'a Runtime.comp -> (Nucleus.meta list * 'a) Runtime.comp
 = fun prems cmp ->
   let rec fold prems_out = function
 

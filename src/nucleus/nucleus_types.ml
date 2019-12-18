@@ -3,18 +3,21 @@
 type bound = int
 
 type is_type =
-  | TypeMeta of meta * is_term list
+  | TypeMeta of meta_any * is_term list
   | TypeConstructor of Ident.t * argument list
 
 and is_term =
-  | TermBoundVar of bound
-  | TermAtom of is_atom
-  | TermMeta of meta * is_term list
-  | TermConstructor of Ident.t * argument list
-  | TermConvert of is_term * assumption * is_type
+  | TermBoundVar of bound (* de Bruijm index of a bound variable *)
+  | TermAtom of is_atom (* a free variable *)
+  | TermMeta of meta_any * is_term list (* term meta-variable applied to arguments *)
+  | TermConstructor of Ident.t * argument list (* term constructor applied to arguments *)
+  | TermConvert of is_term * assumption * is_type (* term conversion *)
 
 and eq_type = EqType of assumption * is_type * is_type
 
+(* In a term equality [EqTerm (asmp, e1, e2, t)] we maintain the invariant
+   that [e1] and [e2] are *not* term conversions. Instead, we put such term
+   conversions back in when a term equality is inverted, as necessary. *)
 and eq_term = EqTerm of assumption * is_term * is_term * is_type
 
 and is_atom = { atom_nonce : Nonce.t ; atom_type : is_type }
@@ -23,8 +26,10 @@ and argument =
   | Arg_NotAbstract of judgement
   | Arg_Abstract of Name.t * argument
 
-and meta =
-  | MetaFree of { meta_nonce : Nonce.t ; meta_boundary : boundary_abstraction }
+and meta = { meta_nonce : Nonce.t ; meta_boundary : boundary_abstraction }
+
+and meta_any =
+  | MetaFree of meta
   | MetaBound of bound
 
 and assumption =
@@ -59,20 +64,18 @@ and boundary =
 
 and boundary_abstraction = boundary abstraction
 
-type premise = boundary_abstraction
-
 type 'a rule =
   | Conclusion of 'a
-  | Premise of Nonce.t * premise * 'a rule
+  | Premise of meta * 'a rule
 
 type primitive = boundary rule
 
 type derivation = judgement rule
 
 (* A partial rule application *)
-type rule_application =
-  | RapDone of judgement
-  | RapMore of boundary_abstraction * (judgement_abstraction -> rule_application)
+type 'a rule_application =
+  | RapDone of 'a
+  | RapMore of boundary_abstraction * (judgement_abstraction -> 'a rule_application)
 
 type signature = primitive Ident.map
 
@@ -88,12 +91,12 @@ type eq_term_abstraction = eq_term abstraction
 
 type stump_is_type =
   | Stump_TypeConstructor of Ident.t * judgement_abstraction list
-  | Stump_TypeMeta of Nonce.t * boundary_abstraction * is_term list
+  | Stump_TypeMeta of meta * is_term list
 
 type stump_is_term =
   | Stump_TermAtom of is_atom
   | Stump_TermConstructor of Ident.t * judgement_abstraction list
-  | Stump_TermMeta of Nonce.t * boundary_abstraction * is_term list
+  | Stump_TermMeta of meta * is_term list
   | Stump_TermConvert of is_term * eq_type
 
 type stump_eq_type =

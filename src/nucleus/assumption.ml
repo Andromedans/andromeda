@@ -33,6 +33,10 @@ let shift ~lvl k s =
         s.bound_var
         Bound_set.empty }
 
+(** [shift_meta k asmp] shifts bound meta-variables by [k]. *)
+let shift_meta k s =
+  { s with bound_meta = Bound_set.map (fun j -> j + k) s.bound_meta }
+
 let singleton_bound k = { empty with bound_var = Bound_set.singleton k }
 
 let add_free_var x t asmp = { asmp with free_var = Nonce.map_add x t asmp.free_var }

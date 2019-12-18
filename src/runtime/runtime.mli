@@ -15,6 +15,7 @@ type value =
   | Judgement of Nucleus.judgement_abstraction (** A judgement *)
   | Boundary of Nucleus.boundary_abstraction   (** A judgement boundary (also known as a goal) *)
   | Derivation of Nucleus.derivation           (** A hypothetical derivation *)
+  | External of external_value                 (** An external ML value *)
   | Closure of (value,value) closure           (** An ML function *)
   | Handler of handler                         (** Handler value *)
   | Exc of exc                                 (** An exception *)
@@ -24,6 +25,9 @@ type value =
   | String of string                           (** String constant (opaque, not a list) *)
 
 and exc = Ident.t * value option
+
+and external_value =
+  | EqualityChecker of Eqchk_equalizer.checker
 
 and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
 
@@ -62,6 +66,9 @@ val mk_string : string -> value
 
 
 (** {b Value extraction} *)
+
+(** Convert to an equality checker, or fail with [EqualityCheckerExcpected] *)
+val as_equality_checker : at:Location.t -> value -> Eqchk_equalizer.checker
 
 (** Convert to a derivation, or fail with [DerivationExpected] *)
 val as_derivation : at:Location.t -> value -> Nucleus.derivation
@@ -166,6 +173,7 @@ type error =
   | AbstractionExpected
   | JudgementExpected of value
   | JudgementOrBoundaryExpected of value
+  | EqualityCheckerExpected of value
   | DerivationExpected of value
   | ClosureExpected of value
   | HandlerExpected of value

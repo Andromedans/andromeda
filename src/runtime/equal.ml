@@ -13,7 +13,7 @@ let equal_term ~at sgn e1 e2 =
         begin function
           | None -> return None
           | Some eq ->
-             let (Nucleus.Stump_EqTerm (_asmp, e1', e2', _)) = Nucleus.invert_eq_term eq in
+             let (Nucleus.Stump_EqTerm (_asmp, e1', e2', _)) = Nucleus.invert_eq_term sgn eq in
              begin
                match Nucleus.alpha_equal_term e1 e1' && Nucleus.alpha_equal_term e2 e2' with
                | false -> Runtime.(error ~at (InvalidEqualTerm (e1, e2)))

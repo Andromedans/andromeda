@@ -31,7 +31,8 @@ and is_term e1 e2 =
 
   | TermBoundVar i, TermBoundVar j -> i = j
 
-  | TermAtom {atom_nonce=x;_}, TermAtom {atom_nonce=y;_} -> Nonce.equal x y
+  | TermAtom atm1, TermAtom atm2 ->
+     is_atom atm1 atm2
 
   | TermMeta (mv, args), TermMeta (mv', args') ->
      meta mv mv' && term_arguments args args'
@@ -42,6 +43,9 @@ and is_term e1 e2 =
   | (TermAtom _ | TermBoundVar _ | TermConstructor _  | TermMeta _), _ ->
      false
   end
+
+and is_atom {atom_nonce=x1;_} {atom_nonce=x2;_} =
+  Nonce.equal x1 x2
 
 and meta mv mv' =
   match mv, mv' with

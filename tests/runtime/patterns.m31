@@ -46,6 +46,9 @@ rule ζ : a ≡ b : A ;;
 
 test_judgement ζ ;;
 
+(* Test that when we invert a term equality we get terms of the type at the equality. *)
+test_judgement (convert ζ ξ) ;;
+
 test_judgement (convert a ξ) ;;
 
 test_judgement ({z : A} P z) ;;
@@ -56,7 +59,7 @@ match bdry with
   | ⁇ : X -> ([X], [], "isterm boundary")
   | (X ≡ Y as ⁇) as Θ -> ([X; Y], [Θ], "eqtype boundary")
   | x ≡ y : X as ⁇ -> ([x; y; X], [], "eqterm boundary")
-  | {x : X} (u :> boundary) -> ([x; X], [u], "abstraction boundary")
+  | {x : X} (bdry :> boundary) -> ([x; X], [bdry], "abstraction boundary")
 end ;;
 
 test_boundary (⁇ type) ;;
