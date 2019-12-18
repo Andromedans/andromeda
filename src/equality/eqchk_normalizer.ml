@@ -98,6 +98,7 @@ let add_type_computation normalizer drv =
     | None -> [bt]
     | Some rls -> rls @ [bt]
   in
+  sym, bt,
   { normalizer with type_computations = SymbolMap.add sym rls normalizer.type_computations }
 
 
@@ -108,15 +109,24 @@ let add_term_computation normalizer drv =
     | None -> [bt]
     | Some rls -> rls @ [bt]
   in
+  sym, bt,
   { normalizer with term_computations = SymbolMap.add sym rls normalizer.term_computations }
 
 let set_type_heads nrm sym heads =
-  let heads = IntSet.of_list heads in
   { nrm with type_heads = SymbolMap.add sym heads nrm.type_heads }
 
 let set_term_heads normalizer sym heads =
-  let heads = IntSet.of_list heads in
   { normalizer with term_heads = SymbolMap.add sym heads normalizer.term_heads }
+
+let get_type_heads nrm sym =
+  match SymbolMap.find_opt sym nrm.type_heads with
+  | None -> IntSet.empty
+  | Some hs -> hs
+
+let get_term_heads nrm sym =
+  match SymbolMap.find_opt sym nrm.term_heads with
+  | None -> IntSet.empty
+  | Some hs -> hs
 
 (** Functions that apply rewrite rules *)
 
@@ -210,16 +220,10 @@ and normalize_term sgn nrm e0 =
 (* Normalize those arguments of [ty0] which are considered to be heads. *)
 and normalize_heads_type sgn nrm ty0 =
 
-  let get_heads sym =
-    match SymbolMap.find_opt sym nrm.type_heads with
-    | None -> IntSet.empty (* could short-circuit here *)
-    | Some heads -> heads
-  in
-
   match Nucleus.invert_is_type sgn ty0 with
 
   | Nucleus.Stump_TypeConstructor (s, args) ->
-     let heads = get_heads (Ident s) in
+     let heads = get_type_heads nrm (Ident s) in
      let args_eq_args', Normal args' = normalize_arguments sgn nrm heads args in
      let ty1 =
        let jdg1 = deopt (rap_fully_apply (Nucleus.form_constructor_rap sgn s) args') in
@@ -231,7 +235,7 @@ and normalize_heads_type sgn nrm ty0 =
      ty0_eq_ty1, Normal ty1
 
   | Nucleus.Stump_TypeMeta (mv, es) ->
-     let heads = get_heads (Nonce (Nucleus.meta_nonce mv)) in
+     let heads = get_type_heads nrm (Nonce (Nucleus.meta_nonce mv)) in
      let es_eq_es', Normal es' = normalize_is_terms sgn nrm heads es in
      let es' = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es'
      and es_eq_es' = List.map (fun eq -> Nucleus.(abstract_not_abstract (JudgementEqTerm eq))) es_eq_es' in
@@ -249,16 +253,10 @@ and normalize_heads_type sgn nrm ty0 =
 (* Normalize those arguments of [e0] which are considered to be heads. *)
 and normalize_heads_term sgn nrm e0 =
 
-  let get_heads sym =
-    match SymbolMap.find_opt sym nrm.term_heads with
-    | None -> IntSet.empty (* could short-circuit here *)
-    | Some heads -> heads
-  in
-
   match Nucleus.invert_is_term sgn e0 with
 
   | Nucleus.Stump_TermConstructor (s, args) ->
-     let heads = get_heads (Ident s) in
+     let heads = get_term_heads nrm (Ident s) in
      let args_eq_args', Normal args' = normalize_arguments sgn nrm heads args in
      let e1 =
        let jdg1 = deopt (rap_fully_apply (Nucleus.form_constructor_rap sgn s) args') in
@@ -270,7 +268,7 @@ and normalize_heads_term sgn nrm e0 =
      e0_eq_e1, Normal e1
 
   | Nucleus.Stump_TermMeta (mv, es) ->
-     let heads = get_heads (Nonce (Nucleus.meta_nonce mv)) in
+     let heads = get_term_heads nrm (Nonce (Nucleus.meta_nonce mv)) in
      let es_eq_es', Normal es' = normalize_is_terms sgn nrm heads es in
      let es' = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es'
      and es_eq_es' = List.map (fun eq -> Nucleus.(abstract_not_abstract (JudgementEqTerm eq))) es_eq_es' in

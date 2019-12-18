@@ -177,7 +177,7 @@ and value =
 and exc = Ident.t * value option
 
 and external_value =
-  | EqualityChecker of Eqchk_equalizer.checker
+  | EqualityChecker of Eqchk.checker
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
 and ('a, 'b) closure = Clos of ('a -> 'b comp)
@@ -525,7 +525,7 @@ let as_string ~at = function
   | (Judgement _ | Boundary _ | Derivation _ | External _ |
      Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _) as v ->
     error ~at (StringExpected v)
-  
+
 
 (** Operations *)
 
@@ -643,6 +643,10 @@ let top_get_nucleus_penv {top_runtime;_} =
 
 let lookup_penv env =
   Return (get_penv env)
+
+let lookup_nucleus_penv env =
+  let penv = mk_nucleus_penv (get_penv env) in
+  Return penv
 
 let top_lookup_penv topenv =
   top_get_penv topenv, topenv

@@ -27,7 +27,7 @@ type value =
 and exc = Ident.t * value option
 
 and external_value =
-  | EqualityChecker of Eqchk_equalizer.checker
+  | EqualityChecker of Eqchk.checker
 
 and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
 
@@ -68,7 +68,7 @@ val mk_string : string -> value
 (** {b Value extraction} *)
 
 (** Convert to an equality checker, or fail with [EqualityCheckerExcpected] *)
-val as_equality_checker : at:Location.t -> value -> Eqchk_equalizer.checker
+val as_equality_checker : at:Location.t -> value -> Eqchk.checker
 
 (** Convert to a derivation, or fail with [DerivationExpected] *)
 val as_derivation : at:Location.t -> value -> Nucleus.derivation
@@ -256,6 +256,9 @@ val handle_comp : handler -> value comp -> value comp
 
 (** Get the printing environment *)
 val lookup_penv : penv comp
+
+(** Get the printing environment *)
+val lookup_nucleus_penv : Nucleus.print_environment comp
 
 (** Gets the current rules of inference. *)
 val lookup_signature : Nucleus.signature comp

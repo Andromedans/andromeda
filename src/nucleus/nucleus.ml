@@ -157,6 +157,12 @@ let apply_is_term_abstraction = Apply_abstraction.apply_is_term_abstraction
 let apply_is_type_abstraction = Apply_abstraction.apply_is_type_abstraction
 let apply_judgement_abstraction = Apply_abstraction.apply_judgement_abstraction
 
+let apply_eq_term_boundary_abstraction = Apply_abstraction.apply_eq_term_boundary_abstraction
+let apply_eq_type_boundary_abstraction = Apply_abstraction.apply_eq_type_boundary_abstraction
+let apply_is_term_boundary_abstraction = Apply_abstraction.apply_is_term_boundary_abstraction
+let apply_is_type_boundary_abstraction = Apply_abstraction.apply_is_type_boundary_abstraction
+let apply_boundary_abstraction = Apply_abstraction.apply_boundary_abstraction
+
 let occurs_abstraction assumptions_u a abstr =
   let asmp = Collect_assumptions.abstraction assumptions_u abstr in
   Assumption.mem_free_var a.atom_nonce asmp

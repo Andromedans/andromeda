@@ -45,7 +45,8 @@ let rec generalizable c =
     | TTConstructor _
     | TTApply _
     | Abstract _
-    | Substitute _
+    | SubstituteJudgement _
+    | SubstituteBoundary _
     | Derive _
     | Apply _
     | Occurs _
@@ -484,9 +485,13 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
       end
 
   | Desugared.Substitute (c1, c2) ->
-     check_comp c1 Mlty.Judgement >>= fun c1 ->
      check_comp c2 Mlty.Judgement >>= fun c2 ->
-     return (locate ~at (Syntax.Substitute (c1, c2)), Mlty.Judgement)
+     infer_comp c1 >>= fun (c1,t1) ->
+     Tyenv.as_judgement_or_boundary ~at t1 >>=
+       begin function
+         | Tyenv.Is_judgement -> return (locate ~at (Syntax.SubstituteJudgement (c1, c2)), Mlty.Judgement)
+         | Tyenv.Is_boundary -> return (locate ~at (Syntax.SubstituteBoundary (c1, c2)), Mlty.Boundary)
+       end
 
   | Desugared.Derive (ps, c) ->
      premises ps (check_comp c Mlty.Judgement) >>= fun (ps, c) ->

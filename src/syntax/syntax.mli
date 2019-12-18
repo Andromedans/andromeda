@@ -67,7 +67,8 @@ and comp' =
   | Apply of comp * comp
   | Abstract of Name.t * comp option * comp
   | AbstractAtom of comp * comp
-  | Substitute of comp * comp
+  | SubstituteJudgement of comp * comp
+  | SubstituteBoundary of comp * comp
   | Derive of premise list * comp
   | String of string
   | Occurs of comp * comp

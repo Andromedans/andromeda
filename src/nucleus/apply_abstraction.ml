@@ -24,6 +24,21 @@ let apply_eq_term_abstraction sgn abstr e0 =
 let apply_judgement_abstraction sgn abstr e0 =
   apply_abstraction Instantiate_bound.judgement sgn abstr e0
 
+let apply_is_type_boundary_abstraction sgn abstr e0 =
+  apply_abstraction Instantiate_bound.is_type_boundary sgn abstr e0
+
+let apply_is_term_boundary_abstraction sgn abstr e0 =
+  apply_abstraction Instantiate_bound.is_term_boundary sgn abstr e0
+
+let apply_eq_type_boundary_abstraction sgn abstr e0 =
+  apply_abstraction Instantiate_bound.eq_type_boundary sgn abstr e0
+
+let apply_eq_term_boundary_abstraction sgn abstr e0 =
+  apply_abstraction Instantiate_bound.eq_term_boundary sgn abstr e0
+
+let apply_boundary_abstraction sgn abstr e0 =
+  apply_abstraction Instantiate_bound.boundary sgn abstr e0
+
 (* Apply [abstr] to a list of terms of length equal to the abstraction level
    of [abstr]. Verify that the terms to be substituted match the types on the
    abstraction. *)

@@ -348,6 +348,22 @@ val apply_eq_term_abstraction :
 val apply_judgement_abstraction :
   signature -> judgement_abstraction -> is_term -> judgement_abstraction
 
+val apply_is_type_boundary_abstraction :
+  signature -> is_type_boundary abstraction -> is_term -> is_type_boundary abstraction
+
+val apply_is_term_boundary_abstraction :
+  signature -> is_term_boundary abstraction -> is_term -> is_term_boundary abstraction
+
+val apply_eq_type_boundary_abstraction :
+  signature -> eq_type_boundary abstraction -> is_term -> eq_type_boundary abstraction
+
+val apply_eq_term_boundary_abstraction :
+  signature -> eq_term_boundary abstraction -> is_term -> eq_term_boundary abstraction
+
+val apply_boundary_abstraction :
+  signature -> boundary_abstraction -> is_term -> boundary_abstraction
+
+
 (** If [e1 == e2 : A] and [A == B] then [e1 == e2 : B] *)
 val form_eq_term_convert : eq_term -> eq_type -> eq_term
 

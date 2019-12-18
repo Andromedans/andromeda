@@ -76,61 +76,75 @@ let externals =
     ("magic", (* forall a b, a -> b *)
      Runtime.mk_closure_external (fun v -> Runtime.return v));
 
-    ("Eqchk_equalizer.empty_checker",
-     Runtime.(External (EqualityChecker Eqchk_equalizer.empty_checker)));
+    ("Eqchk.empty_checker",
+     Runtime.(External (EqualityChecker Eqchk.empty_checker)));
 
-    ("Eqchk_equalizer.add_type_computation",
+    ("Eqchk.add_type_computation",
      Runtime.mk_closure_external (fun chk ->
          Runtime.return_closure (fun der ->
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and drv = Runtime.as_derivation ~at:Location.unknown der in
-             let chk = Eqchk_equalizer.add_type_computation chk drv in
-             Runtime.(return (External (EqualityChecker chk)))
+             match Eqchk.add_type_computation chk drv with
+             | Some chk -> Runtime.return (Reflect.mk_option (Some Runtime.(External (EqualityChecker chk))))
+             | None -> Runtime.return (Reflect.mk_option None)
            )));
 
-    ("Eqchk_equalizer.add_term_computation",
+    ("Eqchk.add_term_computation",
      Runtime.mk_closure_external (fun chk ->
          Runtime.return_closure (fun der ->
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and drv = Runtime.as_derivation ~at:Location.unknown der in
-             let chk = Eqchk_equalizer.add_term_computation chk drv in
-             Runtime.(return (External (EqualityChecker chk)))
+             match Eqchk.add_term_computation chk drv with
+             | Some chk -> Runtime.return (Reflect.mk_option (Some Runtime.(External (EqualityChecker chk))))
+             | None -> Runtime.return (Reflect.mk_option None)
            )));
 
-    ("Eqchk_equalizer.normalize_type",
+    ("Eqchk.normalize_type",
      Runtime.mk_closure_external (fun chk ->
          Runtime.return_closure (fun t ->
              Runtime.lookup_signature >>= fun sgn ->
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and t = Runtime.as_is_type ~at:Location.unknown t in
-             let (t_eq_t', t') = Eqchk_equalizer.normalize_type chk sgn t in
+             let (t_eq_t', t') = Eqchk.normalize_type chk sgn t in
              let t_eq_t' = Nucleus.(abstract_not_abstract (JudgementEqType t_eq_t'))
              and t' = Nucleus.(abstract_not_abstract (JudgementIsType t')) in
              Runtime.(return (Tuple [Judgement t_eq_t'; Judgement t']))
            )));
 
-    ("Eqchk_equalizer.normalize_term",
+    ("Eqchk.normalize_term",
      Runtime.mk_closure_external (fun chk ->
          Runtime.return_closure (fun e ->
              Runtime.lookup_signature >>= fun sgn ->
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and e = Runtime.as_is_term ~at:Location.unknown e in
-             let (e_eq_e', e') = Eqchk_equalizer.normalize_term chk sgn e in
+             let (e_eq_e', e') = Eqchk.normalize_term chk sgn e in
              let e_eq_e' = Nucleus.(abstract_not_abstract (JudgementEqTerm e_eq_e'))
              and e' = Nucleus.(abstract_not_abstract (JudgementIsTerm e')) in
              Runtime.(return (Tuple [Judgement e_eq_e'; Judgement e']))
            )));
 
-    ("Eqchk_equalizer.add_extensionality",
+    ("Eqchk.add_extensionality",
      Runtime.mk_closure_external (fun chk ->
          Runtime.return_closure (fun der ->
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and drv = Runtime.as_derivation ~at:Location.unknown der in
-             let chk = Eqchk_equalizer.add_extensionality chk drv in
-             Runtime.(return (External (EqualityChecker chk)))
+             match Eqchk.add_extensionality chk drv with
+             | Some chk -> Runtime.return (Reflect.mk_option (Some Runtime.(External (EqualityChecker chk))))
+             | None -> Runtime.return (Reflect.mk_option None)
     )));
 
-    ("Eqchk_equalizer.prove_eq_type_abstraction",
+    ("Eqchk.add",
+     Runtime.mk_closure_external (fun chk ->
+         Runtime.return_closure (fun der ->
+             Runtime.lookup_nucleus_penv >>= fun penv ->
+             let chk = Runtime.as_equality_checker ~at:Location.unknown chk
+             and drv = Runtime.as_derivation ~at:Location.unknown der in
+             match Eqchk.add ~quiet:false ~penv chk drv with
+             | Some chk -> Runtime.return (Reflect.mk_option (Some Runtime.(External (EqualityChecker chk))))
+             | None -> Runtime.return (Reflect.mk_option None)
+    )));
+
+    ("Eqchk.prove_eq_type_abstraction",
      Runtime.mk_closure_external (fun chk ->
          Runtime.return_closure (fun bdry ->
              Runtime.lookup_signature >>= fun sgn ->
@@ -139,12 +153,15 @@ let externals =
              match Nucleus.as_eq_type_boundary_abstraction bdry with
              | None -> failwith "some error about wrong use of prove_eq_type_abstraction"
              | Some bdry ->
-                let eq = Eqchk_equalizer.prove_eq_type_abstraction chk sgn bdry in
-                let eq = Nucleus.from_eq_type_abstraction eq in
-                Runtime.(return (Judgement eq))
+                begin match Eqchk.prove_eq_type_abstraction chk sgn bdry with
+                | Some eq ->
+                   let eq = Nucleus.from_eq_type_abstraction eq in
+                   Runtime.return (Reflect.mk_option (Some Runtime.(Judgement eq)))
+                | None -> Runtime.return (Reflect.mk_option None)
+                end
     )));
 
-    ("Eqchk_equalizer.prove_eq_term_abstraction",
+    ("Eqchk.prove_eq_term_abstraction",
      Runtime.mk_closure_external (fun chk ->
          Runtime.return_closure (fun bdry ->
              Runtime.lookup_signature >>= fun sgn ->
@@ -153,11 +170,13 @@ let externals =
              match Nucleus.as_eq_term_boundary_abstraction bdry with
              | None -> failwith "some error about wrong use of prove_eq_term_abstraction"
              | Some bdry ->
-                let eq = Eqchk_equalizer.prove_eq_term_abstraction chk sgn bdry in
-                let eq = Nucleus.from_eq_term_abstraction eq in
-                Runtime.(return (Judgement eq))
+                begin match Eqchk.prove_eq_term_abstraction chk sgn bdry with
+                | Some eq ->
+                   let eq = Nucleus.from_eq_term_abstraction eq in
+                   Runtime.return (Reflect.mk_option (Some Runtime.(Judgement eq)))
+                | None -> Runtime.return (Reflect.mk_option None)
+                end
     )));
-
   ]
 
 let lookup s =

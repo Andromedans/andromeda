@@ -206,7 +206,7 @@ let rec comp {Location.it=c'; at} =
                 Runtime.(error ~at (JudgementOrBoundaryExpected v))
            end
 
-  | Syntax.Substitute (c1, c2) ->
+  | Syntax.SubstituteJudgement (c1, c2) ->
      (*
 
         Checking is kind of useless:
@@ -246,6 +246,24 @@ let rec comp {Location.it=c'; at} =
              Runtime.(error ~at (IsTermExpected (Runtime.Judgement jdg)))
           end
      end
+
+  | Syntax.SubstituteBoundary (c1, c2) ->
+     comp_as_boundary_abstraction c1 >>= fun abstr ->
+     begin match Nucleus.type_at_abstraction abstr with
+       | None -> Runtime.(error ~at AbstractionExpected)
+       | Some t ->
+          check_judgement c2 (Nucleus.abstract_not_abstract (Nucleus.form_is_term_boundary t)) >>= fun jdg ->
+          begin match Nucleus.as_not_abstract jdg with
+          | Some (Nucleus.JudgementIsTerm e) ->
+               Runtime.lookup_signature >>= fun sgn ->
+               let abstr = Nucleus.apply_boundary_abstraction sgn abstr e in
+               Runtime.return_boundary abstr
+          | None
+          | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _) ->
+             Runtime.(error ~at (IsTermExpected (Runtime.Judgement jdg)))
+          end
+     end
+
 
   | Syntax.Derive (prems, c) ->
      premises prems
@@ -367,7 +385,8 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.Occurs _
   | Syntax.Congruence _
   | Syntax.Convert _
-  | Syntax.Substitute _
+  | Syntax.SubstituteJudgement _
+  | Syntax.SubstituteBoundary _
   | Syntax.Derive _
   | Syntax.Context _
   | Syntax.Natural _
