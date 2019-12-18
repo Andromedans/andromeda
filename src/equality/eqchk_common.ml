@@ -162,7 +162,16 @@ let heads_term_normal = function
 
   | Patt.TermFreeMeta (_, es) -> heads_terms es
 
-let heads_term patt = function
+let heads_term = function
   | Patt.TermAddMeta _ -> IntSet.empty
   | Patt.TermCheckMeta _ -> IntSet.empty
   | Patt.TermNormal patt -> heads_term_normal patt
+
+let heads_type_normal = function
+  | Patt.TypeConstructor (_, args) -> heads_args args
+  | Patt.TypeFreeMeta (_, es) -> heads_terms es
+
+let heads_type = function
+  | Patt.TypeAddMeta _ -> IntSet.empty
+  | Patt.TypeCheckMeta _ -> IntSet.empty
+  | Patt.TypeNormal patt -> heads_type_normal patt
