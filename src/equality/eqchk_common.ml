@@ -115,3 +115,49 @@ let rap_fully_apply rap args =
     Some (fold rap args)
   with
   | Nucleus.Error _ -> None
+
+(** Automagically compute the heads of a pattern *)
+
+let arg_is_head = function
+  | Patt.(ArgumentIsType (TypeAddMeta _ | TypeCheckMeta _)) -> false
+  | Patt.(ArgumentIsType (TypeNormal _)) -> true
+  | Patt.(ArgumentIsTerm (TermAddMeta _ | TermCheckMeta _)) -> false
+  | Patt.(ArgumentIsTerm (TermNormal _)) -> true
+
+let term_is_head = function
+  | Patt.(TermAddMeta _ | TermCheckMeta _) -> false
+  | Patt.TermNormal _ -> true
+
+let heads_args args =
+  let rec fold hs i = function
+    | [] -> hs
+    | arg :: args ->
+       if arg_is_head arg then
+         fold (IntSet.add i hs) (i+1) args
+       else
+         fold hs (i+1) args
+  in
+  fold IntSet.empty 0 args
+
+let heads_terms es =
+  let rec fold hs i = function
+    | [] -> hs
+    | e :: es ->
+       if term_is_head e then
+         fold (IntSet.add i hs) (i+1) es
+       else
+         fold hs (i+1) es
+  in
+  fold IntSet.empty 0 es
+
+let heads_term_normal = function
+  | Patt.TermAtom _ -> IntSet.empty
+
+  | Patt.TermConstructor (_, args) -> heads_args args
+
+  | Patt.TermFreeMeta (_, es) -> heads_terms es
+
+let heads_term patt = function
+  | Patt.TermAddMeta _ -> IntSet.empty
+  | Patt.TermCheckMeta _ -> IntSet.empty
+  | Patt.TermNormal patt -> heads_term_normal patt

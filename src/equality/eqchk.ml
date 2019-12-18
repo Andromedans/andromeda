@@ -9,7 +9,7 @@ open Eqchk_common
    allows us to quickly determine which rules are potentially applicable. *)
 type checker = {
   normalizer : Eqchk_normalizer.normalizer ;
-  ext_rules : Eqchk_ext.equation list SymbolMap.t ;
+  ext_rules : Eqchk_extensionality.equation list SymbolMap.t ;
 }
 
 let empty_checker =
@@ -21,23 +21,28 @@ let empty_checker =
    given checker, or raise [Invalid_rule] if not possible. *)
 
 let add_type_computation checker drv =
-  { checker with
-    normalizer = Eqchk_normalizer.add_type_computation checker.normalizer drv }
+  try
+    Some { checker with normalizer = Eqchk_normalizer.add_type_computation checker.normalizer drv }
+  with
+    Invalid_rule -> None
 
 let add_term_computation checker drv =
-  { checker with
-    normalizer = Eqchk_normalizer.add_term_computation checker.normalizer drv }
-
+  try
+    Some { checker with normalizer = Eqchk_normalizer.add_term_computation checker.normalizer drv }
+  with
+    Invalid_rule -> None
 
 let add_extensionality checker drv =
-  let sym, bt = Eqchk_ext.make_equation drv in
-  let rls =
-    match SymbolMap.find_opt sym checker.ext_rules with
-    | None -> [bt]
-    | Some rls -> rls @ [bt]
-  in
-  { checker with ext_rules = SymbolMap.add sym rls checker.ext_rules }
-
+  try
+    let sym, bt = Eqchk_extensionality.make_equation drv in
+    let rls =
+      match SymbolMap.find_opt sym checker.ext_rules with
+      | None -> [bt]
+      | Some rls -> rls @ [bt]
+    in
+    Some { checker with ext_rules = SymbolMap.add sym rls checker.ext_rules }
+  with
+  | Invalid_rule -> None
 
 (** General equality checking functions *)
 
@@ -46,24 +51,36 @@ let add_extensionality checker drv =
    equality. *)
 
 let rec prove_eq_type_abstraction chk sgn abstr =
-  match Nucleus.invert_eq_type_boundary_abstraction abstr with
+  let rec fold abstr =
+    match Nucleus.invert_eq_type_boundary_abstraction abstr with
 
-  | Nucleus.Stump_NotAbstract eq ->
-     Nucleus.(abstract_not_abstract ((prove_eq_type chk sgn eq)))
+    | Nucleus.Stump_NotAbstract eq ->
+       Nucleus.(abstract_not_abstract ((prove_eq_type chk sgn eq)))
 
-  | Nucleus.Stump_Abstract (atm, abstr) ->
-     let abstr = prove_eq_type_abstraction chk sgn abstr in
-     Nucleus.abstract_eq_type atm abstr
+    | Nucleus.Stump_Abstract (atm, abstr) ->
+       let abstr = fold abstr in
+       Nucleus.abstract_eq_type atm abstr
+  in
+  try
+    Some (fold abstr)
+  with
+  | Equality_fail -> None
 
 and prove_eq_term_abstraction chk sgn abstr =
-  match Nucleus.invert_eq_term_boundary_abstraction abstr with
+  let rec fold abstr =
+    match Nucleus.invert_eq_term_boundary_abstraction abstr with
 
-  | Nucleus.Stump_NotAbstract bdry ->
-     Nucleus.(abstract_not_abstract ((prove_eq_term chk sgn bdry)))
+    | Nucleus.Stump_NotAbstract bdry ->
+       Nucleus.(abstract_not_abstract ((prove_eq_term chk sgn bdry)))
 
-  | Nucleus.Stump_Abstract (atm, abstr) ->
-     let abstr = prove_eq_term_abstraction chk sgn abstr in
-     Nucleus.abstract_eq_term atm abstr
+    | Nucleus.Stump_Abstract (atm, abstr) ->
+       let abstr = fold abstr in
+       Nucleus.abstract_eq_term atm abstr
+  in
+  try
+    Some (fold abstr)
+  with
+  | Equality_fail -> None
 
 and prove_eq_type chk sgn (ty1, ty2) =
   let ty1_eq_ty1', ty1' = Eqchk_normalizer.normalize_type sgn chk.normalizer ty1
@@ -74,7 +91,7 @@ and prove_eq_type chk sgn (ty1, ty2) =
     (Nucleus.symmetry_type ty2_eq_ty2')
 
 and prove_eq_term chk sgn bdry =
-  match Eqchk_ext.find chk.ext_rules sgn bdry with
+  match Eqchk_extensionality.find chk.ext_rules sgn bdry with
 
   | Some rap ->
      (* reduce the problem to an application of an extensionality rule *)
@@ -153,3 +170,12 @@ let normalize_type chk sgn t =
 let normalize_term chk sgn e =
   let eq, Normal e = Eqchk_normalizer.normalize_term sgn chk.normalizer e in
   eq, e
+
+let set_type_heads ({normalizer; _} as chk) s hs =
+  { chk with normalizer = Eqchk_normalizer.set_type_heads normalizer (Ident s) hs }
+
+let set_term_heads ({normalizer; _} as chk) s hs =
+  { chk with normalizer = Eqchk_normalizer.set_term_heads normalizer (Ident s) hs }
+
+let add ~quiet chk drv =
+  failwith "add"
