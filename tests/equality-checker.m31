@@ -18,8 +18,8 @@ rule β_fst (A type) (B type) (x : A) (y : B) : fst A B (pair A B x y) ≡ x : A
 rule β_snd (A type) (B type) (x : A) (y : B) : snd A B (pair A B x y) ≡ y : B ;;
 
 rule prod_ext (A type) (B type) (u : prod A B) (v : prod A B)
-              (fst A B u ≡ fst A B v : A as ξ)
-              (snd A B u ≡ snd A B v : B as ζ)
+              (fst A B u ≡ fst A B v : A by ξ)
+              (snd A B u ≡ snd A B v : B by ζ)
               :
               u ≡ v : prod A B  ;;
 
@@ -36,7 +36,7 @@ rule v : V;;
 eq.normalize (fst U V (pair U V u v));;
 eq.normalize (snd U V (pair U V u v));;
 
-eq.prove (p ≡ pair U V (fst U V p) (snd U V p) : prod U V as ??);;
+eq.prove (p ≡ pair U V (fst U V p) (snd U V p) : prod U V by ??);;
 
 (* Natural numbers *)
 
@@ -74,4 +74,4 @@ let foo = plus (z) (s z);;
 eq.normalize foo;;
 eq.normalize (ℕ_ind ({_} ℕ) z ({c_n _} s c_n) z);;
 eq.normalize (s (ℕ_ind ({_} ℕ) z ({c_n _} s c_n) z));;
-eq.prove (plus (s z) (s z) ≡ s (s z) : ℕ as ??)
+eq.prove (plus (s z) (s z) ≡ s (s z) : ℕ by ??)

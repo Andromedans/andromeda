@@ -57,8 +57,8 @@ let test_boundary bdry =
 match bdry with
   | ⁇ type -> ([], [], "istype boundary")
   | ⁇ : X -> ([X], [], "isterm boundary")
-  | (X ≡ Y as ⁇) as Θ -> ([X; Y], [Θ], "eqtype boundary")
-  | x ≡ y : X as ⁇ -> ([x; y; X], [], "eqterm boundary")
+  | (X ≡ Y by ⁇) as Θ -> ([X; Y], [Θ], "eqtype boundary")
+  | x ≡ y : X by ⁇ -> ([x; y; X], [], "eqterm boundary")
   | {x : X} (bdry :> boundary) -> ([x; X], [bdry], "abstraction boundary")
 end ;;
 
@@ -68,11 +68,11 @@ test_boundary (⁇ : A) ;;
 
 test_boundary (⁇ : P a) ;;
 
-test_boundary (A ≡ P a as ⁇) ;;
+test_boundary (A ≡ P a by ⁇) ;;
 
-test_boundary (a ≡ b : A as ⁇) ;;
+test_boundary (a ≡ b : A by ⁇) ;;
 
-test_boundary ((convert a ξ) ≡ (convert b ξ) : B as ⁇) ;;
+test_boundary ((convert a ξ) ≡ (convert b ξ) : B by ⁇) ;;
 
 test_boundary ({z : A} ⁇ : P z) ;;
 

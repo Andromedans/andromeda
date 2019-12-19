@@ -24,9 +24,9 @@ let four = s three ;;
 let five = plus two three ;;
 let six = plus three three ;;
 
-eq.prove (plus three three ≡ plus two four : N as ??) ;;
+eq.prove (plus three three ≡ plus two four : N by ??) ;;
 
-eq.prove (plus three three ≡ plus two three : N as ??) ;;
+eq.prove (plus three three ≡ plus two three : N by ??) ;;
 
 eq.normalize (plus (s z) (s z)) ;;
 
@@ -36,12 +36,12 @@ eq.compute six ;;
 
 eq.normalize (plus five six) ;;
 
-eq.prove (plus five six ≡ s (s (s (s (s (s (s (s (s (s (s z)))))))))) : N as ??) ;;
+eq.prove (plus five six ≡ s (s (s (s (s (s (s (s (s (s (s z)))))))))) : N by ??) ;;
 
 eq.compute (plus five six) ;;
 
 eq.compute (times six (times six six)) ;;
 
-eq.prove (times five six ≡ plus five (times five five) : N as ??) ;;
+eq.prove (times five six ≡ plus five (times five five) : N by ??) ;;
 
-eq.prove (times five six ≡ plus five (times five four) : N as ??) ;;
+eq.prove (times five six ≡ plus five (times five four) : N by ??) ;;

@@ -26,7 +26,7 @@
 (* Meta-level programming *)
 %token OPERATION
 %token MATCH WHEN END
-%token AS TYPE
+%token AS TYPE BY
 %token EQEQ
 
 %token EXCEPTION RAISE
@@ -205,7 +205,7 @@ equality_premise_name:
   |
     { None }
 
-  | AS x=opt_name(tt_name)
+  | BY x=opt_name(tt_name)
     { x }
 
 local_context:
@@ -279,10 +279,10 @@ binop_term_:
   | QQMARK COLON t=app_term
     { Sugared.MLBoundaryIsTerm t }
 
-  | l=app_term EQEQ r=app_term AS QQMARK
+  | l=app_term EQEQ r=app_term BY QQMARK
     { Sugared.MLBoundaryEqType (l, r) }
 
-  | l=app_term EQEQ r=app_term COLON ty=term AS QQMARK
+  | l=app_term EQEQ r=app_term COLON ty=term BY QQMARK
     { Sugared.MLBoundaryEqTerm (l, r, ty) }
 
   | e1=binop_term oploc=infix e2=binop_term
@@ -633,10 +633,10 @@ pattern_:
   | QQMARK COLON p=binop_pattern
     { Sugared.Patt_BoundaryIsTerm p }
 
-  | p1=binop_pattern EQEQ p2=binop_pattern AS QQMARK
+  | p1=binop_pattern EQEQ p2=binop_pattern BY QQMARK
     { Sugared.Patt_BoundaryEqType (p1, p2) }
 
-  | p1=binop_pattern EQEQ p2=binop_pattern COLON p3=binop_pattern AS QQMARK
+  | p1=binop_pattern EQEQ p2=binop_pattern COLON p3=binop_pattern BY QQMARK
     { Sugared.Patt_BoundaryEqTerm (p1, p2, p3) }
 
   | abstr=tt_maybe_typed_binder p=pattern

@@ -26,7 +26,7 @@ rule Id_congr
   (A' type)
   (a : A) (b : A)
   (a' : A') (b' : A')
-  (A ≡ A' as ξ)
+  (A ≡ A' by ξ)
   (a ≡ (convert a' (sym ξ)) : A)
   (b ≡ (convert b' (sym ξ)) : A)
   : Id A a b ≡ Id A' a' b'
@@ -34,8 +34,8 @@ rule Id_congr
 rule Id_refl_congr
   (A type) (A' type)
   (a : A) (a' : A')
-  (A ≡ A' as ξ)
-  (a ≡ (convert a' (sym ξ)) : A as ζ)
+  (A ≡ A' by ξ)
+  (a ≡ (convert a' (sym ξ)) : A by ζ)
   : Id_refl A a ≡
          (convert (Id_refl A' a') (sym (Id_congr A A' a a a' a' ξ ζ ζ)))
     : Id A a a
