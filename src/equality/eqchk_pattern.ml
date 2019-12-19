@@ -399,11 +399,11 @@ let make_is_type k t =
    the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
    a beta or extensionality rule. *)
 let make_is_term k e =
-(* try *)
+  try
     let metas, patt = form_is_term Bound_set.empty e in
     if is_range metas k then
       Some (patt, k)
     else
       None
-  (* with
-   * | Form_fail -> None *)
+  with
+  | Form_fail -> None
