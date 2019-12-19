@@ -4,6 +4,8 @@ mltype checker ;;
 
 exception Invalid_equality_rule ;;
 
+exception Failed_equality of boundary ;;
+
 external empty_checker : checker
   = "Eqchk.empty_checker" ;;
 
@@ -95,6 +97,14 @@ let compute jdg =
 
 let prove bdry =
   match bdry with
-  | (_ ≡ _ by ??) -> prove_eqtype_abstraction (!ch) bdry
-  | (_ ≡ _ : _ by ??) -> prove_eqterm_abstraction (!ch) bdry
+  | (_ ≡ _ by ??) ->
+    match prove_eqtype_abstraction (!ch) bdry with
+    | ML.Some ξ -> ξ
+    | ML.None -> raise (Failed_equality bdry)
+    end
+  | (_ ≡ _ : _ by ??) ->
+    match prove_eqterm_abstraction (!ch) bdry with
+    | ML.Some ξ -> ξ
+    | ML.None -> raise (Failed_equality bdry)
+    end
   end

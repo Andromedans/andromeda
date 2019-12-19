@@ -9,7 +9,7 @@ Rule Id is postulated.
 Rule Pi is postulated.
 - : derivation = derive (A type) ({_ : A} B type) → Pi A ({x} B {x}) type
 Rule cow is postulated.
-- : derivation = derive (A type) (a : A) ({x : A} a ≡ x : A as ξ) → cow
+- : derivation = derive (A type) (a : A) ({x : A} a ≡ x : A by ξ) → cow
   A a ({x} a ≡ x : A) type
 Rule reflect is postulated.
 - : derivation = derive (A type) (a : A) (b : A) (p : Id A a b) → a ≡ b :

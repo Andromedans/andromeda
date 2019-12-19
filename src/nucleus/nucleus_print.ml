@@ -90,7 +90,7 @@ and boundary_eq_type ?max_level ~penv ~print_head (t1, t2) ppf =
     ?max_level
     ~at_level:Level.boundary
     ppf
-    "%t@ %s@ %t as %t"
+    "%t@ %s@ %t by %t"
     (thesis_is_type ~max_level:Level.eq_left ~penv t1)
     (Print.char_equal ())
     (thesis_is_type ~max_level:Level.eq_right ~penv t2)
@@ -103,7 +103,7 @@ and boundary_eq_term ?max_level ~penv ~print_head (e1, e2, t) ppf =
     ?max_level
     ~at_level:Level.eq
     ppf
-    "%t@ %s@ %t@ :@ %t as %t"
+    "%t@ %s@ %t@ :@ %t by %t"
     (thesis_is_term ~max_level:Level.eq_left ~penv e1)
     (Print.char_equal ())
     (thesis_is_term ~max_level:Level.eq_right ~penv e2)
