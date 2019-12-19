@@ -6,28 +6,34 @@ rule Σ (A type) ({x : A} B type)
 
 rule pair (A type) ({x : A} B type) (a : A) (b : B{a})
   : Σ A B
+;;
 
 rule π₁ (A type) ({x : A} B type) (s : Σ A B)
   : A
+;;
 
 rule π₂ (A type) ({x : A} B type) (s : Σ A B)
   : B{π₁ A B s}
+;;
 
 rule Σ_β₁ (A type) ({x : A} B type) (a : A) (b : B{a})
-  : π₁ A B (pair A B a b) ≡ a : A;;
+  : π₁ A B (pair A B a b) ≡ a : A
+;;
 
-eq.add_rule Σ_β₁;;
+eq.add_rule Σ_β₁
+;;
 
 rule Σ_β₂ (A type) ({x : A} B type) (a : A) (b : B{a}) 
   : π₂ A B (pair A B a b) ≡ b : B{a} ;; 
 
-Σ_β₂;;
-
-(* eq.add_rule Σ_β₂;;*)
+eq.add_rule Σ_β₂
+;;
 
 rule Σ_ext (A type) ({x : A} B type) (s : Σ A B) (v : Σ A B)
            (π₁ A B s ≡ π₁ A B v : A by ξ)
            (convert (π₂ A B s) (congruence B{π₁ A B s} B{π₁ A B v} ξ) ≡ π₂ A B v : B{π₁ A B v})
-  : s ≡ v : Σ A B ;;
+  : s ≡ v : Σ A B
+;;
 
-eq.add_rule Σ_ext;;
+eq.add_rule Σ_ext
+;;

@@ -54,9 +54,6 @@ let coerce_abstraction jdg bdry =
     match (jdg, bdry) with
 
     | (({x : A} (jdg :> judgement)), ({_ : A'} (_ :> boundary))) ->
-      base.print jdg;
-      base.print A;
-      base.print A';
       let A_eq_A' = equalize_type A A' in
       let x' = convert x A_eq_A' in
       let bdry' = bdry{x'} in

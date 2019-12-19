@@ -33,11 +33,12 @@ let add_type_computation checker drv =
   | Some (_, _, checker) -> Some checker
 
 let add_term_computation' checker drv =
-  try
+(* try *)
     let sym, bt, normalizer = Eqchk_normalizer.add_term_computation checker.normalizer drv in
     Some (sym, bt, {checker with normalizer})
-  with
+(*  with
     Invalid_rule -> None
+*)
 
 let add_term_computation checker drv =
   match add_term_computation' checker drv with
