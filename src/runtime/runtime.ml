@@ -202,8 +202,8 @@ and handler = {
 }
 
 and 'a continuation =
-  { cont_val : value -> 'a comp
-  ; cont_exc : exc -> 'a comp }
+  { cont_val : (value, 'a) closure
+  ; cont_exc : (exc, 'a) closure }
 
 type topenv = {
   top_runtime : env ;
@@ -278,13 +278,13 @@ let apply_closure (Clos f) v env = f v env
 let rec bind_cont (r : value comp) ({cont_val=f_val; cont_exc=f_exc} as cont) : 'a comp =
   fun env ->
   match r env with
-  | Return v -> f_val v env
+  | Return v -> apply_closure f_val v env
 
-  | Exception exc -> f_exc exc env
+  | Exception exc -> apply_closure f_exc exc env
 
   | Operation ({op_cont={cont_val=g_val; cont_exc=g_exc};_} as op_data) ->
-     let op_cont = { cont_val = (fun v env -> bind_cont (g_val v) cont env) ;
-                     cont_exc = (fun exc env -> bind_cont (g_exc exc) cont env) }
+     let op_cont = { cont_val = mk_closure0 (fun v -> bind_cont (apply_closure g_val v) cont) env ;
+                     cont_exc = mk_closure0 (fun exc -> bind_cont (apply_closure g_exc exc) cont) env }
      in
      Operation {op_data with op_cont}
 
@@ -310,8 +310,8 @@ let rec bind r f env =
   | Exception _ as r -> r
 
   | Operation ({op_cont={cont_val=g_val; cont_exc=g_exc};_} as op_data) ->
-     let op_cont = { cont_val = (fun v -> bind (g_val v) f) ;
-                     cont_exc = (fun exc -> bind (g_exc exc) f) }
+     let op_cont = { cont_val = mk_closure0 (fun v -> bind (apply_closure g_val v) f) env ;
+                     cont_exc = mk_closure0 (fun exc -> bind (apply_closure g_exc exc) f) env }
      in
      Operation {op_data with op_cont}
 
@@ -545,7 +545,7 @@ let operation op_id ?checking vs env =
     op_args = vs ;
     op_boundary = checking ;
     op_dynamic_env = env.dynamic ;
-    op_cont = {cont_val = return ; cont_exc = raise_exception }
+    op_cont = {cont_val = mk_closure0 return env ; cont_exc = mk_closure0 raise_exception env }
   }
 
 (** Interact with the environment *)
@@ -973,10 +973,9 @@ let rec handle_comp {handler_val; handler_ops; handler_exc} (r : value comp) : v
      apply_closure handler_exc exc env
 
   | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont={cont_val; cont_exc}} ->
-     let env = {env with dynamic = op_dynamic_env} in
      let h = {handler_val; handler_ops; handler_exc} in
-     let op_cont = { cont_val = (fun v -> handle_comp h (cont_val v)) ;
-                     cont_exc = (fun exc -> handle_comp h (cont_exc exc)) }
+     let op_cont = { cont_val = mk_closure0 (fun v -> handle_comp h (apply_closure cont_val v)) env ;
+                     cont_exc = mk_closure0 (fun exc -> handle_comp h (apply_closure cont_exc exc)) env }
      in
      begin
        match Ident.find_opt op_id handler_ops with
@@ -1000,8 +999,8 @@ let top_add_handle ~at op_id op_case ({top_handler; top_runtime} as topenv) =
   (), { topenv with top_handler }
 
 
-let top_handle ~at c ({top_handler=hnd;_} as topenv) =
-  let rec handle env = function
+let top_handle ~at c ({top_handler=hnd; top_runtime=env} as topenv) =
+  let rec handle = function
 
     | Return v -> v, { topenv with top_runtime=env }
 
@@ -1012,18 +1011,16 @@ let top_handle ~at c ({top_handler=hnd;_} as topenv) =
        begin match Ident.find_opt op_id hnd with
 
        | Some f_op ->
-         let env = {env with dynamic = op_dynamic_env} in
+         let env' = {env with dynamic = op_dynamic_env} in
          let r = apply_closure f_op {args=op_args; checking=op_boundary} in
-         let penv = get_penv (topenv.top_runtime) in
-         Format.printf "op_id : %t@." (Ident.print ~opens:penv.opens ~parentheses:true op_id);
-         handle env (bind_cont r op_cont env)
+         handle (bind_cont r op_cont env')
 
        | None ->
           error ~at (UnhandledOperation (op_id, op_args))
        end
   in
   let r = c topenv.top_runtime in
-  handle topenv.top_runtime r
+  handle r
 
 (** Equality *)
 
