@@ -1014,6 +1014,8 @@ let top_handle ~at c ({top_handler=hnd;_} as topenv) =
        | Some f_op ->
          let env = {env with dynamic = op_dynamic_env} in
          let r = apply_closure f_op {args=op_args; checking=op_boundary} in
+         let penv = get_penv (topenv.top_runtime) in
+         Format.printf "op_id : %t@." (Ident.print ~opens:penv.opens ~parentheses:true op_id);
          handle env (bind_cont r op_cont env)
 
        | None ->
