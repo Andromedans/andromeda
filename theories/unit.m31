@@ -1,3 +1,4 @@
+require eq;;
 rule Unit type
 
 rule unit : Unit
@@ -6,7 +7,13 @@ rule unit_ind ({x : Unit} C type) (c : C{unit}) (a : Unit)
   : C {a}
 
 rule unit_β ({x : Unit} C type) (c : C{unit})
-  : unit_ind C c unit == c : C{unit}
+  : unit_ind C c unit ≡ c : C{unit};;
+
+eq.add_rule unit_β;;
 
 rule unit_η (s : Unit)
-  : s == unit : Unit
+  : s ≡ unit : Unit
+
+rule unit_ext (s : Unit) (t : Unit) : s ≡ t : Unit;;
+
+eq.add_rule unit_ext;;
