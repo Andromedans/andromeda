@@ -1008,6 +1008,19 @@ let rec comp ctx {Location.it=c';at} =
      and c = comp ctx c in
      locate (Desugared.TypeAscribe (c, t))
 
+  | Sugared.EqTypeAscribe (t1, t2, c) ->
+     let t1 = comp ctx t1
+     and t2 = comp ctx t2
+     and c = comp ctx c in
+     locate (Desugared.EqTypeAscribe (t1, t2, c))
+
+  | Sugared.EqTermAscribe (e1, e2, t, c) ->
+     let e1 = comp ctx e1
+     and e2 = comp ctx e2
+     and t = comp ctx t
+     and c = comp ctx c in
+     locate  (Desugared.EqTermAscribe (e1, e2, t, c))
+
   | Sugared.Abstract (xs, c) ->
      let rec fold ctx ys = function
        | [] ->

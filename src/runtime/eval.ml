@@ -179,12 +179,6 @@ let rec comp {Location.it=c'; at} =
      check_judgement c1 bdry >>=
      Runtime.return_judgement
 
-  | Syntax.TypeAscribe (c1, c2) ->
-     comp_as_is_type_abstraction c2 >>= fun abstr ->
-     let bdry = Nucleus.form_is_term_boundary_abstraction abstr in
-     check_judgement c1 bdry >>=
-     Runtime.return_judgement
-
   | Syntax.Abstract (x, None, _) ->
     Runtime.(error ~at (UnannotatedAbstract x))
 
@@ -373,7 +367,6 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.Function _
   | Syntax.Handler _
   | Syntax.BoundaryAscribe _
-  | Syntax.TypeAscribe _
   | Syntax.MLConstructor _
   | Syntax.TTConstructor _
   | Syntax.AsDerivation _
@@ -592,8 +585,8 @@ and comp_as_is_term_abstraction c =
   comp c >>= fun v -> return (Runtime.as_is_term_abstraction ~at:c.Location.at v)
 
 (** Run [c] and convert the result to a term abstraction. *)
-and comp_as_is_type_abstraction c =
-  comp c >>= fun v -> return (Runtime.as_is_type_abstraction ~at:c.Location.at v)
+(* and comp_as_is_type_abstraction c =
+ *   comp c >>= fun v -> return (Runtime.as_is_type_abstraction ~at:c.Location.at v) *)
 
 (** Run [c] and convert the result to a judgement abstraction. *)
 and comp_as_judgement_abstraction c =

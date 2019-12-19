@@ -1,0 +1,10 @@
+rule A type ;;
+rule a : A ;;
+
+A ≡ A by (congruence A A) ;;
+
+a ≡ a : A by (congruence a a) ;;
+
+derive ({x : A} f : A) (x : A) (y : A) (x ≡ y : A by ξ) →
+       f{x} ≡ f{y} : A by congruence f{x} f{y} ξ
+;;

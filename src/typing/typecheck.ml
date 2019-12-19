@@ -41,7 +41,6 @@ let rec generalizable c =
     | AbstractAtom _
     | Match _
     | BoundaryAscribe _
-    | TypeAscribe _
     | AsDerivation _
     | TTConstructor _
     | TTApply _
@@ -466,7 +465,23 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
   | Desugared.TypeAscribe (c1, c2) ->
      check_comp c2 Mlty.Judgement >>= fun c2 ->
      check_comp c1 Mlty.Judgement >>= fun c1 ->
-     return (locate ~at (Syntax.TypeAscribe (c1, c2)), Mlty.Judgement)
+     let bdry = locate ~at (Syntax.(MLBoundary (BoundaryIsTerm c2))) in
+     return (locate ~at (Syntax.BoundaryAscribe (c1, bdry)), Mlty.Judgement)
+
+  | Desugared.EqTypeAscribe (c1, c2, c3) ->
+     check_comp c1 Mlty.Judgement >>= fun c1 ->
+     check_comp c2 Mlty.Judgement >>= fun c2 ->
+     check_comp c3 Mlty.Judgement >>= fun c3 ->
+     let bdry = locate ~at (Syntax.(MLBoundary (BoundaryEqType (c1, c2)))) in
+     return (locate ~at (Syntax.BoundaryAscribe (c3, bdry)), Mlty.Judgement)
+
+  | Desugared.EqTermAscribe (e1, e2, t, c) ->
+     check_comp e1 Mlty.Judgement >>= fun e1 ->
+     check_comp e2 Mlty.Judgement >>= fun e2 ->
+     check_comp t Mlty.Judgement >>= fun t ->
+     check_comp c Mlty.Judgement >>= fun c ->
+     let bdry = locate ~at (Syntax.(MLBoundary (BoundaryEqTerm (e1, e2, t)))) in
+     return (locate ~at (Syntax.BoundaryAscribe (c, bdry)), Mlty.Judgement)
 
   | Desugared.Abstract (x, copt, c) ->
     begin match copt with
