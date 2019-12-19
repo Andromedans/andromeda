@@ -86,6 +86,8 @@ and comp' =
   | Fresh of Name.t option * comp
   | BoundaryAscribe of comp * comp
   | TypeAscribe of comp * comp
+  | EqTypeAscribe of comp * comp * comp
+  | EqTermAscribe of comp * comp * comp * comp
   | Abstract of (Name.t * comp option) list * comp
   | AbstractAtom of comp * comp
   | Substitute of comp * comp list

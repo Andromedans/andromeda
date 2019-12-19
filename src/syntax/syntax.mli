@@ -61,7 +61,6 @@ and comp' =
   | Fresh of Name.t option * comp
   | Match of comp * match_case list
   | BoundaryAscribe of comp * comp
-  | TypeAscribe of comp * comp
   | AsDerivation of tt_constructor
   | TTConstructor of tt_constructor * comp list
   | TTApply of comp * comp list

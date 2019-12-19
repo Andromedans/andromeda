@@ -279,10 +279,16 @@ binop_term_:
   | QQMARK COLON t=app_term
     { Sugared.MLBoundaryIsTerm t }
 
+  | l=app_term EQEQ r=app_term BY p=app_term
+    { Sugared.EqTypeAscribe (l, r, p) }
+
+  | l=app_term EQEQ r=app_term COLON ty=app_term BY p=app_term
+    { Sugared.EqTermAscribe (l, r, ty, p) }
+
   | l=app_term EQEQ r=app_term BY QQMARK
     { Sugared.MLBoundaryEqType (l, r) }
 
-  | l=app_term EQEQ r=app_term COLON ty=term BY QQMARK
+  | l=app_term EQEQ r=app_term COLON ty=app_term BY QQMARK
     { Sugared.MLBoundaryEqTerm (l, r, ty) }
 
   | e1=binop_term oploc=infix e2=binop_term
