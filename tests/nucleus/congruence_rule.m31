@@ -9,13 +9,13 @@ rule α : a₁ ≡ a₂ : A ;;
 
 rule symmetry
    (X type) (x : X) (y : X)
-   (x ≡ y : X as α) :
+   (x ≡ y : X by α) :
    y ≡ x : X
 ;;
 
 rule transitivity
    (X type) (x : X) (y : X) (z : X)
-   (x ≡ y : X as α) (y ≡ z : X as β) :
+   (x ≡ y : X by α) (y ≡ z : X by β) :
    x ≡ z : X
 ;;
 

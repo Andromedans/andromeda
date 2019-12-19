@@ -5,13 +5,13 @@ rule reflexivity
 
 rule symmetry
    (X type) (x : X) (y : X)
-   (x ≡ y : X as α) :
+   (x ≡ y : X by α) :
    y ≡ x : X
 ;;
 
 rule transitivity
    (X type) (x : X) (y : X) (z : X)
-   (x ≡ y : X as α) (y ≡ z : X as β) :
+   (x ≡ y : X by α) (y ≡ z : X by β) :
    x ≡ z : X
 ;;
 
@@ -23,10 +23,10 @@ derive
   ({a : A} B type)
   ({a : A} b₁ : B{a})
   ({a : A} b₂ : B{a})
-  ({a : A} b₁{a} ≡ b₂{a} : B{a} as ξ)
+  ({a : A} b₁{a} ≡ b₂{a} : B{a} by ξ)
   (a₁ : A)
   (a₂ : A)
-  (a₁ ≡ a₂ : A as α)
+  (a₁ ≡ a₂ : A by α)
 ->
   let p = ξ{a₁} in
   let q = congruence b₂{a₁} b₂{a₂} α in

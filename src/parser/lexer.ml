@@ -8,6 +8,7 @@ let reserved = [
   ("and", AND) ;
   ("as", AS) ;
   ("boundary", MLBOUNDARY) ;
+  ("by", BY) ;
   ("congruence", CONGRUENCE) ;
   ("context", CONTEXT) ;
   ("convert", CONVERT) ;

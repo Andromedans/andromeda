@@ -43,7 +43,7 @@ let add_rule der =
 exception Coerce_fail ;;
 
 let equalize_type A B =
-  match prove_eqtype_abstraction !ch (A ≡ B as ??) with
+  match prove_eqtype_abstraction !ch (A ≡ B by ??) with
   | ML.Some eq -> eq
   | ML.None -> raise Coerce_fail
   end
@@ -95,6 +95,6 @@ let compute jdg =
 
 let prove bdry =
   match bdry with
-  | (_ ≡ _ as ??) -> prove_eqtype_abstraction (!ch) bdry
-  | (_ ≡ _ : _ as ??) -> prove_eqterm_abstraction (!ch) bdry
+  | (_ ≡ _ by ??) -> prove_eqtype_abstraction (!ch) bdry
+  | (_ ≡ _ : _ by ??) -> prove_eqterm_abstraction (!ch) bdry
   end

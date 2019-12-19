@@ -1,6 +1,6 @@
 let d =
-  derive (A type) (u : A) (v : A) (u ≡ v : A as ξ) ({x : A} B type) ->
-  congruence B{u} B{v} ξ :? (B{u} ≡ B{v} as ??)
+  derive (A type) (u : A) (v : A) (u ≡ v : A by ξ) ({x : A} B type) ->
+  congruence B{u} B{v} ξ :? (B{u} ≡ B{v} by ??)
 ;;
 
 rule T type
@@ -9,4 +9,4 @@ rule b : T
 rule S (_ : T) (_ : T) type
 ;;
 
-derive (a ≡ b : T as ζ) -> d T a b ζ ({x : T} S x x)
+derive (a ≡ b : T by ζ) -> d T a b ζ ({x : T} S x x)

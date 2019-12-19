@@ -8,7 +8,7 @@ rule Id (A type) (a : A) (b : A) type ;;
 Id ;;
 rule Pi (A type) ({x : A} B type) type ;;
 Pi ;;
-rule cow (A type) (a : A) ({x : A} a ≡ x : A as ξ) type ;;
+rule cow (A type) (a : A) ({x : A} a ≡ x : A by ξ) type ;;
 cow ;;
 rule reflect (A type) (a : A) (b : A) (p : Id A a b) : a ≡ b : A ;;
 reflect ;;
