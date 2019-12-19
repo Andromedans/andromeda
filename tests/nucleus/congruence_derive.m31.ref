@@ -3,8 +3,8 @@ Rule symmetry is postulated.
 Rule transitivity is postulated.
 Rule magic is postulated.
 val eq :> derivation = derive (A type) ({_ : A} B type) ({a : A} b₁ : B
-  {a}) ({a : A} b₂ : B {a}) ({a : A} b₁ {a} ≡ b₂ {a} : B {a} as ξ)
-  (a₁ : A) (a₂ : A) (a₁ ≡ a₂ : A as α) → b₁ {a₁} ≡ b₂
+  {a}) ({a : A} b₂ : B {a}) ({a : A} b₁ {a} ≡ b₂ {a} : B {a} by ξ)
+  (a₁ : A) (a₂ : A) (a₁ ≡ a₂ : A by α) → b₁ {a₁} ≡ b₂
   {a₂} : B {a₁}
 Rule nat is postulated.
 Rule plus is postulated.

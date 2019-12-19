@@ -35,7 +35,7 @@ val test_boundary :> boundary → list judgement * list boundary * mlstring =
 - : list judgement * list boundary * mlstring =
   ((⊢ P a type) :: [], [], "isterm boundary")
 - : list judgement * list boundary * mlstring =
-  ((⊢ A type) :: (⊢ P a type) :: [], (⊢ A ≡ P a as ⁇) :: [],
+  ((⊢ A type) :: (⊢ P a type) :: [], (⊢ A ≡ P a by ⁇) :: [],
    "eqtype boundary")
 - : list judgement * list boundary * mlstring =
   ((⊢ a) :: (⊢ b) :: (⊢ A type) :: [], [], "eqterm boundary")

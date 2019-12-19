@@ -6,10 +6,10 @@ Rule b is postulated.
 - : boundary = ⊢ {_ : A} {_ : A} ⁇ type
 - : boundary = ⊢ ⁇ : A
 - : boundary = ⊢ {_ : A} {_ : A} ⁇ : A
-- : boundary = ⊢ A ≡ B as ⁇
-- : boundary = ⊢ {_ : A} {_ : A} A ≡ B as ⁇
-- : boundary = ⊢ a ≡ b : A as ⁇
-- : boundary = ⊢ {x : A} a ≡ x : A as ⁇
+- : boundary = ⊢ A ≡ B by ⁇
+- : boundary = ⊢ {_ : A} {_ : A} A ≡ B by ⁇
+- : boundary = ⊢ a ≡ b : A by ⁇
+- : boundary = ⊢ {x : A} a ≡ x : A by ⁇
 Rule ξ is postulated.
 - : judgement = ⊢ a
 Rule P is postulated.
