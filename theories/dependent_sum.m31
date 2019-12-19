@@ -1,8 +1,6 @@
-require eq_subst
-require eq
+require eq ;;
 
-rule Σ (A type) ({x : A} B type)
-  type
+rule Σ (A type) ({x : A} B type) type
 
 rule pair (A type) ({x : A} B type) (a : A) (b : B{a})
   : Σ A B
@@ -23,8 +21,8 @@ rule Σ_β₁ (A type) ({x : A} B type) (a : A) (b : B{a})
 eq.add_rule Σ_β₁
 ;;
 
-rule Σ_β₂ (A type) ({x : A} B type) (a : A) (b : B{a}) 
-  : π₂ A B (pair A B a b) ≡ b : B{a} ;; 
+rule Σ_β₂ (A type) ({x : A} B type) (a : A) (b : B{a})
+  : π₂ A B (pair A B a b) ≡ b : B{a} ;;
 
 eq.add_rule Σ_β₂
 ;;

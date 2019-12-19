@@ -1,4 +1,5 @@
-rule eq_term_refl (A type) (a : A) : a ≡ a : A
+let eq_term_refl = derive (A type) (a : A) → a ≡ a : A by congruence a a
+;;
 
 rule eq_term_sym (A type) (a : A) (b : A) (a ≡ b : A) : b ≡ a : A
 

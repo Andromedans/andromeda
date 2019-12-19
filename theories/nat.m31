@@ -1,31 +1,39 @@
-require eq;;
+require eq ;;
 
-rule Nat type
+rule ℕ type
+;;
 
-rule z : Nat
+rule z : ℕ
+;;
 
-rule s (n : Nat) : Nat
+rule s (n : ℕ) : ℕ
+;;
 
-rule Nat_ind
-  ({x : Nat} C type)
-  (base : C{z})
-  ({n : Nat} {c_n : C{n}} step : C{s n})
-  (k : Nat)
-  : C{k}
+rule ℕ_ind
+  ({_ : ℕ} C type)
+  (x : C{z})
+  ({n : ℕ} {u : C{n}} f : C{s n})
+  (n : ℕ)
+  : C{n}
+;;
 
-rule Nat_β_z
-  ({x : Nat} C type)
-  (base : C{z})
-  ({n : Nat} {c_n : C{n}} step : C{s n})
-  : Nat_ind C base step z == base : C{z};;
+rule ℕ_β_z
+  ({_ : ℕ} C type)
+  (x : C{z})
+  ({n : ℕ} {u : C{n}} f : C{s n})
+  : ℕ_ind C x f z == x : C{z}
+;;
 
-eq.add_rule Nat_β_z;;
+eq.add_rule ℕ_β_z
+;;
 
-rule Nat_β_s
-  ({x : Nat} C type)
-  (base : C{z})
-  ({n : Nat} {c_n : C{n}} step : C{s n})
-  (k : Nat)
-  : Nat_ind C base step (s k) == step { k, Nat_ind C base step k } : C { s k };;
+rule ℕ_β_s
+  ({_ : ℕ} C type)
+  (x : C{z})
+  ({n : ℕ} {u : C{n}} f : C{s n})
+  (n : ℕ)
+  : ℕ_ind C x f (s n) == f{n, ℕ_ind C x f n} : C{s n}
+;;
 
-eq.add_rule Nat_β_s;;
+eq.add_rule ℕ_β_s
+;;

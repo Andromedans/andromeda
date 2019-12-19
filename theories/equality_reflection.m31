@@ -1,3 +1,6 @@
-require identity_type
+require identity_type ;;
+open identity_type ;;
 
-rule equality_reflection (A type) (a : A) (b : A) (_ : identity_type.Id A a b) : a == b : A
+rule equality_reflection
+  (A type) (a : A) (b : A) (_ : Id A a b)
+  : a == b : A
