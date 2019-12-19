@@ -219,7 +219,9 @@ let extract_meta metas abstr =
          | Nucleus_types.TermBoundVar i :: es ->
             if i = j-1 then check_es (j-1) es else raise Form_fail
 
-         | Nucleus_types.(TermAtom _ | TermMeta _ | TermConvert _ | TermConstructor _) :: _ ->
+         | Nucleus_types.TermConvert (e, _, _) :: es -> check_es k (e :: es)
+
+         | Nucleus_types.(TermAtom _ | TermMeta _ | TermConstructor _) :: _ ->
             raise Form_fail
 
        in
@@ -237,6 +239,7 @@ let extract_meta metas abstr =
 
           | Nucleus_types.(TermMeta (MetaFree _, _) | TermBoundVar _ | TermAtom _ |
                            TermConstructor _ | TermConvert _) ->
+             (** XXX should go through TermConver here *)
              raise Form_fail
 
           end
@@ -327,8 +330,10 @@ and form_is_term metas e =
      in
      fold metas [] es
 
-  | Nucleus_types.(TermMeta (MetaBound _, _::_))
-  | Nucleus_types.TermConvert _ ->
+  | Nucleus_types.TermConvert (e, _, _) ->
+     form_is_term metas e
+
+  | Nucleus_types.(TermMeta (MetaBound _, _::_)) ->
      raise Form_fail
 
 
@@ -372,7 +377,7 @@ and form_argument metas = function
 let is_range s k =
   let rec scan = function
     | 0 -> true
-    | k -> 
+    | k ->
     Bound_set.mem (k-1) s && scan (k-1)
   in
   Bound_set.cardinal s = k && scan k
