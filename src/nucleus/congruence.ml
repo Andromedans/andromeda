@@ -176,11 +176,18 @@ let form_judgement sgn jdg1 jdg2 =
           abstr
           args1 args2
 
-       | TermMeta _, TermConstructor _
-       | TermConstructor _, TermMeta _
-       | TermAtom _, _
-       | _, TermAtom _ ->
-           Error.raise InvalidCongruence
+
+       | TermAtom x as e1, TermAtom y ->
+          if Nonce.equal x.atom_nonce y.atom_nonce then
+            let eq = Form.reflexivity_term sgn e1 in
+            RapDone (JudgementEqTerm eq)
+          else
+            Error.raise InvalidCongruence
+
+       | TermMeta _, (TermConstructor _ | TermAtom _)
+       | TermConstructor _, (TermMeta _ | TermAtom _)
+       | TermAtom _, (TermMeta _ | TermConstructor _) ->
+          Error.raise InvalidCongruence
 
        | TermMeta (MetaBound _, _), _ | _, TermMeta (MetaBound _, _)
        | TermBoundVar _, _ | _, TermBoundVar _ -> assert false
@@ -287,10 +294,16 @@ let form_is_term sgn e1 e2 =
                  abstr
                  args1 args2)
 
-    | TermMeta _, TermConstructor _
-      | TermConstructor _, TermMeta _
-      | TermAtom _, _
-      | _, TermAtom _ ->
+    | TermAtom x as e1, TermAtom y ->
+       if Nonce.equal x.atom_nonce y.atom_nonce then
+         let eq = Form.reflexivity_term sgn e1 in
+         Some (RapDone eq)
+       else
+         None
+
+    | TermMeta _, (TermConstructor _ | TermAtom _)
+    | TermConstructor _, (TermMeta _ | TermAtom _)
+    | TermAtom _, (TermMeta _ | TermConstructor _) ->
        None
 
     | TermMeta (MetaBound _, _), _ | _, TermMeta (MetaBound _, _)

@@ -12,8 +12,8 @@ rule J
   ({x : A} c : C{x, x, refl A x})
   (a : A)
   (b : A)
-  (p : Id A a b)
-  : C{a, b, p}
+  (q : Id A a b)
+  : C{a, b, q}
 ;;
 
 rule J_β

@@ -27,10 +27,11 @@ rule Σ_β₂ (A type) ({x : A} B type) (a : A) (b : B{a})
 eq.add_rule Σ_β₂
 ;;
 
-rule Σ_ext (A type) ({x : A} B type) (s : Σ A B) (v : Σ A B)
-           (π₁ A B s ≡ π₁ A B v : A by ξ)
-           (convert (π₂ A B s) (congruence B{π₁ A B s} B{π₁ A B v} ξ) ≡ π₂ A B v : B{π₁ A B v})
-  : s ≡ v : Σ A B
+rule Σ_ext
+  (A type) ({x : A} B type) (s : Σ A B) (t : Σ A B)
+  (π₁ A B s ≡ π₁ A B t : A by ξ)
+  (convert (π₂ A B s) (congruence B{π₁ A B s} B{π₁ A B t} ξ) ≡ π₂ A B t : B{π₁ A B t})
+  : s ≡ t : Σ A B
 ;;
 
 eq.add_rule Σ_ext
