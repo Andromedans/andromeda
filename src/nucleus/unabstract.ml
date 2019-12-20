@@ -1,5 +1,7 @@
 (** Unabstract *)
 
+(** XXX this file is not used anywhere. *)
+
 (** [unabstract_is_type x t1 t2] instantiates bound variable [0] in [t2] with a
     fresh atom of type [t1].The freshly generated atom is returned, as well as
     the type. *)

@@ -1,0 +1,3 @@
+Exception Cow is declared.
+Operation moo is declared.
+- :> mlstring * mlstring = ("correct", "moo")

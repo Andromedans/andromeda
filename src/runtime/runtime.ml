@@ -1,8 +1,5 @@
 (** Runtime values and computations *)
 
-type ml_ref = Store.Ref.key
-type ml_dyn = Store.Dyn.key
-
 type coercible =
   | NotCoercible
   | Convertible of Nucleus.eq_type_abstraction
@@ -12,11 +9,13 @@ type coercible =
 type ml_constructor = Ident.t
 
 (** This module defines 2 monads:
-    - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
-      Primitives are like [add_value].
+    - the computation monad [comp], providing operations and an environment of which part
+      is dynamically scoped.Primitives are like [add_value].
     - the toplevel monad [toplevel], a standard state monad with restricted accessors.
       Primitives are like [top_add_value].
-      Some modifications of the environment may only be done at the top level, for instance declaring constants.
+      Some modifications of the environment may only be done at the top level, for
+      instance declaring constants.
+
     For internal use, functions which work on the environment may be defined, eg [add_value0].
 
     Finally in a small number of restricted circumstances the environment is accessed outside the monads.
@@ -143,66 +142,75 @@ let mk_nucleus_penv {forbidden;opens} =
 (** Runtime environment. *)
 type env = {
   dynamic : dynamic;
-  lexical : lexical;
-  state   : state  ;
+  lexical : lexical
 }
 
 and dynamic = {
-  (* Toplevel constant declarations *)
+  (* Current signature *)
   signature : Nucleus.signature;
-
-  (* Current values of dynamic variables *)
-  vars : value Store.Dyn.t;
 
   (* Current printing environment *)
   penv : penv;
-
 }
 
 and lexical = {
+  (* lookup table for globally defined values *)
   table : value SymbolTable.t ;
 
   (* values to which de Bruijn indices are bound *)
   current_values : value list;
-
-  (* current continuation if we're handling an operation *)
-  ml_yield : value continuation option;
 }
-
-and state = value Store.Ref.t
 
 and value =
   | Judgement of Nucleus.judgement_abstraction
   | Boundary of Nucleus.boundary_abstraction
   | Derivation of Nucleus.derivation
+  | External of external_value
   | Closure of (value, value) closure
   | Handler of handler
+  | Exc of exc
   | Tag of ml_constructor * value list
   | Tuple of value list
-  | Ref of ml_ref
-  | Dyn of ml_dyn
+  | Ref of value ref
   | String of string
+
+and exc = Ident.t * value option
+
+and external_value =
+  | EqualityChecker of Eqchk.checker
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
 and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
 and 'a result =
   | Return of 'a
-  | Operation of Ident.t * value list * Nucleus.boundary_abstraction option * dynamic * 'a continuation
+  | Exception of exc
+  | Operation of { op_id : Ident.t
+                 ; op_args : value list
+                 ; op_boundary : Nucleus.boundary_abstraction option
+                 ; op_dynamic_env : dynamic
+                 ; op_cont : 'a continuation }
 
-and 'a comp = env -> 'a result * state
+and 'a comp = env -> 'a result
 
 and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
 
 and handler = {
-  handler_val: (value,value) closure option;
-  handler_ops: (value continuation -> (operation_args, value) closure) Ident.map;
-  handler_finally: (value,value) closure option;
+  handler_val : (value, value) closure option ;
+  handler_ops : (operation_args, value) closure Ident.map ;
+  handler_exc : (exc, value) closure
 }
 
-and 'a continuation = Continuation of (value -> state -> 'a result * state)
+and 'a continuation =
+  { cont_val : (value, 'a) closure
+  ; cont_exc : (exc, 'a) closure }
 
-type 'a toplevel = env -> 'a * env
+type topenv = {
+  top_runtime : env ;
+  top_handler : (operation_args, value) closure Ident.map ;
+}
+
+type 'a toplevel = topenv -> 'a * topenv
 
 (** Error reporting *)
 type error =
@@ -231,16 +239,18 @@ type error =
   | AbstractionExpected
   | JudgementExpected of value
   | JudgementOrBoundaryExpected of value
+  | EqualityCheckerExpected of value
   | DerivationExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
   | RefExpected of value
-  | DynExpected of value
+  | ExceptionExpected of value
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvert of Nucleus.judgement_abstraction * Nucleus.eq_type_abstraction
   | InvalidCoerce of Nucleus.judgement_abstraction * Nucleus.boundary_abstraction
   | UnhandledOperation of Ident.t * value list
+  | UncaughtException of Ident.t * value option
   | InvalidPatternMatch of value
 
 exception Error of error Location.located
@@ -261,65 +271,77 @@ let mk_string s = String s
 let mk_closure0 f {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical})
 
-let mk_closure f = Closure (Clos f)
+let mk_closure_external f = Closure (Clos f)
 
 let apply_closure (Clos f) v env = f v env
 
-let mk_cont f env = Continuation (fun v state -> f v {env with state})
-let apply_cont (Continuation f) v {state;_} = f v state
+let rec bind_cont (r : value comp) ({cont_val=f_val; cont_exc=f_exc} as cont) : 'a comp =
+  fun env ->
+  match r env with
+  | Return v -> apply_closure f_val v env
+
+  | Exception exc -> apply_closure f_exc exc env
+
+  | Operation ({op_cont={cont_val=g_val; cont_exc=g_exc};_} as op_data) ->
+     let op_cont = { cont_val = mk_closure0 (fun v -> bind_cont (apply_closure g_val v) cont) env ;
+                     cont_exc = mk_closure0 (fun exc -> bind_cont (apply_closure g_exc exc) cont) env }
+     in
+     Operation {op_data with op_cont}
 
 (** References *)
-let mk_ref v env =
-  let x, state = Store.Ref.fresh v env.state in
-  Return (Ref x), state
+let mk_ref v _env =
+  let x = ref v in
+  Return (Ref x)
 
-let lookup_ref x env =
-  let v = Store.Ref.lookup x env.state in
-  Return v, env.state
+let lookup_ref x _env =
+  let v = !x in
+  Return v
 
 let update_ref x v env =
-  let state = Store.Ref.update x v env.state in
-  Return (), state
+  x := v ;
+  Return ()
 
 (** The monadic bind [bind r f] feeds the result [r : result]
     into function [f : value -> 'a]. *)
-let rec bind (r:'a comp) (f:'a -> 'b comp) : 'b comp = fun env ->
+let rec bind r f env =
   match r env with
-  | Return v, state ->
-     f v { env with state }
-  | Operation (op, vs, jt, d, k), state ->
-     let env = { env with state } in
-     let k = mk_cont (fun x -> bind (apply_cont k x) f) env in
-     Operation (op, vs, jt, d, k), env.state
+  | Return v -> (f v env : 'b result)
 
-let (>>=) = bind
+  | Exception _ as r -> r
 
-let top_bind m f env =
-  let x, env = m env in
-  f x env
+  | Operation ({op_cont={cont_val=g_val; cont_exc=g_exc};_} as op_data) ->
+     let op_cont = { cont_val = mk_closure0 (fun v -> bind (apply_closure g_val v) f) env ;
+                     cont_exc = mk_closure0 (fun exc -> bind (apply_closure g_exc exc) f) env }
+     in
+     Operation {op_data with op_cont}
+
+let top_bind m f topenv =
+  let x, topenv = m topenv in
+  f x topenv
 
 (** Returns *)
-let top_return x env = x, env
+let top_return x topenv = x, topenv
 
-let top_return_closure f env = mk_closure0 f env, env
+let top_return_closure f topenv = mk_closure0 f topenv.top_runtime, topenv
 
-let return x env = Return x, env.state
+let return x _env = Return x
+
+let raise_exception exc _env = Exception exc
 
 let return_judgement jdg = return (Judgement jdg)
 
 let return_boundary bdry = return (Boundary bdry)
 
-let return_closure f env = Return (Closure (mk_closure0 f env)), env.state
+let return_closure f env = Return (Closure (mk_closure0 f env))
 
-let return_handler handler_val handler_ops handler_finally env =
+let return_handler handler_val handler_ops handler_exc env =
   let option_map g = function None -> None | Some x -> Some (g x) in
   let h = {
     handler_val = option_map (fun v -> mk_closure0 v env) handler_val ;
-    handler_ops = Ident.map (fun f ->
-      fun k -> mk_closure0 f {env with lexical = {env.lexical with ml_yield = Some k}}) handler_ops ;
-    handler_finally = option_map (fun v -> mk_closure0 v env) handler_finally ;
+    handler_ops = Ident.map (fun f -> mk_closure0 f env) handler_ops ;
+    handler_exc = mk_closure0 handler_exc env
   } in
-  Return (Handler h), env.state
+  Return (Handler h)
 
 let return_unit = return (Tuple [])
 
@@ -327,10 +349,18 @@ let rec top_fold f acc = function
   | [] -> top_return acc
   | x::rem -> top_bind (f acc x) (fun acc -> top_fold f acc rem)
 
-let as_ml_module m ({lexical;_} as env) =
+let top_as_ml_module (m : unit toplevel) ({top_runtime=({lexical;_} as env);_} as topenv) =
+  (* push a new module onto the stack of currently evaluating modules *)
   let table = SymbolTable.push_ml_module lexical.table in
-  let r, env = m { env with lexical = { lexical with table } } in
-  r, { env with lexical = { lexical with table = SymbolTable.pop_ml_module env.lexical.table } }
+  (* Whatever gets defined by [m] goes to the newly started module *)
+  let r, topenv = m { topenv with top_runtime = { env with lexical = { lexical with table } } } in
+  (* seal the newly created module *)
+  let table = SymbolTable.pop_ml_module topenv.top_runtime.lexical.table in
+  (* continue in the updated module *)
+  r, { topenv with top_runtime = { topenv.top_runtime with lexical = { lexical with table }} }
+
+let name_of_external = function
+  | EqualityChecker _ -> "equality checker"
 
 let name_of v =
   match v with
@@ -339,18 +369,25 @@ let name_of v =
     | Derivation _ -> "a derivation"
     | Closure _ -> "a function"
     | Handler _ -> "a handler"
-    | Tag _ -> "a data tag"
+    | Exc _ -> "an exception"
+    | Tag _ -> "an ML constructor"
     | Tuple _ -> "a tuple"
     | Ref _ -> "a reference"
-    | Dyn _ -> "a dynamic variable"
     | String _ -> "a string"
+    | External v -> name_of_external v
 
 (** Coerce values *)
+
+let as_equality_checker ~at = function
+  | External (EqualityChecker chk) -> chk
+
+  | (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+    error ~at (EqualityCheckerExpected v)
 
 let as_derivation ~at = function
   | Derivation drv -> drv
 
-  | (Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Judgement _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (DerivationExpected v)
 
 let as_not_abstract ~at abstr =
@@ -365,7 +402,7 @@ let as_is_type ~at = function
      | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _)
      | None -> error ~at (IsTypeExpected v)
      end
-  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (IsTypeExpected v)
 
 let as_is_term ~at = function
@@ -375,7 +412,7 @@ let as_is_term ~at = function
      | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _)
      | None -> error ~at (IsTermExpected v)
      end
-  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (IsTermExpected v)
 
 let as_eq_type ~at = function
@@ -385,7 +422,7 @@ let as_eq_type ~at = function
      | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _)
      | None -> error ~at (EqTypeExpected v)
      end
-  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (EqTypeExpected v)
 
 let as_eq_term ~at = function
@@ -395,7 +432,7 @@ let as_eq_term ~at = function
      | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _)
      | None -> error ~at (EqTermExpected v)
      end
-  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (EqTermExpected v)
 
 let as_judgement ~at = function
@@ -404,7 +441,7 @@ let as_judgement ~at = function
      | Some jdg -> jdg
      | None -> error ~at (JudgementExpected v)
      end
-  | (Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (EqTermExpected v)
 
 let as_is_type_abstraction ~at v =
@@ -414,7 +451,7 @@ let as_is_type_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at AbstractionExpected
      end
-  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_is_term_abstraction ~at v =
@@ -424,7 +461,7 @@ let as_is_term_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at AbstractionExpected
      end
-  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_eq_type_abstraction ~at v =
@@ -434,7 +471,7 @@ let as_eq_type_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at AbstractionExpected
      end
-  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_eq_term_abstraction ~at v =
@@ -444,70 +481,87 @@ let as_eq_term_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at AbstractionExpected
      end
-  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_judgement_abstraction ~at v =
   match v with
   | Judgement abstr -> abstr
-  | Derivation _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_boundary_abstraction ~at v =
   match v with
   | Boundary abstr -> abstr
-  | Derivation _ | Judgement _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _ ->
+  | Derivation _ | Judgement _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at AbstractionExpected
 
 let as_closure ~at = function
   | Closure f -> f
-  | (Judgement _ | Boundary _ | Derivation _ |
-     Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+     Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (ClosureExpected v)
 
 let as_handler ~at = function
   | Handler h -> h
-  | (Judgement _ | Boundary _ | Derivation _ |
-     Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+     Closure _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (HandlerExpected v)
+
+let as_exception ~at = function
+  | Exc (exc, vopt) -> (exc, vopt)
+  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+     Closure _ | Handler _ | Ref _ | Tag _ | Tuple _ | String _) as v ->
+    error ~at (ExceptionExpected v)
 
 let as_ref ~at = function
   | Ref v -> v
-  | (Judgement _ | Boundary _ | Derivation _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | String _) as v ->
+  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+     Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | String _) as v ->
     error ~at (RefExpected v)
-
-let as_dyn ~at = function
-  | Dyn v -> v
-  | (Judgement _ | Boundary _ | Derivation _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
-    error ~at (DynExpected v)
 
 let as_string ~at = function
   | String v -> v
-  | (Judgement _ | Boundary _ | Derivation _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | Ref _) as v ->
+  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+     Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _) as v ->
     error ~at (StringExpected v)
+
+let as_bool ~at v =
+  let (tag_true, _, _) = Typecheck.Builtin.mltrue
+  and (tag_false, _, _) = Typecheck.Builtin.mlfalse in
+  match v with
+  | Tag (t, []) when equal_tag t tag_true -> true
+  | Tag (t, []) when equal_tag t tag_false -> false
+  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+     Closure _ | Handler _ | Exc _ | Tag _ | String _ | Tuple _ | Ref _) as v ->
+    error ~at (BoolExpected v)
 
 (** Operations *)
 
-let operation op ?checking vs env =
-  Operation (op, vs, checking, env.dynamic, mk_cont return env), env.state
+(** Generic operation *)
+let operation op_id ?checking vs env =
+  Operation {
+    op_id ;
+    op_args = vs ;
+    op_boundary = checking ;
+    op_dynamic_env = env.dynamic ;
+    op_cont = {cont_val = mk_closure0 return env ; cont_exc = mk_closure0 raise_exception env }
+  }
 
 (** Interact with the environment *)
 
-let get_env env = Return env, env.state
+let get_env env = Return env
 
-let with_env env m {state; _} = m {env with state}
+let with_env env m _env' = m env
 
-let top_get_env env = env, env
+let top_get_env topenv = topenv.top_runtime, topenv
 
 let get_signature env = env.dynamic.signature
 
 let lookup_signature env =
-  Return env.dynamic.signature, env.state
+  Return env.dynamic.signature
 
-let add_rule rname rule env =
+let top_add_rule rname rule ({top_runtime=env;_} as topenv) =
   let signature = Nucleus.Signature.add_rule rname rule env.dynamic.signature
   and penv =
     penv_forbid
@@ -515,31 +569,19 @@ let add_rule rname rule env =
      | Path.Direct (Path.Level (name, _)) -> name
      | Path.Module (_, Path.Level (name, _)) -> name
     ) env.dynamic.penv in
-  let env = { env
-              with dynamic = { env.dynamic with signature; penv }
-            } in
-  (), env
+  let env = { env with dynamic = {signature; penv} } in
+  (), {topenv with top_runtime=env}
 
 let get_bound (Path.Index (_, k)) env = List.nth env.lexical.current_values k
 
 let lookup_bound k env =
   let v = get_bound k env in
-  Return v, env.state
+  Return v
 
 let get_ml_value pth env = SymbolTable.get_ml_value pth env.lexical.table
 
 let lookup_ml_value k env =
-  Return (get_ml_value k env), env.state
-
-let hypotheses env =
-  let v = get_ml_value Desugar.Builtin.hypotheses env in
-  let hyps = as_dyn ~at:Location.unknown v in
-  Return hyps, env.state
-
-let get_dyn dyn env = Store.Dyn.lookup dyn env.dynamic.vars
-
-let lookup_dyn dyn env =
-  Return (get_dyn dyn env), env.state
+  Return (get_ml_value k env)
 
 let add_bound0 v env =
   { env with lexical = { env.lexical with
@@ -577,27 +619,9 @@ let push_bound = add_bound0
 let add_ml_value0 v env =
   { env with lexical = { env.lexical with table = SymbolTable.add_ml_value v env.lexical.table } }
 
-let add_ml_value v ({lexical;_} as env) =
+let top_add_ml_value v ({top_runtime=({lexical;_} as env);_} as topenv) =
   let env = add_ml_value0 v env in
-  (), env
-
-let now0 x v env =
-  { env with dynamic = { env.dynamic with vars = Store.Dyn.update x v env.dynamic.vars } }
-
-let now x v m env =
-  let env = now0 x v env in
-  m env
-
-let top_now x v env =
-  let env = now0 x v env in
-  (), env
-
-let add_dynamic0 x v env =
-  let y, vars = Store.Dyn.fresh v env.dynamic.vars in
-  let env = add_ml_value0 (Dyn y) env in
-  { env with dynamic = {env.dynamic with vars } }
-
-let add_dynamic x v env = (), add_dynamic0 x v env
+  (), {topenv with top_runtime=env}
 
 let add_ml_value_rec0 lst env =
   let r = ref env in
@@ -611,57 +635,50 @@ let add_ml_value_rec0 lst env =
   r := env ;
   env
 
-let add_ml_value_rec lst env =
+let top_add_ml_value_rec lst ({top_runtime=env;_} as topenv) =
   let env = add_ml_value_rec0 lst env in
-  (), env
-
-let continue v ({lexical={ml_yield;_};_} as env) =
-  match ml_yield with
-    | Some cont -> apply_cont cont v env
-    | None -> assert false
+  (), {topenv with top_runtime=env}
 
 (** Printers *)
 
 (** Generate a printing environment from runtime environment *)
+
 let get_penv env = env.dynamic.penv
 
-let get_nucleus_penv env =
-  mk_nucleus_penv (get_penv env)
+let top_get_penv {top_runtime;_} = get_penv top_runtime
+
+let top_get_nucleus_penv {top_runtime;_} =
+  mk_nucleus_penv (get_penv top_runtime)
 
 let lookup_penv env =
-  Return (get_penv env), env.state
+  Return (get_penv env)
 
-let top_lookup_penv env =
-  get_penv env, env
+let lookup_nucleus_penv env =
+  let penv = mk_nucleus_penv (get_penv env) in
+  Return penv
 
-let top_lookup_opens env =
-  let penv = get_penv env in
-  penv.opens, env
+let top_lookup_penv topenv =
+  top_get_penv topenv, topenv
 
-let top_open_path pth env =
-  let env = { env with dynamic = { env.dynamic with penv = penv_open pth env.dynamic.penv } } in
-  (), env
+let top_lookup_opens topenv =
+  let penv = top_get_penv topenv in
+  penv.opens, topenv
 
-let top_lookup_signature env =
-  get_signature env, env
+let top_open_path pth ({top_runtime;_} as topenv) =
+  let top_runtime =
+    { top_runtime with
+      dynamic = {
+        top_runtime.dynamic with
+        penv = penv_open pth top_runtime.dynamic.penv } }
+  in
+  (), { topenv with top_runtime }
 
-(* A hack, until we have proper type-driven printing routines. At that point we should consider
-   equipping type definitions with custom printers, so that not only lists but other datatypes
-   can have their own printers. (And we're not going to implement Haskell classes.) *)
-(* let rec as_list_opt =
- *   let (_, tag_nil) = Desugar.Builtin.nil
- *   and (_, tag_cons) = Desugar.Builtin.cons in
- *   function
- *   | Tag (t, []) when equal_tag t tag_nil -> Some []
- *   | Tag (t, [x;xs]) when equal_tag t tag_cons ->
- *      begin
- *        match as_list_opt xs with
- *        | None -> None
- *        | Some xs -> Some (x :: xs)
- *      end
- *   | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
- *      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
- *      None *)
+let top_lookup_signature topenv =
+  get_signature topenv.top_runtime, topenv
+
+let print_external ?max_level ~penv v ppf =
+  match v with
+  | EqualityChecker _ -> Format.fprintf ppf "<checker>"
 
 (** In the future this routine will be type-driven. One consequence is that
     constructor tags will be printed by looking up their names in type
@@ -675,9 +692,14 @@ let rec print_value ?max_level ~penv v ppf =
 
   | Derivation drv -> Nucleus.print_derivation ~penv:(mk_nucleus_penv penv) ?max_level drv ppf
 
+  | External v -> print_external ?max_level ~penv v ppf
+
   | Closure f -> Format.fprintf ppf "<function>"
 
   | Handler h -> Format.fprintf ppf "<handler>"
+
+  | Exc (exc, vopt) ->
+     print_exception ?max_level ~penv (Ident.path exc) vopt ppf
 
   | Tag (t, lst) ->
      print_tag ?max_level ~penv t lst ppf
@@ -691,13 +713,29 @@ let rec print_value ?max_level ~penv v ppf =
   | Tuple lst -> Print.print ?max_level ~at_level:Level.ml_tuple ppf "@[<hov 1>(%t)@]"
                   (Print.sequence (print_value ~max_level:Level.ml_tuple_arg ~penv) "," lst)
 
-  | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref<%t>"
-                  (Store.Ref.print_key v)
-
-  | Dyn v -> Print.print ?max_level ~at_level:Level.highest ppf "dyn<%t>"
-                  (Store.Dyn.print_key v)
+  | Ref x -> Print.print ?max_level ~at_level:Level.highest ppf "ref@ %t"
+                  (print_value ~max_level:Level.ml_tag ~penv (!x))
 
   | String s -> Format.fprintf ppf "\"%s\"" s
+
+and print_exception ?max_level ~penv exc vopt ppf =
+  match exc, vopt with
+
+  | Path.Direct (Path.Level ({Name.fixity=Name.Prefix;_} as name, _)), Some v ->
+     (* prefix exception applied to one argument *)
+     Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
+       (Name.print ~parentheses:false name)
+       (print_value ~max_level:Level.prefix_arg ~penv v)
+
+  | (Path.Direct _ | Path.Module _), None ->
+     (* print as identifier *)
+     Path.print ~opens:penv.opens ~parentheses:true exc ppf
+
+  | (Path.Direct _ | Path.Module _), Some v ->
+     (* print as application *)
+     Print.print ?max_level ~at_level:Level.ml_operation ppf "%t@ %t"
+                     (Path.print ~opens:penv.opens ~parentheses:true exc)
+                     (print_value ~max_level:Level.ml_operation_arg ~penv v)
 
 and print_tag ?max_level ~penv t lst ppf =
   match Ident.path t, lst with
@@ -732,6 +770,7 @@ and print_tag ?max_level ~penv t lst ppf =
                      (Ident.print ~opens:penv.opens ~parentheses:true t)
                      (Print.sequence (print_value ~max_level:Level.ml_tag_arg ~penv) "" lst)
      end
+
 
 let print_operation ~penv op vs ppf =
   match op, vs with
@@ -858,6 +897,9 @@ let print_error ~penv err ppf =
   | DerivationExpected v ->
      Format.fprintf ppf "expected a derivation but got %s" (name_of v)
 
+  | EqualityCheckerExpected v ->
+     Format.fprintf ppf "expected an equality checker but got %s" (name_of v)
+
   | ClosureExpected v ->
      Format.fprintf ppf "expected a function but got %s" (name_of v)
 
@@ -867,8 +909,8 @@ let print_error ~penv err ppf =
   | RefExpected v ->
      Format.fprintf ppf "expected a reference but got %s" (name_of v)
 
-  | DynExpected v ->
-     Format.fprintf ppf "expected a dynamic variable but got %s" (name_of v)
+  | ExceptionExpected v ->
+     Format.fprintf ppf "expected an exception but got %s" (name_of v)
 
   | StringExpected v ->
      Format.fprintf ppf "expected a string but got %s" (name_of v)
@@ -893,65 +935,116 @@ let print_error ~penv err ppf =
      Format.fprintf ppf "unhandled operation %t"
                     (print_operation ~penv (Ident.path op) vs)
 
+  | UncaughtException (exc, vopt) ->
+     Format.fprintf ppf "uncaught exception %t"
+                    (print_exception ~penv (Ident.path exc) vopt)
+
   | InvalidPatternMatch v ->
      Format.fprintf ppf "this pattern cannot match@ %t"
                     (print_value ~penv v)
 
-let empty = {
+let empty_env = {
   lexical = {
     table = SymbolTable.initial ;
     current_values = [] ;
-    ml_yield = None ;
   } ;
   dynamic = {
     signature = Nucleus.Signature.empty ;
-    vars = Store.Dyn.empty ;
     penv = { forbidden = Name.set_empty ; opens = Path.set_empty } ;
-  } ;
-  state = Store.Ref.empty;
+  }
+}
+
+let empty = {
+  top_runtime = empty_env ;
+  top_handler = Ident.empty
 }
 
 (** Handling *)
-let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp) : value comp =
-  begin fun env -> match r env with
-  | Return v , state ->
-     let env = {env with state} in
+let rec handle_comp {handler_val; handler_ops; handler_exc} (r : value comp) : value comp =
+  fun env -> match r env with
+
+  | Return v ->
      begin match handler_val with
      | Some f -> apply_closure f v env
-     | None -> Return v, env.state
+     | None -> Return v
      end
-  | Operation (op, vs, jt, dynamic, cont), state ->
-     let env = {env with dynamic; state} in
-     let h = {handler_val; handler_ops; handler_finally=None} in
-     let cont = mk_cont (fun v env -> handle_comp h (apply_cont cont v) env) env in
-     begin
-       try
-         let f = (Ident.find op handler_ops) cont in
-         (apply_closure f {args=vs;checking=jt}) env
-       with
-         Not_found ->
-           Operation (op, vs, jt, dynamic, cont), env.state
-     end
-  end >>= fun v ->
-  match handler_finally with
-    | Some f -> apply_closure f v
-    | None -> return v
 
-let top_handle ~at c env =
-  let r = c env in
-  match r with
-    | Return v, state -> v, { env with state }
-    | Operation (op, vs, _, _, _), _ ->
-       error ~at (UnhandledOperation (op, vs))
+  | Exception exc ->
+     apply_closure handler_exc exc env
+
+  | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont={cont_val; cont_exc}} ->
+     let h = {handler_val; handler_ops; handler_exc} in
+     let op_cont = { cont_val = mk_closure0 (fun v -> handle_comp h (apply_closure cont_val v)) env ;
+                     cont_exc = mk_closure0 (fun exc -> handle_comp h (apply_closure cont_exc exc)) env }
+     in
+     begin
+       match Ident.find_opt op_id handler_ops with
+       | Some f_op ->
+         let r = apply_closure f_op {args=op_args; checking=op_boundary} in
+         bind_cont r op_cont env
+       | None ->
+          Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont}
+     end
+
+let top_add_handle ~at op_id op_case ({top_handler; top_runtime} as topenv) =
+  let f_op =
+    match Ident.find_opt op_id top_handler with
+    | None ->
+       (* the default handler just reports an unhandled operation (with the wrong location...) *)
+       mk_closure0 (fun {args;_} _env -> error ~at (UnhandledOperation (op_id, args))) top_runtime
+    | Some f_op -> f_op
+  in
+  let f_op = mk_closure0 (op_case (apply_closure f_op)) top_runtime in
+  let top_handler = Ident.add op_id f_op top_handler in
+  (), { topenv with top_handler }
+
+
+let top_handle ~at c ({top_handler=hnd; top_runtime=env} as topenv) =
+  let rec handle = function
+
+    | Return v -> v, { topenv with top_runtime=env }
+
+    | Exception (exc_id, v) ->
+       error ~at (UncaughtException (exc_id, v))
+
+    | Operation {op_id; op_args; op_boundary; op_dynamic_env; op_cont} ->
+       begin match Ident.find_opt op_id hnd with
+
+       | Some f_op ->
+         let env' = {env with dynamic = op_dynamic_env} in
+         let r = apply_closure f_op {args=op_args; checking=op_boundary} in
+         handle (bind_cont r op_cont env')
+
+       | None ->
+          error ~at (UnhandledOperation (op_id, op_args))
+       end
+  in
+  let r = c topenv.top_runtime in
+  handle r
 
 (** Equality *)
+
+let equal_external_value v1 v2 =
+  v1 == v2 ||
+  match v1, v2 with
+  | EqualityChecker c1, EqualityChecker c2 -> (c1 == c2)
+
+
 let rec equal_value v1 v2 =
+  v1 == v2 ||
   match v1, v2 with
     | Judgement jdg1, Judgement jdg2 ->
        Nucleus.alpha_equal_abstraction Nucleus.alpha_equal_judgement jdg1 jdg2
 
     | Boundary bdry1, Boundary bdry2 ->
        Nucleus.alpha_equal_abstraction Nucleus.alpha_equal_boundary bdry1 bdry2
+
+    | Exc (exc1, v1opt), Exc (exc2, v2opt) ->
+       Ident.equal exc1 exc2 &&
+         (match v1opt, v2opt with
+          | None, None -> true
+          | Some v1, Some v2 -> equal_value v1 v2
+          | None, Some _ | Some _, None -> false)
 
     | Tag (t1, vs1), Tag (t2, vs2) ->
       equal_tag t1 t2 &&
@@ -973,13 +1066,9 @@ let rec equal_value v1 v2 =
        in
        fold (lst1, lst2)
 
-    | Ref v1, Ref v2 ->
+    | Ref x1, Ref x2 ->
        (* XXX should we compare references by value instead? *)
-       Store.Ref.key_eq v1 v2
-
-    | Dyn v1, Dyn v2 ->
-       (* XXX should we compare dynamics by value instead? *)
-       Store.Dyn.key_eq v1 v2
+       x1 == x2
 
     | String s1, String s2 ->
       s1 = s2
@@ -989,23 +1078,24 @@ let rec equal_value v1 v2 =
     | Handler _, Handler _ ->
        v1 == v2
 
+    | External v1, External v2 ->
+       equal_external_value v1 v2
+
     (* At some level the following is a bit ridiculous *)
-    | Judgement _, (Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Derivation _, (Judgement _ | Boundary _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Boundary _, (Judgement _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Closure _, (Judgement _ | Boundary _ | Derivation _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Handler _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Tag _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Tuple _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _)
-    | String _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _)
-    | Ref _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Dyn _)
-    | Dyn _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ref _) ->
+    | Judgement _, (Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Derivation _, (Judgement _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Boundary _, (Judgement _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | External _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Closure _, (Judgement _ | Boundary _ | External _ | Derivation _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Handler _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Tag _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Tuple _ | Ref _ | Exc _ | String _)
+    | Exc _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Tuple _ | Ref _ | Tag _ | String _)
+    | Tuple _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | String _)
+    | String _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _)
+    | Ref _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | String _) ->
        false
 
-type topenv = env
-
 let exec m env = m env
-
 
 module Json =
 struct
@@ -1023,14 +1113,17 @@ struct
 
     | Handler _ -> Json.tag "Handler" []
 
+    | Exc (exc, None) -> Json.tag "Exc" [Ident.Json.ident exc]
+
+    | Exc (exc, Some v) -> Json.tag "Exc" [Ident.Json.ident exc; value v]
+
     | Tag (t, lst) -> Json.tag "Tag" [Ident.Json.ident t; Json.List (List.map value lst)]
 
     | Tuple lst -> Json.tag "Tuple" [Json.List (List.map value lst)]
 
     | Ref r -> Json.tag "Reference" []
 
-    | Dyn r -> Json.tag "Dynamic" []
-
     | String s -> Json.tag "String" [Json.String s]
 
+    | External v -> Json.tag "External" []
 end

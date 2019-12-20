@@ -51,12 +51,7 @@ let builtin_ops =
    unloc decl_coerce]
 
 let builtin_ml_values =
-  let un_ml_judgement = unloc (Sugared.ML_Judgement) in
-  let hyps_annot = unloc (Sugared.ML_TyApply (Name.PName Name.Builtin.list_name, [un_ml_judgement])) in
-  let empty_list = unloc (Sugared.Name (Name.PName Name.Builtin.nil_name)) in
-  let decl_hyps = Sugared.TopDynamic
-                    (Name.Builtin.hypotheses_name, Sugared.Arg_annot_ty hyps_annot, empty_list) in
-  [unloc decl_hyps]
+  []
 
 let initial =
   let ty_alpha = unloc (Sugared.ML_TyApply (Name.PName name_alpha, [])) in

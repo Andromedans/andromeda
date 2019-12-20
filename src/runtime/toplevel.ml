@@ -28,11 +28,11 @@ let print_error state err ppf =
      Format.fprintf ppf "%t:@.@[<hov 2>Type error:@ %t@]" (Location.print at) (Mlty.print_error err)
 
   | RuntimeError {Location.it=err; at} ->
-     let penv = Runtime.get_penv state.runtime in
+     let penv = Runtime.top_get_penv state.runtime in
      Format.fprintf ppf "%t:@.@[<hov 2>Runtime error:@ %t@]" (Location.print at) (Runtime.print_error ~penv err)
 
   | NucleusError err ->
-     let penv = Runtime.get_nucleus_penv state.runtime in
+     let penv = Runtime.top_get_nucleus_penv state.runtime in
      Format.fprintf ppf "@[<hov 2>Nucleus error:@ %t@]" (Nucleus.print_error ~penv err)
 
 let wrap_error f x =

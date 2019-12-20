@@ -24,7 +24,7 @@ let invert_arguments rl args =
     match rl, args with
     | Conclusion _, [] -> List.rev abstrs
 
-    | Premise (_, prem, rl), arg :: args ->
+    | Premise ({meta_boundary=prem;_}, rl), arg :: args ->
        let abstr = invert_argument ~lvl:0 es prem arg in
        fold (arg :: es) (abstr :: abstrs) rl args
 
@@ -48,8 +48,8 @@ let invert_is_term sgn = function
   | TermMeta (MetaBound _, _) ->
      assert false
 
-  | TermMeta (MetaFree {meta_nonce; meta_boundary}, args) ->
-     Stump_TermMeta (meta_nonce, meta_boundary, args)
+  | TermMeta (MetaFree mv, args) ->
+     Stump_TermMeta (mv, args)
 
   | TermConvert (e, asmp, t) ->
      let t' = Sanity.natural_type sgn e in
@@ -65,21 +65,22 @@ let invert_is_type sgn = function
   | TypeMeta (MetaBound _, _) ->
      assert false
 
-  | TypeMeta (MetaFree {meta_nonce; meta_boundary}, args) ->
-     Stump_TypeMeta (meta_nonce, meta_boundary, args)
+  | TypeMeta (MetaFree mv, args) ->
+     Stump_TypeMeta (mv, args)
 
 let invert_eq_type (EqType (asmp, t1, t2)) = Stump_EqType (asmp, t1, t2)
 
-let invert_eq_term (EqTerm (asmp, e1, e2, t)) = Stump_EqTerm (asmp, e1, e2, t)
+let invert_eq_term sgn (EqTerm (asmp, e1, e2, t)) =
+  let t1 = Sanity.type_of_term sgn e1
+  and t2 = Sanity.type_of_term sgn e2 in
+  let e1 = if Alpha_equal.is_type t1 t then e1 else Mk.term_convert e1 asmp t
+  and e2 = if Alpha_equal.is_type t2 t then e2 else Mk.term_convert e2 asmp t
+  in
+  Stump_EqTerm (asmp, e1, e2, t)
 
 let as_not_abstract = function
   | Abstract _ -> None
   | NotAbstract v -> Some v
-
-(* XXX Too dangerous to exist *)
-(* let as_abstract = function *)
-(*   | Abstract (atm, abstr) -> Some (atm, abstr) *)
-(*   | NotAbstract _ -> None *)
 
 let invert_abstraction ?name inst_v = function
   | Abstract (x, t, abstr) ->

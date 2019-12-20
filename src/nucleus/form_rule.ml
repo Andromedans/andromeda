@@ -73,7 +73,7 @@ let lookup_meta_index x mvs =
   let rec search k = function
     | [] -> None
     | y :: mvs ->
-       if Nonce.equal x y then
+       if Meta.equal x y then
          Some k
        else
          search (k+1) mvs
@@ -91,7 +91,7 @@ let rec mk_rule_is_type metas = function
 
   | TypeMeta (MetaFree mv, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     begin match lookup_meta_index mv.meta_nonce metas with
+     begin match lookup_meta_index mv metas with
      | Some k -> TypeMeta (MetaBound k, args)
      | None -> TypeMeta (MetaFree mv, args)
      end
@@ -101,12 +101,12 @@ let rec mk_rule_is_type metas = function
 
 and mk_rule_is_term metas = function
   | TermAtom _ ->
-     (* this will be gone when we eliminate atoms *)
+     (* XXX turn this into a proper runtime error *)
      failwith "a free atom cannot appear in a rule"
 
   | TermMeta (MetaFree mv, args) ->
      let args = List.map (mk_rule_is_term metas) args in
-     begin match lookup_meta_index mv.meta_nonce metas with
+     begin match lookup_meta_index mv metas with
      | Some k -> TermMeta (MetaBound k, args)
      | None -> TermMeta (MetaFree mv, args)
      end
@@ -126,6 +126,7 @@ and mk_rule_is_term metas = function
      and asmp = mk_rule_assumptions metas asmp
      and t = mk_rule_is_type metas t
      in
+     (* does not create a doubly nested [TermConvert] because original input does not either *)
      TermConvert (e, asmp, t)
 
 and mk_rule_eq_type metas (EqType (asmp, t1, t2)) =
@@ -146,7 +147,7 @@ and mk_rule_assumptions metas {free_var; free_meta; bound_var; bound_meta} =
   assert (Bound_set.is_empty bound_meta) ;
   let rec fold free_meta bound_meta k = function
     | [] -> { free_var; free_meta; bound_var; bound_meta }
-    | n :: metas ->
+    | {meta_nonce=n;_} :: metas ->
        if Nonce.map_mem n free_meta then
          let free_meta = Nonce.map_remove n free_meta in
          let bound_meta = Bound_set.add k bound_meta in
@@ -180,7 +181,7 @@ and mk_rule_arguments metas args =
   List.map (mk_rule_argument metas) args
 
 and mk_rule_abstraction
-  : 'a 'b 'c . (Nonce.t list -> 'a -> 'b) -> Nonce.t list -> 'a abstraction -> 'b abstraction
+  : 'a 'b 'c . (meta list -> 'a -> 'b) -> meta list -> 'a abstraction -> 'b abstraction
   = fun form_u metas -> function
 
     | NotAbstract u ->
@@ -210,10 +211,11 @@ let fold_prems prems form_concl =
   let rec fold metas = function
     | [] -> Conclusion (form_concl metas)
 
-    | (mv, prem) :: prems ->
-       let prem = mk_rule_abstraction mk_rule_premise metas prem in
+    |  {meta_nonce; meta_boundary=bdry} :: prems ->
+       let bdry = mk_rule_abstraction mk_rule_premise metas bdry in
+       let mv = {meta_nonce; meta_boundary=bdry} in
        let rl = fold (mv :: metas) prems in
-       Premise (mv, prem, rl)
+       Premise (mv, rl)
   in
   fold [] prems
 

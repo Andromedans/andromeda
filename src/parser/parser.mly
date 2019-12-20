@@ -23,16 +23,14 @@
 (* Let binding *)
 %token LET REC AND IN
 
-(* Dynamic variables *)
-%token DYNAMIC NOW CURRENT
-
 (* Meta-level programming *)
 %token OPERATION
 %token MATCH WHEN END
-%token AS TYPE
+%token AS TYPE BY
 %token EQEQ
 
-%token HANDLE WITH HANDLER BAR VAL FINALLY YIELD
+%token EXCEPTION RAISE
+%token TRY WITH HANDLER BAR VAL
 %token SEMI
 
 %token NATURAL
@@ -144,14 +142,11 @@ top_command_:
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
     { Sugared.TopLetRec lst }
 
-  | DYNAMIC x=ml_name u=dyn_annotation EQ c=term
-    { Sugared.TopDynamic (x, u, c) }
+  | WITH lst=top_operation_cases END
+    { Sugared.TopWith lst }
 
-  | NOW x=app_term EQ c=term
-    { Sugared.TopNow (x,c) }
-
-  (* | HANDLE lst=top_handler_cases END *)
-  (*   { Sugared.TopHandle lst } *)
+  | MLTYPE t=ml_name xs=list(opt_name(ml_name))
+    { Sugared.DefMLTypeAbstract (t, xs) }
 
   | MLTYPE lst=mlty_defs
     { Sugared.DefMLType lst }
@@ -161,6 +156,12 @@ top_command_:
 
   | OPERATION op=op_name COLON opsig=op_mlsig
     { Sugared.DeclOperation (op, opsig) }
+
+  | EXCEPTION exc=exc_name
+    { Sugared.DeclException (exc, None) }
+
+  | EXCEPTION exc=exc_name OF t=mlty
+    { Sugared.DeclException (exc, Some t) }
 
   | VERBOSITY n=NUMERAL
     { Sugared.Verbosity n }
@@ -204,7 +205,7 @@ equality_premise_name:
   |
     { None }
 
-  | AS x=opt_name(tt_name)
+  | BY x=opt_name(tt_name)
     { x }
 
 local_context:
@@ -225,14 +226,11 @@ term_:
   | LET REC lst=separated_nonempty_list(AND, recursive_clause) IN c=term
     { Sugared.LetRec (lst, c) }
 
-  | NOW x=app_term EQ c1=term IN c2=term
-    { Sugared.Now (x,c1,c2) }
-
   | MATCH e=term WITH lst=match_cases END
     { Sugared.Match (e, lst) }
 
-  | HANDLE c=term WITH hcs=handler_cases END
-    { Sugared.Handle (c, hcs) }
+  | TRY c=term WITH hcs=handler_cases END
+    { Sugared.Try (c, hcs) }
 
   | FUN xs=ml_arg+ ARROW e=term
     { Sugared.Function (xs, e) }
@@ -240,7 +238,7 @@ term_:
   | DERIVE ps=nonempty_list(premise) ARROW e=term
     { Sugared.Derive (ps, e) }
 
-  | WITH h=term HANDLE c=term
+  | WITH h=term TRY c=term
     { Sugared.With (h, c) }
 
   | HANDLER hcs=handler_cases END
@@ -281,10 +279,16 @@ binop_term_:
   | QQMARK COLON t=app_term
     { Sugared.MLBoundaryIsTerm t }
 
-  | l=app_term EQEQ r=app_term AS QQMARK
+  | l=app_term EQEQ r=app_term BY p=app_term
+    { Sugared.EqTypeAscribe (l, r, p) }
+
+  | l=app_term EQEQ r=app_term COLON ty=app_term BY p=app_term
+    { Sugared.EqTermAscribe (l, r, ty, p) }
+
+  | l=app_term EQEQ r=app_term BY QQMARK
     { Sugared.MLBoundaryEqType (l, r) }
 
-  | l=app_term EQEQ r=app_term COLON ty=term AS QQMARK
+  | l=app_term EQEQ r=app_term COLON ty=app_term BY QQMARK
     { Sugared.MLBoundaryEqTerm (l, r, ty) }
 
   | e1=binop_term oploc=infix e2=binop_term
@@ -298,8 +302,8 @@ app_term_:
   | e=substitution_term_
     { e }
 
-  | CURRENT c=substitution_term
-    { Sugared.Current c }
+  | RAISE c=substitution_term
+    { Sugared.Raise c }
 
   | CONGRUENCE e1=substitution_term e2=substitution_term es=list(substitution_term)
     { Sugared.Congruence (e1, e2, es) }
@@ -347,9 +351,6 @@ prefix_term_:
   | NATURAL t=prefix_term
     { Sugared.Natural t }
 
-  | YIELD e=prefix_term
-    { Sugared.Yield e }
-
 (* simple_term: mark_location(simple_term_) { $1 } *)
 simple_term_:
   | x=long(any_name)
@@ -394,6 +395,11 @@ ml_name:
 
 (* ML operation name *)
 op_name:
+  | NAME
+    { $1 }
+
+(* ML exception name *)
+exc_name:
   | NAME
     { $1 }
 
@@ -532,13 +538,6 @@ let_annotation:
   | COLONGT sch=ml_schema
     { Sugared.Let_annot_schema sch }
 
-dyn_annotation:
-  |
-    { Sugared.Arg_annot_none }
-
-  | COLONGT t=mlty
-    { Sugared.Arg_annot_ty t }
-
 maybe_typed_binder:
   | LBRACE xs=anon_name(tt_name)+ RBRACE
     { List.map (fun x -> (x, None)) xs }
@@ -569,11 +568,22 @@ handler_case:
   | VAL c=match_case
     { Sugared.CaseVal c }
 
+  | RAISE c=match_case
+    { Sugared.CaseExc c }
+
   | op=long(op_name) ps=prefix_pattern* pt=handler_checking ARROW t=term
     { Sugared.CaseOp (op, (ps, pt, t)) }
 
-  | FINALLY c=match_case
-    { Sugared.CaseFinally c }
+top_operation_case:
+  | OPERATION op=long(op_name) ps=prefix_pattern* pt=handler_checking ARROW t=term
+    { (op, (ps, pt, t)) }
+
+top_operation_cases:
+  | BAR lst=separated_nonempty_list(BAR, top_operation_case)
+    { lst }
+
+  | lst=separated_list(BAR, top_operation_case)
+    { lst }
 
 handler_checking:
   |
@@ -629,10 +639,10 @@ pattern_:
   | QQMARK COLON p=binop_pattern
     { Sugared.Patt_BoundaryIsTerm p }
 
-  | p1=binop_pattern EQEQ p2=binop_pattern AS QQMARK
+  | p1=binop_pattern EQEQ p2=binop_pattern BY QQMARK
     { Sugared.Patt_BoundaryEqType (p1, p2) }
 
-  | p1=binop_pattern EQEQ p2=binop_pattern COLON p3=binop_pattern AS QQMARK
+  | p1=binop_pattern EQEQ p2=binop_pattern COLON p3=binop_pattern BY QQMARK
     { Sugared.Patt_BoundaryEqTerm (p1, p2, p3) }
 
   | abstr=tt_maybe_typed_binder p=pattern
@@ -755,9 +765,6 @@ app_mlty_:
   | REF t=simple_mlty
     { Sugared.ML_Ref t }
 
-  | DYNAMIC t=simple_mlty
-    { Sugared.ML_Dynamic t }
-
   | c=long(ml_name) args=nonempty_list(simple_mlty)
     { Sugared.ML_TyApply (c, args) }
 
@@ -806,8 +813,8 @@ mlty_def_body:
     { Sugared.ML_Sum lst }
 
 mlty_constructor:
-  | c=constr_name OF lst=separated_nonempty_list(WITH, mlty)
-    { (c, lst) }
+  | c=constr_name OF t=mlty
+    { (c, [t]) }
 
   | c=constr_name
     { (c, []) }

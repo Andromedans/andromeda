@@ -1,0 +1,4 @@
+ML type cow declared.
+ML type pretty declared.
+val f :> pretty cow → pretty cow = <function>
+- :> list (pretty cow → pretty cow) = <function> :: <function> :: []

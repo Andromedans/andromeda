@@ -10,7 +10,7 @@ let debruijn_var x penv =
   { penv with forbidden = Name.set_add x penv.forbidden ; debruijn_var = x :: penv.debruijn_var }
 
 (** Register the name of a bound meta-variable *)
-let debruijn_meta x penv =
+let debruijn_meta {meta_nonce=x;_} penv =
   let x = Nonce.name x in
   { penv with forbidden = Name.set_add x penv.forbidden ; debruijn_meta = x :: penv.debruijn_meta }
 
@@ -29,7 +29,7 @@ let rec thesis_is_type ?max_level ~penv t ppf =
 and thesis_is_term ?max_level ~penv e ppf =
   match e with
   | TermAtom {atom_nonce=x; _} ->
-     Nonce.print ~parentheses:true x ppf
+     Nonce.print ~questionmark:false ~parentheses:true x ppf
 
   | TermBoundVar k -> Name.print_debruijn_var penv.debruijn_var k ppf
 
@@ -90,7 +90,7 @@ and boundary_eq_type ?max_level ~penv ~print_head (t1, t2) ppf =
     ?max_level
     ~at_level:Level.boundary
     ppf
-    "%t@ %s@ %t as %t"
+    "%t@ %s@ %t by %t"
     (thesis_is_type ~max_level:Level.eq_left ~penv t1)
     (Print.char_equal ())
     (thesis_is_type ~max_level:Level.eq_right ~penv t2)
@@ -103,7 +103,7 @@ and boundary_eq_term ?max_level ~penv ~print_head (e1, e2, t) ppf =
     ?max_level
     ~at_level:Level.eq
     ppf
-    "%t@ %s@ %t@ :@ %t as %t"
+    "%t@ %s@ %t@ :@ %t by %t"
     (thesis_is_term ~max_level:Level.eq_left ~penv e1)
     (Print.char_equal ())
     (thesis_is_term ~max_level:Level.eq_right ~penv e2)
@@ -114,7 +114,7 @@ and boundary_eq_term ?max_level ~penv ~print_head (e1, e2, t) ppf =
 and meta ?max_level ~penv mv args ppf =
   let print_mv =
     match mv with
-    | MetaFree {meta_nonce; _} -> Nonce.print ~parentheses:true meta_nonce
+    | MetaFree {meta_nonce; _} -> Nonce.print ~questionmark:true ~parentheses:true meta_nonce
     | MetaBound k -> (fun ppf -> Name.print_debruijn_meta penv.debruijn_meta k ppf)
   and print_arg arg ppf =
     Format.fprintf ppf "{%t}" (thesis_is_term ~penv arg)
@@ -169,12 +169,16 @@ and print_assumptions ?max_level ~penv {free_var; free_meta; bound_var=_; bound_
   Print.print
     ?max_level ppf "%t%s%t%s"
     (Print.sequence
-       (fun (x,t) ppf -> Print.print ppf "%t@ :@ %t" (Nonce.print ~parentheses:true x) (thesis_is_type ~max_level:Level.ascribe ~penv t))
-       "," (Nonce.map_bindings free_var))
+       (fun (x, abstr) ppf -> boundary_abstraction'
+                                ~penv:(forbid (Nonce.name x) penv)
+                                ~print_head:(Nonce.print ~questionmark:true ~parentheses:true x) abstr ppf)
+       "," (Nonce.map_bindings free_meta))
     (if empty_free_var || empty_free_meta then "" else ", ") (* XXX maybe put in something more visible than a , here, such as ; *)
     (Print.sequence
-       (fun (x, abstr) ppf -> boundary_abstraction' ~penv:(forbid (Nonce.name x) penv) ~print_head:(Nonce.print ~parentheses:true x) abstr ppf)
-       "," (Nonce.map_bindings free_meta))
+       (fun (x,t) ppf -> Print.print ppf "%t@ :@ %t"
+                           (Nonce.print ~questionmark:false ~parentheses:true x)
+                           (thesis_is_type ~max_level:Level.ascribe ~penv t))
+       "," (Nonce.map_bindings free_var))
     (if empty_free_var && empty_free_meta then "" else " ")
 
 and abstraction
@@ -301,17 +305,17 @@ let eq_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
   abstraction Occurs_bound.eq_term thesis_eq_term ?max_level ~penv abstr ppf
 
-let premise ~penv n prem ppf =
+let premise ~penv {meta_nonce=n; meta_boundary=prem} ppf =
   boundary_abstraction' ~penv:(forbid (Nonce.name n) penv) ~print_head:(Name.print ~parentheses:true (Nonce.name n)) prem ppf
 
 let derivation ?max_level ~penv drv ppf =
   let rec fold ~penv drv ppf =
     match drv with
     | Conclusion jdg -> Print.print ppf "%s@ %t" (Print.char_arrow ()) (thesis_judgement ~penv jdg)
-    | Premise (n, prem, drv) ->
+    | Premise (mv, drv) ->
        Print.print ppf "(%t)@ %t"
-                   (premise ~penv n prem)
-                   (fold ~penv:(debruijn_meta n penv) drv)
+                   (premise ~penv mv)
+                   (fold ~penv:(debruijn_meta mv penv) drv)
   in
   Print.print ppf ?max_level ~at_level:Level.derive "derive@ %t" (fold ~penv drv)
 

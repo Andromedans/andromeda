@@ -3,16 +3,16 @@ Rule B is postulated.
 Rule Π is postulated.
 Rule a is postulated.
 Rule b is postulated.
-- : judgement = ⊢ a ≡ a : A
+- :> judgement = ⊢ a ≡ a : A
 Rule isPropA is postulated.
-- : judgement = ⊢ B a a ≡ B a b
+- :> judgement = ⊢ B a a ≡ B a b
 val congrB :> judgement → judgement → judgement = <function>
-- : judgement = ⊢ Π A ({x} B x x) ≡ Π A ({_} B a a)
+- :> judgement = ⊢ Π A ({x} B x x) ≡ Π A ({_} B a a)
 Rule A' is postulated.
 Rule α is postulated.
 Rule α' is postulated.
 val isPropA' :> judgement → judgement → judgement = <function>
-- : judgement = ⊢ {x' : A'} {y' : A'} x' ≡ y' : A'
+- :> judgement = ⊢ {x' : A'} {y' : A'} x' ≡ y' : A'
 Rule B' is postulated.
 Rule β is postulated.
-- : judgement = ⊢ Π A ({x} B x x) ≡ Π A' ({y} B' y y)
+- :> judgement = ⊢ Π A ({x} B x x) ≡ Π A' ({y} B' y y)

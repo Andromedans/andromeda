@@ -1,0 +1,7 @@
+val d :> derivation = derive (A type) (u : A) (v : A) (u ≡ v : A by ξ) ({_
+  : A} B type) → B {u} ≡ B {v}
+Rule T is postulated.
+Rule a is postulated.
+Rule b is postulated.
+Rule S is postulated.
+- :> derivation = derive (a ≡ b : T by ζ) → S a a ≡ S b b

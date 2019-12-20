@@ -1,0 +1,95 @@
+Processing module eq
+ML type eq.checker declared.
+Exception eq.Invalid_equality_rule is declared.
+Exception eq.Failed_equality is declared.
+external empty_checker : eq.checker = "Eqchk.empty_checker"
+external add_type_computation : eq.checker → derivation → ML.option
+  eq.checker = "Eqchk.add_type_computation"
+external add_term_computation : eq.checker → derivation → ML.option
+  eq.checker = "Eqchk.add_term_computation"
+external add : eq.checker → derivation → ML.option
+  eq.checker = "Eqchk.add"
+external normalize_type : ML.bool → eq.checker → judgement →
+  judgement * judgement = "Eqchk.normalize_type"
+external normalize_term : ML.bool → eq.checker → judgement →
+  judgement * judgement = "Eqchk.normalize_term"
+external add_extensionality : eq.checker → derivation → ML.option
+  eq.checker = "Eqchk.add_extensionality"
+external prove_eqtype_abstraction : eq.checker → boundary → ML.option
+  judgement = "Eqchk.prove_eq_type_abstraction"
+external prove_eqterm_abstraction : eq.checker → boundary → ML.option
+  judgement = "Eqchk.prove_eq_term_abstraction"
+val ch :> ref eq.checker = ref <checker>
+val add_rule :> derivation → mlunit = <function>
+Exception eq.Coerce_fail is declared.
+val equalize_type :> judgement → judgement → judgement = <function>
+val coerce_abstraction :> judgement → boundary → judgement = <function>
+val normalize :> judgement → judgement * judgement = <function>
+val compute :> judgement → judgement * judgement = <function>
+val prove :> boundary → judgement = <function>
+Rule N is postulated.
+Rule z is postulated.
+Rule s is postulated.
+Rule plus is postulated.
+Rule plus_z is postulated.
+Rule plus_s is postulated.
+Rule times is postulated.
+Rule times_z is postulated.
+Rule times_s is postulated.
+Term computation rule for plus (heads at [1]):
+  derive (m : N) → plus m z ≡ m : N
+
+- :> mlunit = ()
+Term computation rule for plus (heads at [1]):
+  derive (m : N) (n : N) → plus m (s n) ≡ s (plus m n) : N
+
+- :> mlunit = ()
+Term computation rule for times (heads at [1]):
+  derive (m : N) → times m z ≡ z : N
+
+- :> mlunit = ()
+Term computation rule for times (heads at [1]):
+  derive (m : N) (n : N) → times m (s n) ≡ plus (times m n) m : N
+
+- :> mlunit = ()
+val one :> judgement = ⊢ s z
+val two :> judgement = ⊢ s (s z)
+val three :> judgement = ⊢ s (s (s z))
+val four :> judgement = ⊢ s (s (s (s z)))
+val five :> judgement = ⊢ plus (s (s z)) (s (s (s z)))
+val six :> judgement = ⊢ plus (s (s (s z))) (s (s (s z)))
+- :> judgement = ⊢ plus (s (s (s z))) (s (s (s z))) ≡ plus (s (s z)) (s
+  (s (s (s z)))) : N
+- :> judgement * judgement =
+  ((⊢ plus (s z) (s z) ≡ s (plus (s z) z) : N), (⊢ s (plus (s z) z)))
+- :> judgement * judgement =
+  ((⊢ plus (s (s (s z))) (s (s (s z))) ≡ s (plus (s (s (s z))) (s (s z)))
+   : N), (⊢ s (plus (s (s (s z))) (s (s z)))))
+- :> judgement * judgement =
+  ((⊢ plus (s (s (s z))) (s (s (s z))) ≡ s (s (s (s (s (s z))))) : N),
+   (⊢ s (s (s (s (s (s z)))))))
+- :> judgement * judgement =
+  ((⊢ plus (plus (s (s z)) (s (s (s z)))) (plus (s (s (s z))) (s (s (s
+   z)))) ≡ s (plus (plus (s (s z)) (s (s (s z)))) (plus (s (s (s z))) (s (s
+   z)))) : N), (⊢ s (plus (plus (s (s z)) (s (s (s z)))) (plus (s (s (s
+   z))) (s (s z))))))
+- :> judgement = ⊢ plus (plus (s (s z)) (s (s (s z)))) (plus (s (s (s z)))
+  (s (s (s z)))) ≡ s (s (s (s (s (s (s (s (s (s (s z)))))))))) : N
+- :> judgement * judgement =
+  ((⊢ plus (plus (s (s z)) (s (s (s z)))) (plus (s (s (s z))) (s (s (s
+   z)))) ≡ s (s (s (s (s (s (s (s (s (s (s z)))))))))) : N), (⊢ s (s (s
+   (s (s (s (s (s (s (s (s z))))))))))))
+- :> judgement * judgement =
+  ((⊢ times (s (s z)) (times (plus (s (s (s z))) (s (s (s z)))) (plus (s (s
+   (s z))) (s (s (s z))))) ≡ s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s
+   (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s
+   (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s
+   (s (s (s (s (s (s
+   z))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) :
+   N), (⊢ s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s
+   (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s
+   (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s
+   z)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+- :> judgement = ⊢ times (plus (s (s z)) (s (s (s z)))) (plus (s (s (s z)))
+  (s (s (s z)))) ≡ plus (plus (s (s z)) (s (s (s z)))) (times (plus (s (s
+  z)) (s (s (s z)))) (plus (s (s z)) (s (s (s z))))) : N

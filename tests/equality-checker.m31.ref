@@ -1,0 +1,101 @@
+Processing module eq
+ML type eq.checker declared.
+Exception eq.Invalid_equality_rule is declared.
+Exception eq.Failed_equality is declared.
+external empty_checker : eq.checker = "Eqchk.empty_checker"
+external add_type_computation : eq.checker → derivation → ML.option
+  eq.checker = "Eqchk.add_type_computation"
+external add_term_computation : eq.checker → derivation → ML.option
+  eq.checker = "Eqchk.add_term_computation"
+external add : eq.checker → derivation → ML.option
+  eq.checker = "Eqchk.add"
+external normalize_type : ML.bool → eq.checker → judgement →
+  judgement * judgement = "Eqchk.normalize_type"
+external normalize_term : ML.bool → eq.checker → judgement →
+  judgement * judgement = "Eqchk.normalize_term"
+external add_extensionality : eq.checker → derivation → ML.option
+  eq.checker = "Eqchk.add_extensionality"
+external prove_eqtype_abstraction : eq.checker → boundary → ML.option
+  judgement = "Eqchk.prove_eq_type_abstraction"
+external prove_eqterm_abstraction : eq.checker → boundary → ML.option
+  judgement = "Eqchk.prove_eq_term_abstraction"
+val ch :> ref eq.checker = ref <checker>
+val add_rule :> derivation → mlunit = <function>
+Exception eq.Coerce_fail is declared.
+val equalize_type :> judgement → judgement → judgement = <function>
+val coerce_abstraction :> judgement → boundary → judgement = <function>
+val normalize :> judgement → judgement * judgement = <function>
+val compute :> judgement → judgement * judgement = <function>
+val prove :> boundary → judgement = <function>
+Rule unit is postulated.
+Rule tt is postulated.
+Rule unit_ext is postulated.
+Extensionality rule for unit: derive (x : unit) (y : unit) → x ≡ y :
+unit
+- :> mlunit = ()
+Rule prod is postulated.
+Rule pair is postulated.
+Rule fst is postulated.
+Rule snd is postulated.
+Rule β_fst is postulated.
+Rule β_snd is postulated.
+Rule prod_ext is postulated.
+Term computation rule for fst (heads at [2]):
+  derive (A type) (B type) (x : A) (y : B) → fst A B (pair A B x y) ≡ x :
+  A
+
+- :> mlunit = ()
+Term computation rule for snd (heads at [2]):
+  derive (A type) (B type) (x : A) (y : B) → snd A B (pair A B x y) ≡ y :
+  B
+
+- :> mlunit = ()
+Extensionality rule for prod: derive (A type) (B type) (u : prod A B) (v :
+prod A B) (fst A B u ≡ fst A B v : A by ξ) (snd A B u ≡ snd A B v :
+B by ζ) → u ≡ v : prod A
+B
+- :> mlunit = ()
+Rule U is postulated.
+Rule V is postulated.
+Rule p is postulated.
+Rule u is postulated.
+Rule v is postulated.
+- :> judgement * judgement =
+  ((⊢ fst U V (pair U V u v) ≡ u : U), (⊢ u))
+- :> judgement * judgement =
+  ((⊢ snd U V (pair U V u v) ≡ v : V), (⊢ v))
+- :> judgement = ⊢ p ≡ pair U V (fst U V p) (snd U V p) : prod U V
+Rule ℕ is postulated.
+Rule z is postulated.
+Rule s is postulated.
+Rule ℕ_ind is postulated.
+Rule ℕ_β_z is postulated.
+Rule ℕ_β_s is postulated.
+Term computation rule for ℕ_ind (heads at [3]):
+  derive ({_ : ℕ} C type) (base : C {z}) ({n : ℕ} {_ : C {n}} step : C {s
+  n}) (k : ℕ) → ℕ_ind ({x} C {x}) base ({c_n n} step {n} {c_n}) (s k)
+  ≡ step {k} {ℕ_ind ({x} C {x}) base ({c_n n} step {n} {c_n}) k} : C {s
+  k}
+
+- :> mlunit = ()
+Term computation rule for ℕ_ind (heads at [3]):
+  derive ({_ : ℕ} C type) (base : C {z}) ({n : ℕ} {_ : C {n}} step : C {s
+  n}) → ℕ_ind ({x} C {x}) base ({c_n n} step {n} {c_n}) z ≡ base : C
+  {z}
+
+- :> mlunit = ()
+val plus :> derivation = derive (n : ℕ) (m : ℕ) → ℕ_ind ({_} ℕ) n
+  ({c_n _} s c_n) m
+val foo :> judgement = ⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z)
+- :> judgement * judgement =
+  ((⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) ≡ s (ℕ_ind ({_} ℕ) z
+   ({c_n _} s c_n) z) : ℕ), (⊢ s (ℕ_ind ({_} ℕ) z ({c_n _} s c_n)
+   z)))
+- :> judgement * judgement =
+  ((⊢ ℕ_ind ({_} ℕ) z ({_ c_n} s c_n) z ≡ z : ℕ), (⊢ z))
+- :> judgement * judgement =
+  ((⊢ s (ℕ_ind ({_} ℕ) z ({_ c_n} s c_n) z) ≡ s (ℕ_ind ({_} ℕ) z
+   ({_ c_n} s c_n) z) : ℕ), (⊢ s (ℕ_ind ({_} ℕ) z ({_ c_n} s c_n)
+   z)))
+- :> judgement = ⊢ ℕ_ind ({_} ℕ) (s z) ({c_n _} s c_n) (s z) ≡ s (s
+  z) : ℕ

@@ -36,6 +36,7 @@ and is_term ~lvl k = function
      let e = is_term ~lvl k e
      and asmp = Assumption.shift ~lvl k asmp
      and t = is_type ~lvl k t in
+     (* does not create a doubly nested [TermConvert] because original input does not either *)
      TermConvert (e, asmp, t)
 
 (* metas can't refer to bound variables, so shifting does not affect them *)

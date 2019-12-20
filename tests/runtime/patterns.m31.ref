@@ -1,48 +1,50 @@
-- : mlstring = "bar"
-- : mlstring = "foo"
-- : mlstring * mlstring * mlstring = ("baz", "foo", "bar")
-- : mlstring = "right"
-- : mlstring * mlstring * mlstring = ("baz", "foo", "bar")
-- : list mlstring * mlstring * mlstring * list mlstring * mlstring =
+- :> mlstring = "bar"
+- :> mlstring = "foo"
+- :> mlstring * mlstring * mlstring = ("baz", "foo", "bar")
+- :> mlstring = "right"
+- :> mlstring * mlstring * mlstring = ("baz", "foo", "bar")
+- :> list mlstring * mlstring * mlstring * list mlstring * mlstring =
   ("foo" :: "bar" :: [], "baz", "foo", "bar" :: [], "baz")
-- : mlstring = "foo"
+- :> mlstring = "foo"
 Rule A is postulated.
 Rule a is postulated.
 Rule P is postulated.
 val test_judgement :> judgement → list judgement * mlstring = <function>
-- : list judgement * mlstring = ((⊢ a) :: (⊢ A type) :: [], "isterm")
-- : list judgement * mlstring = ((⊢ A type) :: [], "istype")
-- : list judgement * mlstring = ((⊢ P a type) :: [], "istype")
+- :> list judgement * mlstring = ((⊢ a) :: (⊢ A type) :: [], "isterm")
+- :> list judgement * mlstring = ((⊢ A type) :: [], "istype")
+- :> list judgement * mlstring = ((⊢ P a type) :: [], "istype")
 Rule B is postulated.
 Rule ξ is postulated.
-- : list judgement * mlstring =
+- :> list judgement * mlstring =
   ((⊢ A type) :: (⊢ B type) :: [], "eqtype")
 Rule b is postulated.
 Rule ζ is postulated.
-- : list judgement * mlstring =
+- :> list judgement * mlstring =
   ((⊢ a) :: (⊢ b) :: (⊢ A type) :: [], "eqterm")
-- : list judgement * mlstring = ((⊢ a) :: (⊢ B type) :: [], "isterm")
-- : list judgement * mlstring =
-  ((?z₀ : A ⊢ ?z₀) :: (⊢ A type) :: (?z₀ : A ⊢ P ?z₀ type) ::
-   [], "abstraction")
+- :> list judgement * mlstring =
+  ((⊢ a) :: (⊢ b) :: (⊢ B type) :: [], "eqterm")
+- :> list judgement * mlstring = ((⊢ a) :: (⊢ B type) :: [], "isterm")
+- :> list judgement * mlstring =
+  ((z₀ : A ⊢ z₀) :: (⊢ A type) :: (z₀ : A ⊢ P z₀ type) :: [],
+   "abstraction")
 val test_boundary :> boundary → list judgement * list boundary * mlstring =
   <function>
-- : list judgement * list boundary * mlstring = ([], [], "istype boundary")
-- : list judgement * list boundary * mlstring =
+- :> list judgement * list boundary * mlstring = ([], [], "istype boundary")
+- :> list judgement * list boundary * mlstring =
   ((⊢ A type) :: [], [], "isterm boundary")
-- : list judgement * list boundary * mlstring =
+- :> list judgement * list boundary * mlstring =
   ((⊢ P a type) :: [], [], "isterm boundary")
-- : list judgement * list boundary * mlstring =
-  ((⊢ A type) :: (⊢ P a type) :: [], (⊢ A ≡ P a as ⁇) :: [],
+- :> list judgement * list boundary * mlstring =
+  ((⊢ A type) :: (⊢ P a type) :: [], (⊢ A ≡ P a by ⁇) :: [],
    "eqtype boundary")
-- : list judgement * list boundary * mlstring =
+- :> list judgement * list boundary * mlstring =
   ((⊢ a) :: (⊢ b) :: (⊢ A type) :: [], [], "eqterm boundary")
-- : list judgement * list boundary * mlstring =
+- :> list judgement * list boundary * mlstring =
   ((⊢ a) :: (⊢ b) :: (⊢ B type) :: [], [], "eqterm boundary")
-- : list judgement * list boundary * mlstring =
-  ((?z₁ : A ⊢ ?z₁) :: (⊢ A type) :: [], (?z₁ : A ⊢ ⁇ : P ?z₁)
-   :: [], "abstraction boundary")
+- :> list judgement * list boundary * mlstring =
+  ((z₁ : A ⊢ z₁) :: (⊢ A type) :: [], (z₁ : A ⊢ ⁇ : P z₁) ::
+   [], "abstraction boundary")
 Rule θ is postulated.
-- : list judgement * list boundary * mlstring =
-  ((?z₂ : B ⊢ ?z₂) :: (⊢ B type) :: [], (?z₂ : B ⊢ ⁇ : P ?z₂)
-   :: [], "abstraction boundary")
+- :> list judgement * list boundary * mlstring =
+  ((z₂ : B ⊢ z₂) :: (⊢ B type) :: [], (z₂ : B ⊢ ⁇ : P z₂) ::
+   [], "abstraction boundary")

@@ -2,16 +2,16 @@ Rule A is postulated.
 Rule B is postulated.
 Rule a is postulated.
 Rule b is postulated.
-- : boundary = ⊢ ⁇ type
-- : boundary = ⊢ {_ : A} {_ : A} ⁇ type
-- : boundary = ⊢ ⁇ : A
-- : boundary = ⊢ {_ : A} {_ : A} ⁇ : A
-- : boundary = ⊢ A ≡ B as ⁇
-- : boundary = ⊢ {_ : A} {_ : A} A ≡ B as ⁇
-- : boundary = ⊢ a ≡ b : A as ⁇
-- : boundary = ⊢ {x : A} a ≡ x : A as ⁇
+- :> boundary = ⊢ ⁇ type
+- :> boundary = ⊢ {_ : A} {_ : A} ⁇ type
+- :> boundary = ⊢ ⁇ : A
+- :> boundary = ⊢ {_ : A} {_ : A} ⁇ : A
+- :> boundary = ⊢ A ≡ B by ⁇
+- :> boundary = ⊢ {_ : A} {_ : A} A ≡ B by ⁇
+- :> boundary = ⊢ a ≡ b : A by ⁇
+- :> boundary = ⊢ {x : A} a ≡ x : A by ⁇
 Rule ξ is postulated.
-- : judgement = ⊢ a
+- :> judgement = ⊢ a
 Rule P is postulated.
 Rule ζ is postulated.
-- : judgement = ⊢ {z : A} P z ≡ P z
+- :> judgement = ⊢ {z : A} P z ≡ P z

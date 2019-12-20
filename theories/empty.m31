@@ -1,2 +1,6 @@
-rule Empty type
-rule Empty_ind ({x : Empty} C type) (a : Empty) : C {a}
+rule empty type
+;;
+
+rule empty_ind
+  ({x : empty} C type) (a : empty)
+  : C{a}

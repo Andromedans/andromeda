@@ -1,0 +1,6 @@
+Rule A is postulated.
+Rule a is postulated.
+- :> judgement = ⊢ A ≡ A
+- :> judgement = ⊢ a ≡ a : A
+- :> derivation = derive ({_ : A} f : A) (x : A) (y : A) (x ≡ y : A by ξ)
+  → f {x} ≡ f {y} : A

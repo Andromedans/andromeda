@@ -36,7 +36,7 @@ let type_of_term sgn = function
      let rec fold inds rl args =
        match rl, args with
 
-       | Premise (_, _, rl), arg :: args -> fold (arg :: inds) rl args
+       | Premise (_, rl), arg :: args -> fold (arg :: inds) rl args
 
        | Conclusion (BoundaryIsTerm t_schema), [] ->
           Instantiate_meta.is_type ~lvl:0 inds t_schema

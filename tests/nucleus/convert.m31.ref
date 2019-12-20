@@ -3,13 +3,13 @@ Rule B is postulated.
 Rule ξ is postulated.
 Rule a is postulated.
 Rule b is postulated.
-- : judgement = ⊢ a
-- : judgement = ⊢ B type
+- :> judgement = ⊢ a
+- :> judgement = ⊢ B type
 Rule P is postulated.
 Rule ζ is postulated.
-- : judgement = ⊢ P b ≡ P a
+- :> judgement = ⊢ P b ≡ P a
 Rule z is postulated.
 val e :> judgement = ⊢ {u : P z} u
-- : judgement * judgement * judgement * judgement =
-  ((?u₀ : P z ⊢ ?u₀), (⊢ P z type), (?u₀ : P z ⊢ ?u₀), (⊢ P a
+- :> judgement * judgement * judgement * judgement =
+  ((u₀ : P z ⊢ u₀), (⊢ P z type), (u₀ : P z ⊢ u₀), (⊢ P a
    type))

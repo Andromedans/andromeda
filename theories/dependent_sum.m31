@@ -1,41 +1,38 @@
-require eq_subst
+require eq ;;
 
-rule Σ (A type) ({x : A} B type)
-  type
+rule Σ (A type) ({x : A} B type) type
 
 rule pair (A type) ({x : A} B type) (a : A) (b : B{a})
   : Σ A B
+;;
 
 rule π₁ (A type) ({x : A} B type) (s : Σ A B)
   : A
+;;
 
 rule π₂ (A type) ({x : A} B type) (s : Σ A B)
   : B{π₁ A B s}
+;;
 
 rule Σ_β₁ (A type) ({x : A} B type) (a : A) (b : B{a})
-  : π₁ A B (pair A B a b) == a : A
+  : π₁ A B (pair A B a b) ≡ a : A
+;;
 
-let type_of e = match e with _ : t -> t end
-
-
-(* To show that the computation rule for the second projection is well-typed,
-   we need to show that
-     B (π₁ A ({x : A} B x) (pair A ({x : A} B x) a b)
-   equals
-     B a
-   We use the fact that substitution preserves equality, applied to Σ_β₁.
-*)
+eq.add_rule Σ_β₁
+;;
 
 rule Σ_β₂ (A type) ({x : A} B type) (a : A) (b : B{a})
-  :
-  ( let H ξ = handler ML.coerce x _ -> yield (ML.Some (convert x ξ)) end in
-    let eq_π₁_a = Σ_β₁ A B a b in
-    let ξ = eq_subst.eq_subst A B (π₁ A B (pair A B a b)) a eq_π₁_a in
-    with H ξ handle
-    (π₂ A B (pair A B a b)) : B{a} )
-  ==
-  b
-  : B{a}
+  : π₂ A B (pair A B a b) ≡ b : B{a} ;;
 
-rule Σ_η (A type) ({x : A} B type) (s : Σ A B)
-  : s == pair A B (π₁ A B s) (π₂ A B s) : Σ A B
+eq.add_rule Σ_β₂
+;;
+
+rule Σ_ext
+  (A type) ({x : A} B type) (s : Σ A B) (t : Σ A B)
+  (π₁ A B s ≡ π₁ A B t : A by ξ)
+  (convert (π₂ A B s) (congruence B{π₁ A B s} B{π₁ A B t} ξ) ≡ π₂ A B t : B{π₁ A B t})
+  : s ≡ t : Σ A B
+;;
+
+eq.add_rule Σ_ext
+;;
