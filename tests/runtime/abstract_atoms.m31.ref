@@ -1,6 +1,6 @@
 Rule A is postulated.
-- : judgement = ⊢ {x : A} x
-- : boundary = ⊢ {_ : A} ⁇ : A
+- :> judgement = ⊢ {x : A} x
+- :> boundary = ⊢ {_ : A} ⁇ : A
 val abstr_jdg :> judgement = ⊢ {z : A} z
 val a :> judgement = z₀ : A ⊢ z₀
 val abstr1 :> judgement = ⊢ {z : A} z

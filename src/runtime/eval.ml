@@ -824,7 +824,7 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
      comp_value c >>= fun v ->
      Runtime.top_lookup_penv >>= fun penv ->
      if not quiet then
-       Format.printf "@[<hov 2>- :@ %t@ =@ %t@]@."
+       Format.printf "@[<hov 2>- :>@ %t@ =@ %t@]@."
            (print_annot () sch)
            (Runtime.print_value ~penv v) ;
      return ()
