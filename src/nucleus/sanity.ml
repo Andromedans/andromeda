@@ -77,7 +77,7 @@ let rec type_of_term_abstraction sgn = function
      let t_abstr = Abstract.abstraction Abstract.is_type a.atom_nonce t_abstr in
      Mk.abstract x t t_abstr
 
-let rec abstracted_judgement_with_boundary sgn abstr_jdg = 
+(* let rec abstracted_judgement_with_boundary sgn abstr_jdg = 
   match abstr_jdg with 
     | NotAbstract JudgementIsTerm jdg -> 
       Mk.not_abstract (abstr_jdg, BoundaryIsTerm (type_of_term sgn jdg))
@@ -94,7 +94,7 @@ let rec abstracted_judgement_with_boundary sgn abstr_jdg =
       let a, abstr = Unabstract.abstraction Instantiate_bound.is_term x t abstr in
       let t_abstr = type_of_term_abstraction sgn abstr in
       let t_abstr = Abstract.abstraction Abstract.is_type a.atom_nonce t_abstr in
-      Mk.abstract x t t_abstr
+      Mk.abstract x t t_abstr *)
 
 (** [natural_type sgn e] gives the judgment that the natural type [t] of [e] is derivable.
     We maintain the invariant that no further assumptions are needed (apart from those
