@@ -4,4 +4,4 @@ Rule T is postulated.
 Rule a is postulated.
 Rule b is postulated.
 Rule S is postulated.
-- : derivation = derive (a ≡ b : T by ζ) → S a a ≡ S b b
+- :> derivation = derive (a ≡ b : T by ζ) → S a a ≡ S b b

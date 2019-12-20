@@ -8,7 +8,7 @@ Rule a is postulated.
 Rule B is postulated.
 Rule f is postulated.
 Rule g is postulated.
-- : judgement = ⊢ Π A ({x} B x) ≡ Π A ({x} B x)
-- : judgement = ⊢ app A ({x} B x) g a ≡ app A ({x} B x) g a : B a
-- : judgement = ⊢ λ A ({x} B x) ({x} f x) ≡ λ A ({x} B x) ({x} f x) :
+- :> judgement = ⊢ Π A ({x} B x) ≡ Π A ({x} B x)
+- :> judgement = ⊢ app A ({x} B x) g a ≡ app A ({x} B x) g a : B a
+- :> judgement = ⊢ λ A ({x} B x) ({x} f x) ≡ λ A ({x} B x) ({x} f x) :
   Π A ({x} B x)

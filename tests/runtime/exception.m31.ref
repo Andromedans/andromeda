@@ -2,10 +2,10 @@ Exception Cow is declared.
 Exception Horn is declared.
 Exception Tail is declared.
 val f :> exn → exn = <function>
-- : exn = Cow "horn"
-- : exn = Cow "horn"
-- : exn = Cow "tail"
-- : mlstring * mlstring = ("foo", "bar")
-- : mlstring * mlstring = ("horn", "")
-- : mlstring * mlstring = ("tail", "")
-- : mlstring = "horn"
+- :> exn = Cow "horn"
+- :> exn = Cow "horn"
+- :> exn = Cow "tail"
+- :> mlstring * mlstring = ("foo", "bar")
+- :> mlstring * mlstring = ("horn", "")
+- :> mlstring * mlstring = ("tail", "")
+- :> mlstring = "horn"
