@@ -1,45 +1,28 @@
-require eq;;
+require eq ;;
 
 rule Id (A type) (a : A) (b : A) type
+;;
 
-rule Id_refl (A type) (a : A) : Id A a a
+rule refl (A type) (a : A) : Id A a a
+;;
 
-rule Id_ind
+rule J
   (A type)
   ({x y : A} {p : Id A x y} C type)
-  ({x : A} c : C{x, x, (Id_refl A x)})
+  ({x : A} c : C{x, x, refl A x})
   (a : A)
   (b : A)
-  (p : Id A a b)
-  : C{a, b, p}
+  (q : Id A a b)
+  : C{a, b, q}
+;;
 
-rule Id_β
+rule J_β
   (A type)
   ({x y : A} {p : Id A x y} C type)
-  ({x : A} c : C{x, x, Id_refl A x})
+  ({x : A} c : C{x, x, refl A x})
   (a : A)
-  : Id_ind A C c a a (Id_refl A a) ≡ c{a} : C{a, a, Id_refl A a};;
+  : J A C c a a (refl A a) ≡ c{a} : C{a, a, refl A a}
+;;
 
-eq.add_rule Id_β;;
-
-require judgemental_equality
-let sym = judgemental_equality.sym_eq_type
-
-rule Id_congr
-  (A type)
-  (A' type)
-  (a : A) (b : A)
-  (a' : A') (b' : A')
-  (A ≡ A' by ξ)
-  (a ≡ (convert a' (sym ξ)) : A)
-  (b ≡ (convert b' (sym ξ)) : A)
-  : Id A a b ≡ Id A' a' b'
-
-rule Id_refl_congr
-  (A type) (A' type)
-  (a : A) (a' : A')
-  (A ≡ A' by ξ)
-  (a ≡ (convert a' (sym ξ)) : A by ζ)
-  : Id_refl A a ≡
-         (convert (Id_refl A' a') (sym (Id_congr A A' a a a' a' ξ ζ ζ)))
-    : Id A a a
+eq.add_rule J_β
+;;
