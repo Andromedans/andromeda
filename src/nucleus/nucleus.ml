@@ -19,7 +19,7 @@ let expose_rule rl = rl
 let type_of_term = Sanity.type_of_term
 let type_of_term_abstraction = Sanity.type_of_term_abstraction
 let type_at_abstraction = Sanity.type_at_abstraction
-(* let abstracted_judgement_with_boundary = Sanity.abstracted_judgement_with_boundary *)
+let abstracted_judgement_with_boundary = Sanity.abstracted_judgement_with_boundary
 let type_of_atom = Sanity.type_of_atom
 let natural_type_eq = Sanity.natural_type_eq
 

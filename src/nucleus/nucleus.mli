@@ -327,7 +327,7 @@ val type_at_abstraction : 'a abstraction -> is_type option
 val check_judgement_boundary_abstraction : signature -> judgement_abstraction -> boundary_abstraction -> bool
 
 (** A pair of a judgement and its boundary, abstracted the same way *)
-(* val abstracted_judgement_with_boundary : judgement_abstraction -> (judgement * boundary) abstraction  *)
+val abstracted_judgement_with_boundary : signature -> judgement abstraction -> (judgement * boundary) abstraction 
 
 
 (** Typeof for atoms *)

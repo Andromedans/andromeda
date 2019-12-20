@@ -150,8 +150,8 @@ let boundary_eq_term atm ?lvl (lhs, rhs, t) =
   (lhs, rhs, t)
 
 let boundary atm ?lvl = function
-  | BoundaryIsTerm bdry -> BoundaryIsTerm (boundary_is_term atm ?lvl bdry)
   | BoundaryIsType bdry -> BoundaryIsType (boundary_is_type atm ?lvl bdry)
+  | BoundaryIsTerm bdry -> BoundaryIsTerm (boundary_is_term atm ?lvl bdry)
   | BoundaryEqType bdry -> BoundaryEqType (boundary_eq_type atm ?lvl bdry)
   | BoundaryEqTerm bdry -> BoundaryEqTerm (boundary_eq_term atm ?lvl bdry)
 
@@ -173,4 +173,11 @@ let boundary_eq_term_abstraction {atom_nonce=n; atom_type=t} abstr =
 
 let boundary_abstraction {atom_nonce=n; atom_type=t} abstr =
   let abstr = abstraction boundary n abstr in
+  Mk.abstract (Nonce.name n) t abstr
+
+let judgement_with_boundary x ?(lvl=0) (jdg, bdry) = 
+  (judgement x ~lvl jdg, boundary x ~lvl bdry)
+
+let judgement_with_boundary_abstraction {atom_nonce=n; atom_type=t} abstr =
+  let abstr = abstraction judgement_with_boundary n abstr in
   Mk.abstract (Nonce.name n) t abstr
