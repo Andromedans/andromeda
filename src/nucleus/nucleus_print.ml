@@ -390,3 +390,21 @@ let name_of_boundary abstr =
   | BoundaryIsType _ -> "a type boundary"
   | BoundaryEqTerm _ -> "a term equality boundary"
   | BoundaryEqType _ -> "a type equality boundary"
+
+let thesis_judgement_with_boundary ?max_level ~penv ~print_head (jdg,bdry) ppf = 
+  Print.print 
+    ?max_level 
+    ppf 
+    "%t : %t" 
+    (thesis_judgement ?max_level ~penv jdg)
+    (thesis_boundary ?max_level ~penv ~print_head bdry)
+
+  let judgement_with_boundary_abstraction ?max_level ~penv abstr ppf =
+    let asmp = Collect_assumptions.abstraction Collect_assumptions.judgement_with_boundary abstr in
+    Print.print
+      ?max_level ~at_level:Level.judgement ppf
+      "%t%s %t"
+      (print_assumptions ~max_level:Level.vdash_left ~penv asmp)
+      (Print.char_vdash ())
+      (abstraction Occurs_bound.judgement_with_boundary (thesis_judgement_with_boundary ~print_head:print_qqmark) ~max_level:Level.vdash_right ~penv abstr)
+  

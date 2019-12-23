@@ -484,8 +484,14 @@ val print_judgement_abstraction :
 val print_boundary_abstraction :
   ?max_level:Level.t -> penv:print_environment -> boundary_abstraction -> Format.formatter -> unit
 
+val print_judgement_with_boundary_abstraction :
+  ?max_level:Level.t -> penv:print_environment -> (judgement * boundary) abstraction -> Format.formatter -> unit
+
 val print_derivation :
   ?max_level:Level.t -> penv:print_environment -> derivation -> Format.formatter -> unit
+
+
+
 
 
 (** An error emitted by the nucleus *)

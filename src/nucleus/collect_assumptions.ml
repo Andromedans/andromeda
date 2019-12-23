@@ -105,6 +105,9 @@ and boundary ?(lvl=0) = function
   | BoundaryEqType eq -> eq_type_boundary ~lvl eq
   | BoundaryEqTerm eq -> eq_term_boundary ~lvl eq
 
+let judgement_with_boundary ?(lvl=0) (jdg, bdry) = 
+  Assumption.union (judgement ~lvl jdg) (boundary ~lvl bdry)
+
 let arguments = arguments' ~lvl:0
 
 let context_u assumptions_u t =

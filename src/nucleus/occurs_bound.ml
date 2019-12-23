@@ -52,3 +52,6 @@ let boundary k = function
   | BoundaryIsTerm t  -> is_type k t
   | BoundaryEqType (t1, t2) -> is_type k t1 || is_type k t2
   | BoundaryEqTerm (e1, e2, t) -> is_type k t || is_term k e1  || is_term k e2
+
+let judgement_with_boundary k (jdg, bdry) = 
+  judgement k jdg || boundary k bdry
