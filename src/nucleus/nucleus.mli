@@ -479,7 +479,7 @@ val print_eq_type_abstraction :
   ?max_level:Level.t -> penv:print_environment -> eq_type_abstraction -> Format.formatter -> unit
 
 val print_judgement_abstraction :
-  ?max_level:Level.t -> penv:print_environment -> judgement_abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:print_environment -> sgn:signature -> judgement_abstraction -> Format.formatter -> unit
 
 val print_boundary_abstraction :
   ?max_level:Level.t -> penv:print_environment -> boundary_abstraction -> Format.formatter -> unit
