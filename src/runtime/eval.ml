@@ -715,6 +715,7 @@ let toplet_bind ~at ~quiet ~print_annot info clauses =
   in
   fold [] clauses >>= fun uss ->
   Runtime.top_lookup_penv >>= fun penv ->
+  Runtime.top_lookup_signature >>= fun sgn ->
     if not quiet
     then
       begin
@@ -726,7 +727,7 @@ let toplet_bind ~at ~quiet ~print_annot info clauses =
                 Format.printf "@[<hov 2>val %t :>@ %t@ =@ %t@]@."
                               (Name.print x)
                               (print_annot sch)
-                              (Runtime.print_value ~penv v))
+                              (Runtime.print_value ~penv ~sgn v))
               xts xvs)
           info vss
        end ;
@@ -823,10 +824,11 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
   | Syntax.TopComputation (c, sch) ->
      comp_value c >>= fun v ->
      Runtime.top_lookup_penv >>= fun penv ->
+     Runtime.top_lookup_signature >>= fun sgn ->
      if not quiet then
        Format.printf "@[<hov 2>- :>@ %t@ =@ %t@]@."
            (print_annot () sch)
-           (Runtime.print_value ~penv v) ;
+           (Runtime.print_value ~penv ~sgn v) ;
      return ()
 
   | Syntax.Open pth ->

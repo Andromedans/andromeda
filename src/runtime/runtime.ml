@@ -650,6 +650,8 @@ let top_get_penv {top_runtime;_} = get_penv top_runtime
 let top_get_nucleus_penv {top_runtime;_} =
   mk_nucleus_penv (get_penv top_runtime)
 
+let top_get_signature {top_runtime;_} = get_signature top_runtime
+
 let lookup_penv env =
   Return (get_penv env)
 
@@ -683,10 +685,10 @@ let print_external ?max_level ~penv v ppf =
 (** In the future this routine will be type-driven. One consequence is that
     constructor tags will be printed by looking up their names in type
     definitions. *)
-let rec print_value ?max_level ~penv v ppf =
+let rec print_value ?max_level ~penv ~sgn v ppf =
   match v with
 
-  | Judgement jdg -> Nucleus.print_judgement_abstraction ~penv:(mk_nucleus_penv penv) ?max_level jdg ppf
+  | Judgement jdg -> Nucleus.print_judgement_abstraction ~penv:(mk_nucleus_penv penv) ?max_level ~sgn jdg ppf
 
   | Boundary bdry -> Nucleus.print_boundary_abstraction ~penv:(mk_nucleus_penv penv) ?max_level bdry ppf
 
@@ -699,10 +701,10 @@ let rec print_value ?max_level ~penv v ppf =
   | Handler h -> Format.fprintf ppf "<handler>"
 
   | Exc (exc, vopt) ->
-     print_exception ?max_level ~penv (Ident.path exc) vopt ppf
+     print_exception ?max_level ~penv ~sgn (Ident.path exc) vopt ppf
 
   | Tag (t, lst) ->
-     print_tag ?max_level ~penv t lst ppf
+     print_tag ?max_level ~penv ~sgn t lst ppf
      (* begin *)
      (*   match as_list_opt v with *)
      (*   | Some lst -> Format.fprintf ppf "@[<hov 1>[%t]@]" *)
@@ -711,21 +713,21 @@ let rec print_value ?max_level ~penv v ppf =
      (* end *)
 
   | Tuple lst -> Print.print ?max_level ~at_level:Level.ml_tuple ppf "@[<hov 1>(%t)@]"
-                  (Print.sequence (print_value ~max_level:Level.ml_tuple_arg ~penv) "," lst)
+                  (Print.sequence (print_value ~max_level:Level.ml_tuple_arg ~penv ~sgn) "," lst)
 
   | Ref x -> Print.print ?max_level ~at_level:Level.highest ppf "ref@ %t"
-                  (print_value ~max_level:Level.ml_tag ~penv (!x))
+                  (print_value ~max_level:Level.ml_tag ~penv ~sgn (!x))
 
   | String s -> Format.fprintf ppf "\"%s\"" s
 
-and print_exception ?max_level ~penv exc vopt ppf =
+and print_exception ?max_level ~penv ~sgn exc vopt ppf =
   match exc, vopt with
 
   | Path.Direct (Path.Level ({Name.fixity=Name.Prefix;_} as name, _)), Some v ->
      (* prefix exception applied to one argument *)
      Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
        (Name.print ~parentheses:false name)
-       (print_value ~max_level:Level.prefix_arg ~penv v)
+       (print_value ~max_level:Level.prefix_arg ~penv ~sgn v)
 
   | (Path.Direct _ | Path.Module _), None ->
      (* print as identifier *)
@@ -735,9 +737,9 @@ and print_exception ?max_level ~penv exc vopt ppf =
      (* print as application *)
      Print.print ?max_level ~at_level:Level.ml_operation ppf "%t@ %t"
                      (Path.print ~opens:penv.opens ~parentheses:true exc)
-                     (print_value ~max_level:Level.ml_operation_arg ~penv v)
+                     (print_value ~max_level:Level.ml_operation_arg ~penv ~sgn v)
 
-and print_tag ?max_level ~penv t lst ppf =
+and print_tag ?max_level ~penv ~sgn t lst ppf =
   match Ident.path t, lst with
 
   | Path.Direct (Path.Level ({Name.fixity=Name.Prefix; name} as x,_)), [v] ->
@@ -751,15 +753,15 @@ and print_tag ?max_level ~penv t lst ppf =
         Level.prefix and Level.prefix_arg *)
      Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
                  (Name.print ~parentheses:false x)
-                 (print_value ~max_level:Level.prefix_arg ~penv v)
+                 (print_value ~max_level:Level.prefix_arg ~penv ~sgn v)
 
   | Path.Direct (Path.Level ({Name.fixity=Name.Infix fixity;_} as x, _)), [v1; v2] ->
      (* infix tag applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
-                 (print_value ~max_level:lvl_left ~penv v1)
+                 (print_value ~max_level:lvl_left ~penv ~sgn v1)
                  (Name.print ~parentheses:false x)
-                 (print_value ~max_level:lvl_right ~penv v2)
+                 (print_value ~max_level:lvl_right ~penv ~sgn v2)
 
   | _ ->
      (* print as application *)
@@ -768,26 +770,26 @@ and print_tag ?max_level ~penv t lst ppf =
        | [] -> Ident.print ~opens:penv.opens ~parentheses:true t ppf
        | (_::_) -> Print.print ?max_level ~at_level:Level.ml_tag ppf "@[<hov 2>%t@ %t@]"
                      (Ident.print ~opens:penv.opens ~parentheses:true t)
-                     (Print.sequence (print_value ~max_level:Level.ml_tag_arg ~penv) "" lst)
+                     (Print.sequence (print_value ~max_level:Level.ml_tag_arg ~penv ~sgn) "" lst)
      end
 
 
-let print_operation ~penv op vs ppf =
+let print_operation ~penv ~sgn op vs ppf =
   match op, vs with
 
   | Path.Direct (Path.Level ({Name.fixity=Name.Prefix;_} as name, _)), [v] ->
      (* prefix op applied to one argument *)
      Print.print ppf ~at_level:Level.prefix "%t@ %t"
        (Name.print ~parentheses:false name)
-       (print_value ~max_level:Level.prefix_arg ~penv v)
+       (print_value ~max_level:Level.prefix_arg ~penv ~sgn v)
 
   | Path.Direct (Path.Level ({Name.fixity=Name.Infix fixity;_} as name, _)), [v1; v2] ->
      (* infix op applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ~at_level:lvl_op "%t@ %t@ %t"
-       (print_value ~max_level:lvl_left ~penv v1)
+       (print_value ~max_level:lvl_left ~penv ~sgn v1)
        (Name.print ~parentheses:false name)
-       (print_value ~max_level:lvl_right ~penv v2)
+       (print_value ~max_level:lvl_right ~penv ~sgn v2)
 
   | (Path.Direct _ | Path.Module _), _ ->
      (* print as application *)
@@ -796,10 +798,10 @@ let print_operation ~penv op vs ppf =
        | [] -> Path.print ~opens:penv.opens ~parentheses:true op ppf
        | (_::_) -> Print.print ~at_level:Level.ml_operation ppf "@[<hov 2>%t@ %t@]"
                      (Path.print ~opens:penv.opens ~parentheses:true op)
-                     (Print.sequence (print_value ~max_level:Level.ml_operation_arg ~penv) "" vs)
+                     (Print.sequence (print_value ~max_level:Level.ml_operation_arg ~penv ~sgn) "" vs)
      end
 
-let print_error ~penv err ppf =
+let print_error ~penv ~sgn err ppf =
   match err with
 
   | TooFewArguments ->
@@ -824,7 +826,7 @@ let print_error ~penv err ppf =
   | TypeMismatchCheckingMode (jdg, bdry) ->
      let penv = mk_nucleus_penv penv in
      Format.fprintf ppf "the term@ %t@ is expected by its surroundings to have type@ %t"
-                    (Nucleus.print_judgement_abstraction ~penv jdg)
+                    (Nucleus.print_judgement_abstraction ~penv ~sgn jdg)
                     (Nucleus.print_boundary_abstraction ~penv bdry)
 
   | UnexpectedAbstraction  ->
@@ -847,7 +849,7 @@ let print_error ~penv err ppf =
 
   | MatchFail v ->
      Format.fprintf ppf "no matching pattern found for value@ %t"
-                    (print_value ~penv v)
+                    (print_value ~penv ~sgn v)
 
   | InvalidComparison ->
      Format.fprintf ppf "invalid comparison"
@@ -922,26 +924,26 @@ let print_error ~penv err ppf =
      let penv = mk_nucleus_penv penv in
      Format.fprintf ppf
        "cannot convert@ %t along@ %t"
-       (Nucleus.print_judgement_abstraction ~penv jdg)
+       (Nucleus.print_judgement_abstraction ~penv ~sgn jdg)
        (Nucleus.print_eq_type_abstraction ~penv eq)
 
   | InvalidCoerce (jdg, bdry) ->
      let penv = mk_nucleus_penv penv in
      Format.fprintf ppf "expected a judgement with boundary@ %t@ but got@ %t"
                     (Nucleus.print_boundary_abstraction ~penv bdry)
-                    (Nucleus.print_judgement_abstraction ~penv jdg)
+                    (Nucleus.print_judgement_abstraction ~penv ~sgn jdg)
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "unhandled operation %t"
-                    (print_operation ~penv (Ident.path op) vs)
+                    (print_operation ~penv ~sgn (Ident.path op) vs)
 
   | UncaughtException (exc, vopt) ->
      Format.fprintf ppf "uncaught exception %t"
-                    (print_exception ~penv (Ident.path exc) vopt)
+                    (print_exception ~penv ~sgn (Ident.path exc) vopt)
 
   | InvalidPatternMatch v ->
      Format.fprintf ppf "this pattern cannot match@ %t"
-                    (print_value ~penv v)
+                    (print_value ~penv ~sgn v)
 
 let empty_env = {
   lexical = {

@@ -144,7 +144,7 @@ type penv = {
 
 (** Pretty-print a value. *)
 val print_value :
-  ?max_level:Level.t -> penv:penv -> value -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:penv -> sgn:Nucleus.signature -> value -> Format.formatter -> unit
 
 
 (** {6 Error Handling} *)
@@ -194,7 +194,7 @@ type error =
 exception Error of error Location.located
 
 (** Pretty-print a runtime error *)
-val print_error : penv:penv -> error -> Format.formatter -> unit
+val print_error : penv:penv -> sgn:Nucleus.signature-> error -> Format.formatter -> unit
 
 (** Report a runtime error (raises an Error exception) *)
 val error : at:Location.t -> error -> 'a
@@ -347,6 +347,9 @@ val top_get_penv : topenv -> penv
 
 (** Get the current printing environment for the nucleus *)
 val top_get_nucleus_penv : topenv -> Nucleus.print_environment
+
+(** Get the current signature. *)
+val top_get_signature: topenv -> Nucleus.signature
 
 (** Execute a toplevel command in the given environment. *)
 val exec : 'a toplevel -> topenv -> 'a * topenv

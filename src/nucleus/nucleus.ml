@@ -194,11 +194,25 @@ let print_is_term_abstraction = Nucleus_print.is_term_abstraction
 let print_is_type_abstraction = Nucleus_print.is_type_abstraction
 let print_eq_term_abstraction = Nucleus_print.eq_term_abstraction
 let print_eq_type_abstraction = Nucleus_print.eq_type_abstraction
-let print_judgement_abstraction = Nucleus_print.judgement_abstraction
 let print_boundary_abstraction = Nucleus_print.boundary_abstraction
 let print_judgement_with_boundary_abstraction = Nucleus_print.judgement_with_boundary_abstraction
 let print_derivation = Nucleus_print.derivation
 let print_error = Nucleus_print.error
+
+let print_judgement_abstraction ?max_level ~penv ~sgn abstr ppf =
+let jdg = Nucleus_print.strip_abstraction abstr in
+match jdg with 
+| JudgementIsTerm e ->
+  let abstr' = abstracted_judgement_with_boundary sgn abstr in
+  Nucleus_print.judgement_with_boundary_abstraction ?max_level ~penv abstr' ppf
+| JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _ -> 
+let asmp = Collect_assumptions.abstraction Collect_assumptions.judgement abstr in
+Print.print
+  ?max_level ~at_level:Level.judgement ppf
+  "%t%s %t"
+  (Nucleus_print.print_assumptions ~max_level:Level.vdash_left ~penv asmp)
+  (Print.char_vdash ())
+  (Nucleus_print.abstraction Occurs_bound.judgement Nucleus_print.thesis_judgement ~max_level:Level.vdash_right ~penv abstr)
 
 let name_of_judgement = Nucleus_print.name_of_judgement
 let name_of_boundary = Nucleus_print.name_of_boundary
