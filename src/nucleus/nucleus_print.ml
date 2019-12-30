@@ -312,13 +312,13 @@ let derivation ?max_level ~penv drv ppf =
   in
   Print.print ppf ?max_level ~at_level:Level.derive "derive@ %t" (fold ~penv drv)
 
-let thesis_judgement_with_boundary ?max_level ~penv ~print_head (jdg,bdry) ppf = 
+let thesis_judgement_with_boundary ?max_level ~penv (jdg,bdry) ppf = 
   Print.print 
     ?max_level 
     ppf 
     "%t%t"
-    (thesis_judgement ?max_level ~penv jdg)
-    (thesis_boundary ?max_level ~penv ~print_head bdry)
+    (judgement_as_argument ?max_level ~penv jdg)
+    (thesis_boundary ?max_level ~penv ~print_head:print_empty_head bdry)
 
 let judgement_with_boundary_abstraction ?max_level ~penv abstr ppf =
   let asmp = Collect_assumptions.abstraction Collect_assumptions.judgement_with_boundary abstr in
@@ -327,7 +327,7 @@ let judgement_with_boundary_abstraction ?max_level ~penv abstr ppf =
     "%t%s %t"
     (print_assumptions ~max_level:Level.vdash_left ~penv asmp)
     (Print.char_vdash ())
-    (abstraction Occurs_bound.judgement_with_boundary (thesis_judgement_with_boundary ~print_head:print_empty_head) ~max_level:Level.vdash_right ~penv abstr)
+    (abstraction Occurs_bound.judgement_with_boundary (thesis_judgement_with_boundary) ~max_level:Level.vdash_right ~penv abstr)
 
 (** Printing of error messages *)
 (* TODO: Some of these are probably internal while others count as runtime errors. We
