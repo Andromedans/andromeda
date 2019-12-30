@@ -2,13 +2,13 @@ This directory contains rudimentary tests for Andromeda.
 
 For each test `xyz` there is a `.m31` file with the test code and a
 corresponding `.m31.ref` file with the reference output. A test succeeds if the
-reference utput is identical to the actual output.
+reference output is identical to the actual output.
 
 The tests in `./obsolete` subdirectory are obsolete and will be ignored by the
 testing scripts. They are there so that a good soul will port the relevant ones
 to the new Andromeda.
 
-The tests are perfomed by the `./test.sh` script, which you can run as:
+The tests are performed by the `./test.sh` script, which you can run as:
 
     ./test.sh [-v] [tests]
 

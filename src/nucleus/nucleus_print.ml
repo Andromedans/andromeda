@@ -316,7 +316,7 @@ let thesis_judgement_with_boundary ?max_level ~penv (jdg,bdry) ppf =
   Print.print 
     ?max_level 
     ppf 
-    "%t%t"
+    "%t@,%t"
     (judgement_as_argument ?max_level ~penv jdg)
     (thesis_boundary ?max_level ~penv ~print_head:print_empty_head bdry)
 

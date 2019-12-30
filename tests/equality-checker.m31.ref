@@ -61,9 +61,9 @@ Rule p is postulated.
 Rule u is postulated.
 Rule v is postulated.
 - :> judgement * judgement =
-  ((⊢ fst U V (pair U V u v) ≡ u : U), (⊢ u))
+  ((⊢ fst U V (pair U V u v) ≡ u : U), (⊢ u : U))
 - :> judgement * judgement =
-  ((⊢ snd U V (pair U V u v) ≡ v : V), (⊢ v))
+  ((⊢ snd U V (pair U V u v) ≡ v : V), (⊢ v : V))
 - :> judgement = ⊢ p ≡ pair U V (fst U V p) (snd U V p) : prod U V
 Rule ℕ is postulated.
 Rule z is postulated.
@@ -86,16 +86,16 @@ Term computation rule for ℕ_ind (heads at [3]):
 - :> mlunit = ()
 val plus :> derivation = derive (n : ℕ) (m : ℕ) → ℕ_ind ({_} ℕ) n
   ({c_n _} s c_n) m
-val foo :> judgement = ⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z)
+val foo :> judgement = ⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) : ℕ
 - :> judgement * judgement =
   ((⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) ≡ s (ℕ_ind ({_} ℕ) z
-   ({c_n _} s c_n) z) : ℕ), (⊢ s (ℕ_ind ({_} ℕ) z ({c_n _} s c_n)
-   z)))
+   ({c_n _} s c_n) z) : ℕ), (⊢ s (ℕ_ind ({_} ℕ) z ({c_n _} s c_n) z)
+   : ℕ))
 - :> judgement * judgement =
-  ((⊢ ℕ_ind ({_} ℕ) z ({_ c_n} s c_n) z ≡ z : ℕ), (⊢ z))
+  ((⊢ ℕ_ind ({_} ℕ) z ({_ c_n} s c_n) z ≡ z : ℕ), (⊢ z : ℕ))
 - :> judgement * judgement =
   ((⊢ s (ℕ_ind ({_} ℕ) z ({_ c_n} s c_n) z) ≡ s (ℕ_ind ({_} ℕ) z
-   ({_ c_n} s c_n) z) : ℕ), (⊢ s (ℕ_ind ({_} ℕ) z ({_ c_n} s c_n)
-   z)))
+   ({_ c_n} s c_n) z) : ℕ), (⊢ s (ℕ_ind ({_} ℕ) z ({_ c_n} s c_n) z)
+   : ℕ))
 - :> judgement = ⊢ ℕ_ind ({_} ℕ) (s z) ({c_n _} s c_n) (s z) ≡ s (s
   z) : ℕ

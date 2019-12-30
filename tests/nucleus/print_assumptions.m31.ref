@@ -1,4 +1,4 @@
 val r :> ref (ML.option _α) = ref ML.None
 val j :> judgement = ?A₀ type, {_ : ?A₀} ?B₁ type, {x : ?A₀} {_ :
   ?B₁ {x}} ?f₂ : ?A₀, a₃ : ?A₀, b₄ : ?B₁ {a₃} ⊢ ?f₂
-  {a₃} {b₄}
+  {a₃} {b₄} : ?A₀

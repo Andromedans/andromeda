@@ -6,7 +6,7 @@ Rule a is postulated.
 Rule B is postulated.
 Rule s is postulated.
 val d :> derivation = derive (x : A) (y : A) → s x x y
-- :> judgement = ⊢ s a a a
+- :> judgement = ⊢ s a a a : B a a a
 val e :> derivation = derive ({_ : A} {_ : A} T type) (a : A) → T {a} {a}
   type
 - :> judgement → judgement → judgement = <function>

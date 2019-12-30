@@ -5,6 +5,6 @@ Rule u is postulated.
 Rule B is postulated.
 Rule ξ is postulated.
 Rule ζ is postulated.
-val a' :> judgement = ⊢ a
+val a' :> judgement = ⊢ a : B
 val Q :> judgement = ⊢ P a type
-val u' :> judgement = ⊢ u
+val u' :> judgement = ⊢ u : P a

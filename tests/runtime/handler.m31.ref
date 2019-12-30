@@ -2,5 +2,5 @@ Operation auto is declared.
 Rule A is postulated.
 Rule a is postulated.
 Rule B is postulated.
-- :> judgement = ⊢ a
+- :> judgement = ⊢ a : A
 - :> judgement = ⊢ B type
