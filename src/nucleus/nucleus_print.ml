@@ -331,13 +331,7 @@ let rec strip_abstraction = function
   | Abstract (_, _, abstr) -> strip_abstraction abstr
   | NotAbstract x -> x
   
-let judgement_abstraction ?max_level ~penv ~sgn abstr ppf =
-  let jdg = strip_abstraction abstr in
-  match jdg with 
-  | JudgementIsTerm e -> failwith "tidi"
-    (* let abstr' = Nucleus.abstracted_judgement_with_boundary sgn abstr in
-    judgement_with_boundary_abstraction ?max_level ~penv abstr' ppf *)
-  | JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _ -> 
+let judgement_abstraction ?max_level ~penv abstr ppf =
   let asmp = Collect_assumptions.abstraction Collect_assumptions.judgement abstr in
   Print.print
     ?max_level ~at_level:Level.judgement ppf
