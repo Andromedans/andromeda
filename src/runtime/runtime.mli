@@ -139,7 +139,8 @@ val equal_value: value -> value -> bool
 (** printing environment *)
 type penv = {
   forbidden : Name.set ;
-  opens : Path.set
+  opens : Path.set;
+  signature : Nucleus.signature
 }
 
 (** Pretty-print a value. *)

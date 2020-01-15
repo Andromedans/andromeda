@@ -124,7 +124,8 @@ end
 (** Printing environment *)
 type penv = {
   forbidden : Name.set ;
-  opens : Path.set
+  opens : Path.set;
+  signature : Nucleus.signature
 }
 
 let penv_forbid x penv =
@@ -133,7 +134,7 @@ let penv_forbid x penv =
 let penv_open pth penv =
   { penv with opens = Path.set_add pth penv.opens }
 
-let mk_nucleus_penv {forbidden;opens} =
+let mk_nucleus_penv {forbidden;opens;_} =
   { Nucleus.forbidden = forbidden ;
     Nucleus.opens = opens ;
     Nucleus.debruijn_var = [] ;
@@ -146,9 +147,6 @@ type env = {
 }
 
 and dynamic = {
-  (* Current signature *)
-  signature : Nucleus.signature;
-
   (* Current printing environment *)
   penv : penv;
 }
@@ -556,20 +554,20 @@ let with_env env m _env' = m env
 
 let top_get_env topenv = topenv.top_runtime, topenv
 
-let get_signature env = env.dynamic.signature
+let get_signature env = env.dynamic.penv.signature
 
 let lookup_signature env =
-  Return env.dynamic.signature
+  Return env.dynamic.penv.signature
 
 let top_add_rule rname rule ({top_runtime=env;_} as topenv) =
-  let signature = Nucleus.Signature.add_rule rname rule env.dynamic.signature
+  let signature = Nucleus.Signature.add_rule rname rule env.dynamic.penv.signature
   and penv =
     penv_forbid
     (match Ident.path rname with
      | Path.Direct (Path.Level (name, _)) -> name
      | Path.Module (_, Path.Level (name, _)) -> name
     ) env.dynamic.penv in
-  let env = { env with dynamic = {signature; penv} } in
+  let env = { env with dynamic = {penv = {penv with signature = signature}} } in
   (), {topenv with top_runtime=env}
 
 let get_bound (Path.Index (_, k)) env = List.nth env.lexical.current_values k
@@ -668,7 +666,6 @@ let top_open_path pth ({top_runtime;_} as topenv) =
   let top_runtime =
     { top_runtime with
       dynamic = {
-        top_runtime.dynamic with
         penv = penv_open pth top_runtime.dynamic.penv } }
   in
   (), { topenv with top_runtime }
@@ -689,7 +686,7 @@ let rec print_value ?max_level ~penv v ppf =
   | Judgement jdg -> 
     begin
       match Nucleus.as_is_term_abstraction jdg with
-      | Some jdg' -> let abstr = Nucleus.abstracted_judgement_with_boundary sgn jdg in 
+      | Some jdg' -> let abstr = Nucleus.abstracted_judgement_with_boundary penv.signature jdg in 
         Nucleus.print_judgement_with_boundary_abstraction ~penv:(mk_nucleus_penv penv) ?max_level abstr ppf
       | None -> Nucleus.print_judgement_abstraction ~penv:(mk_nucleus_penv penv) ?max_level jdg ppf
     end
@@ -955,8 +952,7 @@ let empty_env = {
     current_values = [] ;
   } ;
   dynamic = {
-    signature = Nucleus.Signature.empty ;
-    penv = { forbidden = Name.set_empty ; opens = Path.set_empty } ;
+    penv = { forbidden = Name.set_empty ; opens = Path.set_empty; signature = Nucleus.Signature.empty } ;
   }
 }
 
