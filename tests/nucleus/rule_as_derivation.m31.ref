@@ -1,7 +1,7 @@
 Rule bull is postulated.
 - :> judgement = ⊢ bull type
 Rule tail is postulated.
-- :> judgement = ⊢ tail
+- :> judgement = ⊢ tail : bull
 Rule eq is postulated.
 - :> judgement = ⊢ tail ≡ tail : bull
 Rule Id is postulated.

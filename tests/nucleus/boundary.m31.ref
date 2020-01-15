@@ -11,7 +11,7 @@ Rule b is postulated.
 - :> boundary = ⊢ a ≡ b : A by ⁇
 - :> boundary = ⊢ {x : A} a ≡ x : A by ⁇
 Rule ξ is postulated.
-- :> judgement = ⊢ a
+- :> judgement = ⊢ a : B
 Rule P is postulated.
 Rule ζ is postulated.
 - :> judgement = ⊢ {z : A} P z ≡ P z
