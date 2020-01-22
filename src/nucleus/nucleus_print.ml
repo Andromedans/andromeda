@@ -213,10 +213,11 @@ and abstraction
 and thesis_judgement ?max_level ~penv arg ppf =
   match arg with
   | JudgementIsType t -> Print.print ?max_level ppf "%t@ type" (thesis_is_type ?max_level ~penv t)
-  | JudgementIsTerm e -> thesis_is_term ?max_level ~penv e ppf (* also print the type of [e] *)
+  | JudgementIsTerm e -> thesis_is_term ?max_level ~penv e ppf
   | JudgementEqType eq -> thesis_eq_type ?max_level ~penv eq ppf
   | JudgementEqTerm eq -> thesis_eq_term ?max_level ~penv eq ppf
 
+(** Print a judgement when it is the argument of a constructor *)
 and judgement_as_argument ?max_level ~penv arg ppf =
   match arg with
   | JudgementIsType t -> thesis_is_type ?max_level ~penv t ppf
@@ -224,7 +225,7 @@ and judgement_as_argument ?max_level ~penv arg ppf =
   | JudgementEqType eq -> thesis_eq_type ?max_level ~penv eq ppf
   | JudgementEqTerm eq -> thesis_eq_term ?max_level ~penv eq ppf
 
-(* Printing of boundaries *)
+(** Print a boundary with the given head *)
 and thesis_boundary ?max_level ~penv ~print_head bdry ppf =
   match bdry with
   | BoundaryIsType () -> boundary_is_type ?max_level ~penv ~print_head () ppf
@@ -296,6 +297,7 @@ let eq_term_abstraction ?max_level ~penv abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
   abstraction Occurs_bound.eq_term thesis_eq_term ?max_level ~penv abstr ppf
 
+(* legacy code *)
 let judgement_abstraction ?max_level ~penv abstr ppf =
   let asmp = Collect_assumptions.abstraction Collect_assumptions.judgement abstr in
   Print.print
@@ -319,14 +321,16 @@ let derivation ?max_level ~penv drv ppf =
   in
   Print.print ppf ?max_level ~at_level:Level.derive "derive@ %t" (fold ~penv drv)
 
-let thesis_judgement_with_boundary ?max_level ~penv ~print_head (jdg,bdry) ppf = 
-  Print.print 
-    ?max_level 
-    ppf 
-    "%t%t" 
-    (thesis_judgement ?max_level ~penv jdg)
-    (thesis_boundary ?max_level ~penv ~print_head bdry)
+let thesis_judgement_with_boundary ?max_level ~penv (jdg, bdry) ppf =
+  match bdry with
+  | (BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _) ->
+     thesis_judgement ?max_level ~penv jdg ppf
 
+  | BoundaryIsTerm bdry ->
+     boundary_is_term ?max_level ~penv ~print_head:(judgement_as_argument ?max_level ~penv jdg) bdry ppf
+
+
+(** Print an abstracted judgement with its boundary (use to print top-level judgements *)
 let judgement_with_boundary_abstraction ?max_level ~penv abstr ppf =
   let asmp = Collect_assumptions.abstraction Collect_assumptions.judgement_with_boundary abstr in
   Print.print
@@ -334,8 +338,8 @@ let judgement_with_boundary_abstraction ?max_level ~penv abstr ppf =
     "%t%s %t"
     (print_assumptions ~max_level:Level.vdash_left ~penv asmp)
     (Print.char_vdash ())
-    (abstraction Occurs_bound.judgement_with_boundary (thesis_judgement_with_boundary ~print_head:(fun ppf -> Format.fprintf ppf "")) ~max_level:Level.vdash_right ~penv abstr)
-  
+    (abstraction Occurs_bound.judgement_with_boundary thesis_judgement_with_boundary ~max_level:Level.vdash_right ~penv abstr)
+
 (** Printing of error messages *)
 (* TODO: Some of these are probably internal while others count as runtime errors. We
    shoudl differentiate between them and tell the user the internal ones are not their
@@ -406,5 +410,3 @@ let name_of_boundary abstr =
   | BoundaryIsType _ -> "a type boundary"
   | BoundaryEqTerm _ -> "a term equality boundary"
   | BoundaryEqType _ -> "a type equality boundary"
-
-  

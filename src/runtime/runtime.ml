@@ -683,13 +683,9 @@ let print_external ?max_level ~penv v ppf =
 let rec print_value ?max_level ~penv v ppf =
   match v with
 
-  | Judgement jdg -> 
-    begin
-      match Nucleus.as_is_term_abstraction jdg with
-      | Some jdg' -> let abstr = Nucleus.abstracted_judgement_with_boundary penv.signature jdg in 
-        Nucleus.print_judgement_with_boundary_abstraction ~penv:(mk_nucleus_penv penv) ?max_level abstr ppf
-      | None -> Nucleus.print_judgement_abstraction ~penv:(mk_nucleus_penv penv) ?max_level jdg ppf
-    end
+  | Judgement jdg ->
+     let abstr = Nucleus.abstracted_judgement_with_boundary penv.signature jdg in
+     Nucleus.print_judgement_with_boundary_abstraction ~penv:(mk_nucleus_penv penv) ?max_level abstr ppf
 
   | Boundary bdry -> Nucleus.print_boundary_abstraction ~penv:(mk_nucleus_penv penv) ?max_level bdry ppf
 

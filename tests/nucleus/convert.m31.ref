@@ -9,7 +9,7 @@ Rule P is postulated.
 Rule ζ is postulated.
 - :> judgement = ⊢ P b ≡ P a
 Rule z is postulated.
-val e :> judgement = ⊢ {_ : P z} {u : P z} u : P a
+val e :> judgement = ⊢ {u : P z} u : P a
 - :> judgement * judgement * judgement * judgement =
   ((u₀ : P z ⊢ u₀ : P z), (⊢ P z type), (u₀ : P z ⊢ u₀ : P a),
    (⊢ P a type))

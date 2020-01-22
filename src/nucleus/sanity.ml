@@ -74,28 +74,26 @@ let rec type_of_term_abstraction sgn = function
   | Abstract (x, t, abstr) ->
      let a, abstr = Unabstract.abstraction Instantiate_bound.is_term x t abstr in
      let t_abstr = type_of_term_abstraction sgn abstr in
-     let t_abstr = Abstract.abstraction Abstract.is_type a.atom_nonce t_abstr in
-     Mk.abstract x t t_abstr
+     Abstract.abstraction Abstract.is_type a.atom_nonce t_abstr
 
-let rec abstracted_judgement_with_boundary sgn abstr_jdg = 
-  match abstr_jdg with 
-    | NotAbstract (JudgementIsTerm jdg as jdg') -> 
+let rec abstracted_judgement_with_boundary sgn abstr_jdg =
+  match abstr_jdg with
+    | NotAbstract (JudgementIsTerm jdg as jdg') ->
       Mk.not_abstract (jdg', BoundaryIsTerm (type_of_term sgn jdg))
 
-    | NotAbstract (JudgementIsType jdg as jdg')-> 
+    | NotAbstract (JudgementIsType jdg as jdg') ->
       Mk.not_abstract (jdg', BoundaryIsType ())
 
-    | NotAbstract (JudgementEqType (EqType (asmp, t1, t2)) as jdg') -> 
+    | NotAbstract (JudgementEqType (EqType (asmp, t1, t2)) as jdg') ->
       Mk.not_abstract (jdg', BoundaryEqType (t1,t2))
 
-    | NotAbstract (JudgementEqTerm (EqTerm (asmp, e1, e2, t)) as jdg')-> 
-      Mk.not_abstract (jdg', BoundaryEqTerm (e1, e2, t)) 
+    | NotAbstract (JudgementEqTerm (EqTerm (asmp, e1, e2, t)) as jdg')->
+      Mk.not_abstract (jdg', BoundaryEqTerm (e1, e2, t))
 
-    | Abstract (x, t, abstr) -> 
+    | Abstract (x, t, abstr) ->
       let a, abstr = Unabstract.abstraction Instantiate_bound.judgement x t abstr in
       let abstr_pair = abstracted_judgement_with_boundary sgn abstr in
-      let abstr_pair = Abstract.judgement_with_boundary_abstraction a abstr_pair in
-      Mk.abstract x t abstr_pair
+      Abstract.judgement_with_boundary_abstraction a abstr_pair
 
 (** [natural_type sgn e] gives the judgment that the natural type [t] of [e] is derivable.
     We maintain the invariant that no further assumptions are needed (apart from those
