@@ -13,21 +13,10 @@ val mlless : Runtime.value
 val mlequal : Runtime.value
 val mlgreater : Runtime.value
 
-(** A computation that, when run, invokes the [eq_term] operation on the given
-    terms (wrapped as ML values), and then returns the resulting term equation if any.
- *)
-val operation_equal_term :
-  at:Location.t -> Nucleus.is_term -> Nucleus.is_term -> Nucleus.eq_term option Runtime.comp
-
-(** A computation that, when run, invokes the [eq_type] operation on the given
-    terms (wrapped as ML values), and then returns the resulting term equation if any.
- *)
+(** Invoke the AML [equal_type] operation on the given types. *)
 val operation_equal_type :
-  at:Location.t -> Nucleus.is_type -> Nucleus.is_type -> Nucleus.eq_type option Runtime.comp
+  at:Location.t -> Nucleus.is_type -> Nucleus.is_type -> Nucleus.eq_type Runtime.comp
 
-(** A computation that, when run, invokes the [coerce] operation
-    on the given type theory term and desired type, and decodes
-    the resulting ML value as a value of the correponding ML type [coercible].
- *)
+(** Invoke the AML [coerce] operation on the given abstracted judgement and boundary. *)
 val operation_coerce :
-  at:Location.t -> Nucleus.judgement_abstraction -> Nucleus.boundary_abstraction -> Nucleus.judgement_abstraction option Runtime.comp
+  at:Location.t -> Nucleus.judgement_abstraction -> Nucleus.boundary_abstraction -> Nucleus.judgement_abstraction Runtime.comp

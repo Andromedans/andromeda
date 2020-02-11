@@ -351,11 +351,7 @@ and check_arguments ~at rap cs =
 and coerce ~at v (bdry : Nucleus.boundary_abstraction) =
   let abstr = Runtime.as_judgement_abstraction ~at v in
   Runtime.lookup_signature >>= fun sgn ->
-  Equal.coerce ~at sgn abstr bdry >>=
-    begin function
-      | None -> Runtime.(error ~at (TypeMismatchCheckingMode (abstr, bdry)))
-      | Some e -> return e
-    end
+  Equal.coerce ~at sgn abstr bdry
 
 (** Compute a judgement with the given abstracted boundary *)
 and check_judgement ({Location.it=c'; at} as c) bdry =
@@ -449,22 +445,17 @@ and check_abstract ~at bdry x uopt c =
      | Some ({Location.at=u_loc;_} as u) ->
         comp_as_is_type u >>= fun u ->
         let a_type = Nucleus.type_of_atom a in
-        Equal.equal_type ~at:u_loc a_type u >>=
-          begin function
-            | None ->
-               Runtime.(error ~at:u_loc (TypeEqualityFail (u, a_type)))
-            | Some eq (* : a_type == u *) ->
-               Runtime.lookup_signature >>= fun sgn ->
-               let a' =
-                 Nucleus.(abstract_not_abstract (JudgementIsTerm (form_is_term_convert sgn (form_is_term_atom a) eq)))
-               in
-               Runtime.add_bound
-               (Runtime.Judgement a')
-               begin
-                 check_judgement c bdry >>= fun jdg ->
-                 let jdg = Nucleus.abstract_judgement a jdg in
-                 return jdg
-               end
+        Equal.equal_type ~at:u_loc a_type u >>= fun eq (* : a_type == u *) ->
+        Runtime.lookup_signature >>= fun sgn ->
+        let a' =
+          Nucleus.(abstract_not_abstract (JudgementIsTerm (form_is_term_convert sgn (form_is_term_atom a) eq)))
+        in
+        Runtime.add_bound
+          (Runtime.Judgement a')
+          begin
+            check_judgement c bdry >>= fun jdg ->
+            let jdg = Nucleus.abstract_judgement a jdg in
+            return jdg
           end
      end
 

@@ -1058,8 +1058,6 @@ struct
 
   (* the [Tyenv] monad is annoying as hell, let's get rid of ste stupid monads as much as we can,
      they are not idiomatic in OCaml *)
-  let _, equal_term = run (Tyenv.lookup_ml_operation Desugar.Builtin.equal_term)
-
   let _, equal_type = run (Tyenv.lookup_ml_operation Desugar.Builtin.equal_type)
 
   let _, coerce = run (Tyenv.lookup_ml_operation Desugar.Builtin.coerce)

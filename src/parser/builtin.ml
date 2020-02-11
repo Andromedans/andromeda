@@ -30,24 +30,16 @@ let builtin_ml_types =
 let builtin_ops =
   let un_ml_judgement = unloc (Sugared.ML_Judgement) in
   let un_ml_boundary = unloc (Sugared.ML_Boundary) in
-  let decl_equal_term =
-    Sugared.DeclOperation
-      (Name.Builtin.equal_term_name,
-       ([un_ml_judgement; un_ml_judgement],
-        unloc (Sugared.ML_TyApply (Name.PName Name.Builtin.option_name, [un_ml_judgement]))))
-  and decl_equal_type =
+  let decl_equal_type =
     Sugared.DeclOperation
       (Name.Builtin.equal_type_name,
-       ([un_ml_judgement; un_ml_judgement],
-        unloc (Sugared.ML_TyApply (Name.PName Name.Builtin.option_name, [un_ml_judgement]))))
+       ([un_ml_judgement; un_ml_judgement], un_ml_judgement))
   and decl_coerce =
     Sugared.DeclOperation
       (Name.Builtin.coerce_name,
-       ([un_ml_judgement; un_ml_boundary],
-        unloc (Sugared.ML_TyApply (Name.PName Name.Builtin.option_name, [un_ml_judgement]))))
+       ([un_ml_judgement; un_ml_boundary], un_ml_judgement))
   in
-  [unloc decl_equal_term;
-   unloc decl_equal_type;
+  [unloc decl_equal_type;
    unloc decl_coerce]
 
 let builtin_ml_values =

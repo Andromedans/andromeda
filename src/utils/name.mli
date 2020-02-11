@@ -147,10 +147,6 @@ module Builtin : sig
   val none_name : t
   val none : path
 
-  (** The name of the [equal_term] operation *)
-  val equal_term_name : t
-  val equal_term : path
-
   (** The name of the [equal_type] operation *)
   val equal_type_name : t
   val equal_type : path

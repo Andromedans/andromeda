@@ -21,7 +21,7 @@ external add : checker -> derivation -> ML.option checker
 external normalize_type : ML.bool -> checker -> judgement -> judgement * judgement
   = "Eqchk.normalize_type" ;;
 
-external normalize_term : ML.bool -> checker -> judgement -> judgement * judgement 
+external normalize_term : ML.bool -> checker -> judgement -> judgement * judgement
   = "Eqchk.normalize_term" ;;
 
 external add_extensionality : checker -> derivation -> ML.option checker
@@ -72,14 +72,8 @@ let coerce_abstraction jdg bdry =
 
 (** Install a global equality checker *)
 with
-| operation ML.coerce jdg bdry ->
-  try
-    ML.Some (coerce_abstraction jdg bdry)
-  with
-  | raise Coerce_fail -> ML.None
-  end
+| operation ML.coerce jdg bdry -> coerce_abstraction jdg bdry
 end ;;
-
 
 let normalize jdg =
   match jdg with
