@@ -78,6 +78,7 @@ and comp' =
   | EqTermAscribe of comp * comp * comp * comp
   | AsDerivation of Path.t
   | TTConstructor of Path.t * comp list
+  | RuleApply of comp * comp list
   | Spine of comp * comp list
   | Abstract of Name.t * comp option * comp
   | AbstractAtom of comp * comp

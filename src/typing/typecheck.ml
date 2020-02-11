@@ -517,6 +517,10 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      premises ps (check_comp c Mlty.Judgement) >>= fun (ps, c) ->
      return (locate ~at (Syntax.Derive (ps, c)), Mlty.Derivation)
 
+  | Desugared.RuleApply (c, cs) ->
+     check_comp c Mlty.Derivation >>= fun c ->
+     check_derivation ~at c cs
+
   | Desugared.Spine (c, cs) ->
      infer_spine ~at c cs
 
@@ -558,21 +562,23 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      boundary bdry >>= fun bdry ->
      return (locate ~at Syntax.(MLBoundary bdry), Mlty.Boundary)
 
+and check_derivation ~at head cs =
+  let rec fold cs_out = function
+    | [] ->
+       let cs_out = List.rev cs_out in
+       return (locate ~at Syntax.(TTApply (head, cs_out)), Mlty.Judgement)
+    | c :: cs ->
+       check_comp c Mlty.Judgement >>= fun c_out ->
+       fold (c_out :: cs_out) cs
+  in
+  fold [] cs
+
 and infer_spine ~at c_head cs =
   let rec fold t_head c_head cs =
     Tyenv.as_derivation_or_function ~at t_head >>= function
 
     | Tyenv.Is_derivation ->
-       (** It's a derivation *)
-       let rec fold cs_out = function
-         | [] ->
-            let cs_out = List.rev cs_out in
-            return (locate ~at Syntax.(TTApply (c_head, cs_out)), Mlty.Judgement)
-         | c :: cs ->
-            check_comp c Mlty.Judgement >>= fun c_out ->
-            fold (c_out :: cs_out) cs
-       in
-       fold [] cs
+       check_derivation ~at c_head cs
 
     | Tyenv.Is_function (u, v) ->
        (** It's an ML application *)
