@@ -1,9 +1,10 @@
 (* Infix operations *)
 %token <Name.t * Location.t> QQMARK PREFIXOP EQ INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
 
-(* Names and numerals *)
+(* Names, pattern variable names and numerals *)
 %token UNDERSCORE
 %token <Name.t> NAME
+%token <Name.t> QNAME
 %token <int> NUMERAL
 
 (* Parentheses & punctuations *)
@@ -686,6 +687,9 @@ simple_pattern_:
 
   | QQMARK TYPE
     { Sugared.Patt_BoundaryIsType }
+
+  | x=QNAME
+    { Sugared.Patt_Var x }
 
   | x=long(ml_name)
     { Sugared.Patt_Path x }

@@ -10,13 +10,11 @@ type 'a located = 'a Location.located
 (** Bound variables are de Bruijn indices *)
 type bound = int
 
-type path = Name.path
-
 type ml_ty = ml_ty' located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
   | ML_Prod of ml_ty list
-  | ML_TyApply of path * ml_ty list
+  | ML_TyApply of Name.path * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Exn
@@ -46,6 +44,7 @@ type ml_arg = Name.t * arg_annotation
 type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
+  | Patt_Var of Name.t
   | Patt_Path of Name.path
   | Patt_MLAscribe of pattern * ml_ty
   | Patt_As of pattern * pattern
@@ -59,7 +58,7 @@ and pattern' =
   | Patt_BoundaryIsTerm of pattern
   | Patt_BoundaryEqType of pattern * pattern
   | Patt_BoundaryEqTerm of pattern * pattern * pattern
-  | Patt_Constructor of path * pattern list
+  | Patt_Constructor of Name.path * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
   | Patt_String of string
@@ -67,7 +66,7 @@ and pattern' =
 (** Sugared terms *)
 type comp = comp' located
 and comp' =
-  | Name of path
+  | Name of Name.path
   | Function of ml_arg list * comp
   | Handler of handle_case list
   | Try of comp * handle_case list
@@ -116,7 +115,7 @@ and letrec_clause = Name.t * ml_arg * ml_arg list * let_annotation * comp
 (** Handler cases *)
 and handle_case =
   | CaseVal of match_case (* val p -> c *)
-  | CaseOp of path * match_op_case (* op p1 ... pn -> c *)
+  | CaseOp of Name.path * match_op_case (* op p1 ... pn -> c *)
   | CaseExc of exception_case (* raise p -> c *)
 
 and match_case = pattern * comp option * comp
@@ -125,7 +124,7 @@ and exception_case = match_case
 
 and match_op_case = pattern list * pattern option * comp
 
-and top_operation_case = path * match_op_case
+and top_operation_case = Name.path * match_op_case
 
 (** The local context of a premise to a rule. *)
 and local_context = (Name.t * comp) list
@@ -161,6 +160,6 @@ and toplevel' =
   | TopComputation of comp
   | Verbosity of int
   | Require of Name.t list
-  | Include of path
-  | Open of path
+  | Include of Name.path
+  | Open of Name.path
   | TopModule of Name.t * toplevel list

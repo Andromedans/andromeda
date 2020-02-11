@@ -16,7 +16,7 @@ with
 | operation auto : ML.None -> raise Auto_cannot_infer
 | operation auto : ML.Some (?? : A) -> a
 | operation auto : ML.Some (?? : B) -> b
-| operation auto : ML.Some (?? : prod X Y) -> pair X Y auto auto
+| operation auto : ML.Some (?? : prod ?X ?Y) -> pair X Y auto auto
 end ;;
 
 (auto : A) ;;

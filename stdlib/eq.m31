@@ -21,7 +21,7 @@ external add : checker -> derivation -> ML.option checker
 external normalize_type : ML.bool -> checker -> judgement -> judgement * judgement
   = "Eqchk.normalize_type" ;;
 
-external normalize_term : ML.bool -> checker -> judgement -> judgement * judgement 
+external normalize_term : ML.bool -> checker -> judgement -> judgement * judgement
   = "Eqchk.normalize_term" ;;
 
 external add_extensionality : checker -> derivation -> ML.option checker
@@ -37,7 +37,7 @@ let ch = ref empty_checker ;;
 
 let add_rule der =
   match add !ch der with
-  | ML.Some ch' -> (ch := ch')
+  | ML.Some ?ch' -> (ch := ch')
   | ML.None -> raise Invalid_equality_rule
   end
 ;;
@@ -46,7 +46,7 @@ exception Coerce_fail ;;
 
 let equalize_type A B =
   match prove_eqtype_abstraction !ch (A ≡ B by ??) with
-  | ML.Some eq -> eq
+  | ML.Some ?eq -> eq
   | ML.None -> raise Coerce_fail
   end
 ;;
@@ -55,14 +55,14 @@ let coerce_abstraction jdg bdry =
   let rec fold jdg bdry =
     match (jdg, bdry) with
 
-    | (({x : A} (jdg :> judgement)), ({_ : A'} (_ :> boundary))) ->
+    | (({x : ?A} (?jdg :> judgement)), ({_ : ?A'} (_ :> boundary))) ->
       let A_eq_A' = equalize_type A A' in
       let x' = convert x A_eq_A' in
       let bdry' = bdry{x'} in
       let jdg' = (fold jdg bdry' :> judgement) in
       abstract x' jdg'
 
-    | ((a : B), (?? : B')) ->
+    | ((?a : ?B), (?? : ?B')) ->
       (convert a (equalize_type B B') :> judgement)
 
     end
@@ -72,7 +72,7 @@ let coerce_abstraction jdg bdry =
 
 (** Install a global equality checker *)
 with
-| operation ML.coerce jdg bdry ->
+| operation ML.coerce ?jdg ?bdry ->
   try
     ML.Some (coerce_abstraction jdg bdry)
   with
@@ -83,15 +83,15 @@ end ;;
 
 let normalize jdg =
   match jdg with
-  | (A type) -> normalize_type ML.false (!ch) A
-  | (a : _) -> normalize_term ML.false (!ch) a
+  | (?A type) -> normalize_type ML.false (!ch) A
+  | (?a : _) -> normalize_term ML.false (!ch) a
   end
 ;;
 
 let compute jdg =
   match jdg with
-  | (A type) -> normalize_type ML.true (!ch) A
-  | (a : _) -> normalize_term ML.true (!ch) a
+  | (?A type) -> normalize_type ML.true (!ch) A
+  | (?a : _) -> normalize_term ML.true (!ch) a
   end
 ;;
 
@@ -99,12 +99,12 @@ let prove bdry =
   match bdry with
   | (_ ≡ _ by ??) ->
     match prove_eqtype_abstraction (!ch) bdry with
-    | ML.Some ξ -> ξ
+    | ML.Some ?ξ -> ξ
     | ML.None -> raise (Failed_equality bdry)
     end
   | (_ ≡ _ : _ by ??) ->
     match prove_eqterm_abstraction (!ch) bdry with
-    | ML.Some ξ -> ξ
+    | ML.Some ?ξ -> ξ
     | ML.None -> raise (Failed_equality bdry)
     end
   end
