@@ -26,7 +26,6 @@ sig
   val mlfalse : Ident.t * Mlty.ty list * Mlty.ty
   val mltrue : Ident.t * Mlty.ty list * Mlty.ty
 
-  val equal_term : Ident.t * (Mlty.ty list * Mlty.ty)
   val equal_type : Ident.t * (Mlty.ty list * Mlty.ty)
   val coerce : Ident.t * (Mlty.ty list * Mlty.ty)
 
