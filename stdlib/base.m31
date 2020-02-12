@@ -51,4 +51,4 @@ constant uip : forall (A : Type) (lhs rhs : A) (p q : lhs ≡ rhs), p ≡ q
 
 mltype mlempty = |
 
-let type_of t = match t with _ : A -> A end
+let type_of t = match t with _ : ?A -> A end
