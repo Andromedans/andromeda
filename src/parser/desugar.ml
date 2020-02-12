@@ -1793,7 +1793,6 @@ struct
   let mlequal = fst (Ctx.get_ml_constructor Name.Builtin.mlequal initial_context)
   let mlgreater = fst (Ctx.get_ml_constructor Name.Builtin.mlgreater initial_context)
 
-  let equal_term = fst (Ctx.get_ml_operation Name.Builtin.equal_term initial_context)
   let equal_type = fst (Ctx.get_ml_operation Name.Builtin.equal_type initial_context)
   let coerce = fst (Ctx.get_ml_operation Name.Builtin.coerce initial_context)
 end
