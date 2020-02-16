@@ -119,9 +119,6 @@ module Builtin = struct
 
   (** Builtin commands *)
 
-  let equal_term_name = mk_name "equal_term"
-  let equal_term = in_ml equal_term_name
-
   let equal_type_name = mk_name "equal_type"
   let equal_type = in_ml equal_type_name
 

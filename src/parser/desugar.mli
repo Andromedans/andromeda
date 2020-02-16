@@ -58,7 +58,6 @@ sig
   val mlequal : Path.ml_constructor
   val mlgreater : Path.ml_constructor
 
-  val equal_term : Path.t
   val equal_type : Path.t
   val coerce : Path.t
 end

@@ -56,6 +56,9 @@ let name =
                          | 185 | 178 | 179 | 8304 .. 8351 (* sub-/super-scripts *)
                          | '0'..'9' | '\'')) | math]
 
+let qname =
+  [%sedlex.regexp? '?', name]
+
 let digit = [%sedlex.regexp? '0'..'9']
 let numeral = [%sedlex.regexp? Plus digit]
 
@@ -147,9 +150,9 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | infixop3                 -> f (); INFIXOP3 (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.mk_name ~fixity:(Name.Infix Level.Infix3) s, at_of lexbuf)
 
-  | eof                      -> f (); EOF
+  | qname                    -> f (); QNAME (let s = Ulexbuf.lexeme lexbuf in Name.mk_name (String.sub s 1 (String.length s - 1)))
 
-  | name               -> f ();
+  | name                     -> f ();
      let n = Ulexbuf.lexeme lexbuf in
      begin try List.assoc n reserved
      with Not_found -> NAME (Name.mk_name n)
@@ -161,6 +164,9 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
      let w = Ulexbuf.lexeme lexbuf in
      let at = at_of lexbuf in
      Ulexbuf.error ~at (Ulexbuf.Unexpected w)
+
+  | eof                      -> f (); EOF
+
   | _ -> assert false
 
 and comments level ({ Ulexbuf.stream;_ } as lexbuf) =

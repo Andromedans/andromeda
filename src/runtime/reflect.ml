@@ -8,15 +8,10 @@ let tag_cons, _, _ = Typecheck.Builtin.cons
 let tag_none, _, _ = Typecheck.Builtin.none
 let tag_some, _, _ = Typecheck.Builtin.some
 
-(* let tag_notcoercible, _, _ = Typecheck.Builtin.notcoercible
- * let tag_convertible, _, _ = Typecheck.Builtin.convertible
- * let tag_coercible_constructor, _, _ = Typecheck.Builtin.coercible_constructor *)
-
 let tag_mlless, _, _ = Typecheck.Builtin.mlless
 let tag_mlequal, _, _ = Typecheck.Builtin.mlequal
 let tag_mlgreater, _, _ = Typecheck.Builtin.mlgreater
 
-let equal_term, _ = Typecheck.Builtin.equal_term
 let equal_type, _ = Typecheck.Builtin.equal_type
 let coerce, _ = Typecheck.Builtin.coerce
 
@@ -39,20 +34,20 @@ let mk_option = function
   | Some v -> Runtime.mk_tag tag_some [v]
   | None -> Runtime.mk_tag tag_none []
 
-let as_option ~at = function
-  | Runtime.Tag (t, []) when (Runtime.equal_tag t tag_none)  -> None
-  | Runtime.Tag (t, [x]) when (Runtime.equal_tag t tag_some) -> Some x
-  | Runtime.(Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ |
-             Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
-     Runtime.(error ~at (OptionExpected v))
+(* let as_option ~at = function *)
+(*   | Runtime.Tag (t, []) when (Runtime.equal_tag t tag_none)  -> None *)
+(*   | Runtime.Tag (t, [x]) when (Runtime.equal_tag t tag_some) -> Some x *)
+(*   | Runtime.(Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | *)
+(*              Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v -> *)
+(*      Runtime.(error ~at (OptionExpected v)) *)
 
-let as_judgement_option ~at v =
-  match as_option ~at v with
-  | None -> None
-  | Some (Runtime.Judgement jdg) -> Some jdg
-  | Some (Runtime.(Boundary _ | Closure _ | External _ | Derivation _ |
-          Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v) ->
-     Runtime.(error ~at (JudgementExpected v))
+(* let as_judgement_option ~at v = *)
+(*   match as_option ~at v with *)
+(*   | None -> None *)
+(*   | Some (Runtime.Judgement jdg) -> Some jdg *)
+(*   | Some (Runtime.(Boundary _ | Closure _ | External _ | Derivation _ | *)
+(*           Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v) -> *)
+(*      Runtime.(error ~at (JudgementExpected v)) *)
 
 (** Conversion between OCaml coercible and ML coercible *)
 
@@ -63,36 +58,17 @@ let mlgreater = Runtime.mk_tag tag_mlgreater []
 
 (** Computations that invoke operations *)
 
-(* Map ML-value-to-(term)-judgment across an option. Fail if given Some value
-   that is not a judgment. *)
-
-let as_eq_term_option ~at v =
-  match as_option ~at v with
-    | Some v -> Some (Runtime.as_eq_term ~at v)
-    | None -> None
-
-let as_eq_type_option ~at v =
-  match as_option ~at v with
-    | Some v -> Some (Runtime.as_eq_type ~at v)
-    | None -> None
-
 let (>>=) = Runtime.bind
 let return = Runtime.return
-
-let operation_equal_term ~at e1 e2 =
-  let v1 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsTerm e1)))
-  and v2 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsTerm e2))) in
-  Runtime.operation equal_term [v1;v2] >>= fun v ->
-  return (as_eq_term_option ~at v)
 
 let operation_equal_type ~at t1 t2 =
   let v1 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsType t1)))
   and v2 = Runtime.mk_judgement (Nucleus.(abstract_not_abstract (JudgementIsType t2))) in
   Runtime.operation equal_type [v1;v2] >>= fun v ->
-  return (as_eq_type_option ~at v)
+  return (Runtime.as_eq_type ~at v)
 
 let operation_coerce ~at jdg bdry =
   let v1 = Runtime.Judgement jdg
   and v2 = Runtime.Boundary bdry in
   Runtime.operation coerce [v1;v2] >>= fun v ->
-  return (as_judgement_option ~at v)
+  return (Runtime.as_judgement_abstraction ~at v)

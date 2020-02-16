@@ -3,7 +3,7 @@
 let r = ref ML.None ;;
 
 (* A trick to hijcack some free meta-variables *)
-let _ = 
+let _ =
 derive (A type) ({x : A} B type) ({x : A} {y : B{x}} f : A) ->
    (let a = fresh a : A in
    let b = fresh b : B{a} in
@@ -11,5 +11,5 @@ derive (A type) ({x : A} B type) ({x : A} {y : B{x}} f : A) ->
    A)
 ;;
 
-let (ML.Some j) = !r
+let (ML.Some ?j) = !r
 ;;

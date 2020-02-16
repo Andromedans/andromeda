@@ -6,7 +6,7 @@ rule b : A ;;
 
 convert a ξ ;;
 
-match (convert a ξ) with _ : t -> t end ;;
+match (convert a ξ) with _ : ?t -> t end ;;
 
 rule P (_ : A) type ;;
 
@@ -18,5 +18,4 @@ rule z : A ;;
 
 let e = (convert ({u : P z} u) ({u : P z} ζ z)) ;;
 
-match e with {r : R} (v : V) -> (r, R, v, V) end ;;
-
+match e with {r : ?R} (?v : ?V) -> (r, R, v, V) end ;;

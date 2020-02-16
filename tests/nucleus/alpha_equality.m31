@@ -6,6 +6,6 @@ rule u : P a
 rule B type
 rule ξ : A ≡ B
 rule ζ : B ≡ A
-let a' = try a : B with ML.coerce _ _ -> ML.Some (convert a ξ) end
-let Q = try P (a' : A) with ML.coerce _ _ -> ML.Some (convert a' ζ) end
+let a' = try a : B with ML.coerce _ _ -> convert a ξ end
+let Q = try P (a' : A) with ML.coerce _ _ -> convert a' ζ end
 let u' = u : Q

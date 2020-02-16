@@ -123,6 +123,7 @@ type error =
   | MLTypeAlreadyDeclared of Name.t
   | MLModuleAlreadyDeclared of Name.t
   | OperationExpected : Name.path * info -> error
+  | InvalidPatternVariable : Name.t -> error
   | InvalidPatternName : Name.path * info -> error
   | InvalidAppliedPatternName : Name.path * info -> error
   | NonlinearPattern : Name.t -> error
@@ -171,6 +172,11 @@ let print_error err ppf = match err with
      Format.fprintf ppf "%t cannot be used in a pattern as it is %t"
        (Name.print_path pth)
        (print_info info)
+
+  | InvalidPatternVariable x ->
+     Format.fprintf ppf "%t is an invalid pattern variable, perhaps you meant ?%t"
+       (Name.print x)
+       (Name.print x)
 
   | InvalidAppliedPatternName (pth, info) ->
      Format.fprintf ppf "%t cannot be applied in a pattern as it is %t"
@@ -662,17 +668,19 @@ let rec pattern ~toplevel ctx {Location.it=p; at} =
   | Sugared.Patt_Anonymous ->
      ctx, locate Desugared.Patt_Anonymous
 
+  | Sugared.Patt_Var x ->
+     let add = if toplevel then Ctx.add_ml_value ~at else Ctx.add_bound in
+     let ctx = add x ctx in
+     ctx, locate (Desugared.Patt_Var x)
+
   | Sugared.Patt_Path pth ->
      begin match pth with
 
      | Name.PName x ->
         begin match Ctx.find_name pth ctx with
 
-        | Some (Bound _ | Value _) (* we allow shadowing of named values *)
         | None ->
-           let add = if toplevel then Ctx.add_ml_value ~at else Ctx.add_bound in
-           let ctx = add x ctx in
-           ctx, locate (Desugared.Patt_Var x)
+           error ~at (InvalidPatternVariable x)
 
         | Some (MLConstructor (pth, arity)) ->
            check_ml_arity ~at (Name.PName x) 0 arity ;
@@ -686,7 +694,7 @@ let rec pattern ~toplevel ctx {Location.it=p; at} =
            check_exception_arity ~at (Name.PName x) 0 arity ;
            ctx, locate (Desugared.Patt_MLException (pth, None))
 
-        | Some (Operation _ as info) ->
+        | Some ((Operation _ | Bound _ | Value _) as info) ->
            error ~at (InvalidPatternName (pth, info))
         end
 
@@ -855,10 +863,10 @@ let check_linear_pattern_variable ~at ~forbidden x =
 let rec check_linear ?(forbidden=Name.set_empty) {Location.it=p';at} =
   match p' with
 
-  | Sugared.Patt_Anonymous | Sugared.Patt_Path (Name.PModule _) | Sugared.Patt_String _ ->
+  | Sugared.Patt_Anonymous | Sugared.Patt_Path _ | Sugared.Patt_String _ ->
      forbidden
 
-  | Sugared.Patt_Path (Name.PName x) ->
+  | Sugared.Patt_Var x ->
      check_linear_pattern_variable ~at ~forbidden x
 
   | Sugared.Patt_MLAscribe (p, _) ->
@@ -1791,7 +1799,6 @@ struct
   let mlequal = fst (Ctx.get_ml_constructor Name.Builtin.mlequal initial_context)
   let mlgreater = fst (Ctx.get_ml_constructor Name.Builtin.mlgreater initial_context)
 
-  let equal_term = fst (Ctx.get_ml_operation Name.Builtin.equal_term initial_context)
   let equal_type = fst (Ctx.get_ml_operation Name.Builtin.equal_type initial_context)
   let coerce = fst (Ctx.get_ml_operation Name.Builtin.coerce initial_context)
 end
