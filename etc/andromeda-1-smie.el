@@ -3,10 +3,10 @@
 (require 'smie)
 
 ;; TODO: add vdash here! in sedlex, it comes from `math'
-(defvar m31--name-re m31-meta-variable-rx)
-(defvar m31--quoted-string-re (rx (seq ?\" (1+ (not (any ?\"))) ?\")))
+(defvar and1--name-re and1-meta-variable-rx)
+(defvar and1--quoted-string-re (rx (seq ?\" (1+ (not (any ?\"))) ?\")))
 
-(defvar m31--reserved
+(defvar and1--reserved
   '(("Type" . "TYPE")
     ("judgement" . "JUDGMENT")
     ("judgment" . "JUDGMENT")
@@ -62,7 +62,7 @@
 
 (require 'cl-macs)
 
-(defun m31--llet-heuristic nil
+(defun and1--llet-heuristic nil
   (let*
       ((g (lambda (r)
             (save-match-data
@@ -74,7 +74,7 @@
     (and nxt-in
          (if nxt-let (< nxt-in nxt-let) t))))
 
-(defun m31--local-handle-heuristic nil
+(defun and1--local-handle-heuristic nil
   (if
       (save-match-data
         (save-excursion
@@ -83,25 +83,25 @@
       nil
     t))
 
-(defconst m31--prod-rx
+(defconst and1--prod-rx
   (regexp-opt
    (let (res)
      (mapcar (lambda (r) (when (equal (cdr r) "PROD") (push (car r) res)))
-             m31--reserved)
+             and1--reserved)
      res)))
-(defconst m31--lambda-rx
+(defconst and1--lambda-rx
   (regexp-opt
    (let (res)
      (mapcar (lambda (r) (when (equal (cdr r) "LAMBDA") (push (car r) res)))
-             m31--reserved)
+             and1--reserved)
      res)))
 
-(defconst m31--include-rx "\\_<#include_once\\>")
+(defconst and1--include-rx "\\_<#include_once\\>")
 
-(defun m31--guess-comma nil
+(defun and1--guess-comma nil
   (let* ((limit (max 0 (- (point) 1000)))
-         (lst '((m31--prod-rx . "TT_COMMA") (m31--lambda-rx . "TT_COMMA")
-                (m31--include-rx . "INCLUDE_COMMA") ("\\[" . "ML_COMMA")
+         (lst '((and1--prod-rx . "TT_COMMA") (and1--lambda-rx . "TT_COMMA")
+                (and1--include-rx . "INCLUDE_COMMA") ("\\[" . "ML_COMMA")
                 ("(" . "ML_COMMA") ("\<constant\>" . "CST_COMMA"))))
     (setq lst
           (mapcar
@@ -117,7 +117,7 @@
             (lambda (x) (car x))
             lst)))))
 
-(defun m31--guess-bar nil
+(defun and1--guess-bar nil
   (let* ((limit (max 0 (- (point) 1000)))
          (last-mlty (save-excursion
                       (save-match-data (search-backward-regexp "mltype" limit 'noerror))))
@@ -136,20 +136,20 @@
                    "BAR"))
         "MLTY_BAR"))))
 
-(defconst m31--let-rx
+(defconst and1--let-rx
   (rx bow (| "now" (seq "let" (? (+ space) "rec"))) eow))
 
-(defconst m31--mltype-rx
+(defconst and1--mltype-rx
   (rx bow (seq "mltype" (? (+ space) "rec")) eow))
 
-(defun m31--guess-and nil
+(defun and1--guess-and nil
   (let* ((limit (max 0 (- (point) 1000)))
          (last-of (save-excursion
                         (save-match-data (search-backward-regexp "\\<of\\>" limit 'noerror))))
          (last-mlty (save-excursion
-                      (save-match-data (search-backward-regexp m31--mltype-rx limit 'noerror))))
+                      (save-match-data (search-backward-regexp and1--mltype-rx limit 'noerror))))
          (last-let (save-excursion
-                     (save-match-data (search-backward-regexp m31--let-rx limit 'noerror)))))
+                     (save-match-data (search-backward-regexp and1--let-rx limit 'noerror)))))
     (setq last-let (or last-let last-mlty))
     (setq last-mlty (or last-mlty last-let))
     (if (not last-of)
@@ -161,69 +161,69 @@
                    "AND"))
         "OF_AND"))))
 
-(defconst m31--prefixop-rx
-  (eval `(rx (any ,(mapconcat (lambda (c) c) m31-prefixop ""))
-             (* (any ,@(mapcar 'string-to-char m31-symbolchars))))))
-(defconst m31--infixop-rx
-  (eval `(rx (regexp ,(regexp-opt m31-infixop))
-             (* (any ,@(mapcar 'string-to-char m31-symbolchars))))))
+(defconst and1--prefixop-rx
+  (eval `(rx (any ,(mapconcat (lambda (c) c) and1-prefixop ""))
+             (* (any ,@(mapcar 'string-to-char and1-symbolchars))))))
+(defconst and1--infixop-rx
+  (eval `(rx (regexp ,(regexp-opt and1-infixop))
+             (* (any ,@(mapcar 'string-to-char and1-symbolchars))))))
 
-(defun m31--smie-token (dir)
+(defun and1--smie-token (dir)
   (let ((f (cl-case dir ('forward 'looking-at)
                     ('backward (lambda (r) (looking-back r nil t))))))
     (cond
-     ((funcall f m31--include-rx) "INCLUDE")
-     ((funcall f "(")             (progn (setq m31--in-list-check-backward t) "LPAREN"))
-     ((funcall f ")")             (progn (setq m31--in-list-check-forward  t) "RPAREN"))
+     ((funcall f and1--include-rx) "INCLUDE")
+     ((funcall f "(")             (progn (setq and1--in-list-check-backward t) "LPAREN"))
+     ((funcall f ")")             (progn (setq and1--in-list-check-forward  t) "RPAREN"))
      ((funcall f "\\[")           "LBRACK")
      ((funcall f "\\]")           "RBRACK")
      ((funcall f ":=")            "COLONEQ")
      ((funcall f "|-")            "VDASH")
-     ((funcall f "|")             (m31--guess-bar))
+     ((funcall f "|")             (and1--guess-bar))
      ((funcall f "\\_<=\\_>")     "EQ")
      ((funcall f "->")            "ARROW")
      ((funcall f "→")             "ARROW")
      ((funcall f "=>\\|⟹\\|⇒")   "DARROW")
      ((funcall f "==\\|≡")        "EQEQ")
      ((funcall f "::")            "INFIXOP")
-     ((funcall f (concat ": *\\(" m31-pvar-rx "\\)")) "COLON_PVAR")
+     ((funcall f (concat ": *\\(" and1-pvar-rx "\\)")) "COLON_PVAR")
      ((funcall f ":")             "COLON")
-     ((funcall f ",")             (m31--guess-comma))
-     ((funcall f m31-pvar-rx)      "NAME")
+     ((funcall f ",")             (and1--guess-comma))
+     ((funcall f and1-pvar-rx)      "NAME")
      ((funcall f ";")             "SEMICOLON")
      ((funcall f "?")             "NAME")
      ((funcall f "_")             "UNDERSCORE")
-     ((funcall f m31--prefixop-rx) "PREFIXOP")
-     ((funcall f m31--infixop-rx) "INFIXOP")
+     ((funcall f and1--prefixop-rx) "PREFIXOP")
+     ((funcall f and1--infixop-rx) "INFIXOP")
      ((funcall f
                ;; there should be a way to figure out the indentation column of the
                ;; current module level, use that instead of ^
-               (concat "^\\(:?" m31--let-rx "\\)")) (if (m31--llet-heuristic) "LLET" "TLET"))
-     ((funcall f "\\<and\\>")     (m31--guess-and))
-     ((funcall f "^handle") (if (m31--local-handle-heuristic) "LHANDLE" "THANDLE"))
-     ((funcall f m31--let-rx)      "LLET")
-     ((funcall f m31--mltype-rx)   "MLTYPE")
+               (concat "^\\(:?" and1--let-rx "\\)")) (if (and1--llet-heuristic) "LLET" "TLET"))
+     ((funcall f "\\<and\\>")     (and1--guess-and))
+     ((funcall f "^handle") (if (and1--local-handle-heuristic) "LHANDLE" "THANDLE"))
+     ((funcall f and1--let-rx)      "LLET")
+     ((funcall f and1--mltype-rx)   "MLTYPE")
      ((funcall f (rx bow (+ (any digit)) eow)) "NUMERAL")
-     ((funcall f m31--name-re)
+     ((funcall f and1--name-re)
       (let ((s (buffer-substring-no-properties
                 (match-beginning 0) (match-end 0))))
         (or
-         (cdr (assoc s m31--reserved))
+         (cdr (assoc s and1--reserved))
          "NAME")))
-     ((funcall f m31--quoted-string-re) "STRING")
+     ((funcall f and1--quoted-string-re) "STRING")
      ((eobp) "EOF")
      ((funcall f ".") "idk"))))
 
 
-(defcustom m31-indent-basic smie-indent-basic "" :group 'm31)
-(defcustom m31-indent-do (/ m31-indent-basic 2) "" :group 'm31)
-(defcustom m31-indent-after-with 1 "" :group 'm31)
-(defcustom m31-indent-mltype m31-indent-after-with "" :group 'm31)
-(defcustom m31-indent-double-arrow 2 "" :group 'm31)
+(defcustom and1-indent-basic smie-indent-basic "" :group 'and1)
+(defcustom and1-indent-do (/ and1-indent-basic 2) "" :group 'and1)
+(defcustom and1-indent-after-with 1 "" :group 'and1)
+(defcustom and1-indent-mltype and1-indent-after-with "" :group 'and1)
+(defcustom and1-indent-double-arrow 2 "" :group 'and1)
 
 ;; sequencing, toplevel-handlers, top-let, #include, dynamic, top-now
 
-(defvar m31-smie-grammar
+(defvar and1-smie-grammar
   (smie-prec2->grammar
    (smie-bnf->prec2
 
@@ -393,7 +393,7 @@
          (message "%S" x)
          (goto-char (cadr x))))
 
-(defun m31--before-darrow nil
+(defun and1--before-darrow nil
   (when (smie-rule-hanging-p)
     (if (smie-rule-parent-p "COLON")
         (save-excursion
@@ -402,60 +402,60 @@
           (let (smie--parent)
             ;; goto BAR
             (goto-char (cadr (smie-indent--parent)))
-            (smie-rule-parent m31-indent-basic)))
+            (smie-rule-parent and1-indent-basic)))
       ;; if the first | of a handle is omitted, the parent will be the handle
       ;; and not the bar, so we should indent like for a ??
       (if (smie-rule-parent-p "LHANDLE" "THANDLE")
           (progn (message "pt: %S, par: %S" (point) smie--parent)
                  (save-excursion
                    (back-to-indentation)
-                   `(column . ,(+ (current-column) m31-indent-basic))))
-        (smie-rule-parent m31-indent-double-arrow))
+                   `(column . ,(+ (current-column) and1-indent-basic))))
+        (smie-rule-parent and1-indent-double-arrow))
       )))
 
-(defun m31--smie-after-comma nil
+(defun and1--smie-after-comma nil
   (message "after-COMMA, sibling: %S" (smie-rule-sibling-p))
   (if (smie-rule-sibling-p)
       (smie-rule-parent)
     0))
 
-(defun m31-smie-rules (kind token)
+(defun and1-smie-rules (kind token)
   (message "looking at %S : %S, pt: %S" token kind (point))
   (pcase (cons kind token)
-    (`(:elem . basic) (message "basic") m31-indent-basic)
+    (`(:elem . basic) (message "basic") and1-indent-basic)
                                         ;    (`(,_ . "COMMA") (message "separator-comma") (smie-rule-separator kind))
                                         ;    (`(,_ . "AND") (message "separator-AND") (smie-rule-separator kind))
-    ;; (`(:after . "COLONEQ") m31-indent-basic)
+    ;; (`(:after . "COLONEQ") and1-indent-basic)
 
     (`(:after . "IN") (message "after-IN, hanging: %S, parent: %S, prev-DO: %S"
                                (smie-rule-hanging-p) smie--parent (smie-rule-prev-p "DO"))
      ;; (when (smie-rule-hanging-p)
        (if (smie-rule-prev-p "DO")
-           (smie-rule-parent m31-indent-do)
+           (smie-rule-parent and1-indent-do)
          (smie-rule-parent))
        ;; )
     )
 
     (`(:after . "COMMA")
-     (m31--smie-after-comma))
+     (and1--smie-after-comma))
 
     (`(:after . "EQ")
      (when (smie-rule-parent-p "MLTYPE")
        (message "after-EQ parent:MLTYPE , nxt-NAME: %S" (smie-rule-next-p "NAME"))
        (smie-rule-parent
         (+ (if (smie-rule-next-p "NAME") 2 0)
-           m31-indent-mltype))))
+           and1-indent-mltype))))
 
     (`(:before . "BAR")
      (if (smie-rule-parent-p "MLTYPE")
          (progn (message "before-BAR parent:MLTYPE")
-                (smie-rule-parent m31-indent-mltype))
+                (smie-rule-parent and1-indent-mltype))
        (message "before-BAR, %S" (smie-rule-prev-p "LHANDLE" "THANDLE" "WITH"))
        (if (smie-rule-prev-p "LHANDLE" "THANDLE" "WITH")
-           m31-indent-after-with
+           and1-indent-after-with
          (if (smie-rule-parent-p "BAR")
              0
-           m31-indent-after-with))
+           and1-indent-after-with))
        ))
 
     (`(:before . "AND")
@@ -475,10 +475,10 @@
            (goto-char (cadr res))
            )
          (cons 'column
-               (- (progn (m31--smie-forward-token) (current-column)) 3)))))
+               (- (progn (and1--smie-forward-token) (current-column)) 3)))))
 
-    (`(:after . "OF") (message "after-OF") m31-indent-basic)
-    (`(:after . "AND") (message "after-AND") (smie-rule-parent m31-indent-basic))
+    (`(:after . "OF") (message "after-OF") and1-indent-basic)
+    (`(:after . "AND") (message "after-AND") (smie-rule-parent and1-indent-basic))
 
     (`(:before . "MATCH") nil)
 
@@ -489,14 +489,14 @@
     ;;  (progn (message "before-NAME") nil)
     ;;  (if (smie-rule-parent-p "MLTYPE")
     ;;      (progn (message "before-NAME parent:MLTYPE , foo: %S" (smie-rule-prev-p "BAR"))
-    ;;             (smie-rule-parent (+ 2 m31-indent-basic)))
+    ;;             (smie-rule-parent (+ 2 and1-indent-basic)))
 
     ;;    ;; after an IN we should find the corresponding opening LET.
 
     ;;    (if (and ;(smie-rule-bolp) & prev = in
     ;;         (message "prev: %S" (save-excursion
-    ;;                               (m31--smie-backward-token)))
-    ;;         (equal (m31--smie-backward-token) "DARROW") (message "hi"))
+    ;;                               (and1--smie-backward-token)))
+    ;;         (equal (and1--smie-backward-token) "DARROW") (message "hi"))
 
     ;;        (save-excursion
     ;;          ;; the IN has an EQ as parent, so go there and find its parent
@@ -511,28 +511,28 @@
     ;;      (message "backward /= IN") nil))
     ;;  )
 
-    (`(:after . "LHANDLE") (message "after-LHANDLE") m31-indent-basic)
+    (`(:after . "LHANDLE") (message "after-LHANDLE") and1-indent-basic)
 
     (`(:before . "LHANDLE")
      (message "before-HANDLE, par: %S, prev: %S"
               (let (smie--parent) (smie-indent--parent))
               (save-excursion (smie-indent-backward-token)))
      (if (and (smie-rule-parent-p "DO") (smie-rule-prev-p "DO"))
-         (progn (message "hi") m31-indent-do)
+         (progn (message "hi") and1-indent-do)
        (when (smie-rule-next-p "BAR")
          (smie-rule-parent))))
 
     (`(:before . "THANDLE") (message "before-THANDLE") (smie-rule-parent))
 
     ;; breaking application over lines
-    ;; (`(:after . "NAME") (message "after-NAME") m31-indent-basic)
+    ;; (`(:after . "NAME") (message "after-NAME") and1-indent-basic)
 
-    ;; (`(:before . "LET") (message "before-LET") m31-indent-basic)
+    ;; (`(:before . "LET") (message "before-LET") and1-indent-basic)
 
     ;; (`(:before . "EQEQ") (message "before-EQEQ") (smie-rule-parent))
     (`(:after . "EQEQ") (message "after-EQEQ, hang: %S" (smie-rule-hanging-p))
      (if (smie-rule-hanging-p)
-         (smie-rule-parent m31-indent-basic)))
+         (smie-rule-parent and1-indent-basic)))
 
     (`(:before . "EQ") (message "before-EQ") (smie-rule-parent))
 
@@ -545,15 +545,15 @@
     (`(:before . "DARROW")
      (message "before-DARROW, hang: %S, p0: %S, pt: %S"
               (smie-rule-hanging-p) smie--parent (point))
-     (m31--before-darrow))
+     (and1--before-darrow))
 
     (`(:after . "COLON")
      (when (smie-rule-parent-p "CONSTANT")
        (message "after-colon parent:cnst")
-       (smie-rule-parent m31-indent-basic)))
-    (`(:after . "CONSTANT") (message "after-cnst") m31-indent-basic)
-    (`(:after . "DO") (message "after-DO") m31-indent-do)
-    (`(:after . "WITH") (message "after-WITH") m31-indent-after-with)
+       (smie-rule-parent and1-indent-basic)))
+    (`(:after . "CONSTANT") (message "after-cnst") and1-indent-basic)
+    (`(:after . "DO") (message "after-DO") and1-indent-do)
+    (`(:after . "WITH") (message "after-WITH") and1-indent-after-with)
     (`(:before . ,(or `"begin" `"LPAREN" `"LBRACK"))
      (if (smie-rule-hanging-p) (smie-rule-parent)))
     (`(:after . ,(or `"in" `"end" `"RPAREN" `"RBRACK"))
@@ -561,30 +561,30 @@
     (_ (progn (message "fall-through: %S . %S" kind token) nil))
     ))
 
-(defun m31--smie-forward-token nil
+(defun and1--smie-forward-token nil
   (forward-comment (point-max))
-  (let ((s (m31--smie-token 'forward)))
+  (let ((s (and1--smie-token 'forward)))
     (goto-char (match-end 0))
     s))
 
-(defun m31--smie-backward-token nil
+(defun and1--smie-backward-token nil
   (forward-comment (- (point)))
-  (let ((s (m31--smie-token 'backward)))
+  (let ((s (and1--smie-token 'backward)))
     (goto-char (match-beginning 0))
     s))
 
-(defun m31-smie-forward-token nil
+(defun and1-smie-forward-token nil
   (interactive)
-  (message "%s" (m31--smie-forward-token)))
-(defun m31-smie-backward-token nil
+  (message "%s" (and1--smie-forward-token)))
+(defun and1-smie-backward-token nil
   (interactive)
-  (message "%s" (m31--smie-backward-token)))
+  (message "%s" (and1--smie-backward-token)))
 
-(defun m31-smie-setup nil
-  (smie-setup m31-smie-grammar 'm31-smie-rules
-              :forward-token 'm31--smie-forward-token
-              :backward-token 'm31--smie-backward-token))
+(defun and1-smie-setup nil
+  (smie-setup and1-smie-grammar 'and1-smie-rules
+              :forward-token 'and1--smie-forward-token
+              :backward-token 'and1--smie-backward-token))
 
 
-(provide 'andromeda-smie)
-;;; andromeda-smie.el ends here
+(provide 'andromeda-1-smie)
+;;; andromeda-1-smie.el ends here

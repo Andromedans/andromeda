@@ -111,7 +111,7 @@ let refresh xs ((Ident (s, fixity)) as x) =
 
 let eq_ident (x : ident) (y : ident) = (x = y)
 
-let compare_ident (x : ident) (y : ident) = Pervasives.compare x y
+let compare_ident (x : ident) (y : ident) = Stdlib.compare x y
 
 module IdentMap = Map.Make (struct
                     type t = ident

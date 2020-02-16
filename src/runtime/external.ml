@@ -56,7 +56,7 @@ let externals =
         ));
 
     ("exit", (* forall a, mlunit -> a *)
-      Runtime.mk_closure (fun _ -> Pervasives.exit 0));
+      Runtime.mk_closure (fun _ -> Stdlib.exit 0));
 
     ("magic", (* forall a b, a -> b *)
       Runtime.mk_closure (fun v -> Runtime.return v));

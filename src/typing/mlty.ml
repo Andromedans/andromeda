@@ -67,7 +67,7 @@ type error =
 
 exception Error of error Location.located
 
-let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
+let error ~loc err = Stdlib.raise (Error (Location.locate err loc))
 
 type print_env = {
   mutable metas : (meta * string) list ;

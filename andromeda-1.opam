@@ -1,0 +1,33 @@
+opam-version: "2.0"
+name: "andromeda-1"
+version: "1.0"
+maintainer: "Philipp G. Haselwarter <philipp@haselwarter.org>"
+authors: "Andrej Bauer, Gaëtan Gilbert, Philipp G. Haselwarter, Christopher A. Stone"
+homepage: "https://github.com/Andromedans/andromeda"
+bug-reports: "https://github.com/Andromedans/andromeda/issues"
+dev-repo: "git://github.com/Andromedans/andromeda"
+license: "BSD-2-Clause"
+synopsis: "¸¸.•*¨*• A Prover for Type Theory with Equality Reflection •*¨*•.¸¸"
+depends: [
+  "ocaml" { >= "4.07.0" }
+  "ocamlbuild" {build}
+  "ocamlfind" {build}
+  "menhir"
+  "sedlex"
+]
+post-messages: [
+"To start using and1-mode in emacs, append this to your emacs configuration:
+
+  ;; Add opam emacs directory to the load-path
+  (setq opam-share (substring (shell-command-to-string \"opam config var share 2> /dev/null\") 0 -1))
+  (add-to-list 'load-path (concat opam-share \"/emacs/site-lisp\"))
+  ;; Pre-load Andromeda-1
+  (require 'andromeda-1-autoloads)
+
+We're happy to receive feed-back and examples of your development.
+
+"
+  {success}
+]
+build: [[make "PREFIX=%{prefix}%" "opt"]]
+install: [[make "PREFIX=%{prefix}%" "install"]]
