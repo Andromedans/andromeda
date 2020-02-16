@@ -72,7 +72,7 @@ let coerce_abstraction jdg bdry =
 
 (** Install a global equality checker *)
 with
-| operation ML.coerce jdg bdry -> coerce_abstraction jdg bdry
+| operation ML.coerce ?jdg ?bdry -> coerce_abstraction jdg bdry
 end ;;
 
 let normalize jdg =
