@@ -236,7 +236,7 @@ term_:
   | FUN xs=ml_arg+ ARROW e=term
     { Sugared.Function (xs, e) }
 
-  | DERIVE ps=nonempty_list(premise) ARROW e=term
+  | DERIVE ps=list(premise) ARROW e=term
     { Sugared.Derive (ps, e) }
 
   | WITH h=term TRY c=term
@@ -320,6 +320,9 @@ app_term_:
 
   | OCCURS c1=substitution_term c2=substitution_term
     { Sugared.Occurs (c1, c2) }
+
+  | MLJUDGEMENT e=substitution_term es=list(substitution_term)
+    { Sugared.RuleApply (e, es) }
 
   | e=substitution_term es=nonempty_list(substitution_term)
     { Sugared.Spine (e, es) }

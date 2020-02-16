@@ -91,6 +91,7 @@ and comp' =
   | AbstractAtom of comp * comp
   | Substitute of comp * comp list
   | Derive of premise list * comp
+  | RuleApply of comp * comp list
   | Spine of comp * comp list
   | String of string
   | Congruence of comp * comp * comp list

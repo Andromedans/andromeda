@@ -1058,6 +1058,11 @@ let rec comp ctx {Location.it=c';at} =
      let c, prems = premises ctx prems (fun ctx -> comp ctx c) in
      locate (Desugared.Derive (prems, c))
 
+  | Sugared.RuleApply (c, cs) ->
+     let c = comp ctx c in
+     let cs = List.map (comp ctx) cs in
+     locate (Desugared.RuleApply (c, cs))
+
   | Sugared.Spine (e, cs) ->
      spine ~at ctx e cs
 
@@ -1297,7 +1302,8 @@ and spine ~at ctx ({Location.it=c'; at=c_at} as c) cs =
   let split_at constr arity lst =
     let rec split acc m lst =
       if m = 0 then
-        List.rev acc, lst
+        List.rev acc,
+        (match lst with [] -> None | _::_ -> Some lst)
       else
         match lst with
         | [] -> error ~at (ArityMismatch (constr, List.length acc, arity))
@@ -1312,10 +1318,10 @@ and spine ~at ctx ({Location.it=c'; at=c_at} as c) cs =
      begin match Ctx.get_name ~at x ctx with
 
      | Bound i ->
-          Location.mark ~at:c_at (Desugared.Bound i), cs
+          Location.mark ~at:c_at (Desugared.Bound i), Some cs
 
      | Value pth ->
-          Location.mark ~at:c_at (Desugared.Value pth), cs
+          Location.mark ~at:c_at (Desugared.Value pth), Some cs
 
      | TTConstructor (pth, arity) ->
           check_tt_arity ~at x (List.length cs) arity ;
@@ -1334,18 +1340,18 @@ and spine ~at ctx ({Location.it=c'; at=c_at} as c) cs =
 
      | Exception (pth, arity) ->
         begin match arity, cs with
-        | Nullary, [] -> ml_exception ~at ctx pth None, []
-        | Unary, [c] -> ml_exception ~at ctx pth (Some c), []
+        | Nullary, [] -> ml_exception ~at ctx pth None, None
+        | Unary, [c] -> ml_exception ~at ctx pth (Some c), None
         | Nullary, _::_ -> error ~at (ArityMismatch (x, List.length cs, 0))
         | Unary, ([] | _::_::_) -> error ~at (ArityMismatch (x, List.length cs, 1))
         end
      end
 
-    | _ -> comp ctx c, cs
+    | _ -> comp ctx c, Some cs
   in
   match cs with
-  | [] -> head
-  | _::_ ->
+  | None -> head
+  | Some cs ->
      let cs = List.map (comp ctx) cs in
      Location.mark ~at (Desugared.Spine (head, cs))
 
