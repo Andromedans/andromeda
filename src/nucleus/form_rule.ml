@@ -81,8 +81,7 @@ let rec mk_rule_is_type metas = function
 
 and mk_rule_is_term metas = function
   | TermAtom _ ->
-     (* XXX turn this into a proper runtime error *)
-     failwith "a free atom cannot appear in a rule"
+     Error.raise AtomInRule
 
   | TermMeta (MetaFree mv, args) ->
      let args = List.map (mk_rule_is_term metas) args in

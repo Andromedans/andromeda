@@ -391,6 +391,9 @@ let error ~penv err ppf =
      Format.fprintf ppf "the terms@ %t@ and@ %t@ should be alpha equal"
        (thesis_is_term ~penv e1) (thesis_is_term ~penv e2)
 
+  | AtomInRule ->
+     Format.fprintf ppf "a free variable may not appear in a rule"
+
 (* Naming things *)
 
 let rec strip_abstraction = function
