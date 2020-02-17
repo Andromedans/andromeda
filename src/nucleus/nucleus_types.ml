@@ -150,6 +150,7 @@ type error =
   | AlphaEqualTypeMismatch of is_type * is_type
   | AlphaEqualTermMismatch of is_term * is_term
   | InvalidConvert of is_type * is_type
+  | AtomInRule
 
 exception Error of error
 

@@ -46,26 +46,6 @@ let arg_of_argument = function
   | JudgementEqType eq -> Mk.arg_eq_type eq
   | JudgementEqTerm eq-> Mk.arg_eq_term eq
 
-let match_argument sgn metas (s : boundary) (p : judgement) : judgement =
-  failwith "form_rule match_argument shouldn't be needed"
-  (* check_argument sgn metas s p ;
-   * arg_of_argument p *)
-
-let match_arguments sgn (premises : boundary list) (arguments : judgement list) =
-  let rec fold args_out = function
-    | [], [] ->
-       (* The arguments must _not_ be reversed because we refer to them by meta-variable
-          de Bruijn indices, and therefore the last argument must have index 0. *)
-       args_out
-    | [], _::_ -> Error.raise TooManyArguments
-    | _::_, [] -> Error.raise TooFewArguments
-    | premise :: premises, argument :: arguments ->
-       let metas = args_out in (* args also serves as the list of collected metas *)
-       let argument = match_argument sgn metas premise argument in
-       fold (Indices.cons argument args_out) (premises, arguments)
-  in
-  fold (Indices.of_list []) (premises, arguments)
-
 (** Judgement formation *)
 
 (** Lookup the de Bruijn index of a meta-variable. *)
@@ -101,8 +81,7 @@ let rec mk_rule_is_type metas = function
 
 and mk_rule_is_term metas = function
   | TermAtom _ ->
-     (* XXX turn this into a proper runtime error *)
-     failwith "a free atom cannot appear in a rule"
+     Error.raise AtomInRule
 
   | TermMeta (MetaFree mv, args) ->
      let args = List.map (mk_rule_is_term metas) args in
