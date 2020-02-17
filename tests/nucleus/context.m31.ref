@@ -1,0 +1,12 @@
+Rule A is postulated.
+Rule a is postulated.
+Rule f is postulated.
+Rule B is postulated.
+- :> list judgement = []
+val b :> judgement = b₀ : A ⊢ b₀ : A
+- :> list judgement = (b₀ : A ⊢ b₀ : A) :: []
+- :> list judgement = (b₀ : A ⊢ b₀ : A) :: []
+- :> list judgement = (b₀ : A ⊢ b₀ : A) :: []
+val u :> judgement = b₀ : A, u₁ : B a b₀ ⊢ u₁ : B a b₀
+- :> list judgement = (b₀ : A ⊢ b₀ : A) :: (b₀ : A, u₁ : B a
+  b₀ ⊢ u₁ : B a b₀) :: []

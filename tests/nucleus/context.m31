@@ -1,0 +1,13 @@
+rule A type
+rule a : A
+rule f (_ : A) (_ : A) : A
+rule B (x : A) (y : A) type ;;
+
+context a ;;
+let b = fresh b : A ;;
+context b ;;
+context ({x : A} f b x) ;;
+context ({x : A} {y : B x b} y) ;;
+
+let u = fresh u : B a b ;;
+context u ;;

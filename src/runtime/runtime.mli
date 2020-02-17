@@ -169,6 +169,12 @@ type error =
   | EqTypeExpected of value
   | EqTermExpected of value
   | AbstractionExpected
+  | IsTypeAbstractionExpected of value
+  | IsTermAbstractionExpected of value
+  | EqTypeAbstractionExpected of value
+  | EqTermAbstractionExpected of value
+  | BoundaryAbstractionExpected of value
+  | JudgementAbstractionExpected of value
   | JudgementExpected of value
   | JudgementOrBoundaryExpected of value
   | EqualityCheckerExpected of value

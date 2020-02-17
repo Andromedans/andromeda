@@ -1,0 +1,16 @@
+rule A type ;;
+rule a : A ;;
+
+let d = derive -> A ;;
+
+d ;;
+
+judgement d ;;
+
+rule B (x : A) (y : A) type ;;
+
+B ;;
+
+derive -> B a a ;;
+
+judgement (derive -> B a a ) ;;
