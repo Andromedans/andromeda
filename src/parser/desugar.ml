@@ -1578,7 +1578,7 @@ let mlty_rec_defs ~at ctx defs =
   ctx, defs_out
 
 
-let rec toplevel' ~loading ~basedir ctx {Location.it=cmd; at} =
+let rec toplevel' ctx {Location.it=cmd; at} =
   let locate1 cmd = [Location.mark ~at cmd] in
 
   match cmd with
@@ -1679,7 +1679,8 @@ let rec toplevel' ~loading ~basedir ctx {Location.it=cmd; at} =
      (ctx, locate1 (Desugared.Verbosity n))
 
   | Sugared.Require mdl_names ->
-     requires ~at ~loading ~basedir ctx mdl_names
+     (* requires are preprocessed, skip them in later stages *)
+     (ctx, [])
 
   | Sugared.Include mdl_path ->
      let _, mdl = Ctx.get_ml_module ~at mdl_path ctx in
@@ -1692,88 +1693,134 @@ let rec toplevel' ~loading ~basedir ctx {Location.it=cmd; at} =
      (ctx, locate1 (Desugared.Open pth))
 
   | Sugared.TopModule (x, cmds) ->
-     let ctx, cmd = ml_module ~at ~loading ~basedir ctx x cmds in
+     let ctx, cmd = ml_module ~at ctx x cmds in
      (ctx, [cmd])
 
-and requires ~at ~loading ~basedir ctx mdl_names =
-  let rec fold ctx mdls = function
-    | [] -> ctx, List.rev mdls
-    | mdl_name :: mdl_names ->
-       let ctx, mdl = require ~at ~loading ~basedir ctx mdl_name in
-       fold ctx (mdl :: mdls) mdl_names
-  in
-  fold ctx [] mdl_names
-
-and require ~at ~loading ~basedir ctx mdl_name =
-  (* TODO keep a list of already required modules and avoid reloading
-     the same module several times? *)
-  if List.exists (Name.equal mdl_name) loading then
-    (* We are in the process of loading this module, circular dependency *)
-    error ~at (CircularRequire (List.rev (mdl_name :: loading)))
-  else
-    let rec unique xs = function
-      | [] -> List.rev xs
-      | y :: ys ->
-         if List.mem y xs then unique xs ys else unique (y::xs) ys
-    in
-    let basename = Name.module_filename mdl_name in
-    let fns =
-      unique []
-        (List.map
-           (fun dirname -> Filename.concat dirname basename)
-           (basedir :: (!Config.require_dirs))
-        )
-    in
-    match List.find_opt Sys.file_exists fns with
-
-    | None ->
-       error ~at (RequiredModuleMissing (mdl_name, fns))
-
-    | Some fn ->
-       let loading = mdl_name :: loading in
-       let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
-       let ctx, cmd = ml_module ~at ~loading ~basedir ctx mdl_name cmds in
-       ctx, cmd
-
-and toplevels ~loading ~basedir ctx cmds =
+(* Desugar a list of top-level commands in the current context. Return the new context and
+   the desugared commands. Assume all required modules have been loaded. *)
+and toplevels ctx cmds =
   let ctx, cmds =
     List.fold_left
     (fun (ctx,cmds) cmd ->
-      let ctx, cmds' = toplevel' ~loading ~basedir ctx cmd in
+      let ctx, cmds' = toplevel' ctx cmd in
       (ctx, cmds' @ cmds))
     (ctx, [])
     cmds
   in
-  ctx, List.rev cmds
+  let cmds = List.rev cmds in
+  ctx, cmds
 
-and ml_module ~at ~loading ~basedir ctx m cmds =
+(* Desugare the given commands as the definition of a module [m]. Return the new context,
+   and the desugared module definition. Assume all required modules have been loaded. *)
+and ml_module ~at ctx m cmds =
   let ctx = Ctx.push_module m ctx in
-  let ctx, cmds = toplevels ~loading ~basedir ctx cmds in
+  let ctx, cmds = toplevels ctx cmds in
   let ctx, mdl = Ctx.pop_module ctx in
   let ctx = Ctx.add_ml_module ~at m mdl ctx in
   ctx, Location.mark ~at (Desugared.MLModule (m, cmds))
 
-let toplevel ~basedir ctx cmd = toplevel' ~loading:[] ~basedir ctx cmd
+(* Load the modules required by the given commands, recursively. Return the new context,
+   and the loaded modules. *)
+let rec load_requires ~basedir ~loading ctx cmds =
 
+  let require ~at ~loading ctx mdl_name =
+    match Ctx.find_ml_module (Name.PName mdl_name) ctx with
+
+    | Some _ ->
+       (* already loaded *)
+       ctx, []
+
+    | None ->
+       (* not loaded yet *)
+       if List.exists (Name.equal mdl_name) loading then
+         (* We are in the process of loading this module, circular dependency *)
+         error ~at (CircularRequire (List.rev (mdl_name :: loading)))
+       else
+         let rec unique xs = function
+           | [] -> List.rev xs
+           | y :: ys ->
+              if List.mem y xs then unique xs ys else unique (y::xs) ys
+         in
+         let basename = Name.module_filename mdl_name in
+         let fns =
+           unique []
+                  (List.map
+                     (fun dirname -> Filename.concat dirname basename)
+                     (basedir :: (!Config.require_dirs))
+                  )
+         in
+         match List.find_opt Sys.file_exists fns with
+
+         | None ->
+            error ~at (RequiredModuleMissing (mdl_name, fns))
+
+         | Some fn ->
+            let loading = mdl_name :: loading in
+            let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
+            let ctx, mdls = load_requires ~loading ~basedir ctx cmds in
+            let ctx, mdl = ml_module ~at ctx mdl_name cmds in
+            ctx, (mdls @ [mdl])
+  in
+
+  let rec fold ~loading ctx = function
+    | [] -> ctx, []
+
+    | Location.{it=cmd; at} :: cmds ->
+       begin match cmd with
+
+       | Sugared.Require mdl_names ->
+          let ctx, mdls_required =
+            List.fold_left
+              (fun (ctx, mdls) mdl_name ->
+                let ctx, mdls' = require ~loading ~at ctx mdl_name in
+                (ctx, mdls @ mdls'))
+              (ctx, [])
+              mdl_names
+          in
+          let ctx, mdls = fold ~loading ctx cmds in
+          ctx, mdls_required @ mdls
+
+       | Sugared.TopModule (_, cmds') ->
+          let ctx, mdls' = fold ~loading ctx cmds' in
+          let ctx, mdls = fold ~loading ctx cmds in
+          ctx, mdls' @ mdls
+
+       | Sugared.(RuleIsType _ | RuleIsTerm _ | RuleEqType _ | RuleEqTerm _ | DefMLTypeAbstract _ |
+               DefMLType _ | DefMLTypeRec _ | DeclOperation _ | DeclException _ | DeclExternal _ |
+               TopLet _ | TopLetRec _ | TopWith _ | TopComputation _ |
+               Include _ | Verbosity _ | Open _) ->
+          fold ~loading ctx cmds
+       end
+  in
+  fold ~loading ctx cmds
+
+(* Desugar commands, after loading the required modules *)
+let commands ~loading ~basedir ctx cmds =
+  let ctx, mdls = load_requires ~loading:[] ~basedir ctx cmds in
+  let ctx, cmds = toplevels ctx cmds in
+  ctx, (mdls @ cmds)
+
+let toplevel ~basedir ctx cmd =
+  commands ~loading:[] ~basedir ctx [cmd]
+
+(** Load a file, return the list of desugared commands, including required modules. *)
 let use_file ctx fn =
   let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
   let basedir = Filename.dirname fn in
-  toplevels ~loading:[] ~basedir ctx cmds
+  commands ~loading:[] ~basedir ctx cmds
 
-let load_ml_module ctx fn =
+and load_ml_module ctx fn =
   let basename = Filename.basename fn in
   let dirname = Filename.dirname fn in
   let mdl_name = Name.mk_name (Filename.remove_extension basename) in
   let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
-  ml_module
-    ~at:Location.unknown
-    ~loading:[mdl_name]
-    ~basedir:dirname
-    ctx mdl_name cmds
+  let ctx, mdls = load_requires ~loading:[mdl_name] ~basedir:dirname ctx cmds in
+  let ctx, cmd = ml_module ~at:Location.unknown ctx mdl_name cmds in
+  ctx, (mdls @ [cmd])
 
 let initial_context, initial_commands =
   try
-    toplevels ~loading:[] ~basedir:Filename.current_dir_name Ctx.empty Builtin.initial
+    commands ~loading:[] ~basedir:Filename.current_dir_name Ctx.empty Builtin.initial
   with
   | Error {Location.it=err;_} ->
     Print.error "Error in built-in code:@ %t.@." (print_error err) ;
