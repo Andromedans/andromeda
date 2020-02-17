@@ -5,12 +5,10 @@
 
     * check arities of constructors and operations
 
-    The arity of a constructor [C] is a pair of number [(n, m)], where [n] is the
-    number of arguments it takes, and [m] is the number of proof-relevant arguments
-    (term and type arguments).
-
     Note that we do not check arities of derivations here because those are first-class
-    and are not bound to specific identifiers. Typechecking performs that operation.
+    and are not bound to specific identifiers, and so we have no way of computing them
+    in the desugaring phase.
+
     We could consider moving arity checking of all entitites to typechecking, but then
     we need to worry about separate namespaces in which they might leave, and it would
     just induce some pointless code refactoring.

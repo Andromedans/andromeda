@@ -2,12 +2,6 @@
 
 (** {6 Values} *)
 
-(** The Ocaml equivalent of the ML coercible type *)
-type coercible =
-  | NotCoercible
-  | Convertible of Nucleus.eq_type_abstraction
-  | Coercible of Nucleus.is_term_abstraction
-
 type ml_constructor = Ident.t
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
