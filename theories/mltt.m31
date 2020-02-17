@@ -1,8 +1,23 @@
 require judgemental_equality_type
+include judgemental_equality_type
+
 require judgemental_equality_term
+include judgemental_equality_term
+
 require dependent_product
+include dependent_product
+
 require dependent_sum
+include dependent_sum
+
 require identity_type
+include identity_type
+
 require empty
+include empty
+
 require unit
+include unit
+
 require nat
+include nat
