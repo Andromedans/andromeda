@@ -1,0 +1,9 @@
+Rule A is postulated.
+Rule a is postulated.
+val d :> derivation = derive → A type
+- :> derivation = derive → A type
+- :> judgement = ⊢ A type
+Rule B is postulated.
+- :> derivation = derive (x : A) (y : A) → B x y type
+- :> derivation = derive → B a a type
+- :> judgement = ⊢ B a a type

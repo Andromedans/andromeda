@@ -230,6 +230,12 @@ type error =
   | EqTypeExpected of value
   | EqTermExpected of value
   | AbstractionExpected
+  | IsTypeAbstractionExpected of value
+  | IsTermAbstractionExpected of value
+  | EqTypeAbstractionExpected of value
+  | EqTermAbstractionExpected of value
+  | BoundaryAbstractionExpected of value
+  | JudgementAbstractionExpected of value
   | JudgementExpected of value
   | JudgementOrBoundaryExpected of value
   | EqualityCheckerExpected of value
@@ -442,52 +448,52 @@ let as_is_type_abstraction ~at v =
   | Judgement abstr ->
      begin match Nucleus.as_is_type_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~at AbstractionExpected
+     | None -> error ~at (IsTypeAbstractionExpected v)
      end
   | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
-    error ~at AbstractionExpected
+    error ~at (IsTypeAbstractionExpected v)
 
 let as_is_term_abstraction ~at v =
   match v with
   | Judgement abstr ->
      begin match Nucleus.as_is_term_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~at AbstractionExpected
+     | None -> error ~at (IsTermAbstractionExpected v)
      end
   | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
-    error ~at AbstractionExpected
+    error ~at (IsTermAbstractionExpected v)
 
 let as_eq_type_abstraction ~at v =
   match v with
   | Judgement abstr ->
      begin match Nucleus.as_eq_type_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~at AbstractionExpected
+     | None -> error ~at (EqTypeAbstractionExpected v)
      end
   | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
-    error ~at AbstractionExpected
+    error ~at (EqTypeAbstractionExpected v)
 
 let as_eq_term_abstraction ~at v =
   match v with
   | Judgement abstr ->
      begin match Nucleus.as_eq_term_abstraction abstr with
      | Some abstr -> abstr
-     | None -> error ~at AbstractionExpected
+     | None -> error ~at (EqTermAbstractionExpected v)
      end
   | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
-    error ~at AbstractionExpected
+    error ~at (EqTermAbstractionExpected v)
 
 let as_judgement_abstraction ~at v =
   match v with
   | Judgement abstr -> abstr
   | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
-    error ~at AbstractionExpected
+    error ~at (JudgementAbstractionExpected v)
 
 let as_boundary_abstraction ~at v =
   match v with
   | Boundary abstr -> abstr
   | Derivation _ | Judgement _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
-    error ~at AbstractionExpected
+    error ~at (BoundaryAbstractionExpected v)
 
 let as_closure ~at = function
   | Closure f -> f
@@ -880,7 +886,25 @@ let print_error ~penv err ppf =
      Format.fprintf ppf "expected a term equality but got %s" (name_of v)
 
   | AbstractionExpected ->
-     Format.fprintf ppf "this should be an abstraction"
+     Format.fprintf ppf "expected an abstraction"
+
+  | JudgementAbstractionExpected v ->
+     Format.fprintf ppf "expected an abstracted judgement but got %s" (name_of v)
+
+  | BoundaryAbstractionExpected v ->
+     Format.fprintf ppf "expected an abstracted boundary but got %s" (name_of v)
+
+  | IsTypeAbstractionExpected v ->
+     Format.fprintf ppf "expected a type abstraction but got %s" (name_of v)
+
+  | IsTermAbstractionExpected v ->
+     Format.fprintf ppf "expected a term abstraction but got %s" (name_of v)
+
+  | EqTypeAbstractionExpected v ->
+     Format.fprintf ppf "expected a type abstraction equality but got %s" (name_of v)
+
+  | EqTermAbstractionExpected v ->
+     Format.fprintf ppf "expected a term abstraction equality but got %s" (name_of v)
 
   | JudgementExpected v ->
      Format.fprintf ppf "expected a judgement but got %s" (name_of v)
