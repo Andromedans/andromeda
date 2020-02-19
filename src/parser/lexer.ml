@@ -207,8 +207,17 @@ let run
   | Sedlexing.MalFormed ->
      let at = at_of lexbuf in
      Ulexbuf.error ~at Ulexbuf.MalformedUTF8
-(* | Sedlexing.InvalidCodepoint _ -> *)
-(*    assert false (\* Shouldn't happen with UTF8 *\) *)
+  | Invalid_argument s
+       (* work around https://github.com/ocaml-community/sedlex/issues/91 *)
+       when
+         let ulex_err = "is not an Unicode scalar value" in
+         try let suffix = String.(sub s (length s - (length ulex_err)) (length ulex_err)) in
+             ulex_err = suffix
+         with Invalid_argument _ -> false
+       -> let at = at_of lexbuf in
+          Ulexbuf.error ~at Ulexbuf.MalformedUTF8
+  (* | Sedlexing.InvalidCodepoint _ -> *)
+  (*    assert false (\* Shouldn't happen with UTF8 *\) *)
 
 
 let read_file ?line_limit parse fn =
