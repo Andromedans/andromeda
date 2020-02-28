@@ -189,6 +189,9 @@ rule_:
 
 premise: mark_location(premise_) { $1 }
 premise_:
+  | LPAREN lctx=local_context mv=opt_name(tt_name) COLONQT c=term RPAREN
+    { Sugared.PremiseAtBoundary(mv, lctx, c) }
+
   | LPAREN lctx=local_context mv=opt_name(tt_name) TYPE RPAREN
     { Sugared.PremiseIsType (mv, lctx) }
 

@@ -133,6 +133,7 @@ and local_context = (Name.t * comp) list
 (** A premise to a rule *)
 and premise = premise' located
 and premise' =
+  | PremiseAtBoundary of Name.t option * local_context * comp
   | PremiseIsType of Name.t option * local_context
   | PremiseIsTerm of Name.t option * local_context * comp
   | PremiseEqType of Name.t option * local_context * (comp * comp)

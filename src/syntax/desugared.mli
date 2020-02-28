@@ -122,7 +122,7 @@ and match_op_case = pattern list * pattern option * comp
 and local_context = (Name.t * comp) list
 
 and premise = premise' located
-and premise' = Premise of Name.t * local_context * boundary
+and premise' = Premise of Name.t * local_context * comp
 
 type ml_tydef =
   | ML_Sum of (Name.t * ml_ty list) list

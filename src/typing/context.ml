@@ -170,14 +170,14 @@ let empty = {
     ml_bound = [];
   }
 
-let lookup_bound (Path.Index (_, k)) {ml_bound;_} =
+let lookup_bound (Path.Index (x, k)) {ml_bound;_} =
   try
     let (ps, t) = List.nth ml_bound k in
     let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
     Mlty.instantiate pus t
   with
     Failure _ as exc ->
-     Format.printf "lookup_bound failed with %d@." k ;
+     Format.printf "lookup_bound failed with %t at index %d (%d available)@." (Name.print x) k (List.length ml_bound) ;
      raise exc
 
 let lookup_ml_value pth ctx =

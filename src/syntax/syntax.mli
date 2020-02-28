@@ -112,7 +112,7 @@ and match_op_case = pattern list * pattern option * comp
 and local_context = (Name.t * comp) list
 
 and premise = premise' located
-and premise' = Premise of Name.t * local_context * boundary
+and premise' = Premise of Name.t * local_context * comp
 
 (** Type definitions are needed during runtime so that we can print them
     at the toplevel. *)

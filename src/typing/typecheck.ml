@@ -883,8 +883,8 @@ and local_context lctx m =
   fold [] lctx
 
 and premise {Location.it=prem; at} =
-  let Desugared.Premise (x, lctx, bdry) = prem in
-  local_context lctx (boundary bdry) >>= fun (lctx, bdry) ->
+  let Desugared.Premise (x, lctx, c) = prem in
+  local_context lctx (check_comp c Mlty.Boundary) >>= fun (lctx, bdry) ->
   let p = locate ~at (Syntax.Premise (x, lctx, bdry)) in
   return (x, p)
 

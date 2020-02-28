@@ -638,8 +638,7 @@ and eval_boundary ~at = function
 and local_context lctx cmp =
   let rec fold = function
     | [] ->
-       cmp >>= fun v ->
-       return (Nucleus.abstract_not_abstract v)
+       cmp
     | (x, c) :: lctx ->
        comp_as_is_type c >>= fun t ->
        Runtime.add_free x t
@@ -650,8 +649,8 @@ and local_context lctx cmp =
   in
   fold lctx
 
-and premise {Location.it=Syntax.Premise(x, lctx, bdry); at} =
-  local_context lctx (eval_boundary ~at bdry) >>= fun bdry ->
+and premise {Location.it=Syntax.Premise(x, lctx, c); at} =
+  local_context lctx (comp_as_boundary_abstraction c) >>= fun bdry ->
   let mv, jdg = Nucleus.form_meta x bdry in
   let v = Runtime.Judgement jdg in
   return (mv, v)
