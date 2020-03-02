@@ -131,7 +131,7 @@ type ml_tydef =
 (** Desugared toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
-  | Rule of Path.t * premise list * boundary
+  | Rule of Path.t * premise list * comp
   | DefMLTypeAbstract of Path.t * Name.t option list
   | DefMLType of (Path.t * (Name.t option list * ml_tydef)) list
   | DefMLTypeRec of (Path.t * (Name.t option list * ml_tydef)) list

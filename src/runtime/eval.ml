@@ -588,6 +588,10 @@ and comp_as_judgement_abstraction c =
 and comp_as_boundary_abstraction c =
   comp c >>= fun v -> return (Runtime.as_boundary_abstraction ~at:c.Location.at v)
 
+(** Run [c] and convert the result to a boundary. *)
+and comp_as_boundary ~at c =
+  comp c >>= fun v -> return (Runtime.as_boundary ~at:c.Location.at v)
+
 (** Run [c] and convert the result to a boundary abstraction. *)
 and comp_as_eq_type_abstraction c =
   comp c >>= fun v -> return (Runtime.as_eq_type_abstraction ~at:c.Location.at v)
@@ -743,7 +747,7 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
 
   | Syntax.Rule (x, prems, bdry) ->
      Runtime.top_lookup_opens >>= fun opens ->
-     Runtime.top_handle ~at (premises prems (eval_boundary ~at bdry)) >>= fun (premises, head) ->
+     Runtime.top_handle ~at (premises prems (comp_as_boundary ~at bdry)) >>= fun (premises, head) ->
      let rule = Nucleus.form_rule premises head in
      (if not quiet then
         Format.printf "@[<hov 2>Rule %t is postulated.@]@." (Ident.print ~opens ~parentheses:false x));

@@ -141,10 +141,7 @@ type ml_tydef =
 (** Sugared toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
-  | RuleIsType of Name.t * premise list
-  | RuleIsTerm of Name.t * premise list * comp
-  | RuleEqType of Name.t * premise list * (comp * comp)
-  | RuleEqTerm of Name.t * premise list * (comp * comp * comp)
+  | Rule of Name.t * premise list * comp
   | DefMLTypeAbstract of Name.t * Name.t option list
   | DefMLType of (Name.t * (Name.t option list * ml_tydef)) list
   | DefMLTypeRec of (Name.t * (Name.t option list * ml_tydef)) list

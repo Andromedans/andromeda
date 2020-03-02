@@ -1,7 +1,21 @@
 Rule A is postulated.
+- :> judgement = ⊢ A type
 Rule a is postulated.
+- :> judgement = ⊢ a : A
 Rule B is postulated.
+- :> derivation = derive (X type) → B X type
 Rule P is postulated.
+- :> derivation = derive (U type) ({_ : U} V type) → P U ({x} V {x}) type
 Rule f is postulated.
+- :> derivation = derive (x : A) (y : B A) → f x y
 Rule Ety is postulated.
+- :> derivation = derive (X type) (Y type) → B X ≡ B Y
 Rule ETm is postulated.
+- :> derivation = derive (A type) (x : A) (y : A) (x ≡ y : A by ξ) → y
+  ≡ x : A
+Rule C is postulated.
+- :> judgement = ⊢ C type
+Rule D is postulated.
+- :> derivation = derive (a : A) → D a type
+Rule c is postulated.
+- :> derivation = derive (u : A) (v : B A) → c u v

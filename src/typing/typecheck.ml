@@ -928,8 +928,8 @@ let add_ml_type (t, (params, def)) =
 let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
   match c with
 
-  | Desugared.Rule (rname, prems, bdry) ->
-     premises prems (boundary bdry) >>= fun (ps, bdry) ->
+  | Desugared.Rule (rname, prems, c) ->
+     premises prems (check_comp c Mlty.Boundary) >>= fun (ps, bdry) ->
      let r = Ident.create rname in
      Tyenv.add_tt_constructor r >>= fun () ->
      return_located ~at (Syntax.Rule (r, ps, bdry))

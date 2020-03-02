@@ -1,7 +1,20 @@
-rule A type
-rule a : A
-rule B (X type) type
-rule P (U type) ({x : U} V type) type
-rule f (x : A) (y : B A) : A
-rule Ety (X type) (Y type) : B X ≡ B Y
-rule ETm (A type) (x : A) (y : A) (x ≡ y : A by ξ): y ≡ x : A
+rule A type ;;
+A ;;
+rule a : A ;;
+a ;;
+rule B (X type) type ;;
+B ;;
+rule P (U type) ({x : U} V type) type ;;
+P ;;
+rule f (x : A) (y : B A) : A ;;
+f ;;
+rule Ety (X type) (Y type) : B X ≡ B Y ;;
+Ety ;;
+rule ETm (A type) (x : A) (y : A) (x ≡ y : A by ξ): y ≡ x : A ;;
+ETm ;;
+rule C :? (let bdry = ?? type in bdry) ;;
+C ;;
+rule D (a : A) type ;;
+D ;;
+rule c (u : A) (v : B A) :? (let w = f u v in ?? : D w) ;;
+c ;;
