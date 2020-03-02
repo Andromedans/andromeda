@@ -233,8 +233,8 @@ term_:
   | TRY c=term WITH hcs=handler_cases END
     { Sugared.Try (c, hcs) }
 
-  | FUN xs=ml_arg+ ARROW e=term
-    { Sugared.Function (xs, e) }
+  | FUN ps=ml_arg+ ARROW e=term
+    { Sugared.Function (ps, e) }
 
   | DERIVE ps=list(premise) ARROW e=term
     { Sugared.Derive (ps, e) }
@@ -528,12 +528,17 @@ let_clause:
 
 
 (* A possibly annotated argument of an ML function *)
-ml_arg:
+ml_arg: mark_location(ml_arg_) { $1 }
+ml_arg_:
   | x=ml_name
-    { (x, Sugared.Arg_annot_none) }
+    { Sugared.Patt_Var x }
 
-  | LPAREN x=ml_name COLONGT t=mlty RPAREN
-    { (x, Sugared.Arg_annot_ty t) }
+  | UNDERSCORE
+    { Sugared.Patt_Anonymous }
+
+  | pt=let_pattern_
+    { pt }
+    
 
 let_annotation:
   |
@@ -719,6 +724,7 @@ let_pattern_:
 
   | LBRACK ps=separated_list(SEMI, pattern) RBRACK
     { Sugared.Patt_List ps }
+
 
 tt_maybe_typed_binder:
   | LBRACE xs=opt_name(tt_name)+ RBRACE

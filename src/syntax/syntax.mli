@@ -44,7 +44,7 @@ type comp = comp' located
 and comp' =
   | Bound of Path.index
   | Value of Path.t
-  | Function of comp
+  | Function of pattern * comp
   | Handler of handler
   | MLConstructor of ml_constructor * comp list
   | Tuple of comp list
@@ -94,7 +94,7 @@ and let_clause =
   | Let_clause of pattern * comp
 
 and letrec_clause =
-  | Letrec_clause of comp
+  | Letrec_clause of pattern * comp
 
 and handler = {
   handler_val: match_case list ;

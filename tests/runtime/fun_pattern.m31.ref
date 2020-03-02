@@ -1,0 +1,7 @@
+val f :> mlforall α β γ, α * β → γ → β * α = <function>
+val g :> list mlstring → mlunit = <function>
+- :> _α → ML.bool * mlstring = <function>
+- :> ML.bool * mlstring = (ML.false, "foo")
+- :> mlunit = ()
+val h :> _β * _γ → _δ → _δ * _β * _γ
+- :> list _ε * mlstring * ML.bool = ([], "foo", ML.false)

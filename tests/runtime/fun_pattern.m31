@@ -1,0 +1,8 @@
+let f = fun (?x, ?y) _ -> (y, x) ;;
+let g = fun [_; (?x :> mlstring)] -> () ;;
+f ("foo", ML.false) ;;
+f ("foo", ML.false) [] ;;
+g (["foo"; "bar"]) ;;
+
+let rec h (?x, ?y) z = (z, x, y) ;;
+h ("foo", ML.false) [] ;;

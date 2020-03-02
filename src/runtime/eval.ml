@@ -50,10 +50,13 @@ let rec comp {Location.it=c'; at} =
     | Syntax.Value pth ->
        Runtime.lookup_ml_value pth
 
-    | Syntax.Function c ->
+    | Syntax.Function (p, c) ->
        let f v =
-         Runtime.add_bound v
-           (comp c)
+        Matching.match_pattern p v >>=
+        begin function
+        | Some us -> List.fold_left (fun c u -> Runtime.add_bound u c) (comp c) us
+        | None -> Runtime.(error ~at (MatchFail v))
+        end
        in
        Runtime.return_closure f
 
@@ -137,7 +140,7 @@ let rec comp {Location.it=c'; at} =
      let_bind ~at xcs (comp c)
 
   | Syntax.LetRec (fxcs, c) ->
-     letrec_bind fxcs (comp c)
+     letrec_bind ~at fxcs (comp c)
 
   | Syntax.Ref c ->
      comp c >>= fun v ->
@@ -413,7 +416,7 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
     check_judgement c2 bdry
 
   | Syntax.LetRec (fxcs, c) ->
-     letrec_bind fxcs (check_judgement c bdry)
+     letrec_bind ~at fxcs (check_judgement c bdry)
 
   | Syntax.Match (c, cases) ->
      comp c >>=
@@ -503,11 +506,16 @@ and let_bind
   fold [] clauses
 
 and letrec_bind
-  : 'a . Syntax.letrec_clause list -> 'a Runtime.comp -> 'a Runtime.comp
-  = fun fxcs ->
+  : 'a . at:Location.t -> Syntax.letrec_clause list -> 'a Runtime.comp -> 'a Runtime.comp
+  = fun ~at fxcs ->
   let gs =
     List.map
-      (fun (Syntax.Letrec_clause c) -> (fun v -> Runtime.add_bound v (comp c)))
+      (fun (Syntax.Letrec_clause (p, c)) -> (fun v -> 
+      Matching.match_pattern p v >>=
+        begin function
+        | Some us -> List.fold_left (fun c u -> Runtime.add_bound u c) (comp c) us
+        | None -> Runtime.(error ~at (MatchFail v))
+        end))
       fxcs
   in
   Runtime.add_bound_rec gs
@@ -726,7 +734,12 @@ let toplet_bind ~at ~quiet ~print_annot info clauses =
 let topletrec_bind ~at ~quiet ~print_annot info fxcs =
   let gs =
     List.map
-      (fun (Syntax.Letrec_clause c) v -> Runtime.add_bound v (comp c))
+      (fun (Syntax.Letrec_clause (p,c)) v -> 
+        Runtime.bind (Matching.match_pattern p v) 
+        begin function
+        | Some us -> List.fold_left (fun c u -> Runtime.add_bound u c) (comp c) us
+        | None -> Runtime.(error ~at (MatchFail v))
+        end)
       fxcs
   in
   Runtime.top_add_ml_value_rec gs >>= fun () ->
