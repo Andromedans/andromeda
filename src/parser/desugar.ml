@@ -1458,59 +1458,11 @@ and local_context :
 
 and premise ctx {Location.it=prem;at} =
   let locate x = Location.mark ~at x in
-  match prem with
-  | Sugared.PremiseAtBoundary (mvar, local_ctx, c) ->
-     let bdry, local_ctx = local_context ctx local_ctx (fun ctx -> comp ctx c) in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-
-  | Sugared.PremiseIsType (mvar, local_ctx) ->
-     let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = locate Desugared.(MLBoundary BoundaryIsType) in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseIsTerm (mvar, local_ctx, c) ->
-     let c, local_ctx =
-       local_context
-         ctx local_ctx
-         (fun ctx -> comp ctx c)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Location.mark ~at:c.Location.at Desugared.(MLBoundary (BoundaryIsTerm c)) in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
-     let (c1, c2), local_ctx =
-       local_context
-         ctx local_ctx
-         (fun ctx ->
-           comp ctx c1,
-           comp ctx c2)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry_at = Location.(union c1.at c2.at) in
-     let bdry = Location.mark ~at:bdry_at Desugared.(MLBoundary (BoundaryEqType (c1, c2))) in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseEqTerm (mvar, local_ctx, (c1, c2, c3)) ->
-     let (c1, c2, c3), local_ctx =
-       local_context ctx local_ctx
-       (fun ctx ->
-         comp ctx c1,
-         comp ctx c2,
-         comp ctx c3)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry_at = Location.(union c1.at (union c2.at c3.at)) in
-     let bdry = Location.mark ~at:bdry_at Desugared.(MLBoundary (BoundaryEqTerm (c1, c2, c3))) in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
+  let Sugared.Premise (mvar, local_ctx, c) = prem in
+  let bdry, local_ctx = local_context ctx local_ctx (fun ctx -> comp ctx c) in
+  let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+  let ctx = Ctx.add_bound mvar ctx in
+  ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
 
 and premises :
   'a . Ctx.t -> Sugared.premise list -> (Ctx.t -> 'a) -> 'a * Desugared.premise list
