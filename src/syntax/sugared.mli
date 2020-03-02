@@ -37,8 +37,6 @@ type let_annotation =
   | Let_annot_none
   | Let_annot_schema of ml_schema
 
-(* An argument of a function or a let-clause *)
-type ml_arg = Name.t * arg_annotation
 
 (** Sugared patterns *)
 type pattern = pattern' located
@@ -67,7 +65,7 @@ and pattern' =
 type comp = comp' located
 and comp' =
   | Name of Name.path
-  | Function of ml_arg list * comp
+  | Function of pattern list * comp
   | Handler of handle_case list
   | Try of comp * handle_case list
   | With of comp * comp
@@ -105,13 +103,11 @@ and comp' =
   | MLBoundaryEqTerm of comp * comp * comp
 
 and let_clause =
-  | Let_clause_ML of (Name.t * ml_arg list) option * let_annotation * comp
+  | Let_clause_ML of (Name.t * pattern list) option * let_annotation * comp
   | Let_clause_tt of Name.t option * comp * comp
   | Let_clause_patt of pattern * let_annotation * comp
 
-(* XXX we should be able to destruct the first argument of a recursive function with an
-   (irrefutable) pattern. Thus, [ml_arg] should be defined using patterns in place of variable names. *)
-and letrec_clause = Name.t * ml_arg * ml_arg list * let_annotation * comp
+and letrec_clause = Name.t * pattern * pattern list * let_annotation * comp
 
 (** Handler cases *)
 and handle_case =

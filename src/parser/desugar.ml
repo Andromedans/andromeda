@@ -1091,16 +1091,15 @@ let rec comp ctx {Location.it=c';at} =
         locate (Desugared.MLException (pth, None))
      end
 
-  | Sugared.Function (xs, c) ->
+  | Sugared.Function (ps, c) ->
      let rec fold ctx = function
        | [] -> comp ctx c
-       | (x, t) :: xs ->
-          let ctx = Ctx.add_bound x ctx in
-          let c = fold ctx xs in
-          let t = arg_annotation ctx t in
-          locate (Desugared.Function (x, t, c))
+       | p :: ps ->
+          let ctx, p = pattern ~toplevel:false ctx p in
+          let c = fold ctx ps in
+          locate (Desugared.(Function (p, c)))
      in
-     fold ctx xs
+     fold ctx ps
 
   | Sugared.Handler hcs ->
      handler ~at ctx hcs
@@ -1235,51 +1234,42 @@ and letrec_clauses ~at ~toplevel ctx lst =
     | [] ->
        let lst' = List.rev lst' in
        ctx, lst'
-    | (f, yt, ys, sch, c) :: xcs ->
+    | (f, p, ps, sch, c) :: xcs ->
        if List.exists (fun (g, _, _, _, _) -> Name.equal f g) xcs
        then
          error ~at (ParallelShadowing f)
        else
-         let yt, c = letrec_clause ~at ctx yt ys c in
+         let p, c = letrec_clause ~at ctx p ps c in
          let sch = let_annotation ctx sch in
-         let lst' = Desugared.Letrec_clause (f, yt, sch, c) :: lst' in
+         let lst' = Desugared.Letrec_clause (f, p, sch, c) :: lst' in
          fold lst' xcs
   in
   fold [] lst
 
-and let_clause ~at ctx ys c =
+and let_clause ~at ctx ps c =
   let rec fold ctx = function
     | [] ->
        comp ctx c
-    | (y, t) :: ys ->
-       let ctx = Ctx.add_bound y ctx in
-       let c = fold ctx ys in
-       let t = arg_annotation ctx t in
-       Location.mark  ~at:c.Location.at (Desugared.Function (y, t, c)) (* XXX improve location *)
+    | p :: ps ->
+       let ctx, p = pattern ~toplevel:false ctx p in
+       let c = fold ctx ps in
+       Location.mark  ~at:c.Location.at (Desugared.(Function (p, c))) (* XXX improve location *)
   in
-  fold ctx ys
+  fold ctx ps
 
 and let_clause_tt ctx c t =
   let c = comp ctx c
   and t = comp ctx t in
   Location.mark ~at:c.Location.at (Desugared.BoundaryAscribe (c, t))
 
-and letrec_clause ~at ctx (y, t) ys c =
-  let t = arg_annotation ctx t in
-  let ctx = Ctx.add_bound y ctx in
-  let c = let_clause ~at ctx ys c in
-  (y, t), c
+and letrec_clause ~at ctx p ps c =
+  let ctx, p = pattern ~toplevel:false ctx p in
+  let c = let_clause ~at ctx ps c in
+  p, c
 
 
 and ml_schema ctx {Location.it=Sugared.ML_Forall (params, t); at} =
   Location.mark ~at (Desugared.ML_Forall (params, mlty ctx params t))
-
-
-and arg_annotation ctx = function
-  | Sugared.Arg_annot_none -> Desugared.Arg_annot_none
-  | Sugared.Arg_annot_ty t ->
-     let t = mlty ctx [] t in
-     Desugared.Arg_annot_ty t
 
 
 and let_annotation ctx = function

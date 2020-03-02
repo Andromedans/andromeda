@@ -2,7 +2,7 @@
 
 let cow f x = f x ;; (** cow is polymorphic *)
 
-let chicken (f :> derivation) x y = f x y ;; (** f is a derivaton *)
+let chicken (?f :> derivation) x y = f x y ;; (** f is a derivaton *)
 
 rule A type ;;
 rule a : A ;;

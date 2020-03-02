@@ -289,18 +289,12 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
      Tyenv.lookup_ml_value pth >>= fun t ->
      return (locate ~at (Syntax.Value pth), t)
 
-  | Desugared.Function (x, annot, c) ->
-     let a =
-       begin
-         match annot with
-         | Desugared.Arg_annot_none -> Mlty.fresh_type ()
-         | Desugared.Arg_annot_ty t -> ml_ty [] t
-       end
-     in
-     Tyenv.add_bound_mono x a
+  | Desugared.Function (p, c) ->
+     infer_pattern p >>= fun (p, t_in, xts) ->
+     Tyenv.add_bounds_mono xts
      begin
-       infer_comp c >>= fun (c, b) ->
-       return (locate ~at (Syntax.Function c), Mlty.Arrow (a, b))
+       infer_comp c >>= fun (c, t_out) ->
+       return (locate ~at (Syntax.Function (p,c)), Mlty.Arrow (t_in, t_out))
      end
 
   | Desugared.Handler h ->
@@ -784,31 +778,28 @@ and letrec_clauses
 
   let bind_functions acc clauses comp_in_extended_context =
 
-    let prepare_types_for_binding a annot =
-      let a =
-        match a with
-        | Desugared.Arg_annot_none -> Mlty.fresh_type ()
-        | Desugared.Arg_annot_ty t -> ml_ty [] t
-      and b = Mlty.fresh_type () in
+    let prepare_types_for_binding p annot =
+      infer_pattern p >>= fun (p, t_in, xts) ->
+      let t_out = Mlty.fresh_type () in
       begin
         match annot with
         | Desugared.Let_annot_none ->
-           Tyenv.ungeneralize (Mlty.Arrow (a, b)) >>= fun sch ->
+           Tyenv.ungeneralize (Mlty.Arrow (t_in, t_out)) >>= fun sch ->
            return (sch, None)
         | Desugared.Let_annot_schema sch ->
            let sch = ml_schema sch in
            return (sch, Some sch)
-      end >>= fun sch_schopt -> return (a, b, sch_schopt)
+      end >>= fun sch_schopt -> return (t_in, t_out, sch_schopt, (p, xts))
     in
 
     let rec bind_functions_fold acc = function
       | [] -> return (List.rev acc) >>= comp_in_extended_context
 
-      | Desugared.Letrec_clause (f, (y, a), annot, c) :: rem ->
-         prepare_types_for_binding a annot >>= fun (a, b, (sch, schopt)) ->
+      | Desugared.Letrec_clause (f, p, annot, c) :: rem ->
+         prepare_types_for_binding p annot >>= fun (t_in, t_out, (sch, schopt), pxts) ->
          (if toplevel then Tyenv.add_ml_value_poly else Tyenv.add_bound_poly)
            f sch
-           (bind_functions_fold ((f, schopt, y, a, c, b) :: acc) rem)
+           (bind_functions_fold ((f, schopt, t_in, c, t_out, pxts) :: acc) rem)
     in
     bind_functions_fold acc clauses
   in
@@ -816,23 +807,23 @@ and letrec_clauses
   let rec check_bodies acc = function
     | [] -> return (List.rev acc)
 
-    | (f, schopt, y, a, c, b) :: rem ->
-       Tyenv.add_bound_mono y a (check_comp c b) >>= fun c ->
-       check_bodies ((f, schopt, y, a, c, b) :: acc) rem
+    | (f, schopt, t_in, c, t_out, (p, xts)) :: rem ->
+       Tyenv.add_bounds_mono xts (check_comp c t_out) >>= fun c ->
+       check_bodies ((f, schopt, p, t_in, c, t_out) :: acc) rem
   in
 
   let rec generalize_funs info clauses = function
     | [] -> return (List.rev info, List.rev clauses)
 
-    | (f, Some sch, y, a, c, b) :: rem ->
-       let t = Mlty.Arrow (a, b) in
+    | (f, Some sch, p, t_in, c, t_out) :: rem ->
+       let t = Mlty.Arrow (t_in, t_out) in
        Tyenv.generalizes_to ~at:c.Location.at t sch >>= fun () ->
-       generalize_funs ((f, sch) :: info) (Syntax.Letrec_clause c :: clauses) rem
+       generalize_funs ((f, sch) :: info) (Syntax.Letrec_clause (p, c) :: clauses) rem
 
-    | (f, None, y, a, c, b) :: rem ->
-       let t = Mlty.Arrow (a, b) in
+    | (f, None, p, t_in, c, t_out) :: rem ->
+       let t = Mlty.Arrow (t_in, t_out) in
        Tyenv.generalize t >>= fun sch ->
-       generalize_funs ((f, sch) :: info) (Syntax.Letrec_clause c :: clauses) rem
+       generalize_funs ((f, sch) :: info) (Syntax.Letrec_clause (p, c) :: clauses) rem
 
   in
 

@@ -55,7 +55,7 @@ type comp = comp' located
 and comp' =
   | Bound of Path.index
   | Value of Path.t
-  | Function of Name.t * arg_annotation * comp
+  | Function of pattern * comp
   | Handler of handler
   | MLConstructor of Path.ml_constructor * comp list
   | Tuple of comp list
@@ -102,7 +102,7 @@ and let_clause =
   | Let_clause of pattern * let_annotation * comp (* [let (?p :> t) = c] *)
 
 and letrec_clause =
-  | Letrec_clause of Name.t * (Name.t * arg_annotation) * let_annotation * comp
+  | Letrec_clause of Name.t * pattern * let_annotation * comp
 
 and handler = {
   handler_val: match_case list ;
