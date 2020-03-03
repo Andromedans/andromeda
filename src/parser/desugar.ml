@@ -1448,50 +1448,11 @@ and local_context :
 
 and premise ctx {Location.it=prem;at} =
   let locate x = Location.mark ~at x in
-  match prem with
-  | Sugared.PremiseIsType (mvar, local_ctx) ->
-     let (), local_ctx = local_context ctx local_ctx (fun _ -> ()) in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryIsType in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseIsTerm (mvar, local_ctx, c) ->
-     let c, local_ctx =
-       local_context
-         ctx local_ctx
-         (fun ctx -> comp ctx c)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryIsTerm c in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseEqType (mvar, local_ctx, (c1, c2)) ->
-     let (c1, c2), local_ctx =
-       local_context
-         ctx local_ctx
-         (fun ctx ->
-           comp ctx c1,
-           comp ctx c2)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryEqType (c1, c2) in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
-
-  | Sugared.PremiseEqTerm (mvar, local_ctx, (c1, c2, c3)) ->
-     let (c1, c2, c3), local_ctx =
-       local_context ctx local_ctx
-       (fun ctx ->
-         comp ctx c1,
-         comp ctx c2,
-         comp ctx c3)
-     in
-     let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
-     let ctx = Ctx.add_bound mvar ctx in
-     let bdry = Desugared.BoundaryEqTerm (c1, c2, c3) in
-     ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
+  let Sugared.Premise (mvar, local_ctx, c) = prem in
+  let bdry, local_ctx = local_context ctx local_ctx (fun ctx -> comp ctx c) in
+  let mvar = (match mvar with Some mvar -> mvar | None -> Name.anonymous ()) in
+  let ctx = Ctx.add_bound mvar ctx in
+  ctx, locate (Desugared.Premise (mvar, local_ctx, bdry))
 
 and premises :
   'a . Ctx.t -> Sugared.premise list -> (Ctx.t -> 'a) -> 'a * Desugared.premise list
@@ -1573,49 +1534,14 @@ let rec toplevel' ctx {Location.it=cmd; at} =
 
   match cmd with
 
-  | Sugared.RuleIsType (rname, prems) ->
+  | Sugared.Rule (rname, prems, c) ->
      let arity = tt_arity prems in
-     let (), prems = premises ctx prems (fun _ -> ()) in
-     let pth, ctx = Ctx.add_tt_constructor ~at rname arity ctx in
-     let bdry = Desugared.BoundaryIsType in
-     (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
-
-  | Sugared.RuleIsTerm (rname, prems, c) ->
-     let arity = tt_arity prems in
-     let c, prems =
+     let bdry, prems =
        premises
          ctx prems
          (fun ctx -> comp ctx c)
      in
      let pth, ctx = Ctx.add_tt_constructor ~at rname arity ctx in
-     let bdry = Desugared.BoundaryIsTerm c in
-     (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
-
-  | Sugared.RuleEqType (rname, prems, (c1, c2)) ->
-     let arity = tt_arity prems in
-     let (c1, c2), prems =
-       premises
-         ctx prems
-         (fun ctx ->
-           comp ctx c1,
-           comp ctx c2)
-     in
-     let pth, ctx = Ctx.add_tt_constructor ~at rname arity ctx in
-     let bdry = Desugared.BoundaryEqType (c1, c2) in
-     (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
-
-  | Sugared.RuleEqTerm (rname, prems, (c1, c2, c3)) ->
-     let arity = tt_arity prems in
-     let (c1, c2, c3), prems =
-       premises
-         ctx prems
-         (fun ctx ->
-          comp ctx c1,
-          comp ctx c2,
-          comp ctx c3)
-     in
-     let pth, ctx = Ctx.add_tt_constructor ~at rname arity ctx in
-     let bdry = Desugared.BoundaryEqTerm (c1, c2, c3) in
      (ctx, locate1 (Desugared.Rule (pth, prems, bdry)))
 
   | Sugared.DeclOperation (op, (args, res)) ->
@@ -1775,7 +1701,7 @@ let rec load_requires ~basedir ~loading ctx cmds =
           let ctx, mdls = fold ~loading ctx cmds in
           ctx, mdls' @ mdls
 
-       | Sugared.(RuleIsType _ | RuleIsTerm _ | RuleEqType _ | RuleEqTerm _ | DefMLTypeAbstract _ |
+       | Sugared.(Rule _ | DefMLTypeAbstract _ |
                DefMLType _ | DefMLTypeRec _ | DeclOperation _ | DeclException _ | DeclExternal _ |
                TopLet _ | TopLetRec _ | TopWith _ | TopComputation _ |
                Include _ | Verbosity _ | Open _) ->

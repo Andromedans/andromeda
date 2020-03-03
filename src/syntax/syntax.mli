@@ -112,7 +112,7 @@ and match_op_case = pattern list * pattern option * comp
 and local_context = (Name.t * comp) list
 
 and premise = premise' located
-and premise' = Premise of Name.t * local_context * boundary
+and premise' = Premise of Name.t * local_context * comp
 
 (** Type definitions are needed during runtime so that we can print them
     at the toplevel. *)
@@ -123,7 +123,7 @@ type ml_tydef =
 (** Toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
-  | Rule of tt_constructor * premise list * boundary
+  | Rule of tt_constructor * premise list * comp
   | DefMLTypeAbstract of Path.t
   | DefMLType of Path.t list (* we only need the names *)
   | DefMLTypeRec of Path.t list

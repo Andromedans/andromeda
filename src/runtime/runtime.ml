@@ -236,6 +236,7 @@ type error =
   | EqTermAbstractionExpected of value
   | BoundaryAbstractionExpected of value
   | JudgementAbstractionExpected of value
+  | BoundaryExpected of value
   | JudgementExpected of value
   | JudgementOrBoundaryExpected of value
   | EqualityCheckerExpected of value
@@ -494,6 +495,16 @@ let as_boundary_abstraction ~at v =
   | Boundary abstr -> abstr
   | Derivation _ | Judgement _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at (BoundaryAbstractionExpected v)
+
+let as_boundary ~at v =
+  match v with
+  | Boundary abstr ->
+     begin match Nucleus.as_not_abstract abstr with
+     | Some bdry -> bdry
+     | None -> error ~at (BoundaryExpected v)
+     end
+  | Derivation _ | Judgement _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
+    error ~at (BoundaryExpected v)
 
 let as_closure ~at = function
   | Closure f -> f
@@ -905,6 +916,9 @@ let print_error ~penv err ppf =
 
   | EqTermAbstractionExpected v ->
      Format.fprintf ppf "expected a term abstraction equality but got %s" (name_of v)
+
+  | BoundaryExpected v ->
+     Format.fprintf ppf "expected a boundary but got %s" (name_of v)
 
   | JudgementExpected v ->
      Format.fprintf ppf "expected a judgement but got %s" (name_of v)

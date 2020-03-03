@@ -874,8 +874,8 @@ and local_context lctx m =
   fold [] lctx
 
 and premise {Location.it=prem; at} =
-  let Desugared.Premise (x, lctx, bdry) = prem in
-  local_context lctx (boundary bdry) >>= fun (lctx, bdry) ->
+  let Desugared.Premise (x, lctx, c) = prem in
+  local_context lctx (check_comp c Mlty.Boundary) >>= fun (lctx, bdry) ->
   let p = locate ~at (Syntax.Premise (x, lctx, bdry)) in
   return (x, p)
 
@@ -919,8 +919,8 @@ let add_ml_type (t, (params, def)) =
 let rec toplevel' ({Location.it=c; at} : Desugared.toplevel) =
   match c with
 
-  | Desugared.Rule (rname, prems, bdry) ->
-     premises prems (boundary bdry) >>= fun (ps, bdry) ->
+  | Desugared.Rule (rname, prems, c) ->
+     premises prems (check_comp c Mlty.Boundary) >>= fun (ps, bdry) ->
      let r = Ident.create rname in
      Tyenv.add_tt_constructor r >>= fun () ->
      return_located ~at (Syntax.Rule (r, ps, bdry))

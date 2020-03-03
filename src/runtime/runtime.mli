@@ -103,6 +103,9 @@ val as_judgement_abstraction : at:Location.t -> value -> Nucleus.judgement_abstr
 (** Convert, or fail with [BoundaryAbstractionExpected] *)
 val as_boundary_abstraction : at:Location.t -> value -> Nucleus.boundary_abstraction
 
+(** Convert, or fail with [BoundaryExpected] *)
+val as_boundary : at:Location.t -> value -> Nucleus.boundary
+
 (** Convert, or fail with [ClosureExpected] *)
 val as_closure : at:Location.t -> value -> (value,value) closure
 
@@ -175,6 +178,7 @@ type error =
   | EqTermAbstractionExpected of value
   | BoundaryAbstractionExpected of value
   | JudgementAbstractionExpected of value
+  | BoundaryExpected of value
   | JudgementExpected of value
   | JudgementOrBoundaryExpected of value
   | EqualityCheckerExpected of value

@@ -1,0 +1,9 @@
+rule prod (A type) (B type) type ;;
+
+rule Pi (X :? ?? type) ({_ : X} Y :? ?? type) type ;;
+
+Pi ;;
+
+rule Cow (A type) ({x : A} B type) (C :? (let X = A in ?? : prod (Pi A B) X)) type ;;
+
+Cow ;;

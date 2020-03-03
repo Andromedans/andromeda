@@ -128,11 +128,7 @@ and local_context = (Name.t * comp) list
 
 (** A premise to a rule *)
 and premise = premise' located
-and premise' =
-  | PremiseIsType of Name.t option * local_context
-  | PremiseIsTerm of Name.t option * local_context * comp
-  | PremiseEqType of Name.t option * local_context * (comp * comp)
-  | PremiseEqTerm of Name.t option * local_context * (comp * comp * comp)
+and premise' = Premise of Name.t option * local_context * comp
 
 type ml_tydef =
   | ML_Sum of (Name.t * ml_ty list) list
@@ -141,10 +137,7 @@ type ml_tydef =
 (** Sugared toplevel commands *)
 type toplevel = toplevel' located
 and toplevel' =
-  | RuleIsType of Name.t * premise list
-  | RuleIsTerm of Name.t * premise list * comp
-  | RuleEqType of Name.t * premise list * (comp * comp)
-  | RuleEqTerm of Name.t * premise list * (comp * comp * comp)
+  | Rule of Name.t * premise list * comp
   | DefMLTypeAbstract of Name.t * Name.t option list
   | DefMLType of (Name.t * (Name.t option list * ml_tydef)) list
   | DefMLTypeRec of (Name.t * (Name.t option list * ml_tydef)) list

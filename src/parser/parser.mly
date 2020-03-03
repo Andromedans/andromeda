@@ -174,33 +174,43 @@ top_command_:
     { r }
 
 
+rule_boundary:
+  | bdry=premise_boundary
+    { bdry }
+
+  | COLON bdry=equality_premise_boundary
+    { bdry }
+
 rule_:
-  | c=tt_name ps=list(premise) TYPE
-    { Sugared.RuleIsType (c, ps) }
-
-  | c=tt_name ps=list(premise) COLON ty=term
-    { Sugared.RuleIsTerm (c, ps, ty) }
-
-  | c=tt_name ps=list(premise) COLON l=app_term EQEQ r=ty_term
-    { Sugared.RuleEqType (c, ps, (l, r)) }
-
-  | c=tt_name ps=list(premise) COLON l=app_term EQEQ r=app_term COLON ty=term
-    { Sugared.RuleEqTerm (c, ps, (l, r, ty)) }
+  | rl=tt_name ps=list(premise) bdry=rule_boundary
+    { Sugared.Rule (rl, ps, bdry) }
 
 premise: mark_location(premise_) { $1 }
 premise_:
-  | LPAREN lctx=local_context mv=opt_name(tt_name) TYPE RPAREN
-    { Sugared.PremiseIsType (mv, lctx) }
+  | LPAREN lctx=local_context mv=opt_name(tt_name) bdry=premise_boundary RPAREN
+    { Sugared.Premise(mv, lctx, bdry) }
 
-  | LPAREN lctx=local_context mv=opt_name(tt_name) COLON ty=term RPAREN
-    { Sugared.PremiseIsTerm (mv, lctx, ty) }
+  | LPAREN lctx=local_context bdry=equality_premise_boundary mv=equality_premise_name RPAREN
+    { Sugared.Premise (mv, lctx, bdry) }
 
-  | LPAREN lctx=local_context l=app_term EQEQ r=ty_term mv=equality_premise_name RPAREN
-    { Sugared.PremiseEqType (mv, lctx, (l, r)) }
+premise_boundary: mark_location(premise_boundary_) { $1 }
+premise_boundary_:
+  | TYPE
+    { Sugared.MLBoundaryIsType }
 
-  | LPAREN lctx=local_context l=app_term EQEQ r=app_term COLON ty=term mv=equality_premise_name RPAREN
-    { Sugared.PremiseEqTerm (mv, lctx, (l, r, ty)) }
+  | COLON ty=term
+    { Sugared.MLBoundaryIsTerm ty }
 
+  | COLONQT c=term_
+    { c }
+
+equality_premise_boundary: mark_location(equality_premise_boundary_) { $1 }
+equality_premise_boundary_:
+  | l=app_term EQEQ r=ty_term
+    { Sugared.MLBoundaryEqType (l, r) }
+
+  | l=app_term EQEQ r=app_term COLON ty=term
+    { Sugared.MLBoundaryEqTerm (l, r, ty) }
 
 equality_premise_name:
   |

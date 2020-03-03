@@ -46,6 +46,8 @@ let make start_lexpos end_lexpos =
 
 let mark ~at x = { it = x; at }
 
+let colocate {at; _} x = {it = x; at}
+
 let union l1 l2 =
   match l1, l2 with
   | Known {filename = fn1;
