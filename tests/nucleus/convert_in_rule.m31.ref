@@ -1,7 +1,7 @@
 Rule A is postulated.
 Rule B is postulated.
 Rule ξ is postulated.
-val d :> derivation = derive (x : A) → x
+val d :> derivation = derive (x : A) → x : B
 Rule a is postulated.
 - :> judgement * judgement = ((⊢ a : B), (⊢ B type))
 Rule P is postulated.
