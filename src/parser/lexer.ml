@@ -27,6 +27,7 @@ let reserved = [
   ("judgment", MLJUDGEMENT) ; (* for Egbert Rijke and other Americans *)
   ("let", LET) ;
   ("match", MATCH) ;
+  ("meta", META) ;
   ("mlforall", MLFORALL) ;
   ("mlstring", MLSTRING) ;
   ("mltype", MLTYPE) ;

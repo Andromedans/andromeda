@@ -173,6 +173,9 @@ let rec comp {Location.it=c'; at} =
      let v = Runtime.Judgement Nucleus.(abstract_not_abstract (JudgementIsTerm (form_is_term_atom atm))) in
      return v
 
+  | Syntax.Meta xopt ->
+     Runtime.(error ~at (MetaWithoutBoundary xopt))
+
   | Syntax.Match (c, cases) ->
      comp c >>=
      match_cases ~at cases comp
@@ -425,6 +428,12 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.Abstract (xopt, uopt, c) ->
     check_abstract ~at bdry xopt uopt c
 
+  | Syntax.Meta xopt ->
+     let x = match xopt with Some x -> x | None -> Name.mk_name "m" in
+     let _meta, jdg = Nucleus.form_meta x bdry in
+     return jdg
+
+
 (** Run the abstraction [Abstract(x, uopt, c)] and check it against the boundary abstraction [bdry]. *)
 and check_abstract ~at bdry x uopt c =
   match Nucleus.invert_boundary_abstraction bdry with
@@ -510,7 +519,7 @@ and letrec_bind
   = fun ~at fxcs ->
   let gs =
     List.map
-      (fun (Syntax.Letrec_clause (p, c)) -> (fun v -> 
+      (fun (Syntax.Letrec_clause (p, c)) -> (fun v ->
       Matching.match_pattern p v >>=
         begin function
         | Some us -> List.fold_left (fun c u -> Runtime.add_bound u c) (comp c) us
@@ -734,8 +743,8 @@ let toplet_bind ~at ~quiet ~print_annot info clauses =
 let topletrec_bind ~at ~quiet ~print_annot info fxcs =
   let gs =
     List.map
-      (fun (Syntax.Letrec_clause (p,c)) v -> 
-        Runtime.bind (Matching.match_pattern p v) 
+      (fun (Syntax.Letrec_clause (p,c)) v ->
+        Runtime.bind (Matching.match_pattern p v)
         begin function
         | Some us -> List.fold_left (fun c u -> Runtime.add_bound u c) (comp c) us
         | None -> Runtime.(error ~at (MatchFail v))

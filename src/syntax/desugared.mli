@@ -71,6 +71,7 @@ and comp' =
   | Ref of comp
   | Sequence of comp * comp
   | Fresh of Name.t option * comp
+  | Meta of Name.t option
   | Match of comp * match_case list
   | BoundaryAscribe of comp * comp
   | TypeAscribe of comp * comp

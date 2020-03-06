@@ -81,6 +81,7 @@ and comp' =
   | Ref of comp
   | Sequence of comp * comp
   | Fresh of Name.t option * comp
+  | Meta of Name.t option
   | BoundaryAscribe of comp * comp
   | TypeAscribe of comp * comp
   | EqTypeAscribe of comp * comp * comp
