@@ -2,8 +2,10 @@ open Nucleus_types
 
 (** Meta-variables *)
 
+(** Compare two meta-variables for equality *)
 let equal {meta_nonce=n1;_} {meta_nonce=n2;_} = Nonce.equal n1 n2
 
+(** Create a fresh meta-variable, return it and its fully exapnded form. *)
 let form_meta x abstr =
   let mv = Mk.free_meta x abstr in
   let rec fold k args = function
