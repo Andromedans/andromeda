@@ -329,6 +329,10 @@ val check_judgement_boundary_abstraction : signature -> judgement_abstraction ->
 (** A judgement with its boundary, under the same abstraction *)
 val abstracted_judgement_with_boundary : signature -> judgement abstraction -> (judgement * boundary) abstraction
 
+(** A derivation whose conclusion is a pair of judgement and its boundary *)
+val derivation_with_boundary : signature -> derivation -> (judgement * boundary) rule
+
+
 
 (** Typeof for atoms *)
 val type_of_atom : is_atom -> is_type
@@ -489,6 +493,9 @@ val print_judgement_with_boundary_abstraction :
 
 val print_derivation :
   ?max_level:Level.t -> penv:print_environment -> derivation -> Format.formatter -> unit
+
+val print_derivation_with_boundary :
+  ?max_level:Level.t -> penv:print_environment -> (judgement * boundary) rule -> Format.formatter -> unit
 
 
 

@@ -7,7 +7,7 @@ Rule B is postulated.
 Rule P is postulated.
 - :> derivation = derive (U type) ({_ : U} V type) → P U ({x} V {x}) type
 Rule f is postulated.
-- :> derivation = derive (x : A) (y : B A) → f x y
+- :> derivation = derive (x : A) (y : B A) → f x y : A
 Rule Ety is postulated.
 - :> derivation = derive (X type) (Y type) → B X ≡ B Y
 Rule ETm is postulated.
@@ -18,4 +18,4 @@ Rule C is postulated.
 Rule D is postulated.
 - :> derivation = derive (a : A) → D a type
 Rule c is postulated.
-- :> derivation = derive (u : A) (v : B A) → c u v
+- :> derivation = derive (u : A) (v : B A) → c u v : D (f u v)

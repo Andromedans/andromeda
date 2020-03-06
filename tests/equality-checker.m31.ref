@@ -85,7 +85,7 @@ Term computation rule for ℕ_ind (heads at [3]):
 
 - :> mlunit = ()
 val plus :> derivation = derive (n : ℕ) (m : ℕ) → ℕ_ind ({_} ℕ) n
-  ({c_n _} s c_n) m
+  ({c_n _} s c_n) m : ℕ
 val foo :> judgement = ⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) : ℕ
 - :> judgement * judgement =
   ((⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) ≡ s (ℕ_ind ({_} ℕ) z

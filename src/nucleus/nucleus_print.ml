@@ -307,20 +307,6 @@ let judgement_abstraction ?max_level ~penv abstr ppf =
     (Print.char_vdash ())
     (abstraction Occurs_bound.judgement thesis_judgement ~max_level:Level.vdash_right ~penv abstr)
 
-let premise ~penv {meta_nonce=n; meta_boundary=prem} ppf =
-  boundary_abstraction' ~penv:(forbid (Nonce.name n) penv) ~print_head:(Name.print ~parentheses:true (Nonce.name n)) prem ppf
-
-let derivation ?max_level ~penv drv ppf =
-  let rec fold ~penv drv ppf =
-    match drv with
-    | Conclusion jdg -> Print.print ppf "%s@ %t" (Print.char_arrow ()) (thesis_judgement ~penv jdg)
-    | Premise (mv, drv) ->
-       Print.print ppf "(%t)@ %t"
-                   (premise ~penv mv)
-                   (fold ~penv:(debruijn_meta mv penv) drv)
-  in
-  Print.print ppf ?max_level ~at_level:Level.derive "derive@ %t" (fold ~penv drv)
-
 let thesis_judgement_with_boundary ?max_level ~penv (jdg, bdry) ppf =
   match bdry with
   | (BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _) ->
@@ -339,6 +325,31 @@ let judgement_with_boundary_abstraction ?max_level ~penv abstr ppf =
     (print_assumptions ~max_level:Level.vdash_left ~penv asmp)
     (Print.char_vdash ())
     (abstraction Occurs_bound.judgement_with_boundary thesis_judgement_with_boundary ~max_level:Level.vdash_right ~penv abstr)
+
+let premise ~penv {meta_nonce=n; meta_boundary=prem} ppf =
+  boundary_abstraction' ~penv:(forbid (Nonce.name n) penv) ~print_head:(Name.print ~parentheses:true (Nonce.name n)) prem ppf
+
+let derivation ?max_level ~penv drv ppf =
+  let rec fold ~penv drv ppf =
+    match drv with
+    | Conclusion jdg -> Print.print ppf "%s@ %t" (Print.char_arrow ()) (thesis_judgement ~penv jdg)
+    | Premise (mv, drv) ->
+       Print.print ppf "(%t)@ %t"
+                   (premise ~penv mv)
+                   (fold ~penv:(debruijn_meta mv penv) drv)
+  in
+  Print.print ppf ?max_level ~at_level:Level.derive "derive@ %t" (fold ~penv drv)
+
+let derivation_with_boundary ?max_level ~penv drv ppf =
+  let rec fold ~penv drv ppf =
+    match drv with
+    | Conclusion jdg_bdry -> Print.print ppf "%s@ %t" (Print.char_arrow ()) (thesis_judgement_with_boundary ~penv jdg_bdry)
+    | Premise (mv, drv) ->
+       Print.print ppf "(%t)@ %t"
+                   (premise ~penv mv)
+                   (fold ~penv:(debruijn_meta mv penv) drv)
+  in
+  Print.print ppf ?max_level ~at_level:Level.derive "derive@ %t" (fold ~penv drv)
 
 (** Printing of error messages *)
 (* TODO: Some of these are probably internal while others count as runtime errors. We
