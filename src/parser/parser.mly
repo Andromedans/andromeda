@@ -54,7 +54,7 @@
 %token FUN
 
 (* TT commands *)
-%token FRESH CONVERT CONGRUENCE CONTEXT OCCURS DERIVE ABSTRACT
+%token FRESH META CONVERT CONGRUENCE CONTEXT OCCURS DERIVE ABSTRACT
 
 (* Toplevel directives *)
 %token VERBOSITY
@@ -331,6 +331,9 @@ app_term_:
   | OCCURS c1=substitution_term c2=substitution_term
     { Sugared.Occurs (c1, c2) }
 
+  | META x=opt_name(ml_name)
+    { Sugared.Meta x }
+
   | MLJUDGEMENT e=substitution_term es=list(substitution_term)
     { Sugared.RuleApply (e, es) }
 
@@ -548,7 +551,7 @@ ml_arg_:
 
   | pt=let_pattern_
     { pt }
-    
+
 
 let_annotation:
   |

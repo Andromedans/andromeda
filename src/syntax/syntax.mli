@@ -59,6 +59,7 @@ and comp' =
   | Sequence of comp * comp
   | Raise of comp
   | Fresh of Name.t option * comp
+  | Meta of Name.t option
   | Match of comp * match_case list
   | BoundaryAscribe of comp * comp
   | AsDerivation of tt_constructor

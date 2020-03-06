@@ -994,6 +994,9 @@ let rec comp ctx {Location.it=c';at} =
      let c = comp ctx c in
      locate (Desugared.Fresh (xopt, c))
 
+  | Sugared.Meta xopt ->
+     locate (Desugared.Meta xopt)
+
    | Sugared.AbstractAtom (c1,c2) ->
      let c1 = comp ctx c1
      and c2 = comp ctx c2 in

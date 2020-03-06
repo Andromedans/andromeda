@@ -160,6 +160,7 @@ type error =
   | TermEqualityFail of Nucleus.is_term * Nucleus.is_term
   | TypeEqualityFail of Nucleus.is_type * Nucleus.is_type
   | UnannotatedAbstract of Name.t
+  | MetaWithoutBoundary of Name.t option
   | MatchFail of value
   | InvalidComparison
   | InvalidEqualTerm of Nucleus.is_term * Nucleus.is_term

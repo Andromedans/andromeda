@@ -218,6 +218,7 @@ type error =
   | TermEqualityFail of Nucleus.is_term * Nucleus.is_term
   | TypeEqualityFail of Nucleus.is_type * Nucleus.is_type
   | UnannotatedAbstract of Name.t
+  | MetaWithoutBoundary of Name.t option
   | MatchFail of value
   | InvalidComparison
   | InvalidEqualTerm of Nucleus.is_term * Nucleus.is_term
@@ -857,6 +858,13 @@ let print_error ~penv err ppf =
 
   | UnannotatedAbstract x ->
      Format.fprintf ppf "cannot infer the type of@ %t@ in abstraction" (Name.print x)
+
+  | MetaWithoutBoundary (Some x) ->
+     Format.fprintf ppf "meta-variable %t appears without a boundary"
+                    (Name.print x)
+
+  | MetaWithoutBoundary None ->
+     Format.fprintf ppf "this meta-variable appears without a boundary"
 
   | MatchFail v ->
      Format.fprintf ppf "no matching pattern found for value@ %t"
