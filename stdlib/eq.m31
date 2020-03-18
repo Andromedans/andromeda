@@ -102,3 +102,16 @@ let prove bdry =
     | ML.None -> raise (Failed_equality bdry)
     end
   end
+
+let add_locally equation cmp =
+  let ch' = ref !ch in
+  try
+    add_rule equation ;
+    let result = cmp () in
+    ch := !ch' ;
+    result
+  with
+    | raise ?exc -> 
+        ch := !ch' ;
+        raise exc
+  end
