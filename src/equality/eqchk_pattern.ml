@@ -386,24 +386,18 @@ let is_range s k =
    the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
    a beta or extensionality rule. *)
 let make_is_type k t =
-  try
-    let metas, patt = form_is_type Bound_set.empty t in
-    if is_range metas k then
-      Some (patt, k)
-    else
-      None
-  with
-  | Form_fail -> None
+   let metas, patt = form_is_type Bound_set.empty t in
+   if is_range metas k then
+     (patt, k)
+   else
+     raise Form_fail
 
 (** Construct a pattern [p] from term [e], and verify that the pattern captures exactly
    the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
    a beta or extensionality rule. *)
 let make_is_term k e =
-  try
-    let metas, patt = form_is_term Bound_set.empty e in
-    if is_range metas k then
-      Some (patt, k)
-    else
-      None
-  with
-  | Form_fail -> None
+   let metas, patt = form_is_term Bound_set.empty e in
+   if is_range metas k then
+     (patt, k)
+   else
+     raise Form_fail

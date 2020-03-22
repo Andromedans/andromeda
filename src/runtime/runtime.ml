@@ -171,6 +171,7 @@ and exc = Ident.t * value option
 
 and external_value =
   | EqualityChecker of Eqchk.checker
+  | EqualityCheckerException of string * string
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
 and ('a, 'b) closure = Clos of ('a -> 'b comp)
@@ -362,6 +363,7 @@ let top_as_ml_module (m : unit toplevel) ({top_runtime=({lexical;_} as env);_} a
 
 let name_of_external = function
   | EqualityChecker _ -> "equality checker"
+  | EqualityCheckerException _ -> "and exception from equality checker"
 
 let name_of v =
   match v with
@@ -382,7 +384,7 @@ let name_of v =
 let as_equality_checker ~at = function
   | External (EqualityChecker chk) -> chk
 
-  | (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (External (EqualityCheckerException _) |Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (EqualityCheckerExpected v)
 
 let as_derivation ~at = function
@@ -689,6 +691,8 @@ let top_lookup_signature topenv =
 let print_external ?max_level ~penv v ppf =
   match v with
   | EqualityChecker _ -> Format.fprintf ppf "<checker>"
+  | EqualityCheckerException (msg, trace) -> 
+    Format.fprintf ppf "Equality checker exception: %s%s@." msg trace
 
 (** In the future this routine will be type-driven. One consequence is that
     constructor tags will be printed by looking up their names in type
@@ -1069,6 +1073,9 @@ let equal_external_value v1 v2 =
   v1 == v2 ||
   match v1, v2 with
   | EqualityChecker c1, EqualityChecker c2 -> (c1 == c2)
+  | EqualityCheckerException (msg1,trace1), EqualityCheckerException (msg2,trace2) -> (msg1 == msg2)
+  | EqualityCheckerException _, EqualityChecker _
+  | EqualityChecker _, EqualityCheckerException _ -> false
 
 
 let rec equal_value v1 v2 =

@@ -15,6 +15,8 @@ let tag_mlgreater, _, _ = Typecheck.Builtin.mlgreater
 let equal_type, _ = Typecheck.Builtin.equal_type
 let coerce, _ = Typecheck.Builtin.coerce
 
+let eqchk_exc, _ = Typecheck.Builtin.eqchk_excs
+
 let list_nil = Runtime.mk_tag tag_nil []
 
 let list_cons v lst = Runtime.mk_tag tag_cons [v; lst]

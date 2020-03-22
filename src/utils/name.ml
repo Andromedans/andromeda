@@ -139,6 +139,9 @@ module Builtin = struct
 
   let hypotheses_name = mk_name "hypotheses"
   let hypotheses = in_ml hypotheses_name
+
+  let eqchk_excs_name = mk_name "EqualityCheckerException"
+  let eqchk_excs = in_ml eqchk_excs_name
 end
 
 (** Split a string into base and an optional numerical suffix, e.g., ["x42"],

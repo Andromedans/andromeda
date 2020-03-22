@@ -21,45 +21,34 @@ let empty_checker =
    given checker, or raise [Invalid_rule] if not possible. *)
 
 let add_type_computation' checker drv =
-  try
-    let sym, bt, normalizer = Eqchk_normalizer.add_type_computation checker.normalizer drv in
-    Some (sym, bt, {checker with normalizer})
-  with
-    Invalid_rule -> None
+  let sym, bt, normalizer = Eqchk_normalizer.add_type_computation checker.normalizer drv in
+   sym, bt, {checker with normalizer}
 
 let add_type_computation checker drv =
   match add_type_computation' checker drv with
-  | None -> None
-  | Some (_, _, checker) -> Some checker
+  | _, _, checker -> checker
 
 let add_term_computation' checker drv =
-  try
-    let sym, bt, normalizer = Eqchk_normalizer.add_term_computation checker.normalizer drv in
-    Some (sym, bt, {checker with normalizer})
-  with
-    Invalid_rule -> None
+  let sym, bt, normalizer = Eqchk_normalizer.add_term_computation checker.normalizer drv in
+  sym, bt, {checker with normalizer}
 
 let add_term_computation checker drv =
   match add_term_computation' checker drv with
-  | None -> None
-  | Some (_, _, checker) -> Some checker
+  | (_, _, checker) -> checker
 
 let add_extensionality' checker drv =
-  try
-    let sym, bt = Eqchk_extensionality.make_equation drv in
-    let rls =
-      match SymbolMap.find_opt sym checker.ext_rules with
-      | None -> [bt]
-      | Some rls -> rls @ [bt]
-    in
-    Some (sym, {checker with ext_rules = SymbolMap.add sym rls checker.ext_rules})
-  with
-  | Invalid_rule -> None
+  let sym, bt = Eqchk_extensionality.make_equation drv in
+  let rls =
+    match SymbolMap.find_opt sym checker.ext_rules with
+    | None -> [bt]
+    | Some rls -> rls @ [bt]
+  in
+  (sym, {checker with ext_rules = SymbolMap.add sym rls checker.ext_rules})
+
 
 let add_extensionality checker drv =
   match add_extensionality' checker drv with
-  | None -> None
-  | Some (_, checker) -> Some checker
+  | (_, checker) -> checker
 
 (** General equality checking functions *)
 
@@ -78,10 +67,7 @@ let rec prove_eq_type_abstraction chk sgn abstr =
        let abstr = fold abstr in
        Nucleus.abstract_eq_type atm abstr
   in
-  try
-    Some (fold abstr)
-  with
-  | Equality_fail -> None
+  fold abstr
 
 and prove_eq_term_abstraction chk sgn abstr =
   let rec fold abstr =
@@ -94,10 +80,7 @@ and prove_eq_term_abstraction chk sgn abstr =
        let abstr = fold abstr in
        Nucleus.abstract_eq_term atm abstr
   in
-  try
-    Some (fold abstr)
-  with
-  | Equality_fail -> None
+  fold abstr
 
 and prove_eq_type chk sgn (ty1, ty2) =
   let ty1_eq_ty1', ty1' = Eqchk_normalizer.normalize_type ~strong:false sgn chk.normalizer ty1
@@ -124,7 +107,7 @@ and prove_eq_term ~ext chk sgn bdry =
     normalization_phase bdry
   else
     match Eqchk_extensionality.find chk.ext_rules sgn bdry with
-
+    
     | Some rap ->
        (* reduce the problem to an application of an extensionality rule *)
        resolve_rap chk sgn IntSet.empty rap
@@ -209,40 +192,41 @@ let set_term_heads ({normalizer; _} as chk) s hs =
   { chk with normalizer = Eqchk_normalizer.set_term_heads normalizer (Ident s) (IntSet.of_list hs) }
 
 let add ~quiet ~penv chk drv =
-  match add_extensionality' chk drv with
+  try
+    match add_extensionality' chk drv with
+    | (sym, chk) ->
+      if not quiet then
+        Format.printf "Extensionality rule for %t:@ %t@."
+          (print_symbol ~penv sym)
+          (Nucleus.print_derivation ~penv drv) ;
+      chk
 
-  | Some (sym, chk) ->
-     if not quiet then
-       Format.printf "Extensionality rule for %t:@ %t@."
-         (print_symbol ~penv sym)
-         (Nucleus.print_derivation ~penv drv) ;
-     Some chk
+  with
+    | Invalid_rule ->
+      try
+        begin match add_type_computation' chk drv with
 
-  | None ->
-     begin match add_type_computation' chk drv with
-
-     | Some (sym, ((patt, _), _), chk) ->
-        let heads = heads_type patt in
-        let chk = { chk with normalizer = Eqchk_normalizer.set_type_heads chk.normalizer sym heads } in
-        if not quiet then
-          Format.printf "@[<hov 2>Type computation rule for %t (heads at [%t]):@\n%t@.@]"
-            (print_symbol ~penv sym)
-            (Print.sequence (fun k ppf -> Format.fprintf ppf "%d" k) "," (IntSet.elements heads))
-            (Nucleus.print_derivation ~penv drv) ;
-        Some chk
-
-     | None ->
-        begin match add_term_computation' chk drv with
-          | Some (sym, ((patt, _), _), chk) ->
-             let heads = heads_term patt in
-             let chk = { chk with normalizer = Eqchk_normalizer.set_term_heads chk.normalizer sym heads } in
-             if not quiet then
-               Format.printf "@[<hov 2>Term computation rule for %t (heads at [%t]):@\n%t\n@.@]"
-                 (print_symbol ~penv sym)
-                 (Print.sequence (fun k ppf -> Format.fprintf ppf "%d" k) "," (IntSet.elements heads))
-                 (Nucleus.print_derivation ~penv drv) ;
-             Some chk
-
-          | None -> None
+        |  (sym, ((patt, _), _), chk) ->
+            let heads = heads_type patt in
+            let chk = { chk with normalizer = Eqchk_normalizer.set_type_heads chk.normalizer sym heads } in
+            if not quiet then
+              Format.printf "@[<hov 2>Type computation rule for %t (heads at [%t]):@\n%t@.@]"
+                (print_symbol ~penv sym)
+                (Print.sequence (fun k ppf -> Format.fprintf ppf "%d" k) "," (IntSet.elements heads))
+                (Nucleus.print_derivation ~penv drv) ;
+            chk
         end
-     end
+
+     with
+      | Invalid_rule ->
+          begin match add_term_computation' chk drv with
+            | (sym, ((patt, _), _), chk) ->
+              let heads = heads_term patt in
+              let chk = { chk with normalizer = Eqchk_normalizer.set_term_heads chk.normalizer sym heads } in
+              if not quiet then
+                Format.printf "@[<hov 2>Term computation rule for %t (heads at [%t]):@\n%t\n@.@]"
+                  (print_symbol ~penv sym)
+                  (Print.sequence (fun k ppf -> Format.fprintf ppf "%d" k) "," (IntSet.elements heads))
+                  (Nucleus.print_derivation ~penv drv) ;
+              chk
+          end

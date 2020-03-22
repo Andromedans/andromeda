@@ -22,6 +22,7 @@ and exc = Ident.t * value option
 
 and external_value =
   | EqualityChecker of Eqchk.checker
+  | EqualityCheckerException of string * string
 
 and operation_args = { args : value list; checking : Nucleus.boundary_abstraction option }
 

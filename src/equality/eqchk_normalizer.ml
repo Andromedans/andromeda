@@ -38,14 +38,9 @@ let make_type_computation drv =
 
     | Nucleus_types.(Conclusion eq)  ->
        let (Nucleus_types.EqType (_asmp, t1, _t2)) = Nucleus.expose_eq_type eq in
-       begin match Eqchk_pattern.make_is_type k t1 with
-
-       | Some patt ->
-          let s = head_symbol_type t1 in
-          (s, patt)
-
-       | None -> raise Invalid_rule
-       end
+       let patt =  Eqchk_pattern.make_is_type k t1 in
+       let s = head_symbol_type t1 in
+       (s, patt)
 
     | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
        if is_object_premise bdry then
@@ -67,14 +62,9 @@ let make_term_computation drv =
 
     | Nucleus_types.(Conclusion eq) ->
        let (Nucleus_types.EqTerm (_asmp, e1, _e2, _t)) = Nucleus.expose_eq_term eq in
-       begin match Eqchk_pattern.make_is_term k e1 with
-
-       | Some patt ->
-          let s = head_symbol_term e1 in
-          (s, patt)
-
-       | None -> raise Invalid_rule
-       end
+       let patt = Eqchk_pattern.make_is_term k e1 in
+       let s = head_symbol_term e1 in
+       (s, patt)
 
     | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
        if is_object_premise bdry then
