@@ -1063,5 +1063,5 @@ struct
 
   let _, coerce = run (Tyenv.lookup_ml_operation Desugar.Builtin.coerce)
 
-  let _, eqchk_excs = run (Tyenv.lookup_ml_operation Desugar.Builtin.eqchk_excs)
+  let _, eqchk_excs = run (Tyenv.lookup_ml_exception Desugar.Builtin.eqchk_excs)
 end
