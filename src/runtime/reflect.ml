@@ -74,3 +74,7 @@ let operation_coerce ~at jdg bdry =
   and v2 = Runtime.Boundary bdry in
   Runtime.operation coerce [v1;v2] >>= fun v ->
   return (Runtime.as_judgement_abstraction ~at v)
+
+let eqchk_exception ~at (msg, trace) =
+  let msg' = Runtime.String (String.concat " " [msg; trace]) in
+  return (Runtime.Exc((eqchk_exc, Some msg')))

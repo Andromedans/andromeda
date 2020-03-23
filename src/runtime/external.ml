@@ -91,7 +91,7 @@ let externals =
                err -> 
                let msg = Printexc.to_string err in
                let trace = Printexc.get_backtrace () in 
-               Runtime.return (Runtime.(External (EqualityCheckerException (msg, trace))))
+               Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
            )));
 
     ("Eqchk.add_term_computation",
@@ -106,7 +106,7 @@ let externals =
                err -> 
                let msg = Printexc.to_string err in
                let trace = Printexc.get_backtrace () in 
-               Runtime.return (Runtime.(External (EqualityCheckerException (msg, trace))))
+               Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
            )));
 
     ("Eqchk.normalize_type",
@@ -149,7 +149,7 @@ let externals =
                err -> 
                let msg = Printexc.to_string err in
                let trace = Printexc.get_backtrace () in 
-               Runtime.return (Runtime.(External (EqualityCheckerException (msg, trace))))
+               Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
     )));
 
     ("Eqchk.add",
@@ -165,7 +165,7 @@ let externals =
                err -> 
                let msg = Printexc.to_string err in
                let trace = Printexc.get_backtrace () in 
-               Runtime.return (Runtime.(External (EqualityCheckerException (msg, trace))))
+               Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
     )));
 
     ("Eqchk.prove_eq_type_abstraction",
@@ -185,7 +185,7 @@ let externals =
                   err -> 
                   let msg = Printexc.to_string err in
                   let trace = Printexc.get_backtrace () in 
-                  Runtime.return (Runtime.(External (EqualityCheckerException (msg, trace))))
+                  Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
     )));
 
     ("Eqchk.prove_eq_term_abstraction",
@@ -205,7 +205,7 @@ let externals =
                   err -> 
                   let msg = Printexc.to_string err in
                   let trace = Printexc.get_backtrace () in 
-                  Runtime.return (Runtime.(External (EqualityCheckerException (msg, trace))))
+                  Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
     )));
   ]
 
