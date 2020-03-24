@@ -64,6 +64,12 @@ Rule v is postulated.
 - :> judgement * judgement =
   ((⊢ snd U V (pair U V u v) ≡ v : V), (⊢ v : V))
 - :> judgement = ⊢ p ≡ pair U V (fst U V p) (snd U V p) : prod U V
+Rule unuseful is postulated.
+Type computation rule for prod (heads at []):
+  derive (A type) (B type) → prod A B ≡ U
+- :> judgement * judgement = ((⊢ prod U V ≡ U), (⊢ U type))
+- :> judgement * judgement =
+  ((⊢ prod U V ≡ prod U V), (⊢ prod U V type))
 Rule ℕ is postulated.
 Rule z is postulated.
 Rule s is postulated.
@@ -90,6 +96,9 @@ val foo :> judgement = ⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) : ℕ
   ((⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) ≡ s (ℕ_ind ({_} ℕ) z
    ({c_n _} s c_n) z) : ℕ), (⊢ s (ℕ_ind ({_} ℕ) z ({c_n _} s c_n) z)
    : ℕ))
+- :> judgement * judgement =
+  ((⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) ≡ s z : ℕ), (⊢ s z :
+   ℕ))
 - :> judgement * judgement =
   ((⊢ ℕ_ind ({_} ℕ) z ({_ c_n} s c_n) z ≡ z : ℕ), (⊢ z : ℕ))
 - :> judgement * judgement =
