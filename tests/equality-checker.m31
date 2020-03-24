@@ -38,6 +38,10 @@ eq.normalize (snd U V (pair U V u v));;
 
 eq.prove (p ≡ pair U V (fst U V p) (snd U V p) : prod U V by ??);;
 
+rule unuseful (A type) (B type) : prod A B ≡ U ;;
+eq.add_locally unuseful (fun () -> eq.compute (prod U V)) ;;
+eq.compute (prod U V) ;;
+
 (* Natural numbers *)
 
 rule ℕ type;;
@@ -72,6 +76,7 @@ eq.add_rule ℕ_β_z;;
 let plus = derive (n : ℕ) (m : ℕ) -> ℕ_ind ({_} ℕ) n ({k : ℕ} {c_k : ℕ} s c_k) m ;;
 let foo = plus (z) (s z);;
 eq.normalize foo;;
+eq.compute foo ;;
 eq.normalize (ℕ_ind ({_} ℕ) z ({c_n _} s c_n) z);;
 eq.normalize (s (ℕ_ind ({_} ℕ) z ({c_n _} s c_n) z));;
 eq.prove (plus (s z) (s z) ≡ s (s z) : ℕ by ??)
