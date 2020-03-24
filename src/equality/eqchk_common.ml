@@ -43,11 +43,13 @@ type symbol =
   | Ident of Ident.t
   | Nonce of Nonce.t
 
-exception Equality_fail
+exception Equality_fail of string
 
-exception Invalid_rule
+exception Invalid_rule of string
 
-exception Normalization_fail
+exception Normalization_fail of string
+
+exception Fatal_error of string
 
 (** A tag to indicate that a term or a type is normalized *)
 type 'a normal = Normal of 'a
@@ -83,7 +85,7 @@ let head_symbol_term e =
     | Nucleus_types.(TermAtom {atom_nonce=n; _}) -> Nonce n
     | Nucleus_types.TermConstructor (c, _) -> Ident c
     | Nucleus_types.(TermMeta (MetaFree {meta_nonce;_}, _)) -> Nonce meta_nonce
-    | Nucleus_types.(TermMeta (MetaBound _, _)) -> assert false
+    | Nucleus_types.(TermMeta (MetaBound _, _)) -> raise (Fatal_error "head symbol of a bound term metavariable does not exist")
     | Nucleus_types.TermConvert (e, _, _) -> fold e
   in
   fold e
@@ -93,7 +95,7 @@ let head_symbol_term e =
 let head_symbol_type = function
   | Nucleus_types.TypeConstructor (c, _) -> Ident c
   | Nucleus_types.(TypeMeta (MetaFree {meta_nonce=n;_}, _)) -> Nonce n
-  | Nucleus_types.(TypeMeta (MetaBound _, _)) -> assert false
+  | Nucleus_types.(TypeMeta (MetaBound _, _)) -> raise (Fatal_error "head symbol of a bound type metavariable does not exist")
 
 (** Apply rap to a list of arguments *)
 let rap_apply rap args =
@@ -101,7 +103,7 @@ let rap_apply rap args =
   match rap, args with
   | rap, [] -> rap
   | Nucleus.RapMore (_bdry, f), arg :: args -> fold (f arg) args
-  | Nucleus.RapDone _, _::_ -> assert false
+  | Nucleus.RapDone _, _::_ -> raise (Fatal_error "Applying the rule to too many arguments")
   in
   try
     Some (fold rap args)
@@ -114,7 +116,8 @@ let rap_fully_apply rap args =
   match rap, args with
   | Nucleus.RapDone jdg, [] -> jdg
   | Nucleus.RapMore (_bdry, f), arg :: args -> fold (f arg) args
-  | Nucleus.RapDone _, _::_ | Nucleus.RapMore _, [] -> assert false
+  | Nucleus.RapDone _, _::_ -> raise (Fatal_error "Applying the rule to too many arguments")
+  | Nucleus.RapMore _, [] -> raise (Fatal_error "Applying the rule to too few arguments")
   in
   try
     Some (fold rap args)

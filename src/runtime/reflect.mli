@@ -21,4 +21,4 @@ val operation_equal_type :
 val operation_coerce :
   at:Location.t -> Nucleus.judgement_abstraction -> Nucleus.boundary_abstraction -> Nucleus.judgement_abstraction Runtime.comp
 
-val eqchk_exception: at:Location.t -> string * string -> Runtime.value Runtime.comp
+val eqchk_exception: at:Location.t -> string -> Runtime.value Runtime.comp
