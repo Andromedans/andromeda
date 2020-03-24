@@ -88,10 +88,10 @@ let externals =
                let chk = Eqchk.add_type_computation chk drv in
                Runtime.return (Runtime.(External (EqualityChecker chk)))
              with
-               err -> 
-               let msg = Printexc.to_string err in
-               let trace = Printexc.get_backtrace () in 
-               Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
+               | Eqchk_common.Invalid_rule err
+               | Eqchk_common.Equality_fail err
+               | Eqchk_pattern.Form_fail err ->
+                 Reflect.eqchk_exception ~at:Location.unknown err
            )));
 
     ("Eqchk.add_term_computation",
@@ -103,10 +103,10 @@ let externals =
                let chk =  Eqchk.add_term_computation chk drv in
                Runtime.return Runtime.(External (EqualityChecker chk))
               with
-               err -> 
-               let msg = Printexc.to_string err in
-               let trace = Printexc.get_backtrace () in 
-               Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
+               | Eqchk_common.Invalid_rule err
+               | Eqchk_common.Equality_fail err
+               | Eqchk_pattern.Form_fail err ->
+                 Reflect.eqchk_exception ~at:Location.unknown err
            )));
 
     ("Eqchk.normalize_type",
@@ -146,10 +146,10 @@ let externals =
                let chk = Eqchk.add_extensionality chk drv in
                Runtime.return Runtime.(External (EqualityChecker chk))
              with
-               err -> 
-               let msg = Printexc.to_string err in
-               let trace = Printexc.get_backtrace () in 
-               Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
+               | Eqchk_common.Invalid_rule err
+               | Eqchk_common.Equality_fail err
+               | Eqchk_pattern.Form_fail err ->
+                 Reflect.eqchk_exception ~at:Location.unknown err
     )));
 
     ("Eqchk.add",
@@ -162,10 +162,10 @@ let externals =
                let chk =  Eqchk.add ~quiet:false ~penv chk drv in
                Runtime.return Runtime.(External (EqualityChecker chk))
              with
-               err -> 
-               let msg = Printexc.to_string err in
-               let trace = Printexc.get_backtrace () in 
-               Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
+               | Eqchk_common.Invalid_rule err
+               | Eqchk_common.Equality_fail err
+               | Eqchk_pattern.Form_fail err ->
+                 Reflect.eqchk_exception ~at:Location.unknown err
     )));
 
     ("Eqchk.prove_eq_type_abstraction",
@@ -182,10 +182,10 @@ let externals =
                   let eq = Nucleus.from_eq_type_abstraction eq in
                   Runtime.return Runtime.(Judgement eq)
                 with
-                  err -> 
-                  let msg = Printexc.to_string err in
-                  let trace = Printexc.get_backtrace () in 
-                  Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
+                  | Eqchk_common.Invalid_rule err
+                  | Eqchk_common.Equality_fail err
+                  | Eqchk_pattern.Form_fail err ->
+                    Reflect.eqchk_exception ~at:Location.unknown err
     )));
 
     ("Eqchk.prove_eq_term_abstraction",
@@ -201,11 +201,11 @@ let externals =
                   let eq = Eqchk.prove_eq_term_abstraction chk sgn bdry in
                   let eq = Nucleus.from_eq_term_abstraction eq in
                   Runtime.return Runtime.(Judgement eq)
-                with
-                  err -> 
-                  let msg = Printexc.to_string err in
-                  let trace = Printexc.get_backtrace () in 
-                  Reflect.eqchk_exception ~at:Location.unknown (msg, trace)
+                 with
+                  | Eqchk_common.Invalid_rule err
+                  | Eqchk_common.Equality_fail err
+                  | Eqchk_pattern.Form_fail err ->
+                    Reflect.eqchk_exception ~at:Location.unknown err
     )));
   ]
 

@@ -2,15 +2,6 @@
 
 mltype checker ;;
 
-exception Invalid_rule ;;
-exception Equality_fail ;;
-exception Normalization_fail ;;
-exception Match_fail ;;
-exception Form_fail ;;
-exception Invalid_equality_rule ;;
-
-exception Failed_equality of boundary ;;
-
 external empty_checker : checker
   = "Eqchk.empty_checker" ;;
 

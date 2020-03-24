@@ -12,18 +12,19 @@ let make_equation drv =
 
   (* Check that e is the bound meta-variable k *)
   let check_meta k = function
-    | Nucleus_types.(TermMeta (MetaBound j, [])) -> if j <> k then raise Invalid_rule
+    | Nucleus_types.(TermMeta (MetaBound j, [])) -> if j <> k then raise (Invalid_rule "not a correct bound metavariable")
     | Nucleus_types.(TermMeta (MetaFree _, _) | TermMeta (MetaBound _, _::_) | TermBoundVar _ | TermAtom _ |
                      TermConstructor _ | TermConvert _) ->
-       raise Invalid_rule
+       raise (Invalid_rule "not a bound metavariable")
   in
 
   (* Extract a type from an optional boundary *)
   let extract_type = function
     | Some (Nucleus_types.(NotAbstract (BoundaryIsTerm t))) -> t
-    | Some (Nucleus_types.(NotAbstract (BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _) | Abstract _))
+    | Some (Nucleus_types.(NotAbstract (BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _) | Abstract _)) ->
+      raise (Invalid_rule "given boundary in not a term boundary")
     | None ->
-       raise Invalid_rule
+       raise (Invalid_rule "boundary not given")
   in
 
   (* do the main work where:
@@ -34,13 +35,23 @@ let make_equation drv =
 
     | Nucleus_types.(Conclusion eq) ->
        let (Nucleus_types.EqTerm (_asmp, e1, e2, t)) = Nucleus.expose_eq_term eq in
-       check_meta (n_eq+1) e1 ; (* check LHS *)
-       check_meta n_eq e2 ; (* check RHS *)
+       begin
+       try (* check LHS *)
+         check_meta (n_eq+1) e1
+       with
+         Invalid_rule _ -> raise (Invalid_rule "LHS of equation is not a correct metavariable")
+       end ;
+       begin
+       try (* check RHS *)
+         check_meta n_eq e2 
+       with 
+         Invalid_rule _ -> raise (Invalid_rule "RHS of equation is not a correct metavariable")
+       end ;
        let t1 = extract_type bdry1opt in
        let t1' = Shift_meta.is_type (n_eq+2) t1
        and t2' = Shift_meta.is_type (n_eq+1) (extract_type bdry2opt) in
        (* check that types are equal *)
-       if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then raise Invalid_rule ;
+       if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then raise (Invalid_rule "terms do not have equal types") ;
        let patt = Eqchk_pattern.make_is_type (n_ob-2) t1 in
        let s = head_symbol_type t1 in
        (s, patt)
@@ -48,7 +59,7 @@ let make_equation drv =
     | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
        if is_object_premise bdry then
          begin
-           if n_eq > 0 then raise Invalid_rule ;
+           if n_eq > 0 then raise (Invalid_rule "object premise appears after equality premise");
            fold (bdry2opt, Some bdry) (n_ob + 1) n_eq drv
          end
        else
@@ -59,7 +70,7 @@ let make_equation drv =
   let drv =
     match Nucleus.as_eq_term_rule drv with
     | Some drv -> drv
-    | None -> raise Invalid_rule
+    | None -> raise (Invalid_rule "derivation not in a required form")
   in
   (* Collect head symbol and pattern (and verify that drv has the correct form) *)
   let s, patt = fold (None, None) 0 0 (Nucleus.expose_rule drv) in
