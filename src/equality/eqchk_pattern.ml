@@ -205,7 +205,7 @@ let match_is_term sgn e (r, k) =
 exception Form_fail of string
 
 (** Is the given judgement abstraction an eta-expanded meta-variable? *)
-let extract_meta metas abstr =
+let rec extract_meta metas abstr =
   let rec fold k = function
 
     | Nucleus_types.Arg_Abstract (_, abstr) -> fold (k+1) abstr
@@ -236,10 +236,10 @@ let extract_meta metas abstr =
              else
                let metas = Bound_set.add m metas in
                metas, Patt.ArgumentIsTerm (Patt.TermAddMeta m)
+          | Nucleus_types.TermConvert (e, _, _) -> extract_meta metas (Nucleus_types.(Arg_NotAbstract (JudgementIsTerm e)))
 
           | Nucleus_types.(TermMeta (MetaFree _, _) | TermBoundVar _ | TermAtom _ |
-                           TermConstructor _ | TermConvert _) ->
-             (** XXX should go through TermConvert here *)
+                           TermConstructor _) ->
              raise (Form_fail "Given abstraction is not an eta-expanded metavariable")
 
           end
