@@ -148,8 +148,6 @@ let rec apply_type_beta betas sgn t =
 (** Find a term computation rule and apply it to [e]. *)
 and apply_term_beta betas sgn e =
   let s = head_symbol_term (Nucleus.expose_is_term e) in
-  let penv = Nucleus.({forbidden = Name.set_empty; debruijn_var = []; debruijn_meta = []; opens = Path.set_empty}) in
-  Format.printf "%t@." (Eqchk_common.print_symbol ~penv:penv s) ;
   match SymbolMap.find_opt s betas with
 
   | None -> None

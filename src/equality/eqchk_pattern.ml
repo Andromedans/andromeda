@@ -14,6 +14,16 @@ module MetaMap =
 
 let add_meta = MetaMap.add
 
+let add_bound atom bounds =
+  let n = List.length bounds in
+  (atom, n) :: bounds
+
+let find_bound atom bounds =
+  let predicate (atm, index) = Nucleus.alpha_equal_atom atm atom in
+  match List.find_opt predicate bounds with
+  | Some (_, i) -> Some i
+  | None -> None
+
 (** Verifty that the [abstr] equals the abstraction that the bound meta-variable [k]
     was matched to previosuly. *)
 let check_meta k abstr metas =
@@ -26,7 +36,7 @@ let check_meta k abstr metas =
     a pattern. They collect the values of meta-variables, but do not check whether all meta-variables
     were matched. *)
 
-let rec collect_is_type sgn metas abstr = function
+let rec collect_is_type sgn metas bounds abstr = function
 
   | Patt.TypeAddMeta k ->
      add_meta k abstr metas
@@ -41,17 +51,17 @@ let rec collect_is_type sgn metas abstr = function
      | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) ->
         raise Match_fail
      | Some Nucleus.(JudgementIsType t) ->
-        collect_is_normal_type sgn metas t patt
+        collect_is_normal_type sgn metas bounds t patt
      end
 
-and collect_is_normal_type sgn metas t = function
+and collect_is_normal_type sgn metas bounds t = function
 
   | Patt.TypeConstructor (c, args) ->
      begin match Nucleus.invert_is_type sgn t with
 
      | Nucleus.Stump_TypeConstructor (c', args') ->
         if Ident.equal c c' then
-          collect_arguments sgn metas args' args
+          collect_arguments sgn metas bounds args' args
         else
           raise Match_fail
 
@@ -63,7 +73,7 @@ and collect_is_normal_type sgn metas t = function
      begin match Nucleus.invert_is_type sgn t with
      | Nucleus.Stump_TypeMeta (mv, es') ->
         if Nonce.equal n (Nucleus.meta_nonce mv) then
-          collect_is_terms sgn metas es' es
+          collect_is_terms sgn metas bounds es' es
         else
           raise Match_fail
 
@@ -71,7 +81,7 @@ and collect_is_normal_type sgn metas t = function
         raise Match_fail
      end
 
-and collect_is_term sgn metas abstr = function
+and collect_is_term sgn metas bounds abstr = function
 
   | Patt.TermAddMeta k ->
      add_meta k abstr metas
@@ -87,10 +97,10 @@ and collect_is_term sgn metas abstr = function
         raise Match_fail
 
      | Some (Nucleus.JudgementIsTerm e) ->
-        collect_normal_is_term sgn metas e patt
+        collect_normal_is_term sgn metas bounds e patt
      end
 
-and collect_normal_is_term sgn metas e = function
+and collect_normal_is_term sgn metas bounds e = function
 
   | Patt.TermConstructor (c, args) ->
      let rec fold e =
@@ -98,7 +108,7 @@ and collect_normal_is_term sgn metas e = function
 
        | Nucleus.Stump_TermConstructor (c', args') ->
           if Ident.equal c c' then
-            collect_arguments sgn metas args' args
+            collect_arguments sgn metas bounds args' args
           else
             raise Match_fail
 
@@ -129,7 +139,7 @@ and collect_normal_is_term sgn metas e = function
        begin match Nucleus.invert_is_term sgn e with
        | Nucleus.Stump_TermMeta (mv, es') ->
           if Nonce.equal n (Nucleus.meta_nonce mv) then
-            collect_is_terms sgn metas es' es
+            collect_is_terms sgn metas bounds es' es
           else
             raise Match_fail
 
@@ -141,42 +151,46 @@ and collect_normal_is_term sgn metas e = function
      fold e
 
   | Patt.TermBound v ->
-    begin match Nucleus.expose_is_term e with
-    | Nucleus_types.TermBoundVar j ->
-      if v == j then metas else raise Match_fail
-    | Nucleus_types.(TermAtom _ | TermMeta _ | TermConstructor _| TermConvert _) ->
+    begin match Nucleus.invert_is_term sgn e with
+    | Nucleus.Stump_TermAtom a ->
+      begin match find_bound a bounds with
+      | Some j -> if j == v then metas else raise Match_fail
+      | None -> raise Match_fail
+      end
+    | Nucleus.(Stump_TermMeta _ | Stump_TermConstructor _| Stump_TermConvert _) ->
       raise Match_fail
     end
 
-and collect_is_terms sgn metas es es' =
+and collect_is_terms sgn metas bounds es es' =
   match es, es' with
 
   | [], [] -> metas
 
   | e :: es, e' :: es' ->
      let e = Nucleus.(abstract_not_abstract (JudgementIsTerm e)) in
-     let metas = collect_is_term sgn metas e e' in
-     collect_is_terms sgn metas es es'
+     let metas = collect_is_term sgn metas bounds e e' in
+     collect_is_terms sgn metas bounds es es'
 
   | [], _::_ | _::_, [] ->
      raise Match_fail
 
-and collect_arguments sgn metas args_e args_r =
+and collect_arguments sgn metas bounds args_e args_r =
   match args_e, args_r with
   | [], [] -> metas
 
   | e :: args_e, r :: args_r ->
-     let metas = collect_argument sgn metas e r in
-     collect_arguments sgn metas args_e args_r
+     let metas = collect_argument sgn metas bounds e r in
+     collect_arguments sgn metas bounds args_e args_r
 
   | [], _::_ | _::_, [] ->
      raise Match_fail
 
-and collect_argument sgn metas jdg arg_abstr =
-  let rec fold jdg abstr =
+and collect_argument sgn metas bounds jdg arg_abstr =
+  let rec fold jdg abstr bounds =
     match Nucleus.invert_judgement_abstraction jdg, abstr with
-    | Nucleus.Stump_Abstract (_, jdg), Patt.Arg_Abstract (_, abstr) ->
-      fold jdg abstr
+    | Nucleus.Stump_Abstract (atm, jdg), Patt.Arg_Abstract (_, abstr) ->
+      let bounds = add_bound atm bounds in
+      fold jdg abstr bounds
 
     | Nucleus.Stump_NotAbstract _, Patt.Arg_Abstract _
     | Nucleus.Stump_Abstract _, Patt.Arg_NotAbstract _ ->
@@ -186,12 +200,12 @@ and collect_argument sgn metas jdg arg_abstr =
       begin
         match patt_jdg with
 
-        | Patt.ArgumentIsType r -> collect_is_type sgn metas (Nucleus.abstract_not_abstract jdg) r
+        | Patt.ArgumentIsType r -> collect_is_type sgn metas bounds (Nucleus.abstract_not_abstract jdg) r
 
-        | Patt.ArgumentIsTerm r -> collect_is_term sgn metas (Nucleus.abstract_not_abstract jdg) r
+        | Patt.ArgumentIsTerm r -> collect_is_term sgn metas bounds (Nucleus.abstract_not_abstract jdg) r
       end
   in
-  fold jdg arg_abstr
+  fold jdg arg_abstr bounds
 
 
 (** Given a mapping of de Bruijn indices [0, ..., k-1] to their values, convert
@@ -214,7 +228,7 @@ let metas_to_list k metas =
 let match_is_type sgn t (r, k) =
   try
     let t = Nucleus.(abstract_not_abstract (JudgementIsType t)) in
-    metas_to_list k (collect_is_type sgn MetaMap.empty t r)
+    metas_to_list k (collect_is_type sgn MetaMap.empty [] t r)
   with
     Match_fail -> None
 
@@ -222,7 +236,7 @@ let match_is_type sgn t (r, k) =
 let match_is_term sgn e (r, k) =
   try
     let e = Nucleus.(abstract_not_abstract (JudgementIsTerm e)) in
-    metas_to_list k (collect_is_term sgn MetaMap.empty e r)
+    metas_to_list k (collect_is_term sgn MetaMap.empty [] e r)
   with
     Match_fail -> None
 
