@@ -15,6 +15,7 @@ struct
     | TermConstructor of Ident.t * argument list
     | TermFreeMeta of Nonce.t * is_term' list
     | TermAtom of Nonce.t
+    | TermBound of int
 
   and is_term' =
     | TermAddMeta of int
@@ -22,6 +23,10 @@ struct
     | TermNormal of is_term_normal'
 
   and argument =
+    | Arg_Abstract of Name.t * argument
+    | Arg_NotAbstract of argument'
+
+  and argument' =
     | ArgumentIsType of is_type'
     | ArgumentIsTerm of is_term'
 
@@ -126,11 +131,18 @@ let rap_fully_apply rap args =
 
 (** Automagically compute the heads of a pattern *)
 
-let arg_is_head = function
-  | Patt.(ArgumentIsType (TypeAddMeta _ | TypeCheckMeta _)) -> false
-  | Patt.(ArgumentIsType (TypeNormal _)) -> true
-  | Patt.(ArgumentIsTerm (TermAddMeta _ | TermCheckMeta _)) -> false
-  | Patt.(ArgumentIsTerm (TermNormal _)) -> true
+let arg_is_head abstr =
+  let rec fold = function
+    | Patt.Arg_Abstract (_, abstr) -> fold abstr
+    | Patt.Arg_NotAbstract jdg ->
+      begin
+      match jdg with
+        | Patt.(ArgumentIsType (TypeAddMeta _ | TypeCheckMeta _)) -> false
+        | Patt.(ArgumentIsType (TypeNormal _)) -> true
+        | Patt.(ArgumentIsTerm (TermAddMeta _ | TermCheckMeta _)) -> false
+        | Patt.(ArgumentIsTerm (TermNormal _)) -> true
+      end
+  in fold abstr
 
 let term_is_head = function
   | Patt.(TermAddMeta _ | TermCheckMeta _) -> false
@@ -164,6 +176,8 @@ let heads_term_normal = function
   | Patt.TermConstructor (_, args) -> heads_args args
 
   | Patt.TermFreeMeta (_, es) -> heads_terms es
+
+  | Patt.TermBound v -> IntSet.empty
 
 let heads_term = function
   | Patt.TermAddMeta _ -> IntSet.empty

@@ -3,7 +3,7 @@
 open Eqchk_common
 
 (** Extract an optional value, or declare an equality failure *)
-let deopt x msg = 
+let deopt x msg =
   match x with
   | None -> raise (Normalization_fail msg)
   | Some x -> x
@@ -148,6 +148,8 @@ let rec apply_type_beta betas sgn t =
 (** Find a term computation rule and apply it to [e]. *)
 and apply_term_beta betas sgn e =
   let s = head_symbol_term (Nucleus.expose_is_term e) in
+  let penv = Nucleus.({forbidden = Name.set_empty; debruijn_var = []; debruijn_meta = []; opens = Path.set_empty}) in
+  Format.printf "%t@." (Eqchk_common.print_symbol ~penv:penv s) ;
   match SymbolMap.find_opt s betas with
 
   | None -> None
@@ -231,7 +233,7 @@ and normalize_heads_type ~strong sgn nrm ty0 =
      and es_eq_es' = List.map (fun eq -> Nucleus.(abstract_not_abstract (JudgementEqTerm eq))) es_eq_es' in
      let ty1 =
        let jdg1 = deopt (rap_fully_apply (Nucleus.form_meta_rap sgn mv) es') "cannot apply arguments to type metavariable" in
-       deopt (Nucleus.as_is_type jdg1) "application of the type matavariable did not result in type judgement" 
+       deopt (Nucleus.as_is_type jdg1) "application of the type matavariable did not result in type judgement"
      in
      let ty0_eq_ty1 =
        let rap = deopt (Nucleus.congruence_is_type sgn ty0 ty1)  "unable to construct a type congruence rule" in

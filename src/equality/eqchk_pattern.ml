@@ -36,11 +36,11 @@ let rec collect_is_type sgn metas abstr = function
      metas
 
   | Patt.TypeNormal patt ->
-     begin match Nucleus.as_not_abstract abstr with
+     begin match Nucleus.(as_not_abstract abstr) with
      | None
-     | Some (Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _)) ->
+     | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _) ->
         raise Match_fail
-     | Some (Nucleus.JudgementIsType t) ->
+     | Some Nucleus.(JudgementIsType t) ->
         collect_is_normal_type sgn metas t patt
      end
 
@@ -126,7 +126,7 @@ and collect_normal_is_term sgn metas e = function
 
   | Patt.TermFreeMeta (n, es) ->
      let rec fold e =
-       match Nucleus.invert_is_term sgn e with
+       begin match Nucleus.invert_is_term sgn e with
        | Nucleus.Stump_TermMeta (mv, es') ->
           if Nonce.equal n (Nucleus.meta_nonce mv) then
             collect_is_terms sgn metas es' es
@@ -136,8 +136,11 @@ and collect_normal_is_term sgn metas e = function
        | Nucleus.Stump_TermConvert (e, _) -> fold e
        | Nucleus.(Stump_TermConstructor _ | Stump_TermAtom _) ->
           raise Match_fail
+     end
      in
      fold e
+
+  | Patt.TermBound _ -> failwith "todo"
 
 and collect_is_terms sgn metas es es' =
   match es, es' with
@@ -163,11 +166,26 @@ and collect_arguments sgn metas args_e args_r =
   | [], _::_ | _::_, [] ->
      raise Match_fail
 
-and collect_argument sgn metas jdg = function
+and collect_argument sgn metas jdg arg_abstr =
+  let rec fold jdg abstr =
+    match Nucleus.invert_judgement_abstraction jdg, abstr with
+    | Nucleus.Stump_Abstract (_, jdg), Patt.Arg_Abstract (_, abstr) ->
+      fold jdg abstr
 
-  | Patt.ArgumentIsType r -> collect_is_type sgn metas jdg r
+    | Nucleus.Stump_NotAbstract _, Patt.Arg_Abstract _
+    | Nucleus.Stump_Abstract _, Patt.Arg_NotAbstract _ ->
+      raise Match_fail
 
-  | Patt.ArgumentIsTerm r -> collect_is_term sgn metas jdg r
+    | Nucleus.Stump_NotAbstract jdg , Patt.Arg_NotAbstract patt_jdg ->
+      begin
+        match patt_jdg with
+
+        | Patt.ArgumentIsType r -> collect_is_type sgn metas (Nucleus.abstract_not_abstract jdg) r
+
+        | Patt.ArgumentIsTerm r -> collect_is_term sgn metas (Nucleus.abstract_not_abstract jdg) r
+      end
+  in
+  fold jdg arg_abstr
 
 
 (** Given a mapping of de Bruijn indices [0, ..., k-1] to their values, convert
@@ -203,6 +221,7 @@ let match_is_term sgn e (r, k) =
     Match_fail -> None
 
 exception Form_fail of string
+exception Eta_expanded_meta_fail
 
 (** Is the given judgement abstraction an eta-expanded meta-variable? *)
 let rec extract_meta metas abstr =
@@ -214,15 +233,15 @@ let rec extract_meta metas abstr =
        (* check that given arguments are bound variables j, j-1, ..., 0 *)
        let rec check_es j = function
 
-         | [] -> if j <> 0 then raise (Form_fail "Given abstraction is not an eta-expanded metavariable")
+         | [] -> if j <> 0 then raise Eta_expanded_meta_fail
 
          | Nucleus_types.TermBoundVar i :: es ->
-            if i = j-1 then check_es (j-1) es else raise (Form_fail "Given abstraction is not an eta-expanded metavariable")
+            if i = j-1 then check_es (j-1) es else raise Eta_expanded_meta_fail
 
          | Nucleus_types.TermConvert (e, _, _) :: es -> check_es k (e :: es)
 
          | Nucleus_types.(TermAtom _ | TermMeta _ | TermConstructor _) :: _ ->
-            raise (Form_fail "Given abstraction is not an eta-expanded metavariable")
+            raise Eta_expanded_meta_fail
 
        in
        begin match jdg with
@@ -232,15 +251,15 @@ let rec extract_meta metas abstr =
           | Nucleus_types.(TermMeta (MetaBound m, es)) ->
              check_es k es ;
              if Bound_set.mem m metas then
-               metas, Patt.ArgumentIsTerm (Patt.TermCheckMeta m)
+               metas, Patt.(Arg_NotAbstract (ArgumentIsTerm (TermCheckMeta m)))
              else
                let metas = Bound_set.add m metas in
-               metas, Patt.ArgumentIsTerm (Patt.TermAddMeta m)
+               metas, Patt.(Arg_NotAbstract (ArgumentIsTerm (Patt.TermAddMeta m)))
           | Nucleus_types.TermConvert (e, _, _) -> extract_meta metas (Nucleus_types.(Arg_NotAbstract (JudgementIsTerm e)))
 
           | Nucleus_types.(TermMeta (MetaFree _, _) | TermBoundVar _ | TermAtom _ |
                            TermConstructor _) ->
-             raise (Form_fail "Given abstraction is not an eta-expanded metavariable")
+             raise Eta_expanded_meta_fail
 
           end
 
@@ -249,17 +268,17 @@ let rec extract_meta metas abstr =
           | Nucleus_types.(TypeMeta (MetaBound m, es)) ->
              check_es k es ;
              if Bound_set.mem m metas then
-               metas, Patt.ArgumentIsType (Patt.TypeCheckMeta m)
+               metas, Patt.(Arg_NotAbstract (ArgumentIsType (Patt.TypeCheckMeta m)))
              else
                let metas = Bound_set.add m metas in
-               metas, Patt.ArgumentIsType (Patt.TypeAddMeta m)
+               metas, Patt.(Arg_NotAbstract (ArgumentIsType (Patt.TypeAddMeta m)))
 
           | Nucleus_types.(TypeMeta (MetaFree _, _) | TypeConstructor _) ->
-             raise (Form_fail "Given abstraction is not an eta-expanded metavariable")
+             raise Eta_expanded_meta_fail
           end
 
        | Nucleus_types.(JudgementEqType _ | JudgementEqTerm _) ->
-          raise (Form_fail "Given abstraction is not an eta-expanded metavariable")
+          raise Eta_expanded_meta_fail
        end
   in
   fold 0 abstr
@@ -268,18 +287,22 @@ let rec extract_meta metas abstr =
 (** The [form_XYZ] functions form a pattern from a given judgement. They return the set of
     bound meta-variables that were encountered and turned into pattern variables. *)
 
-let rec form_is_type metas = function
+let rec form_is_type metas ~checking = function
 
   | Nucleus_types.TypeConstructor (c, args) ->
-     let metas, args = form_arguments metas args in
+     let metas, args = form_arguments metas ~checking args in
      metas, Patt.(TypeNormal (TypeConstructor (c, args)))
 
   | Nucleus_types.(TypeMeta (MetaBound i, [])) ->
      if Bound_set.mem i metas then
        metas, Patt.TypeCheckMeta i
      else
+       begin
+       if checking then raise (Form_fail "cannot introduce a new type metavariable in checking mode")
+       else
        let metas = Bound_set.add i metas in
        metas, Patt.TypeAddMeta i
+       end
 
   | Nucleus_types.(TypeMeta (MetaFree {meta_nonce=n;_}, es)) ->
      let rec fold metas es_out = function
@@ -289,7 +312,7 @@ let rec form_is_type metas = function
           metas, Patt.(TypeNormal (TypeFreeMeta (n, es_out)))
 
        | e :: es ->
-          let metas, e = form_is_term metas e in
+          let metas, e = form_is_term metas ~checking e in
           fold metas (e :: es_out) es
      in
      fold metas [] es
@@ -298,22 +321,24 @@ let rec form_is_type metas = function
      raise (Form_fail "cannot make a pattern from a bound type metavariable")
 
 
-and form_is_term metas e =
+and form_is_term metas ~checking e =
   match e with
-  | Nucleus_types.TermBoundVar _ ->
-     assert false
+  | Nucleus_types.TermBoundVar v ->
+     metas, Patt.(TermNormal (TermBound v))
 
   | Nucleus_types.(TermAtom {atom_nonce=n; _}) ->
      metas, Patt.(TermNormal (TermAtom n))
 
   | Nucleus_types.TermConstructor (c, args) ->
-     let metas, args = form_arguments metas args in
+     let metas, args = form_arguments metas ~checking args in
      metas, Patt.(TermNormal (TermConstructor (c, args)))
 
   | Nucleus_types.(TermMeta (MetaBound i, [])) ->
      if Bound_set.mem i metas then
        metas, Patt.TermCheckMeta i
      else
+       if checking then raise (Form_fail "cannot introduce a new term metavariable in checking mode")
+       else
        let metas = Bound_set.add i metas in
        metas, Patt.TermAddMeta i
 
@@ -325,19 +350,19 @@ and form_is_term metas e =
           metas, Patt.(TermNormal (TermFreeMeta (n, es_out)))
 
        | e :: es ->
-          let metas, e = form_is_term metas e in
+          let metas, e = form_is_term metas ~checking e in
           fold metas (e :: es_out) es
      in
      fold metas [] es
 
   | Nucleus_types.TermConvert (e, _, _) ->
-     form_is_term metas e
+     form_is_term metas ~checking e
 
   | Nucleus_types.(TermMeta (MetaBound _, _::_)) ->
      raise (Form_fail "cannot make a pattern out of a bound term metavariable")
 
 
-and form_arguments metas args =
+and form_arguments metas ~checking args =
   let rec fold metas args_out = function
 
     | [] ->
@@ -345,21 +370,21 @@ and form_arguments metas args =
        metas, args_out
 
     | arg :: args ->
-       let metas, arg = form_argument metas arg in
+       let metas, arg = form_argument metas ~checking arg in
        fold metas (arg :: args_out) args
   in
   fold metas [] args
 
-and form_argument metas = function
+and form_argument metas ~checking = function
   | Nucleus_types.Arg_NotAbstract jdg ->
      begin match jdg with
      | Nucleus_types.JudgementIsTerm e ->
-        let metas, e = form_is_term metas e in
-        metas, Patt.ArgumentIsTerm e
+        let metas, e = form_is_term metas ~checking e in
+        metas, Patt.(Arg_NotAbstract (ArgumentIsTerm e))
 
      | Nucleus_types.JudgementIsType t ->
-        let metas, t = form_is_type metas t in
-        metas, Patt.ArgumentIsType t
+        let metas, t = form_is_type metas ~checking t in
+        metas, Patt.(Arg_NotAbstract (ArgumentIsType t))
 
      | Nucleus_types.JudgementEqType _
      | Nucleus_types.JudgementEqTerm _ ->
@@ -368,9 +393,21 @@ and form_argument metas = function
         raise (Form_fail "cannot form a pattern out of an equality argument")
      end
 
-  | Nucleus_types.Arg_Abstract _ as abstr ->
-     (* Is this an eta-expanded meta-variable? *)
-     extract_meta metas abstr
+  | Nucleus_types.Arg_Abstract (atm, jdg) as abstr ->
+      if not checking then
+      begin
+      (* Is this an eta-expanded meta-variable? *)
+      try
+        extract_meta metas abstr
+      with
+        Eta_expanded_meta_fail ->
+          let metas, jdg' = form_argument metas ~checking:true jdg in
+          metas, Patt.(Arg_Abstract (atm,jdg'))
+      end
+      else
+        let metas, jdg' = form_argument metas ~checking:true jdg in
+        metas, Patt.(Arg_Abstract (atm, jdg'))
+
 
 (** Check that the given set of integers contains
     precisely the numbers 0, 1, ..., k-1 *)
@@ -386,7 +423,7 @@ let is_range s k =
    the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
    a beta or extensionality rule. *)
 let make_is_type k t =
-   let metas, patt = form_is_type Bound_set.empty t in
+   let metas, patt = form_is_type Bound_set.empty ~checking:false t in
    if is_range metas k then
      (patt, k)
    else
@@ -396,7 +433,7 @@ let make_is_type k t =
    the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
    a beta or extensionality rule. *)
 let make_is_term k e =
-   let metas, patt = form_is_term Bound_set.empty e in
+   let metas, patt = form_is_term Bound_set.empty ~checking:false e in
    if is_range metas k then
      (patt, k)
    else
