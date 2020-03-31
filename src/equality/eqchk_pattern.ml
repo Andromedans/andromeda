@@ -140,7 +140,13 @@ and collect_normal_is_term sgn metas e = function
      in
      fold e
 
-  | Patt.TermBound _ -> failwith "todo"
+  | Patt.TermBound v ->
+    begin match Nucleus.expose_is_term e with
+    | Nucleus_types.TermBoundVar j ->
+      if v == j then metas else raise Match_fail
+    | Nucleus_types.(TermAtom _ | TermMeta _ | TermConstructor _| TermConvert _) ->
+      raise Match_fail
+    end
 
 and collect_is_terms sgn metas es es' =
   match es, es' with
