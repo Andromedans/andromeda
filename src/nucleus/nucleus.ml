@@ -14,6 +14,7 @@ let expose_eq_type eq = eq
 let expose_eq_term eq = eq
 let expose_judgement jdg = jdg
 let expose_rule rl = rl
+let expose_judgement_abstraction abstr = abstr
 
 (** Exports from [Sanity] *)
 let type_of_term = Sanity.type_of_term
