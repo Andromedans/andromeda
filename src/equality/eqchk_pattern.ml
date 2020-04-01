@@ -192,9 +192,16 @@ and collect_argument sgn metas bounds jdg arg_abstr =
       let bounds = add_bound atm bounds in
       fold jdg abstr bounds
 
-    | Nucleus.Stump_NotAbstract _, Patt.Arg_Abstract _
-    | Nucleus.Stump_Abstract _, Patt.Arg_NotAbstract _ ->
-      raise Match_fail
+    | Nucleus.Stump_Abstract _, Patt.Arg_NotAbstract patt_jdg ->
+      (* Is the judgement eta-expanded metavariable? *)
+      begin
+        match patt_jdg with
+
+        | Patt.ArgumentIsType r -> collect_is_type sgn metas bounds jdg r
+
+        | Patt.ArgumentIsTerm r -> collect_is_term sgn metas bounds jdg r
+      end
+
 
     | Nucleus.Stump_NotAbstract jdg , Patt.Arg_NotAbstract patt_jdg ->
       begin
@@ -204,6 +211,9 @@ and collect_argument sgn metas bounds jdg arg_abstr =
 
         | Patt.ArgumentIsTerm r -> collect_is_term sgn metas bounds (Nucleus.abstract_not_abstract jdg) r
       end
+
+      | Nucleus.Stump_NotAbstract _, Patt.Arg_Abstract _ ->
+        raise Match_fail
   in
   fold jdg arg_abstr bounds
 
