@@ -31,7 +31,7 @@ external prove_eqterm_abstraction : checker -> boundary -> judgement
 
 let ch = ref empty_checker ;;
 
-let add_rule der = 
+let add_rule der =
   let ch' = add !ch der in
   ch := ch'
 ;;
@@ -80,7 +80,7 @@ let compute jdg =
 
 let prove bdry =
   match bdry with
-  | (_ ≡ _ by ??) -> prove_eqtype_abstraction (!ch) bdry 
+  | (_ ≡ _ by ??) -> prove_eqtype_abstraction (!ch) bdry
   | (_ ≡ _ : _ by ??) -> prove_eqterm_abstraction (!ch) bdry
   end
 
@@ -92,7 +92,7 @@ let add_locally equation cmp =
     ch := !ch' ;
     result
   with
-    | raise ?exc -> 
+    | raise ?exc ->
         ch := !ch' ;
         raise exc
   end
