@@ -26,7 +26,7 @@ rule prod_ext (A type) (B type) (u : prod A B) (v : prod A B)
 eq.add_rule β_fst;;
 eq.add_rule β_snd;;
 eq.add_rule prod_ext;;
-        
+
 rule U type;;
 rule V type;;
 rule p : prod U V;;
@@ -79,4 +79,13 @@ eq.normalize foo;;
 eq.compute foo ;;
 eq.normalize (ℕ_ind ({_} ℕ) z ({c_n _} s c_n) z);;
 eq.normalize (s (ℕ_ind ({_} ℕ) z ({c_n _} s c_n) z));;
-eq.prove (plus (s z) (s z) ≡ s (s z) : ℕ by ??)
+eq.prove (plus (s z) (s z) ≡ s (s z) : ℕ by ??) ;;
+
+rule weird (A type)
+           ({_ : A} B type)
+           (a : A)
+           (b : B{a})
+           (B{a} == A by ξ)
+           (_ :? eq.add_locally (derive -> ξ) (fun () -> a == b : A by ??))
+           type ;;
+
