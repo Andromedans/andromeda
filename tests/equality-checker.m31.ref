@@ -107,3 +107,6 @@ val foo :> judgement = ⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) : ℕ
    : ℕ))
 - :> judgement = ⊢ ℕ_ind ({_} ℕ) (s z) ({c_n _} s c_n) (s z) ≡ s (s
   z) : ℕ
+Type computation rule for B₀ (heads at [0]):
+  derive → ?B₀ {?a₁} ≡ ?A₂
+Rule weird is postulated.
