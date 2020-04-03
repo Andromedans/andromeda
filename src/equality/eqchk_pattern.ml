@@ -14,15 +14,6 @@ module MetaMap =
 
 let add_meta = MetaMap.add
 
-let cmp_atom atm1 atm2 =
-   Nonce.compare (Nucleus.atom_nonce atm1) (Nucleus.atom_nonce atm2)
-
-module BoundMap =
-  Map.Make
-    (struct
-      type t = Nucleus.is_atom
-      let compare = cmp_atom
-    end)
 
 let add_bound atm bounds = BoundMap.(add atm (cardinal bounds) bounds)
 let find_bound = BoundMap.find_opt

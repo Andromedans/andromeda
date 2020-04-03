@@ -42,6 +42,16 @@ module IntSet = Set.Make(struct
                           let compare = Stdlib.compare
                         end)
 
+(** Maps of atoms to deal with bound variables *)
+let cmp_atom atm1 atm2 =
+   Nonce.compare (Nucleus.atom_nonce atm1) (Nucleus.atom_nonce atm2)
+
+module BoundMap =
+  Map.Make
+    (struct
+      type t = Nucleus.is_atom
+      let compare = cmp_atom
+    end)
 
 (** We index rules by the heads of expressions, which can be identifiers or meta-variables (nonces). *)
 type symbol =
