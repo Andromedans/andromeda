@@ -285,20 +285,24 @@ and normalize_heads_term ~strong sgn nrm e0 =
      e0_eq_e1, Normal e1
 
 and normalize_arguments ~strong sgn nrm heads args =
-  let rec fold k args' args_eq_args' = function
+  let rec fold k args args' args_eq_args' = function
 
     | [] -> List.rev args_eq_args', Normal (List.rev args')
 
-    | arg :: args ->
+    | arg :: args_rest ->
+         let arg_eq_arg', arg' = convert_argument args args' args_eq_args' BoundMap.empty arg in
          if strong || IntSet.mem k heads
          then
-           let arg_eq_arg', Normal arg' = normalize_argument ~strong sgn nrm arg in
-           fold (k+1) (arg' :: args') (arg_eq_arg' :: args_eq_args') args
+           let arg_eq_arg', Normal arg' = normalize_argument ~strong sgn nrm arg' in
+           fold (k+1) (arg :: args) (arg' :: args') (arg_eq_arg' :: args_eq_args') args_rest
          else
            let arg_eq_arg', arg' = deopt (Nucleus.reflexivity_judgement_abstraction sgn arg) "", arg in
-           fold (k+1) (arg' :: args') (arg_eq_arg' :: args_eq_args') args
+           fold (k+1) (arg :: args) (arg' :: args') (arg_eq_arg' :: args_eq_args') args_rest
   in
-  fold 0 [] [] args
+  fold 0 [] [] [] args
+
+and convert_argument args args' args_eq_args' atom_converts arg =
+  failwith "todo"
 
 and normalize_argument ~strong sgn nrm arg =
   match Nucleus.invert_judgement_abstraction arg with
