@@ -14,15 +14,18 @@ module MetaMap =
 
 let add_meta = MetaMap.add
 
-let add_bound atom bounds =
-  let n = List.length bounds in
-  (atom, n) :: bounds
+let cmp_atom atm1 atm2 =
+   Nonce.compare (Nucleus.atom_nonce atm1) (Nucleus.atom_nonce atm2)
 
-let find_bound atom bounds =
-  let predicate (atm, index) = Nucleus.alpha_equal_atom atm atom in
-  match List.find_opt predicate bounds with
-  | Some (_, i) -> Some i
-  | None -> None
+module BoundMap =
+  Map.Make
+    (struct
+      type t = Nucleus.is_atom
+      let compare = cmp_atom
+    end)
+
+let add_bound atm bounds = BoundMap.(add atm (cardinal bounds) bounds)
+let find_bound = BoundMap.find_opt
 
 (** Verifty that the [abstr] equals the abstraction that the bound meta-variable [k]
     was matched to previosuly. *)
@@ -238,7 +241,7 @@ let metas_to_list k metas =
 let match_is_type sgn t (r, k) =
   try
     let t = Nucleus.(abstract_not_abstract (JudgementIsType t)) in
-    metas_to_list k (collect_is_type sgn MetaMap.empty [] t r)
+    metas_to_list k (collect_is_type sgn MetaMap.empty BoundMap.empty t r)
   with
     Match_fail -> None
 
@@ -246,7 +249,7 @@ let match_is_type sgn t (r, k) =
 let match_is_term sgn e (r, k) =
   try
     let e = Nucleus.(abstract_not_abstract (JudgementIsTerm e)) in
-    metas_to_list k (collect_is_term sgn MetaMap.empty [] e r)
+    metas_to_list k (collect_is_term sgn MetaMap.empty BoundMap.empty e r)
   with
     Match_fail -> None
 
