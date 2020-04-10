@@ -36,19 +36,19 @@ Rule plus_s is postulated.
 Rule times is postulated.
 Rule times_z is postulated.
 Rule times_s is postulated.
-Term computation rule for plus (heads at [1]):
+Term computation rule for plus (head at [1]):
   derive (m : N) → plus m z ≡ m : N
 
 - :> mlunit = ()
-Term computation rule for plus (heads at [1]):
+Term computation rule for plus (head at [1]):
   derive (m : N) (n : N) → plus m (s n) ≡ s (plus m n) : N
 
 - :> mlunit = ()
-Term computation rule for times (heads at [1]):
+Term computation rule for times (head at [1]):
   derive (m : N) → times m z ≡ z : N
 
 - :> mlunit = ()
-Term computation rule for times (heads at [1]):
+Term computation rule for times (head at [1]):
   derive (m : N) (n : N) → times m (s n) ≡ plus (times m n) m : N
 
 - :> mlunit = ()

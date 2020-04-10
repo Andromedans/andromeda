@@ -225,10 +225,12 @@ let add ~quiet ~penv chk drv =
         let heads = heads_type patt in
         let chk = { chk with normalizer = Eqchk_normalizer.set_type_heads chk.normalizer sym heads } in
         if not quiet then
-          Format.printf "@[<hov 2>Type computation rule for %t (heads at [%t]):@\n%t@.@]"
-            (print_symbol ~penv sym)
-            (Print.sequence (fun k ppf -> Format.fprintf ppf "%d" k) "," (IntSet.elements heads))
-            (Nucleus.print_derivation ~penv drv) ;
+          (let head_list = IntSet.elements heads in
+           Format.printf "@[<hov 2>Type computation rule for %t (head%s at [%t]):@\n%t@.@]"
+             (print_symbol ~penv sym)
+             (if (List.length head_list = 1) then "" else "s")
+             (Print.sequence (fun k ppf -> Format.fprintf ppf "%d" k) "," head_list)
+             (Nucleus.print_derivation ~penv drv)) ;
         Some chk
 
      | None ->
@@ -237,10 +239,12 @@ let add ~quiet ~penv chk drv =
              let heads = heads_term patt in
              let chk = { chk with normalizer = Eqchk_normalizer.set_term_heads chk.normalizer sym heads } in
              if not quiet then
-               Format.printf "@[<hov 2>Term computation rule for %t (heads at [%t]):@\n%t\n@.@]"
-                 (print_symbol ~penv sym)
-                 (Print.sequence (fun k ppf -> Format.fprintf ppf "%d" k) "," (IntSet.elements heads))
-                 (Nucleus.print_derivation ~penv drv) ;
+               (let head_list = IntSet.elements heads in
+                Format.printf "@[<hov 2>Term computation rule for %t (head%s at [%t]):@\n%t\n@.@]"
+                  (print_symbol ~penv sym)
+                  (if (List.length head_list = 1) then "" else "s")
+                  (Print.sequence (fun k ppf -> Format.fprintf ppf "%d" k) "," head_list)
+                  (Nucleus.print_derivation ~penv drv)) ;
              Some chk
 
           | None -> None
