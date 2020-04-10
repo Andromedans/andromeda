@@ -16,11 +16,20 @@ depends: [
   "sedlex"
 ]
 post-messages: [
-"To start using andromeda-mode in emacs, append this to your emacs configuration:
+"To start using andromeda-mode in Emacs, append this to your Emacs configuration:
 
   ;; Add opam emacs directory to the load-path
-  (setq opam-share (substring (shell-command-to-string \"opam config var share 2> /dev/null\") 0 -1))
-  (add-to-list 'load-path (concat opam-share \"/emacs/site-lisp\"))
+  (setq
+   opam-share
+   (file-name-as-directory
+    (substring
+     (shell-command-to-string \"opam config var share\")
+     0 -1)))
+  (add-to-list
+   'load-path
+   (expand-file-name
+    \"site-lisp\"
+    (expand-file-name \"emacs\" opam-share)))
   ;; Pre-load Andromeda
   (require 'andromeda-autoloads)
 
