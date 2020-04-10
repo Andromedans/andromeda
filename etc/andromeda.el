@@ -15,7 +15,7 @@
   "" :group 'm31)
 
 (defvar m31-cases-keywords
-  '("mltype" "operation"
+  '("mltype" "struct" "operation" "exception"
     "handle" "handler"
     "match" "with" "|" "=>" "⇒"
     "val" "finally"
@@ -34,7 +34,7 @@
   (rx symbol-start                               ;FIXME: should be symbol \_< not \<
       (|
        ;; "and"  ; problematic because we use it in mltype declarations
-       "dynamic" "now"
+       "dynamic" "now" "module"
        (seq "let" (? (+ space) "rec")))
       symbol-end))
 
@@ -49,7 +49,7 @@
       (sequence "(" (* space)
                 (* (any ,(mapconcat (lambda (c) c) m31-symbolchars "")))
                 (* space) ")")
-      (sequence (| (syntax word) "_") (* (| (syntax word) (syntax symbol))))))))
+      (sequence (| (syntax word) "_") (* (| (syntax word) (syntax symbol) "." "-")))))))
 (defface m31-ml-variable-face '((t (:inherit font-lock-function-name-face)))
   "" :group 'm31)
 
@@ -72,6 +72,7 @@
 
     "external"
     "require"
+    "open"
     "ref" "!" ":="
     ;;    ";" ","
     ))
@@ -96,7 +97,9 @@
 (defface m31-tt-atom-face '((t (:inherit font-lock-type-face)))
   "" :group 'm31)
 
-(defvar m31-tt-binder-begin-rx (rx bow (| "forall" "∀" "Π" "∏" "lambda" "λ" "rule") eow))
+(defvar m31-tt-binder-begin-rx (rx symbol-start
+                                   (| "forall" "∀" "Π" "∏" "lambda" "λ" "rule")
+                                   symbol-end))
 (defface m31-tt-binder-begin-face '((t (:inherit font-lock-type-face)))
   "" :group 'm31)
 
@@ -105,7 +108,7 @@
 (defface m31-tt-binder-end-face '((t (:inherit m31-tt-binder-begin-face)))
   "" :group 'm31)
 
-(defvar m31-boring-keywords '("," ";" "." "of"))
+(defvar m31-boring-keywords '("," ";" ";;" "." "of"))
 (defface m31-boring-face '((t (:inherit font-lock-preprocessor-face)))
   "" :group 'm31)
 
@@ -205,14 +208,15 @@
 (require 'subr-x)
 (defvar m31-mode-syntax-table
   (let ((table (make-syntax-table)))
-    (modify-syntax-entry ?( "()1n" table)
-                         (modify-syntax-entry ?* ". 23n" table)
-                         (modify-syntax-entry ?) ")(4n" table)
+    (modify-syntax-entry ?\( "()1n" table)
+    (modify-syntax-entry ?* ". 23n" table)
+    (modify-syntax-entry ?\) ")(4n" table)
     (modify-syntax-entry ?' "_" table)
     (modify-syntax-entry ?: "_" table)
     (modify-syntax-entry ?# "_" table)
     (modify-syntax-entry ?≡ "_" table)
-    (mapc (lambda (c) (modify-syntax-entry c "." table)) ",;")
+    (modify-syntax-entry ?_ "_" table)
+    (mapc (lambda (c) (modify-syntax-entry c "_" table)) ",;")
     (modify-syntax-entry ?¬ "w" table)
     (modify-syntax-entry ?∀ "w" table)
     (modify-syntax-entry ?∏ "w" table)
