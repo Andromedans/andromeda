@@ -7,8 +7,8 @@ type is_type =
   | TypeConstructor of Ident.t * argument list
 
 and is_term =
-  | TermBoundVar of bound (* de Bruijm index of a bound variable *)
-  | TermAtom of is_atom (* a free variable *)
+  | TermBoundVar of bound (* de Bruijn index of a bound variable *)
+  | TermAtom of is_atom (* free variable *)
   | TermMeta of meta_any * is_term list (* term meta-variable applied to arguments *)
   | TermConstructor of Ident.t * argument list (* term constructor applied to arguments *)
   | TermConvert of is_term * assumption * is_type (* term conversion *)
