@@ -335,6 +335,13 @@ let transitivity_term' (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t'))
      in Mk.eq_term asmp e1 e2' t'
 
 let transitivity_type (EqType (asmp1, t1, t2)) (EqType (asmp2, u1, u2)) =
+  let penv = Nucleus_types.({
+    forbidden = Name.set_empty ;
+    debruijn_var = [] ;
+    debruijn_meta = [] ;
+    opens = Path.set_empty
+  }) in
+  Format.printf "Are types %t and %t alpha-equal to apply transitivity of types?@." Nucleus_print.(thesis_is_type ~penv t2) Nucleus_print.(thesis_is_type ~penv u1);
   begin match Alpha_equal.is_type t2 u1 with
   | false -> Error.raise (AlphaEqualTypeMismatch (t2, u1))
   | true ->
