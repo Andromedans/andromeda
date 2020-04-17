@@ -310,8 +310,9 @@ let normalizer nargs nargs' nargs_eq_nargs' e0_eq_e1 e1 =
 
   | Nucleus.Stump_TermConstructor (s, cargs) ->
      let heads = get_term_heads nrm (Ident s) in
-     let cargs_eq_cargs', Normal cargs' = normalize_arguments ~strong sgn nrm heads nargs nargs' nargs_eq_nargs' args in
+     let cargs_eq_cargs', Normal cargs' = normalize_arguments ~strong sgn nrm heads nargs nargs' nargs_eq_nargs' cargs in
      let e2 =
+      Format.printf "Applying rule for %t to args@." Nucleus.(print_is_term ~penv e0); (print_sequence cargs' (fun x -> Nucleus.print_judgement_abstraction ~penv x));
        let jdg1 = deopt (rap_fully_apply (Nucleus.form_constructor_rap sgn s) cargs') "cannot apply arguments to term constructor" in
        deopt (Nucleus.as_is_term jdg1) "application of the term constructor did not result in term judgement" in
      let e1_eq_e2 =
