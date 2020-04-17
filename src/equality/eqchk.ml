@@ -83,8 +83,8 @@ and prove_eq_term_abstraction chk sgn abstr =
   fold abstr
 
 and prove_eq_type chk sgn (ty1, ty2) =
-  let ty1_eq_ty1', ty1' = Eqchk_normalizer.normalize_type ~strong:true sgn chk.normalizer ty1
-  and ty2_eq_ty2', ty2' = Eqchk_normalizer.normalize_type ~strong:true sgn chk.normalizer ty2 in
+  let ty1_eq_ty1', ty1' = Eqchk_normalizer.normalize_type ~strong:true sgn chk.normalizer [] [] [] ty1
+  and ty2_eq_ty2', ty2' = Eqchk_normalizer.normalize_type ~strong:true sgn chk.normalizer [] [] [] ty2 in
   let ty1'_eq_ty2' = check_normal_type chk sgn ty1' ty2' in
   Nucleus.transitivity_type
     (Nucleus.transitivity_type ty1_eq_ty1' ty1'_eq_ty2')
@@ -94,8 +94,8 @@ and prove_eq_type chk sgn (ty1, ty2) =
 and prove_eq_term ~ext chk sgn bdry =
   let normalization_phase bdry =
      let (e1, e2, t) = Nucleus.invert_eq_term_boundary bdry in
-     let e1_eq_e1', e1' = Eqchk_normalizer.normalize_term ~strong:true sgn chk.normalizer e1
-     and e2_eq_e2', e2' = Eqchk_normalizer.normalize_term ~strong:true sgn chk.normalizer e2 in
+     let e1_eq_e1', e1' = Eqchk_normalizer.normalize_term ~strong:true sgn chk.normalizer [] [] [] e1
+     and e2_eq_e2', e2' = Eqchk_normalizer.normalize_term ~strong:true sgn chk.normalizer [] [] [] e2 in
      let e1'_eq_e2' = check_normal_term chk sgn e1' e2' in
      Nucleus.transitivity_term
        (Nucleus.transitivity_term e1_eq_e1' e1'_eq_e2')
@@ -176,12 +176,12 @@ and prove_boundary_abstraction ~ext chk sgn bdry =
 
 (** The exported form of normalization for types *)
 let normalize_type ~strong chk sgn t =
-  let eq, Normal t = Eqchk_normalizer.normalize_type ~strong sgn chk.normalizer t in
+  let eq, Normal t = Eqchk_normalizer.normalize_type ~strong sgn chk.normalizer [] [] [] t in
   eq, t
 
 (** The exported form of normalization for terms *)
 let normalize_term ~strong chk sgn e =
-  let eq, Normal e = Eqchk_normalizer.normalize_term ~strong sgn chk.normalizer e in
+  let eq, Normal e = Eqchk_normalizer.normalize_term ~strong sgn chk.normalizer [] [] [] e in
   eq, e
 
 let set_type_heads ({normalizer; _} as chk) s hs =
