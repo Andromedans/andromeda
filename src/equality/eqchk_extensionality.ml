@@ -92,10 +92,10 @@ and find ext_eqs sgn bdry =
              let rap = Nucleus.form_eq_term_rap sgn rl in
              let arg1 = Nucleus.(abstract_not_abstract (JudgementIsTerm e1))
              and arg2 = Nucleus.(abstract_not_abstract (JudgementIsTerm e2)) in
-             begin match rap_apply rap (args @ [arg1; arg2]) with
-             | None -> fold lst
-             | Some rap -> Some rap
-             end
+             try
+               Some (rap_apply rap (args @ [arg1; arg2]))
+             with
+              | Fatal_error _ -> fold lst
           end
      in
      fold lst

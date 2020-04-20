@@ -121,9 +121,9 @@ let rap_apply rap args =
   | Nucleus.RapDone _, _::_ -> raise (Fatal_error "Applying the rule to too many arguments")
   in
   try
-    Some (fold rap args)
+    fold rap args
   with
-  | Nucleus.Error _ -> None
+  | Nucleus.Error err -> raise (Fatal_error "Nucleus error")
 
 (** Apply rap to a list of arguments, return the judgement *)
 let rap_fully_apply rap args =
