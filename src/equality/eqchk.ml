@@ -94,9 +94,9 @@ and prove_eq_type chk sgn (ty1, ty2) =
 and prove_eq_term ~ext chk sgn bdry =
   let normalization_phase bdry =
      let (e1, e2, t) = Nucleus.invert_eq_term_boundary bdry in
-     let e1_eq_e1', e1' = Eqchk_normalizer.normalize_term ~strong:true sgn chk.normalizer [] [] [] e1
-     and e2_eq_e2', e2' = Eqchk_normalizer.normalize_term ~strong:true sgn chk.normalizer [] [] [] e2 in
-     let e1'_eq_e2' = check_normal_term chk sgn e1' e2' in
+     let e1_eq_e1', Normal e1' = Eqchk_normalizer.normalize_term ~strong:true sgn chk.normalizer [] [] [] e1
+     and e2_eq_e2', Normal e2' = Eqchk_normalizer.normalize_term ~strong:true sgn chk.normalizer [] [] [] e2 in
+     let e1'_eq_e2' = check_normal_term chk sgn (Normal e1') (Normal e2') in
      Nucleus.transitivity_term
        (Nucleus.transitivity_term e1_eq_e1' e1'_eq_e2')
        (Nucleus.symmetry_term e2_eq_e2')
