@@ -145,15 +145,19 @@ and collect_normal_is_term sgn metas bounds e = function
      fold e
 
   | Patt.TermBound v ->
+    let rec fold e =
     begin match Nucleus.invert_is_term sgn e with
     | Nucleus.Stump_TermAtom a ->
       begin match find_bound a bounds with
       | Some j -> if j == v then metas else raise Match_fail
       | None -> raise Match_fail
       end
-    | Nucleus.(Stump_TermMeta _ | Stump_TermConstructor _| Stump_TermConvert _) ->
+    | Nucleus.(Stump_TermConvert (e, _)) -> fold e
+    | Nucleus.(Stump_TermMeta _ | Stump_TermConstructor _) ->
       raise Match_fail
     end
+    in
+    fold e
 
 and collect_is_terms sgn metas bounds es es' =
   match es, es' with
