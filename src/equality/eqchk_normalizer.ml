@@ -275,7 +275,7 @@ and normalize_term ~strong sgn nrm args args' args_eq_args' e0 =
   fold (Nucleus.reflexivity_term sgn e0) e0
 
 
-(* Normalize those arguments of [ty0] which are considered to be heads. *)
+(* Normalize those arguments of [ty0] which are considered to be heads and convert them along previously normalized arguments [args]. *)
 and normalize_heads_type ~strong sgn nrm args args' args_eq_args' ty0 =
   match is_alpha_equal_type_args sgn args args' args_eq_args' ty0 with
   | Some (ty0_eq_ty1, ty1) -> ty0_eq_ty1, Normal ty1
@@ -310,7 +310,7 @@ and normalize_heads_type ~strong sgn nrm args args' args_eq_args' ty0 =
         end
 
 
-(* Normalize those arguments of [e0] which are considered to be heads. *)
+(* Normalize those arguments of [e0] which are considered to be heads and convert them along previously normalized arguments [args]. *)
 and normalize_heads_term ~strong sgn nrm args args' args_eq_args' e0 =
  match is_alpha_equal_term_args sgn args args' args_eq_args' e0 with
   | Some (e0_eq_e1, e1) -> e0_eq_e1, Normal e1
@@ -356,6 +356,7 @@ and normalize_heads_term ~strong sgn nrm args args' args_eq_args' e0 =
      e0_eq_e2, Normal e2
     end
 
+(** Normalize arguments [args] and convert them along previously normalized arguments [conv_args]. Then apply rule application [rap]. *)
 and normalize_arguments ~strong sgn nrm heads rap conv_args conv_args' conv_args_eq_conv_args' args =
   let rec fold k args args' args_eq_args' rap args_rest =
     match rap, args_rest with
