@@ -133,13 +133,105 @@ let is_type sgn t jdg_lst =
   | TypeMeta (MetaBound _, _) -> Error.raise InvalidRewrite
 
 
+let rec is_term sgn e jdg_lst =
+  match e with
+  | TermConstructor(c, args) ->
+      let rl = Signature.lookup_rule c sgn in
+        let rec fold es asmps rl args jdg_lst =
+          begin match rl, args, jdg_lst with
+            | Conclusion BoundaryIsTerm t, [], [] ->
+              let asmp = Assumption.union asmps (Collect_assumptions.is_term e) in
+              let es = List.map Coerce.to_argument es in
+              let e' = Mk.term_constructor c es in
+              let e'= Mk.term_convert e' asmps t in
+              JudgementEqTerm (Mk.eq_term asmp e e' t), JudgementIsTerm e'
+
+
+            | Premise ({meta_boundary=prem;_}, rl), arg :: args, jdg :: jdg_lst ->
+              let asmp, jdg' = convert_argument sgn es asmps prem arg jdg in
+              let asmps = Assumption.union asmps asmp in
+              fold (jdg' :: es) asmps rl args jdg_lst
+
+            | Conclusion BoundaryIsType _, [], []
+            | Conclusion BoundaryEqType _, [], []
+            | Conclusion BoundaryEqTerm _, [], []
+            | Conclusion _, _::_, _
+            | Conclusion _, [], _::_
+            | Premise _, [], _
+            | Premise _, _::_, [] ->
+               Error.raise InvalidRewrite
+          end
+        in
+        fold [] Assumption.empty rl args jdg_lst
+
+  | TermMeta (MetaFree {meta_nonce=n; meta_boundary}, args) ->
+      let rec fold es asmps bdry args jdg_lst =
+          begin
+          match bdry, args, jdg_lst with
+            | NotAbstract (BoundaryIsTerm t), [], [] ->
+            let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in
+            (*XXX: Are here asmp just asmps? *)
+            let m = MetaFree( Mk.free_meta (Nonce.name n) bdry) in
+            (* Is this meta_boundary in m or just bdry? Should meta_bdry be different or is it okay if it is the same?? *)
+            let e' = Mk.term_meta m es in
+            let e' = Mk.term_convert e' asmps t in
+            JudgementEqTerm (Mk.eq_term asmp e e' t), JudgementIsTerm e'
+
+            | Abstract (_, t', abstr), arg :: args, jdg :: jdg_lst  ->
+              let es_jdg = List.map (fun e -> Coerce.from_is_term_abstraction (Abstract.not_abstract e)) es in
+              let prem = Abstract.not_abstract (Form.form_is_term_boundary t') in
+              let asmp, jdg' = convert_argument sgn es_jdg asmps prem arg jdg in
+              let asmps = Assumption.union asmps asmp in
+              let e =
+                begin
+                match jdg' with
+                | Abstract _ -> Error.raise InvalidRewrite
+                | NotAbstract e ->
+                  begin
+                    match Coerce.as_is_term (e) with
+                    | Some x -> x
+                    | None -> Error.raise InvalidRewrite
+                  end
+              end  in
+              fold (e :: es) asmps abstr args jdg_lst
+
+
+            | NotAbstract (BoundaryIsType _| BoundaryEqType _|BoundaryEqTerm _), _, _
+            | NotAbstract _, _::_, _
+            | NotAbstract _, _, _::_
+            | Abstract _, [], _
+            | Abstract _, _, [] ->
+               Error.raise InvalidCongruence
+          end
+      in
+      let args = List.map (fun x -> Coerce.to_argument (Abstract.not_abstract (JudgementIsTerm x))) args in
+      fold [] Assumption.empty meta_boundary args jdg_lst
+
+  | TermConvert (e', asmp, t) ->
+    begin
+    match is_term sgn e' jdg_lst with
+    | JudgementEqTerm (EqTerm (asmps, e1, e2, t') as eq), JudgementIsTerm e'' ->
+      JudgementEqTerm (Form.form_eq_term_convert eq (Mk.eq_type asmp t' t)), JudgementIsTerm (Mk.term_convert e'' asmp t)
+    | _ -> Error.raise InvalidRewrite
+    end
+
+  | TermBoundVar _
+  | TermAtom _ ->
+    begin
+    match jdg_lst with
+    | [] -> JudgementEqTerm (Form.reflexivity_term sgn e), JudgementIsTerm e
+    | _ :: _ -> Error.raise InvalidRewrite
+    end
+  | TermMeta (MetaBound _, _) -> Error.raise InvalidRewrite
+
+
 
 let judgement sgn jdg jdg_lst =
   match jdg with
 
   | JudgementIsType t -> is_type sgn t jdg_lst
 
-  | JudgementIsTerm e -> failwith "todo"
+  | JudgementIsTerm e -> is_term sgn e jdg_lst
 
   | JudgementEqType _ | JudgementEqTerm _ -> Error.raise InvalidRewrite
 
