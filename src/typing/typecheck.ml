@@ -52,6 +52,7 @@ let rec generalizable c =
     | Apply _
     | Occurs _
     | Congruence _
+    | Rewrite _
     | Convert _
     | Context _
     | Natural _
@@ -536,6 +537,18 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
        | [] ->
           let cs_out = List.rev cs_out in
           return (locate ~at (Syntax.Congruence (c1, c2, cs_out)), Mlty.Judgement)
+       | c :: cs ->
+          check_comp c Mlty.Judgement >>= fun c ->
+          fold (c :: cs_out) cs
+     in
+     fold [] cs
+
+| Desugared.Rewrite (c, cs) ->
+     check_comp c Mlty.Judgement >>= fun c ->
+     let rec fold cs_out = function
+       | [] ->
+          let cs_out = List.rev cs_out in
+          return (locate ~at (Syntax.Rewrite (c, cs_out)),Mlty.(Prod [Judgement; Judgement]))
        | c :: cs ->
           check_comp c Mlty.Judgement >>= fun c ->
           fold (c :: cs_out) cs

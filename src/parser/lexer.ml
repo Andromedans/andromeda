@@ -39,6 +39,7 @@ let reserved = [
   ("open", OPEN) ;
   ("operation", OPERATION) ;
   ("raise", RAISE) ;
+  ("rewrite", REWRITE) ;
   ("rec", REC) ;
   ("ref", REF) ;
   ("rule", RULE) ;

@@ -66,7 +66,7 @@ let is_type sgn t jdg_lst =
           begin match rl, args, jdg_lst with
             | Conclusion BoundaryIsType (), [], [] ->
               let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in
-              let es = List.map Coerce.to_argument es in
+              let es = List.rev (List.map Coerce.to_argument es) in
               let t' = Mk.type_constructor c es in
               JudgementEqType (Mk.eq_type asmp t t'), JudgementIsType t'
 
@@ -88,15 +88,13 @@ let is_type sgn t jdg_lst =
         in
         fold [] Assumption.empty rl args jdg_lst
 
-  | TypeMeta (MetaFree {meta_nonce=n; meta_boundary}, args) ->
+  | TypeMeta ((MetaFree {meta_nonce=n; meta_boundary} as m), args) ->
       let rec fold es asmps bdry args jdg_lst =
           begin
           match bdry, args, jdg_lst with
             | NotAbstract (BoundaryIsType ()), [], [] ->
             let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in
             (*XXX: Are here asmp just asmps? *)
-            let m = MetaFree( Mk.free_meta (Nonce.name n) bdry) in
-            (* Is this meta_boundary in m or just bdry? Should meta_bdry be different or is it okay if it is the same?? *)
             let t' = Mk.type_meta m es in
             JudgementEqType (Mk.eq_type asmp t t'), JudgementIsType t'
 
@@ -141,7 +139,7 @@ let rec is_term sgn e jdg_lst =
           begin match rl, args, jdg_lst with
             | Conclusion BoundaryIsTerm t, [], [] ->
               let asmp = Assumption.union asmps (Collect_assumptions.is_term e) in
-              let es = List.map Coerce.to_argument es in
+              let es = List.rev (List.map Coerce.to_argument es) in
               let e' = Mk.term_constructor c es in
               let e'= Mk.term_convert e' asmps t in
               JudgementEqTerm (Mk.eq_term asmp e e' t), JudgementIsTerm e'
@@ -164,15 +162,13 @@ let rec is_term sgn e jdg_lst =
         in
         fold [] Assumption.empty rl args jdg_lst
 
-  | TermMeta (MetaFree {meta_nonce=n; meta_boundary}, args) ->
+  | TermMeta ((MetaFree {meta_nonce=n; meta_boundary} as m), args) ->
       let rec fold es asmps bdry args jdg_lst =
           begin
           match bdry, args, jdg_lst with
             | NotAbstract (BoundaryIsTerm t), [], [] ->
             let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in
             (*XXX: Are here asmp just asmps? *)
-            let m = MetaFree( Mk.free_meta (Nonce.name n) bdry) in
-            (* Is this meta_boundary in m or just bdry? Should meta_bdry be different or is it okay if it is the same?? *)
             let e' = Mk.term_meta m es in
             let e' = Mk.term_convert e' asmps t in
             JudgementEqTerm (Mk.eq_term asmp e e' t), JudgementIsTerm e'

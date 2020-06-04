@@ -300,6 +300,23 @@ let rec comp {Location.it=c'; at} =
         return (Reflect.mk_option None)
      end
 
+  | Syntax.Rewrite (c, cs) ->
+     comp_as_judgement_abstraction c >>= fun abstr ->
+     let jdg = Runtime.as_not_abstract ~at abstr in
+     Runtime.get_env >>= fun env ->
+     let sgn = Runtime.get_signature env in
+     let rec fold abstrs = function
+       | [] ->
+          let abstrs = List.rev abstrs in
+          let eq, jdg' = Nucleus.rewrite_judgement sgn jdg abstrs in
+          let l = List.map (fun x -> Runtime.mk_judgement (Nucleus.abstract_not_abstract x)) [eq; jdg'] in
+          return (Runtime.(mk_tuple l))
+       | c :: cs ->
+          comp_as_judgement_abstraction c >>= fun v ->
+          fold (v :: abstrs) cs
+     in
+     fold [] cs
+
   | Syntax.Congruence (c1, c2, cs) ->
      comp_as_judgement_abstraction c1 >>= fun abstr1 ->
      let jdg1 = Runtime.as_not_abstract ~at abstr1 in
@@ -385,6 +402,7 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.String _
   | Syntax.Occurs _
   | Syntax.Congruence _
+  | Syntax.Rewrite _
   | Syntax.Convert _
   | Syntax.SubstituteJudgement _
   | Syntax.SubstituteBoundary _

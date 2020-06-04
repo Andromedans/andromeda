@@ -1,0 +1,31 @@
+Rule A is postulated.
+Rule B is postulated.
+Rule A' is postulated.
+Rule A_eq_A' is postulated.
+Rule A'_eq_A is postulated.
+Rule a is postulated.
+Rule a' is postulated.
+Rule a_eq_a' is postulated.
+- :> judgement * judgement = ((⊢ B a ≡ B a'), (⊢ B a' type))
+val D :> judgement = {_ : A} ?D₀ type ⊢ {x₀ : A} ?D₀ {x₀} type
+- :> judgement * judgement =
+  (({_ : A} ?D₀ type ⊢ ?D₀ {a} ≡ ?D₀ {a'}), ({_ : A}
+   ?D₀ type ⊢ ?D₀ {a'} type))
+Rule C is postulated.
+- :> judgement * judgement = ((⊢ C A a ≡ C A' a' : A), (⊢ C A' a' : A))
+val E :> judgement = {_ : A} {_ : A} ?E₁ : A ⊢ {x₀ : A} {x₁ : A}
+  ?E₁ {x₀} {x₁} : A
+Rule refl_A is postulated.
+- :> judgement * judgement =
+  (({_ : A} {_ : A} ?E₁ : A ⊢ ?E₁ {a} {a'} ≡ ?E₁ {a'} {a'} : A),
+   ({_ : A} {_ : A} ?E₁ : A ⊢ ?E₁ {a'} {a'} : A))
+Rule Π is postulated.
+Rule B' is postulated.
+Rule β is postulated.
+- :> judgement * judgement =
+  ((⊢ Π A ({x₀} B x₀) ≡ Π A' ({x} B' x)), (⊢ Π A' ({x} B' x)
+   type))
+Rule F is postulated.
+val fa :> judgement * judgement =
+  ((⊢ F A ({_} a) ≡ F A' ({_} a') : A), (⊢ F A' ({_} a') : A))
+- :> judgement = ⊢ {_ : A'} a' : A

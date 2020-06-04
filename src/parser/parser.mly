@@ -54,7 +54,7 @@
 %token FUN
 
 (* TT commands *)
-%token FRESH META CONVERT CONGRUENCE CONTEXT OCCURS DERIVE ABSTRACT
+%token FRESH META CONVERT CONGRUENCE CONTEXT OCCURS DERIVE ABSTRACT REWRITE
 
 (* Toplevel directives *)
 %token VERBOSITY
@@ -318,6 +318,9 @@ app_term_:
 
   | CONGRUENCE e1=substitution_term e2=substitution_term es=list(substitution_term)
     { Sugared.Congruence (e1, e2, es) }
+
+  | REWRITE e=substitution_term es=list(substitution_term)
+    { Sugared.Rewrite (e, es) }
 
   | CONTEXT c=substitution_term
     { Sugared.Context c }
