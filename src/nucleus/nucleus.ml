@@ -188,6 +188,7 @@ let congruence_judgement = Congruence.form_judgement
 let congruence_is_type = Congruence.form_is_type
 let congruence_is_term = Congruence.form_is_term
 
+let rewrite_judgement = Rewrite.judgement
 
 let print_is_term = Nucleus_print.is_term
 let print_is_type = Nucleus_print.is_type
