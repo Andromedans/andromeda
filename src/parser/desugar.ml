@@ -1139,6 +1139,11 @@ let rec comp ctx {Location.it=c';at} =
      and cs = List.map (comp ctx) cs in
      locate (Desugared.Congruence (c1, c2, cs))
 
+| Sugared.Rewrite (c, cs) ->
+     let c = comp ctx c
+     and cs = List.map (comp ctx) cs in
+     locate (Desugared.Rewrite (c, cs))
+
   | Sugared.Context c ->
      let c = comp ctx c in
      locate (Desugared.Context c)
