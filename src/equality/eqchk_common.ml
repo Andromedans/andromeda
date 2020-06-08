@@ -1,3 +1,9 @@
+let penv = Nucleus.({
+              forbidden = Name.set_empty ;
+              debruijn_var = [] ;
+              debruijn_meta = [] ;
+              opens = Path.set_empty
+            })
 (** Types for pattern matching *)
 module Patt =
 struct
@@ -130,7 +136,11 @@ let rap_fully_apply rap args =
   let rec fold rap args =
   match rap, args with
   | Nucleus.RapDone jdg, [] -> jdg
-  | Nucleus.RapMore (_bdry, f), arg :: args -> fold (f arg) args
+  | Nucleus.RapMore (_bdry, f), arg :: args ->
+    Format.printf "applying rap to argument %t of boundary %t@." (Nucleus.print_judgement_abstraction ~penv arg) (Nucleus.print_boundary_abstraction ~penv _bdry);
+    ();
+    let tmp = f (arg) in
+    fold tmp args
   | Nucleus.RapDone _, _::_ -> raise (Fatal_error "Applying the rule to too many arguments")
   | Nucleus.RapMore _, [] -> raise (Fatal_error "Applying the rule to too few arguments")
   in

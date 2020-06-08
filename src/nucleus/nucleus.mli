@@ -454,9 +454,10 @@ val congruence_is_type :
 val congruence_is_term :
   signature -> is_term -> is_term -> eq_term rule_application option
 
-(** Create rewrite rule application for the given constructor, or raise [InvalidRewrite] if the judgement is not of correct form. *)
-
+(** Create rewrite for the given constructor, or raise [InvalidRewrite] if the judgement is not of correct form. *)
 val rewrite_judgement : signature -> judgement -> judgement_abstraction list -> (judgement * judgement)
+val rewrite_is_type : signature -> is_type -> judgement_abstraction list -> (eq_type * is_type)
+val rewrite_is_term : signature -> is_term -> judgement_abstraction list -> (eq_term * is_term)
 
 (** Give human names to things *)
 

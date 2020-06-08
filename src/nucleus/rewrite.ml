@@ -68,7 +68,7 @@ let is_type sgn t jdg_lst =
               let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in
               let es = List.rev (List.map Coerce.to_argument es) in
               let t' = Mk.type_constructor c es in
-              JudgementEqType (Mk.eq_type asmp t t'), JudgementIsType t'
+              (Mk.eq_type asmp t t'), t'
 
 
             | Premise ({meta_boundary=prem;_}, rl), arg :: args, jdg :: jdg_lst ->
@@ -93,10 +93,11 @@ let is_type sgn t jdg_lst =
           begin
           match bdry, args, jdg_lst with
             | NotAbstract (BoundaryIsType ()), [], [] ->
-            let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in
+            (* let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in *)
+            let asmp = asmps in
             (*XXX: Are here asmp just asmps? *)
             let t' = Mk.type_meta m es in
-            JudgementEqType (Mk.eq_type asmp t t'), JudgementIsType t'
+            (Mk.eq_type asmp t t'),  t'
 
             | Abstract (_, t', abstr), arg :: args, jdg :: jdg_lst  ->
               let es_jdg = List.map (fun e -> Coerce.from_is_term_abstraction (Abstract.not_abstract e)) es in
@@ -142,7 +143,7 @@ let rec is_term sgn e jdg_lst =
               let es = List.rev (List.map Coerce.to_argument es) in
               let e' = Mk.term_constructor c es in
               let e'= Mk.term_convert e' asmps t in
-              JudgementEqTerm (Mk.eq_term asmp e e' t), JudgementIsTerm e'
+              (Mk.eq_term asmp e e' t), e'
 
 
             | Premise ({meta_boundary=prem;_}, rl), arg :: args, jdg :: jdg_lst ->
@@ -167,11 +168,12 @@ let rec is_term sgn e jdg_lst =
           begin
           match bdry, args, jdg_lst with
             | NotAbstract (BoundaryIsTerm t), [], [] ->
-            let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in
+            (* let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in *)
+            let asmp = asmps in
             (*XXX: Are here asmp just asmps? *)
             let e' = Mk.term_meta m es in
             let e' = Mk.term_convert e' asmps t in
-            JudgementEqTerm (Mk.eq_term asmp e e' t), JudgementIsTerm e'
+            (Mk.eq_term asmp e e' t), e'
 
             | Abstract (_, t', abstr), arg :: args, jdg :: jdg_lst  ->
               let es_jdg = List.map (fun e -> Coerce.from_is_term_abstraction (Abstract.not_abstract e)) es in
@@ -206,28 +208,30 @@ let rec is_term sgn e jdg_lst =
   | TermConvert (e', asmp, t) ->
     begin
     match is_term sgn e' jdg_lst with
-    | JudgementEqTerm (EqTerm (asmps, e1, e2, t') as eq), JudgementIsTerm e'' ->
-      JudgementEqTerm (Form.form_eq_term_convert eq (Mk.eq_type asmp t' t)), JudgementIsTerm (Mk.term_convert e'' asmp t)
-    | _ -> Error.raise InvalidRewrite
+    | (EqTerm (asmps, e1, e2, t') as eq), e'' ->
+      (Form.form_eq_term_convert eq (Mk.eq_type asmp t' t)), (Mk.term_convert e'' asmp t)
     end
 
   | TermBoundVar _
   | TermAtom _ ->
     begin
     match jdg_lst with
-    | [] -> JudgementEqTerm (Form.reflexivity_term sgn e), JudgementIsTerm e
+    | [] -> (Form.reflexivity_term sgn e), e
     | _ :: _ -> Error.raise InvalidRewrite
     end
   | TermMeta (MetaBound _, _) -> Error.raise InvalidRewrite
 
 
-
 let judgement sgn jdg jdg_lst =
   match jdg with
 
-  | JudgementIsType t -> is_type sgn t jdg_lst
+  | JudgementIsType t ->
+    let t_eq_t', t' = is_type sgn t jdg_lst in
+    JudgementEqType t_eq_t', JudgementIsType t'
 
-  | JudgementIsTerm e -> is_term sgn e jdg_lst
+  | JudgementIsTerm e ->
+    let e_eq_e', e' = is_term sgn e jdg_lst in
+    JudgementEqTerm e_eq_e', JudgementIsTerm e'
 
   | JudgementEqType _ | JudgementEqTerm _ -> Error.raise InvalidRewrite
 
