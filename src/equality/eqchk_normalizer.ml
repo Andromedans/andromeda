@@ -2,12 +2,6 @@
 
 open Eqchk_common
 
-let penv = Nucleus.({
-              forbidden = Name.set_empty ;
-              debruijn_var = [] ;
-              debruijn_meta = [] ;
-              opens = Path.set_empty
-            })
 let rec print_sequence seq ppf =
   match seq with
   | [] -> ()
@@ -238,9 +232,9 @@ and apply_term_beta betas sgn e =
      fold lst
 
 (** Normalize a type *)
-and normalize_type ~strong sgn nrm args args' args_eq_args' ty0 =
+and normalize_type ~strong sgn nrm ty0 =
   let rec fold ty0_eq_ty1 ty1 =
-    let ty1_eq_ty2, Normal ty2 = normalize_heads_type ~strong sgn nrm args args' args_eq_args' ty1 in
+    let ty1_eq_ty2, Normal ty2 = normalize_heads_type ~strong sgn nrm ty1 in
     let ty0_eq_ty2 = Nucleus.transitivity_type ty0_eq_ty1 ty1_eq_ty2 in
 
     match apply_type_beta nrm.type_computations sgn ty2 with
@@ -255,9 +249,9 @@ and normalize_type ~strong sgn nrm args args' args_eq_args' ty0 =
   fold (Nucleus.reflexivity_type ty0) ty0
 
 
-and normalize_term ~strong sgn nrm args args' args_eq_args' e0 =
+and normalize_term ~strong sgn nrm e0 =
   let rec fold e0_eq_e1 e1 =
-    let e1_eq_e2, Normal e2 = normalize_heads_term ~strong sgn nrm args args' args_eq_args' e1 in
+    let e1_eq_e2, Normal e2 = normalize_heads_term ~strong sgn nrm e1 in
     let e0_eq_e2 = Nucleus.transitivity_term e0_eq_e1 e1_eq_e2 in
 
     match apply_term_beta nrm.term_computations sgn e2 with
@@ -275,331 +269,92 @@ and normalize_term ~strong sgn nrm args args' args_eq_args' e0 =
   fold (Nucleus.reflexivity_term sgn e0) e0
 
 
-(* Normalize those arguments of [ty0] which are considered to be heads and convert them along previously normalized arguments [args]. *)
-and normalize_heads_type ~strong sgn nrm args args' args_eq_args' ty0 =
-  match is_alpha_equal_type_args sgn args args' args_eq_args' ty0 with
-  | Some (ty0_eq_ty1, ty1) -> ty0_eq_ty1, Normal ty1
-  | None ->
-    begin
-      match Nucleus.invert_is_type sgn ty0 with
+(* Normalize those arguments of [ty0] which are considered to be normalizing. *)
+and normalize_heads_type ~strong sgn nrm ty0 =
+  match Nucleus.invert_is_type sgn ty0 with
 
-      | Nucleus.Stump_TypeConstructor (s, cargs) ->
-         let heads = get_type_heads nrm (Ident s) in
-         let rap = (Nucleus.form_constructor_rap sgn s) in
-         let cargs_eq_cargs', Normal cargs', jdg1 = normalize_arguments ~strong sgn nrm heads rap args args' args_eq_args' cargs in
-         let ty1 = deopt (Nucleus.as_is_type jdg1) "application of the constructor did not result in type judgement" in
-         let ty0_eq_ty1 =
-           let rap = deopt (Nucleus.congruence_is_type sgn ty0 ty1) "unable to construct a type congruence rule" in
-           deopt (rap_fully_apply rap cargs_eq_cargs') "unable to apply the type congruence rule to arguments"
-         in
-         ty0_eq_ty1, Normal ty1
+    | Nucleus.Stump_TypeConstructor (s, cargs) ->
+      let heads = get_type_heads nrm (Ident s) in
+      let cargs_eq_cargs', Normal cargs' = normalize_arguments ~strong sgn nrm heads cargs in
+      let ty0_eq_ty1, ty1 = Nucleus.rewrite_is_type sgn ty0 cargs_eq_cargs' in
+      ty0_eq_ty1, Normal ty1
 
-      | Nucleus.Stump_TypeMeta (mv, es) ->
-         let heads = get_type_heads nrm (Nonce (Nucleus.meta_nonce mv)) in
-         let es = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es in
-         let rap = (Nucleus.form_meta_rap sgn mv) in
-         let es_eq_es', Normal es', jdg1 = normalize_arguments ~strong sgn nrm heads rap args args' args_eq_args' es in
-         let ty1 =
-           deopt (Nucleus.as_is_type jdg1) "application of the type matavariable did not result in type judgement"
-         in
-         let ty0_eq_ty1 =
-           let rap = deopt (Nucleus.congruence_is_type sgn ty0 ty1)  "unable to construct a type congruence rule" in
-           deopt (rap_fully_apply rap es_eq_es') "unable to apply the type congruence rule to arguments"
-         in
-        ty0_eq_ty1, Normal ty1
-        end
+    | Nucleus.Stump_TypeMeta (mv, es) ->
+      let heads = get_type_heads nrm (Nonce (Nucleus.meta_nonce mv)) in
+      let es = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es in
+      let es_eq_es', Normal es' = normalize_arguments ~strong sgn nrm heads es in
+      let ty0_eq_ty1, ty1 = Nucleus.rewrite_is_type sgn ty0 es_eq_es' in
+      ty0_eq_ty1, Normal ty1
 
 
-(* Normalize those arguments of [e0] which are considered to be heads and convert them along previously normalized arguments [args]. *)
-and normalize_heads_term ~strong sgn nrm args args' args_eq_args' e0 =
- match is_alpha_equal_term_args sgn args args' args_eq_args' e0 with
-  | Some (e0_eq_e1, e1) -> e0_eq_e1, Normal e1
-  | None ->
-  begin
+(* Normalize those arguments of [e0] which are considered to be normalizing. *)
+and normalize_heads_term ~strong sgn nrm e0 =
   match Nucleus.invert_is_term sgn e0 with
 
   | Nucleus.Stump_TermConstructor (s, cargs) ->
      let heads = get_term_heads nrm (Ident s) in
-     let rap = (Nucleus.form_constructor_rap sgn s) in
-     let cargs_eq_cargs', Normal cargs', jdg1 = normalize_arguments ~strong sgn nrm heads rap args args' args_eq_args' cargs in
-     let e1 =
-       deopt (Nucleus.as_is_term jdg1) "application of the term constructor did not result in term judgement" in
-     let e0_eq_e1 =
-       let rap = deopt (Nucleus.congruence_is_term sgn e0 e1) "unable to construct a term congruence rule" in
-       deopt (rap_fully_apply rap cargs_eq_cargs') "unable to apply the term congruence rule to arguments"
-     in
+     let cargs_eq_cargs', Normal cargs' = normalize_arguments ~strong sgn nrm heads cargs in
+     let e0_eq_e1, e1 = Nucleus.rewrite_is_term sgn e0 cargs_eq_cargs' in
     e0_eq_e1, Normal e1
 
   | Nucleus.Stump_TermMeta (mv, es) ->
      let heads = get_term_heads nrm (Nonce (Nucleus.meta_nonce mv)) in
-     let rap = (Nucleus.form_meta_rap sgn mv) in
      let es = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es in
-     let es_eq_es', Normal es', jdg1 = normalize_arguments ~strong sgn nrm heads rap args args' args_eq_args' es in
-     let e1 =
-       deopt (Nucleus.as_is_term jdg1) "application of the type matavariable did not result in term judgement"
-     in
-     let e0_eq_e1 =
-       let rap = deopt (Nucleus.congruence_is_term sgn e0 e1) "unable to construct a term congruence rule" in
-       deopt (rap_fully_apply rap es_eq_es') "unable to apply the term congruence rule to arguments"
-     in
-      e0_eq_e1, Normal e1
+     let es_eq_es', Normal es' = normalize_arguments ~strong sgn nrm heads es in
+     let e0_eq_e1, e1 = Nucleus.rewrite_is_term sgn e0 es_eq_es' in
+    e0_eq_e1, Normal e1
 
   | Nucleus.Stump_TermAtom _ ->
      Nucleus.(reflexivity_term sgn e0), Normal e0
 
-  | Nucleus.Stump_TermConvert (e1', t) (* == e1 : t *) ->
-     let e1'_eq_e2, _ = normalize_heads_term ~strong sgn nrm args args' args_eq_args' e1' in (* e1' == e2 : t' *)
-     (* e0 == e1 : t and e1' == e2 : t' ===> e0 == e2 : t *)
-     let e0_eq_e2 = Nucleus.transitivity_term Nucleus.(reflexivity_term sgn e0) e1'_eq_e2 in
-     let Nucleus.Stump_EqTerm (_, _, e2, _) = Nucleus.invert_eq_term sgn e0_eq_e2 in
-     (* e1' == e2 : t *)
-     e0_eq_e2, Normal e2
-    end
+  | Nucleus.Stump_TermConvert (e0', t) (* == e0 : t *) ->
+     let e0'_eq_e1, Normal e1 = normalize_heads_term ~strong sgn nrm e0' in (* e0' == e1 : t' *)
+     (* Format.printf "normalizing term %t with normalized heads %t@." (Nucleus.print_is_term ~penv e0) (Nucleus.print_eq_term ~penv e0'_eq_e1); *)
+     (* e0 == e0 : t and e0' == e1 : t' ===> e0 == e1 : t *)
+     let e0_eq_e1 = Nucleus.transitivity_term (Nucleus.reflexivity_term sgn e0) e0'_eq_e1 in
+     (* let e1 = Nucleus.form_is_term_convert sgn e1 t in *)
+     let Nucleus.Stump_EqTerm (_, _, e1, _) = Nucleus.invert_eq_term sgn e0_eq_e1 in
+     (* e0' == e1 : t *)
+     e0_eq_e1, Normal e1
 
 (** Normalize arguments [args] and convert them along previously normalized arguments [conv_args]. Then apply rule application [rap]. *)
-and normalize_arguments ~strong sgn nrm heads rap conv_args conv_args' conv_args_eq_conv_args' args =
-  let rec fold k args args' args_eq_args' rap args_rest =
-    match rap, args_rest with
+and normalize_arguments ~strong sgn nrm heads args =
+  let rec fold k args' args_eq_args' args_rest =
+    match args_rest with
 
-    | Nucleus.RapDone jdg, [] ->
-      args_eq_args', Normal args', jdg
+    | [] ->
+      List.rev args_eq_args', Normal (List.rev args')
 
-    | Nucleus.RapMore _, [] -> raise (Normalization_fail "applying rule to too few arguments")
-
-    | Nucleus.RapDone _, _ :: _ -> raise (Normalization_fail "applying rule to too many arguments")
-
-    | Nucleus.RapMore (bdry_rule, f), arg :: args_rest ->
+    | arg :: args_rest ->
       if strong || IntSet.mem k heads
       then
-       let arg_eq_arg', Normal arg' = normalize_argument ~strong sgn nrm conv_args conv_args' conv_args_eq_conv_args' args args' args_eq_args' arg bdry_rule in
-       fold (k+1) (args @ [arg]) (args' @ [arg']) (args_eq_args' @ [arg_eq_arg']) (rap_apply rap [arg']) args_rest
+       let arg_eq_arg', Normal arg' = normalize_argument ~strong sgn nrm arg in
+       fold (k+1) (arg' :: args') (arg_eq_arg' :: args_eq_args') args_rest
       else
-        let arg_eq_arg', arg' = convert_argument sgn conv_args conv_args' conv_args_eq_conv_args' args args' args_eq_args' arg bdry_rule in
-        fold (k+1) (args @ [arg]) (args' @ [arg']) (args_eq_args' @ [arg_eq_arg']) (rap_apply rap [arg']) args_rest
+        let arg_eq_arg' = deopt (Nucleus.reflexivity_judgement_abstraction sgn arg) "unexpected equality judgement" in
+        fold (k+1) (arg :: args') (arg_eq_arg' :: args_eq_args') args_rest
   in
-  fold 0 [] [] [] rap args
+  fold 0 [] [] args
 
-and convert_argument sgn conv_args conv_args' conv_args_eq_conv_args' args args' args_eq_args' arg expected_boundary =
-  match (Nucleus.invert_judgement_abstraction arg), (Nucleus.(invert_boundary_abstraction expected_boundary)) with
 
-  | Nucleus.Stump_Abstract (atm, arg),  Nucleus.Stump_Abstract (atm_bdry, bdry) ->
-     let atm_ty, atm_name = Nucleus.(type_of_atom atm, atom_name atm) in
-     let ty_eq_ty', atm_ty' =
-         convert_is_type sgn (conv_args @ args) (conv_args' @ args') (conv_args_eq_conv_args' @ args_eq_args') atm_ty in
-     if not Nucleus.(alpha_equal_type atm_ty' (type_of_atom atm_bdry)) then raise (Normalization_fail "bound variable normalizes to a wrong type")
-     else
-     let atm' = Nucleus.(fresh_atom atm_name atm_ty') in
-     let atm_conv = deopt Nucleus.(convert_term sgn (form_is_term_atom atm') (symmetry_type ty_eq_ty')) "cannot convert atom" in
-     let atm_conv_bdry = deopt Nucleus.(convert_term sgn (form_is_term_atom atm) ty_eq_ty') "cannot convert atom" in
-     let bdry = Nucleus.(abstract_boundary atm_bdry bdry) in
-     let bdry = Nucleus.(apply_boundary_abstraction sgn bdry atm_conv_bdry) in
-     let arg_eq_arg', arg'= convert_argument sgn conv_args conv_args' conv_args_eq_conv_args' args args' args_eq_args' arg bdry in
+and normalize_argument ~strong sgn nrm arg =
+  match (Nucleus.invert_judgement_abstraction arg) with
+
+  | Nucleus.Stump_Abstract (atm, arg) ->
+     let arg_eq_arg', Normal arg'= normalize_argument ~strong sgn nrm arg in
      let arg' = Nucleus.abstract_judgement atm arg'
      and arg_eq_arg' = Nucleus.abstract_judgement atm arg_eq_arg' in
-     let arg' = Nucleus.(apply_judgement_abstraction sgn arg' atm_conv) in
-     let arg' = Nucleus.abstract_judgement atm' arg' in
-     arg_eq_arg', arg'
-
-  | Nucleus.(Stump_NotAbstract (JudgementIsType t)), Nucleus.(Stump_NotAbstract (BoundaryIsType ())) ->
-     let t_eq_t', t' = convert_is_type sgn (conv_args @ args) (conv_args' @ args') (conv_args_eq_conv_args' @ args_eq_args') t in
-     Nucleus.(abstract_not_abstract (JudgementEqType t_eq_t')),
-     Nucleus.(abstract_not_abstract (JudgementIsType t'))
-
-  | Nucleus.(Stump_NotAbstract (JudgementIsTerm e)), Nucleus.(Stump_NotAbstract (BoundaryIsTerm bdry)) ->
-    let e_eq_e', e' = convert_is_term sgn (conv_args @ args)   (conv_args' @ args') (conv_args_eq_conv_args' @   args_eq_args') e in
-    let ty0 =  Nucleus.(type_of_term sgn e') in
-      if Nucleus.(alpha_equal_type bdry ty0) then
-      Nucleus.(abstract_not_abstract (JudgementEqTerm  e_eq_e')),
-      Nucleus.(abstract_not_abstract (JudgementIsTerm e'))
-      else
-      begin
-      match Nucleus.(invert_eq_term sgn e_eq_e') with
-        | Nucleus.(Stump_EqTerm (_, _, e1, ty1)) ->
-          if Nucleus.(alpha_equal_type bdry ty1)
-          then
-          Nucleus.(abstract_not_abstract (JudgementEqTerm  e_eq_e')),
-          Nucleus.(abstract_not_abstract (JudgementIsTerm e1))
-        else
-
-      let ty0_eq_ty1, ty1 =
-        let ty0_eq_ty1, ty1 = convert_is_type sgn (conv_args @ args) (conv_args' @ args') (conv_args_eq_conv_args' @ args_eq_args') ty0 in
-        if not Nucleus.(alpha_equal_type bdry ty1) then
-        raise (Normalization_fail "the term cannot be converted to correct boundary")
-        else
-        (ty0_eq_ty1, ty1)
-      in
-      let e' = deopt Nucleus.(convert_term sgn e' ty0_eq_ty1) "cannot convert normalized term to converted type" in
-      Nucleus.(abstract_not_abstract (JudgementEqTerm  e_eq_e')),
-      Nucleus.(abstract_not_abstract (JudgementIsTerm e'))
-      end
-
-
-  | Nucleus.(Stump_NotAbstract (JudgementEqType _ | JudgementEqTerm _)), _ ->
-      raise (Normalization_fail "cannot normalize equality judgements")
-
-  | Nucleus.(Stump_NotAbstract ((JudgementIsType _ | JudgementIsTerm _))), Nucleus.Stump_Abstract _
-  | Nucleus.(Stump_Abstract _), Nucleus.(Stump_NotAbstract _) ->
-      raise (Normalization_fail "expected abstraction, got unabstracted judgement")
-
-  | Nucleus.(Stump_NotAbstract (JudgementIsType _),
-    Stump_NotAbstract (BoundaryIsTerm _|BoundaryEqType _|BoundaryEqTerm _))
-  | Nucleus.(Stump_NotAbstract (JudgementIsTerm _),
-    Stump_NotAbstract (BoundaryIsType _|BoundaryEqType _|BoundaryEqTerm _)) ->
-    raise (Normalization_fail "judgement and boundary mismatch")
-
-and convert_is_type sgn args args' args_eq_args' t =
-  match is_alpha_equal_type_args sgn args args' args_eq_args' t with
-  | Some (ty0_eq_ty1, ty1) -> ty0_eq_ty1, ty1
-  | None ->
-    match Nucleus.invert_is_type sgn t with
-      | Nucleus.(Stump_TypeConstructor (s, constr_args)) ->
-        let rap = Nucleus.form_constructor_rap sgn s in
-        let constr_args_eq_constr_args', constr_args', jdg1 =
-            convert_arguments sgn rap args args' args_eq_args' constr_args in
-        let t' =
-          deopt (Nucleus.as_is_type jdg1) "application of the constructor did not result in type judgement" in
-        let t_eq_t' =
-          let rap = deopt (Nucleus.congruence_is_type sgn t t') "unable to construct a type congruence rule" in
-          deopt (rap_fully_apply rap constr_args_eq_constr_args') "unable to apply the type congruence rule to arguments"
-        in
-        t_eq_t', t'
-
-
-      | Nucleus.(Stump_TypeMeta (mv, es)) ->
-        let es = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es in
-        let rap = (Nucleus.form_meta_rap sgn mv) in
-        let es_eq_es', es', jdg1 = convert_arguments sgn rap args args' args_eq_args' es in
-        let t' =
-          deopt (Nucleus.as_is_type jdg1) "application of the type matavariable did not result in type judgement"
-        in
-        let t_eq_t' =
-          let rap = deopt (Nucleus.congruence_is_type sgn t t')  "unable to construct a type congruence rule" in
-          deopt (rap_fully_apply rap es_eq_es') "unable to apply the type congruence rule to arguments"
-        in
-       t_eq_t', t'
-
-
-and convert_is_term sgn args args' args_eq_args' e =
-  match is_alpha_equal_term_args sgn args args' args_eq_args' e with
-  | Some (e_eq_e', e') -> e_eq_e', e'
-  | None ->
-        match Nucleus.invert_is_term sgn e with
-          | Nucleus.(Stump_TermConstructor (s, constr_args)) ->
-            let rap = Nucleus.form_constructor_rap sgn s in
-            let constr_args_eq_constr_args', constr_args', jdg1 =
-                convert_arguments sgn rap args args' args_eq_args' constr_args in
-            let e' =
-              deopt (Nucleus.as_is_term jdg1) "application of the constructor did not result in term judgement" in
-            let e_eq_e' =
-              let rap = deopt (Nucleus.congruence_is_term sgn e e') "unable to construct a term congruence rule" in
-              deopt (rap_fully_apply rap constr_args_eq_constr_args') "unable to apply the term congruence rule to arguments"
-            in
-            e_eq_e', e'
-
-
-          | Nucleus.(Stump_TermMeta (mv, es)) ->
-            let es = List.map (fun expr -> Nucleus.(abstract_not_abstract (JudgementIsTerm expr))) es in
-            let rap = Nucleus.form_meta_rap sgn mv in
-            let es_eq_es', es', jdg1 = convert_arguments sgn rap args args' args_eq_args' es in
-            let e' =
-              deopt (Nucleus.as_is_term jdg1) "application of the term matavariable did not result in term judgement"
-            in
-            let e_eq_e' =
-              let rap = deopt (Nucleus.congruence_is_term sgn e e')  "unable to construct a term congruence rule" in
-              deopt (rap_fully_apply rap es_eq_es') "unable to apply the term congruence rule to arguments"
-            in
-            e_eq_e', e'
-
-          | Nucleus.(Stump_TermAtom atm) ->
-            Nucleus.(reflexivity_term sgn e), e
-
-          | Nucleus.(Stump_TermConvert (e, eq)) ->
-            let eq', e' = convert_is_term sgn args args' args_eq_args' e in
-            let e' = deopt Nucleus.(convert_term sgn e' eq) "cannot convert the term" in
-            (* XXX: this may fail, since eq may not be between the correct types*)
-            eq', e'
-
-
-and convert_arguments sgn rap args args' args_eq_args' constr_args =
-  let rec fold constr_args constr_args' constr_args_eq_constr_args' rap constr_args_rest=
-    match rap, constr_args_rest with
-    | Nucleus.RapDone jdg, [] -> constr_args_eq_constr_args', constr_args', jdg
-
-    | Nucleus.RapMore _, [] -> raise (Normalization_fail "applying rule to too few arguments")
-
-    | Nucleus.RapDone _, _ :: _ -> raise (Normalization_fail "applying rule to too many arguments")
-
-    | Nucleus.RapMore (bdry_rule, f), constr_arg :: constr_args_rest ->
-      let constr_arg_eq_constr_arg', constr_arg' =
-        convert_argument sgn args args' args_eq_args' constr_args constr_args' constr_args_eq_constr_args' constr_arg bdry_rule in
-        fold (constr_args @ [constr_arg]) (constr_args' @ [constr_arg']) (constr_args_eq_constr_args' @ [constr_arg_eq_constr_arg']) (rap_apply rap [constr_arg']) constr_args_rest
-  in
-  fold [] [] [] rap constr_args
-
-
-and normalize_argument ~strong sgn nrm conv_args conv_args' conv_args_eq_conv_args' args args' args_eq_args' arg expected_boundary =
-  match (Nucleus.invert_judgement_abstraction arg), (Nucleus.(invert_boundary_abstraction expected_boundary)) with
-
-  | Nucleus.Stump_Abstract (atm, arg), Nucleus.Stump_Abstract (atm_bdry, bdry) ->
-     let atm_ty, atm_name = Nucleus.(type_of_atom atm, atom_name atm) in
-     let ty_eq_ty', Normal atm_ty' =
-         normalize_type ~strong sgn nrm (conv_args @ args) (conv_args' @ args') (conv_args_eq_conv_args' @ args_eq_args') atm_ty in
-     if not Nucleus.(alpha_equal_type atm_ty' (type_of_atom atm_bdry)) then raise (Normalization_fail "bound variable normalizes to a wrong type")
-     else
-     let atm' = Nucleus.(fresh_atom atm_name atm_ty') in
-     let atm_conv = deopt Nucleus.(convert_term sgn (form_is_term_atom atm') (symmetry_type ty_eq_ty')) "cannot convert atom" in
-     let atm_conv_bdry = deopt Nucleus.(convert_term sgn (form_is_term_atom atm) ty_eq_ty') "cannot convert atom" in
-     let bdry = Nucleus.(abstract_boundary atm_bdry bdry) in
-     let bdry = Nucleus.(apply_boundary_abstraction sgn bdry atm_conv_bdry) in
-     let arg_eq_arg', Normal arg'= normalize_argument ~strong sgn nrm conv_args conv_args' conv_args_eq_conv_args' args args' args_eq_args' arg bdry in
-     let arg' = Nucleus.abstract_judgement atm arg'
-     and arg_eq_arg' = Nucleus.abstract_judgement atm arg_eq_arg' in
-     let arg' = Nucleus.(apply_judgement_abstraction sgn arg' atm_conv) in
-     let arg' = Nucleus.abstract_judgement atm' arg' in
      arg_eq_arg', Normal arg'
 
-  | Nucleus.(Stump_NotAbstract (JudgementIsType t)), Nucleus.(Stump_NotAbstract (BoundaryIsType ())) ->
-      let t_eq_t', Normal t' = normalize_type ~strong sgn nrm (conv_args @ args) (conv_args' @ args') (conv_args_eq_conv_args' @ args_eq_args') t in
+  | Nucleus.(Stump_NotAbstract (JudgementIsType t)) ->
+      let t_eq_t', Normal t' = normalize_type ~strong sgn nrm t in
       Nucleus.(abstract_not_abstract (JudgementEqType t_eq_t')),
       Normal (Nucleus.(abstract_not_abstract (JudgementIsType t')))
 
-  | Nucleus.(Stump_NotAbstract (JudgementIsTerm e)), Nucleus.(Stump_NotAbstract (BoundaryIsTerm bdry)) ->
-      let e_eq_e', Normal e' = normalize_term ~strong sgn nrm (conv_args @ args) (conv_args' @ args') (conv_args_eq_conv_args' @ args_eq_args') e in
-      let ty0 =  Nucleus.(type_of_term sgn e') in
-      if Nucleus.(alpha_equal_type bdry ty0) then
+  | Nucleus.(Stump_NotAbstract (JudgementIsTerm e)) ->
+      let e_eq_e', Normal e' = normalize_term ~strong sgn nrm e in
       Nucleus.(abstract_not_abstract (JudgementEqTerm  e_eq_e')),
       Normal (Nucleus.(abstract_not_abstract (JudgementIsTerm e')))
-      else
-      begin
-      match Nucleus.(invert_eq_term sgn e_eq_e') with
-        | Nucleus.(Stump_EqTerm (_, _, e1, ty1)) ->
-          if Nucleus.(alpha_equal_type bdry ty1)
-          then
-          Nucleus.(abstract_not_abstract (JudgementEqTerm  e_eq_e')),
-        Normal (Nucleus.(abstract_not_abstract (JudgementIsTerm e1)))
-        else
 
-      let ty0_eq_ty1, ty1 =
-        let ty0_eq_ty1, Normal ty1 = normalize_type ~strong sgn nrm (conv_args @ args) (conv_args' @ args') (conv_args_eq_conv_args' @ args_eq_args') ty0 in
-        if not Nucleus.(alpha_equal_type bdry ty1) then
-        raise (Normalization_fail "the term cannot be converted to correct boundary")
-        else
-        (ty0_eq_ty1, ty1)
-      in
-      let e' = deopt Nucleus.(convert_term sgn e' ty0_eq_ty1) "cannot convert normalized term to converted type" in
-      Nucleus.(abstract_not_abstract (JudgementEqTerm  e_eq_e')),
-      Normal (Nucleus.(abstract_not_abstract (JudgementIsTerm e')))
-      end
-
-  | Nucleus.(Stump_NotAbstract (JudgementEqType _ | JudgementEqTerm _)), _ ->
+  | Nucleus.(Stump_NotAbstract (JudgementEqType _ | JudgementEqTerm _)) ->
       raise (Normalization_fail "cannot normalize equality judgements")
-
-  | Nucleus.(Stump_NotAbstract ((JudgementIsType _ | JudgementIsTerm _))), Nucleus.Stump_Abstract _
-  | Nucleus.(Stump_Abstract _), Nucleus.(Stump_NotAbstract _) ->
-      raise (Normalization_fail "expected abstraction, got unabstracted judgement")
-
-  | Nucleus.(Stump_NotAbstract (JudgementIsType _),
-    Stump_NotAbstract (BoundaryIsTerm _|BoundaryEqType _|BoundaryEqTerm _))
-  | Nucleus.(Stump_NotAbstract (JudgementIsTerm _),
-    Stump_NotAbstract (BoundaryIsType _|BoundaryEqType _|BoundaryEqTerm _)) ->
-    raise (Normalization_fail "judgement and boundary mismatch")
