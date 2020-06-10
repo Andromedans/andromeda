@@ -66,6 +66,7 @@ let is_type sgn t jdg_lst =
           begin match rl, args, jdg_lst with
             | Conclusion BoundaryIsType (), [], [] ->
               let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in
+              Format.printf "assumption bound metas %b@." (Bound_set.is_empty asmp.bound_meta);
               let es = List.rev (List.map Coerce.to_argument es) in
               let t' = Mk.type_constructor c es in
               (Mk.eq_type asmp t t'), t'
@@ -95,6 +96,7 @@ let is_type sgn t jdg_lst =
             | NotAbstract (BoundaryIsType ()), [], [] ->
             (* let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in *)
             let asmp = asmps in
+            Format.printf "assumption bound metas %b@." (Bound_set.is_empty asmp.bound_meta);
             (*XXX: Are here asmp just asmps? *)
             let t' = Mk.type_meta m es in
             (Mk.eq_type asmp t t'),  t'
@@ -143,6 +145,7 @@ let rec is_term sgn e jdg_lst =
               let es = List.rev (List.map Coerce.to_argument es) in
               let e' = Mk.term_constructor c es in
               let e'= Mk.term_convert e' asmps t in
+              Format.printf "assumption bound metas %b@." (Bound_set.is_empty asmp.bound_meta);
               (Mk.eq_term asmp e e' t), e'
 
 
@@ -173,6 +176,7 @@ let rec is_term sgn e jdg_lst =
             (*XXX: Are here asmp just asmps? *)
             let e' = Mk.term_meta m es in
             let e' = Mk.term_convert e' asmps t in
+            Format.printf "assumption bound metas %b@." (Bound_set.is_empty asmp.bound_meta);
             (Mk.eq_term asmp e e' t), e'
 
             | Abstract (_, t', abstr), arg :: args, jdg :: jdg_lst  ->
