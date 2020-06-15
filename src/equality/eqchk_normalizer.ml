@@ -223,6 +223,8 @@ and apply_term_beta betas sgn e =
           | None -> fold lst
           | Some args ->
              let rap = Nucleus.form_eq_term_rap sgn rl in
+             (* Format.printf "applying rap for constructor %t." (print_symbol ~penv s); *)
+             ();
              begin match rap_fully_apply rap args with
              | Some e_eq_e' -> Some e_eq_e'
              | None -> fold lst
