@@ -149,6 +149,17 @@ let form_rule_rap sgn inst rl =
        RapMore (bdry, rap)
 
     | Conclusion concl ->
+      (* Format.printf "lneght of arguments %d" (List.length args);
+      (let penv = ({
+            forbidden = Name.set_empty ;
+            debruijn_var = [] ;
+            debruijn_meta = [] ;
+            opens = Path.set_empty
+          }) in
+          let rec print_fold = function
+          |[] -> ()
+          | arg :: args -> Format.printf "argument %t@." (Nucleus_print.argument ~penv arg); print_fold args
+          in print_fold args); *)
        let concl = inst args concl in
        RapDone concl
   in
