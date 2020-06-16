@@ -5,7 +5,7 @@ open Nucleus_types
 exception Skip_argument
 
 let convert_argument sgn es asmps prem arg jdg =
-  let rec fold ~lvl prem arg jdg =
+  let rec fold prem arg jdg =
     match prem, arg, jdg with
       | NotAbstract bdry, Arg_NotAbstract arg, NotAbstract jdg ->
         begin match bdry, arg, jdg with
@@ -20,15 +20,12 @@ let convert_argument sgn es asmps prem arg jdg =
        | BoundaryIsTerm t_schema, JudgementIsTerm e1, JudgementEqTerm (EqTerm (asmp, e1', e2, t)) ->
           if Alpha_equal.is_term e1 e1' then
           let es_arg = List.map Coerce.to_argument es in
-          let t' = Instantiate_meta.is_type ~lvl es_arg t_schema in
-          let control_bound_meta  = (Collect_assumptions.is_type t').bound_meta in
+          let t' = Instantiate_meta.is_type ~lvl:0 es_arg t_schema in
+          let control_bound_meta  = (Collect_assumptions.is_type ~lvl:0 t').bound_meta in
           assert (Bound_set.is_empty control_bound_meta);
-          (* Format.printf "assumption bound metas type %b@." (Bound_set.is_empty control_bound_meta); *)
           let asmp' = asmps in
           assert (Bound_set.is_empty asmp.bound_meta);
           assert (Bound_set.is_empty asmp'.bound_meta);
-          (* Format.printf "assumption bound metas %b@." (Bound_set.is_empty asmp.bound_meta); *)
-          (* Format.printf "assumption bound metas in termconvert %b@." (Bound_set.is_empty asmp'.bound_meta); *)
           asmp,  NotAbstract (JudgementIsTerm (TermConvert (e2, asmp', t')))
           else Error.raise InvalidRewrite
 
@@ -40,19 +37,26 @@ let convert_argument sgn es asmps prem arg jdg =
        end
 
 
-      | Abstract (x, t_schema, prem), Arg_Abstract (x1, arg1), Abstract (x2, t, jdg) ->
-        let asmp', abstr' = fold ~lvl:(lvl+1) prem arg1 jdg in
+      | Abstract (x, t_schema, prem'), Arg_Abstract (x1, arg1), Abstract (x2, t, jdg') ->
         (* XXX: Make sure the levels of instantiation are correct!! *)
         let x = Name.prefer (Name.prefer x1 x2) x in
         let es_arg = List.map Coerce.to_argument es in
-        let t' = Instantiate_meta.is_type ~lvl es_arg t_schema in
+        let t' = Instantiate_meta.is_type ~lvl:0 es_arg t_schema in
+        let atm = Mk.fresh_atom x t in
+        let atm_jdg  = Mk.atom(atm) in
+        let prem' = Instantiate_bound.(abstraction boundary atm_jdg prem')
+        and arg1 = Instantiate_bound.(argument ~lvl:0 atm_jdg arg1)
+        and jdg' = Instantiate_bound.(abstraction judgement atm_jdg jdg') in
+        let asmp', abstr' = fold prem' arg1 jdg' in
         let a = Mk.fresh_atom x t' in
-        let a_conv = Mk.term_convert (Mk.atom a) asmps t in
+        let a_conv = Mk.term_convert (Mk.atom a) asmps t in (*XXX: Here the converts are not piled, because we convert an atom *)
         assert (Bound_set.is_empty asmps.bound_meta);
         assert (Bound_set.is_empty asmp'.bound_meta);
-        (* Format.printf "assumption bound metas in term convert %b@." (Bound_set.is_empty asmps.bound_meta); *)
-        (* XXX: Are converts going to be piled?? *)
-        let abstr = Instantiate_bound.(abstraction judgement ~lvl a_conv abstr') in
+        let abstr = Abstract.judgement_abstraction atm abstr' in
+        let abstr = Apply_abstraction.apply_judgement_abstraction sgn abstr a_conv in
+        let asmp' = Abstract.assumptions atm.atom_nonce asmp' in
+        (* let asmp' = Apply_abstraction.apply_assumptions  *)
+        (* let abstr = Instantiate_bound.(abstraction judgement ~lvl:0 a_conv abstr') in *)
         let control_asmp1 = (Collect_assumptions.is_type t').bound_meta in
         let control_asmp2 = (Collect_assumptions.(abstraction judgement abstr)).bound_meta in
         assert (Bound_set.is_empty control_asmp1);
@@ -71,7 +75,7 @@ let convert_argument sgn es asmps prem arg jdg =
 
   in
   try
-    fold ~lvl:0 prem arg jdg
+    fold prem arg jdg
   with
   | Skip_argument -> Error.raise InvalidRewrite
 
@@ -85,7 +89,6 @@ let is_type sgn t jdg_lst =
             | Conclusion BoundaryIsType (), [], [] ->
               let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in
               assert (Bound_set.is_empty asmp.bound_meta);
-              (* Format.printf "assumption bound metas %b@." (Bound_set.is_empty asmp.bound_meta); *)
               let es = List.rev (List.map Coerce.to_argument es) in
               let t' = Mk.type_constructor c es in
               assert (Bound_set.is_empty (Collect_assumptions.is_type t').bound_meta);
@@ -119,7 +122,6 @@ let is_type sgn t jdg_lst =
             (* let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in *)
             let asmp = asmps in
             assert (Bound_set.is_empty asmp.bound_meta);
-            (* Format.printf "assumption bound metas %b@." (Bound_set.is_empty asmp.bound_meta); *)
             (*XXX: Are here asmp just asmps? *)
             let t' = Mk.type_meta m es in
             assert (Bound_set.is_empty (Collect_assumptions.is_type t').bound_meta);
@@ -167,16 +169,16 @@ let rec is_term sgn e jdg_lst =
         let rec fold es asmps rl args jdg_lst =
           begin match rl, args, jdg_lst with
             | Conclusion BoundaryIsTerm t, [], [] ->
-              let asmp = Assumption.union asmps (Collect_assumptions.is_term e) in
               let es = List.map Coerce.to_argument es in
               let t = Instantiate_meta.is_type ~lvl:0 es t in
               let es = List.rev es in
               let e' = Mk.term_constructor c es in
-              let e'= Mk.term_convert e' asmps t in
-              assert (Bound_set.is_empty asmp.bound_meta);
+              let t' = Sanity.type_of_term sgn e' in
+              (* Assumptions on previous equalities witness the equality of types. *)
+              let t'_eq_t = Mk.eq_type asmps t' t in
+              let e'= Form_convert.is_term_convert sgn e' t'_eq_t in
               assert (Bound_set.is_empty (Collect_assumptions.is_type t).bound_meta);
-              (* Format.printf "assumption bound metas %b@." (Bound_set.is_empty asmp.bound_meta); *)
-              (Mk.eq_term asmp e e' t), e'
+              (Mk.eq_term asmps e e' t), e'
 
 
             | Premise ({meta_boundary=prem;_}, rl), arg :: args, jdg :: jdg_lst ->
@@ -206,9 +208,8 @@ let rec is_term sgn e jdg_lst =
             let asmp = asmps in
             (*XXX: Are here asmp just asmps? *)
             let e' = Mk.term_meta m es in
-            let e' = Mk.term_convert e' asmps t in
+            let e' = Form_convert.is_term_convert sgn e' (Mk.eq_type asmps (Sanity.type_of_term sgn e') t) in
             assert (Bound_set.is_empty asmp.bound_meta);
-            (* Format.printf "assumption bound metas %b@." (Bound_set.is_empty asmp.bound_meta); *)
             (Mk.eq_term asmp e e' t), e'
 
             | Abstract (_, t', abstr), arg :: args, jdg :: jdg_lst  ->
@@ -250,7 +251,8 @@ let rec is_term sgn e jdg_lst =
       assert (Bound_set.is_empty (Collect_assumptions.is_type t).bound_meta);
       assert (Bound_set.is_empty (Collect_assumptions.is_type t').bound_meta);
       assert (Bound_set.is_empty asmp.bound_meta);
-      (Form.form_eq_term_convert eq (Mk.eq_type asmp t' t)), (Mk.term_convert e'' asmp t)
+      let t''_eq_t = Mk.eq_type asmp (Sanity.type_of_term sgn e'') t in
+      (Form_convert.eq_term_convert eq (Mk.eq_type asmp t' t)), (Form_convert.is_term_convert sgn e'' t''_eq_t)
     end
 
   | TermBoundVar _
