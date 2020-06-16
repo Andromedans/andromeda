@@ -9,19 +9,19 @@ eq.add_rule unit_ext;;
 
 (* Simple products *)
 
-rule prod (A type) (B type) type ;;
-rule pair (A type) (B type) (x : A) (y : B) : prod A B ;;
-rule fst (A type) (B type) (_ : prod A B) : A ;;
-rule snd (A type) (B type) (_ : prod A B) : B ;;
+rule (×) (X type) (Y type) type ;;
+rule pair (A type) (B type) (x : A) (y : B) : A × B ;;
+rule fst (A type) (B type) (_ : A × B) : A ;;
+rule snd (A type) (B type) (_ : A × B) : B ;;
 
 rule β_fst (A type) (B type) (x : A) (y : B) : fst A B (pair A B x y) ≡ x : A ;;
 rule β_snd (A type) (B type) (x : A) (y : B) : snd A B (pair A B x y) ≡ y : B ;;
 
-rule prod_ext (A type) (B type) (u : prod A B) (v : prod A B)
+rule prod_ext (A type) (B type) (u : A × B) (v : A × B)
               (fst A B u ≡ fst A B v : A by ξ)
               (snd A B u ≡ snd A B v : B by ζ)
               :
-              u ≡ v : prod A B  ;;
+              u ≡ v : A × B  ;;
 
 eq.add_rule β_fst;;
 eq.add_rule β_snd;;
@@ -29,18 +29,18 @@ eq.add_rule prod_ext;;
 
 rule U type;;
 rule V type;;
-rule p : prod U V;;
+rule p : U × V;;
 rule u : U;;
 rule v : V;;
 
 eq.normalize (fst U V (pair U V u v));;
 eq.normalize (snd U V (pair U V u v));;
 
-eq.prove (p ≡ pair U V (fst U V p) (snd U V p) : prod U V by ??);;
+eq.prove (p ≡ pair U V (fst U V p) (snd U V p) : (U × V) by ??);;
 
-rule unuseful (A type) (B type) : prod A B ≡ U ;;
-eq.add_locally unuseful (fun () -> eq.compute (prod U V)) ;;
-eq.compute (prod U V) ;;
+rule unuseful (A type) (B type) : (A × B) ≡ U ;;
+eq.add_locally unuseful (fun () -> eq.compute (U × V)) ;;
+eq.compute (U × V) ;;
 
 (* Natural numbers *)
 
@@ -88,4 +88,3 @@ rule weird (A type)
            (B{a} == A by ξ)
            (_ :? eq.add_locally (derive -> ξ) (fun () -> a == b : A by ??))
            type ;;
-

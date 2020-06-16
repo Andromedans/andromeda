@@ -32,7 +32,7 @@ Rule unit_ext is postulated.
 Extensionality rule for unit: derive (x : unit) (y : unit) → x ≡ y :
 unit
 - :> mlunit = ()
-Rule prod is postulated.
+Rule × is postulated.
 Rule pair is postulated.
 Rule fst is postulated.
 Rule snd is postulated.
@@ -49,9 +49,9 @@ Term computation rule for snd (heads at [2]):
   B
 
 - :> mlunit = ()
-Extensionality rule for prod: derive (A type) (B type) (u : prod A B) (v :
-prod A B) (fst A B u ≡ fst A B v : A by ξ) (snd A B u ≡ snd A B v :
-B by ζ) → u ≡ v : prod A
+Extensionality rule for ×: derive (A type) (B type) (u : ( × ) A B) (v :
+( × ) A B) (fst A B u ≡ fst A B v : A by ξ) (snd A B u ≡ snd A B v :
+B by ζ) → u ≡ v : ( × ) A
 B
 - :> mlunit = ()
 Rule U is postulated.
@@ -63,13 +63,13 @@ Rule v is postulated.
   ((⊢ fst U V (pair U V u v) ≡ u : U), (⊢ u : U))
 - :> judgement * judgement =
   ((⊢ snd U V (pair U V u v) ≡ v : V), (⊢ v : V))
-- :> judgement = ⊢ p ≡ pair U V (fst U V p) (snd U V p) : prod U V
+- :> judgement = ⊢ p ≡ pair U V (fst U V p) (snd U V p) : ( × ) U V
 Rule unuseful is postulated.
-Type computation rule for prod (heads at []):
-  derive (A type) (B type) → prod A B ≡ U
-- :> judgement * judgement = ((⊢ prod U V ≡ U), (⊢ U type))
+Type computation rule for × (heads at []):
+  derive (A type) (B type) → ( × ) A B ≡ U
+- :> judgement * judgement = ((⊢ ( × ) U V ≡ U), (⊢ U type))
 - :> judgement * judgement =
-  ((⊢ prod U V ≡ prod U V), (⊢ prod U V type))
+  ((⊢ ( × ) U V ≡ ( × ) U V), (⊢ ( × ) U V type))
 Rule ℕ is postulated.
 Rule z is postulated.
 Rule s is postulated.

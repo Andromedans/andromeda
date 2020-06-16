@@ -1,0 +1,92 @@
+Processing module eq
+ML type eq.checker declared.
+external empty_checker : eq.checker = "Eqchk.empty_checker"
+external add_type_computation : eq.checker → derivation →
+  eq.checker = "Eqchk.add_type_computation"
+external add_term_computation : eq.checker → derivation →
+  eq.checker = "Eqchk.add_term_computation"
+external add : eq.checker → derivation → eq.checker = "Eqchk.add"
+external normalize_type : ML.bool → eq.checker → judgement →
+  judgement * judgement = "Eqchk.normalize_type"
+external normalize_term : ML.bool → eq.checker → judgement →
+  judgement * judgement = "Eqchk.normalize_term"
+external add_extensionality : eq.checker → derivation →
+  eq.checker = "Eqchk.add_extensionality"
+external prove_eqtype_abstraction : eq.checker → boundary →
+  judgement = "Eqchk.prove_eq_type_abstraction"
+external prove_eqterm_abstraction : eq.checker → boundary →
+  judgement = "Eqchk.prove_eq_term_abstraction"
+val ch :> ref eq.checker = ref <checker>
+val add_rule :> derivation → mlunit = <function>
+Exception eq.Coerce_fail is declared.
+val equalize_type :> judgement → judgement → judgement = <function>
+val coerce_abstraction :> judgement → boundary → judgement = <function>
+val normalize :> judgement → judgement * judgement = <function>
+val compute :> judgement → judgement * judgement = <function>
+val prove :> boundary → judgement = <function>
+val add_locally :> mlforall α, derivation → (mlunit → α) → α =
+  <function>
+Rule A is postulated.
+Rule A' is postulated.
+Rule A_eq_A' is postulated.
+Type computation rule for A (heads at []):
+  derive → A ≡ A'
+- :> mlunit = ()
+Rule B is postulated.
+Rule Π is postulated.
+Rule C is postulated.
+Rule D is postulated.
+Rule S is postulated.
+val s :> judgement = ⊢ {x : A} {y : B x} S x y ({z} D A x y z) type
+Rule a is postulated.
+Rule b is postulated.
+- :> judgement * judgement =
+  ((⊢ S a b ({z} D A a b z) ≡ S a b ({z} D A' a b z)), (⊢ S a b ({z} D
+   A' a b z) type))
+Rule B' is postulated.
+Rule B_eq_B' is postulated.
+Type computation rule for B (heads at []):
+  derive (x : A) → B x ≡ B' x
+- :> mlunit = ()
+- :> judgement * judgement =
+  ((⊢ Π A ({x₀} B x₀) ≡ Π A' ({x₀} B' x₀)), (⊢ Π A' ({x₀}
+   B' x₀) type))
+- :> judgement * judgement =
+  ((⊢ S a b ({z} D A a b z) ≡ S a b ({z} D A' a b z)), (⊢ S a b ({z} D
+   A' a b z) type))
+- :> judgement * judgement =
+  ((⊢ S a b ({z} D (B a) a b z) ≡ S a b ({z} D (B' a) a b z)), (⊢ S a b
+   ({z} D (B' a) a b z) type))
+Rule T is postulated.
+val t :> judgement = ⊢ T A ({x} B x) a b (S a b ({z} D A a b z)) type
+- :> judgement * judgement =
+  ((⊢ T A ({x} B x) a b (S a b ({z} D A a b z)) ≡ T A' ({x} B' x) a b (S
+   a b ({z} D A' a b z))), (⊢ T A' ({x} B' x) a b (S a b ({z} D A' a b z))
+   type))
+Rule Prod3 is postulated.
+Rule × is postulated.
+Rule ϕ is postulated.
+Rule p is postulated.
+val φ :> judgement = ⊢ ϕ A p type
+- :> judgement * judgement = ((⊢ ϕ A p ≡ ϕ A' p), (⊢ ϕ A' p type))
+Rule ψ is postulated.
+Rule u is postulated.
+val ϑ :> judgement = ⊢ ψ A ({x} u x) type
+- :> judgement * judgement =
+  ((⊢ ψ A ({x} u x) ≡ ψ A' ({x} u x)), (⊢ ψ A' ({x} u x) type))
+val M1 :> judgement = ?M₀ type ⊢ ?M₀ type
+Rule experiment is postulated.
+Type computation rule for M₀ (heads at []):
+  derive → ?M₀ ≡ A
+- :> mlunit = ()
+Rule triple is postulated.
+Rule fst is postulated.
+Rule snd is postulated.
+val δ :> judgement = ?M₀ type ⊢ ψ ?M₀ ({p₀} triple ?M₀ A A' (fst
+  ?M₀ A p₀) (snd ?M₀ A p₀) (snd ?M₀ A p₀)) type
+- :> judgement * judgement =
+  ((?M₀ type ⊢ ψ ?M₀ ({p₀} triple ?M₀ A A' (fst ?M₀ A p₀) (snd
+   ?M₀ A p₀) (snd ?M₀ A p₀)) ≡ ψ A' ({p₀} triple A' A' A' (fst
+   A' A' p₀) (snd A' A' p₀) (snd A' A' p₀))), (?M₀ type ⊢ ψ A'
+   ({p₀} triple A' A' A' (fst A' A' p₀) (snd A' A' p₀) (snd A' A'
+   p₀)) type))
