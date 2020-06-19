@@ -1,9 +1,3 @@
-let penv = Nucleus.({
-              forbidden = Name.set_empty ;
-              debruijn_var = [] ;
-              debruijn_meta = [] ;
-              opens = Path.set_empty
-            })
 (** Types for pattern matching *)
 module Patt =
 struct
@@ -137,7 +131,6 @@ let rap_fully_apply rap args =
   match rap, args with
   | Nucleus.RapDone jdg, [] -> jdg
   | Nucleus.RapMore (_bdry, f), arg :: args ->
-    (* Format.printf "applying rap to argument %t of boundary %t@." (Nucleus.print_judgement_abstraction ~penv arg) (Nucleus.print_boundary_abstraction ~penv _bdry); *)
     ();
     let tmp = f (arg) in
     fold tmp args

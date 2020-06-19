@@ -2,13 +2,6 @@
 
 open Eqchk_common
 
-let rec print_sequence seq ppf =
-  match seq with
-  | [] -> ()
-  | arg :: args ->
-    Format.printf "arg: %t@." (ppf arg) ;
-    print_sequence args ppf
-
 (** Extract an optional value, or declare an equality failure *)
 let deopt x msg =
   match x with
@@ -223,7 +216,6 @@ and apply_term_beta betas sgn e =
           | None -> fold lst
           | Some args ->
              let rap = Nucleus.form_eq_term_rap sgn rl in
-             (* Format.printf "applying rap for constructor %t." (print_symbol ~penv s); *)
              ();
              begin match rap_fully_apply rap args with
              | Some e_eq_e' -> Some e_eq_e'
@@ -311,7 +303,6 @@ and normalize_heads_term ~strong sgn nrm e0 =
 
   | Nucleus.Stump_TermConvert (e0', t) (* == e0 : t *) ->
      let e0'_eq_e1, Normal e1 = normalize_heads_term ~strong sgn nrm e0' in (* e0' == e1 : t' *)
-     (* Format.printf "normalizing term %t with normalized heads %t@." (Nucleus.print_is_term ~penv e0) (Nucleus.print_eq_term ~penv e0'_eq_e1); *)
      (* e0 == e0 : t and e0' == e1 : t' ===> e0 == e1 : t *)
      let e0_eq_e1 = Nucleus.transitivity_term (Nucleus.reflexivity_term sgn e0) e0'_eq_e1 in
      (* let e1 = Nucleus.form_is_term_convert sgn e1 t in *)
