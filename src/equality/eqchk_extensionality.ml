@@ -51,7 +51,7 @@ let make_equation drv =
        let t1' = Shift_meta.is_type (n_eq+2) t1
        and t2' = Shift_meta.is_type (n_eq+1) (extract_type bdry2opt) in
        (* check that types are equal *)
-       if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then raise (Invalid_rule "terms do not have equal types") ;
+       if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then raise (Invalid_rule "terms do not have alfa equal types") ;
        let patt = Eqchk_pattern.make_is_type (n_ob-2) t1 in
        let s = head_symbol_type t1 in
        (s, patt)
