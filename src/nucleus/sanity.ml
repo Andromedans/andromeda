@@ -105,6 +105,18 @@ let rec derivation_with_boundary sgn der =
     | Premise (mv, der) -> Premise (mv, derivation_with_boundary sgn der)
     | Conclusion jdg -> Conclusion (judgement_with_boundary sgn jdg)
 
+let rec abstracted_boundary_of_judgement_abstraction sgn abstr_jdg =
+  match abstr_jdg with
+    | Abstract (x, t, abstr) ->
+      let a, abstr = Unabstract.abstraction Instantiate_bound.judgement x t abstr in
+      let abstr_bdry = abstracted_boundary_of_judgement_abstraction sgn abstr in
+      Abstract.boundary_abstraction a abstr_bdry
+
+    | NotAbstract jdg ->
+      let _, bdry = judgement_with_boundary sgn jdg in
+      Mk.not_abstract bdry
+
+
 (** [natural_type sgn e] gives the judgment that the natural type [t] of [e] is derivable.
     We maintain the invariant that no further assumptions are needed (apart from those
     already present in [e]) to derive that [e] actually has type [t]. *)

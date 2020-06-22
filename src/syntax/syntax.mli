@@ -74,6 +74,7 @@ and comp' =
   | String of string
   | Occurs of comp * comp
   | Congruence of comp * comp * comp list
+  | Rewrite of comp * comp list
   | Convert of comp * comp
   | Context of comp
   | Natural of comp

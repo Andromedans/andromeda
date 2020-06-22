@@ -1,23 +1,20 @@
 Processing module eq
 ML type eq.checker declared.
-Exception eq.Invalid_equality_rule is declared.
-Exception eq.Failed_equality is declared.
 external empty_checker : eq.checker = "Eqchk.empty_checker"
-external add_type_computation : eq.checker → derivation → ML.option
+external add_type_computation : eq.checker → derivation →
   eq.checker = "Eqchk.add_type_computation"
-external add_term_computation : eq.checker → derivation → ML.option
+external add_term_computation : eq.checker → derivation →
   eq.checker = "Eqchk.add_term_computation"
-external add : eq.checker → derivation → ML.option
-  eq.checker = "Eqchk.add"
+external add : eq.checker → derivation → eq.checker = "Eqchk.add"
 external normalize_type : ML.bool → eq.checker → judgement →
   judgement * judgement = "Eqchk.normalize_type"
 external normalize_term : ML.bool → eq.checker → judgement →
   judgement * judgement = "Eqchk.normalize_term"
-external add_extensionality : eq.checker → derivation → ML.option
+external add_extensionality : eq.checker → derivation →
   eq.checker = "Eqchk.add_extensionality"
-external prove_eqtype_abstraction : eq.checker → boundary → ML.option
+external prove_eqtype_abstraction : eq.checker → boundary →
   judgement = "Eqchk.prove_eq_type_abstraction"
-external prove_eqterm_abstraction : eq.checker → boundary → ML.option
+external prove_eqterm_abstraction : eq.checker → boundary →
   judgement = "Eqchk.prove_eq_term_abstraction"
 val ch :> ref eq.checker = ref <checker>
 val add_rule :> derivation → mlunit = <function>
@@ -27,13 +24,15 @@ val coerce_abstraction :> judgement → boundary → judgement = <function>
 val normalize :> judgement → judgement * judgement = <function>
 val compute :> judgement → judgement * judgement = <function>
 val prove :> boundary → judgement = <function>
+val add_locally :> mlforall α, derivation → (mlunit → α) → α =
+  <function>
 Rule unit is postulated.
 Rule tt is postulated.
 Rule unit_ext is postulated.
 Extensionality rule for unit: derive (x : unit) (y : unit) → x ≡ y :
 unit
 - :> mlunit = ()
-Rule prod is postulated.
+Rule × is postulated.
 Rule pair is postulated.
 Rule fst is postulated.
 Rule snd is postulated.
@@ -50,9 +49,9 @@ Term computation rule for snd (heads at [2]):
   B
 
 - :> mlunit = ()
-Extensionality rule for prod: derive (A type) (B type) (u : prod A B) (v :
-prod A B) (fst A B u ≡ fst A B v : A by ξ) (snd A B u ≡ snd A B v :
-B by ζ) → u ≡ v : prod A
+Extensionality rule for ×: derive (A type) (B type) (u : ( × ) A B) (v :
+( × ) A B) (fst A B u ≡ fst A B v : A by ξ) (snd A B u ≡ snd A B v :
+B by ζ) → u ≡ v : ( × ) A
 B
 - :> mlunit = ()
 Rule U is postulated.
@@ -64,7 +63,13 @@ Rule v is postulated.
   ((⊢ fst U V (pair U V u v) ≡ u : U), (⊢ u : U))
 - :> judgement * judgement =
   ((⊢ snd U V (pair U V u v) ≡ v : V), (⊢ v : V))
-- :> judgement = ⊢ p ≡ pair U V (fst U V p) (snd U V p) : prod U V
+- :> judgement = ⊢ p ≡ pair U V (fst U V p) (snd U V p) : ( × ) U V
+Rule unuseful is postulated.
+Type computation rule for × (heads at []):
+  derive (A type) (B type) → ( × ) A B ≡ U
+- :> judgement * judgement = ((⊢ ( × ) U V ≡ U), (⊢ U type))
+- :> judgement * judgement =
+  ((⊢ ( × ) U V ≡ ( × ) U V), (⊢ ( × ) U V type))
 Rule ℕ is postulated.
 Rule z is postulated.
 Rule s is postulated.
@@ -92,6 +97,9 @@ val foo :> judgement = ⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) : ℕ
    ({c_n _} s c_n) z) : ℕ), (⊢ s (ℕ_ind ({_} ℕ) z ({c_n _} s c_n) z)
    : ℕ))
 - :> judgement * judgement =
+  ((⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) ≡ s z : ℕ), (⊢ s z :
+   ℕ))
+- :> judgement * judgement =
   ((⊢ ℕ_ind ({_} ℕ) z ({_ c_n} s c_n) z ≡ z : ℕ), (⊢ z : ℕ))
 - :> judgement * judgement =
   ((⊢ s (ℕ_ind ({_} ℕ) z ({_ c_n} s c_n) z) ≡ s (ℕ_ind ({_} ℕ) z
@@ -99,3 +107,6 @@ val foo :> judgement = ⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) : ℕ
    : ℕ))
 - :> judgement = ⊢ ℕ_ind ({_} ℕ) (s z) ({c_n _} s c_n) (s z) ≡ s (s
   z) : ℕ
+Type computation rule for B₀ (heads at [0]):
+  derive → ?B₀ {?a₁} ≡ ?A₂
+Rule weird is postulated.

@@ -94,6 +94,7 @@ and comp' =
   | Spine of comp * comp list
   | String of string
   | Congruence of comp * comp * comp list
+  | Rewrite of comp * comp list
   | Context of comp
   | Convert of comp * comp
   | Occurs of comp * comp

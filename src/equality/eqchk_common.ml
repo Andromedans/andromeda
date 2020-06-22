@@ -15,6 +15,7 @@ struct
     | TermConstructor of Ident.t * argument list
     | TermFreeMeta of Nonce.t * is_term' list
     | TermAtom of Nonce.t
+    | TermBound of int
 
   and is_term' =
     | TermAddMeta of int
@@ -22,6 +23,10 @@ struct
     | TermNormal of is_term_normal'
 
   and argument =
+    | Arg_Abstract of Name.t * argument
+    | Arg_NotAbstract of argument'
+
+  and argument' =
     | ArgumentIsType of is_type'
     | ArgumentIsTerm of is_term'
 
@@ -37,17 +42,29 @@ module IntSet = Set.Make(struct
                           let compare = Stdlib.compare
                         end)
 
+(** Maps of atoms to deal with bound variables *)
+let cmp_atom atm1 atm2 =
+   Nonce.compare (Nucleus.atom_nonce atm1) (Nucleus.atom_nonce atm2)
+
+module BoundMap =
+  Map.Make
+    (struct
+      type t = Nucleus.is_atom
+      let compare = cmp_atom
+    end)
 
 (** We index rules by the heads of expressions, which can be identifiers or meta-variables (nonces). *)
 type symbol =
   | Ident of Ident.t
   | Nonce of Nonce.t
 
-exception Equality_fail
+exception Equality_fail of string
 
-exception Invalid_rule
+exception Invalid_rule of string
 
-exception Normalization_fail
+exception Normalization_fail of string
+
+exception Fatal_error of string
 
 (** A tag to indicate that a term or a type is normalized *)
 type 'a normal = Normal of 'a
@@ -83,7 +100,7 @@ let head_symbol_term e =
     | Nucleus_types.(TermAtom {atom_nonce=n; _}) -> Nonce n
     | Nucleus_types.TermConstructor (c, _) -> Ident c
     | Nucleus_types.(TermMeta (MetaFree {meta_nonce;_}, _)) -> Nonce meta_nonce
-    | Nucleus_types.(TermMeta (MetaBound _, _)) -> assert false
+    | Nucleus_types.(TermMeta (MetaBound _, _)) -> raise (Fatal_error "head symbol of a bound term metavariable does not exist")
     | Nucleus_types.TermConvert (e, _, _) -> fold e
   in
   fold e
@@ -93,7 +110,7 @@ let head_symbol_term e =
 let head_symbol_type = function
   | Nucleus_types.TypeConstructor (c, _) -> Ident c
   | Nucleus_types.(TypeMeta (MetaFree {meta_nonce=n;_}, _)) -> Nonce n
-  | Nucleus_types.(TypeMeta (MetaBound _, _)) -> assert false
+  | Nucleus_types.(TypeMeta (MetaBound _, _)) -> raise (Fatal_error "head symbol of a bound type metavariable does not exist")
 
 (** Apply rap to a list of arguments *)
 let rap_apply rap args =
@@ -101,20 +118,24 @@ let rap_apply rap args =
   match rap, args with
   | rap, [] -> rap
   | Nucleus.RapMore (_bdry, f), arg :: args -> fold (f arg) args
-  | Nucleus.RapDone _, _::_ -> assert false
+  | Nucleus.RapDone _, _::_ -> raise (Fatal_error "Applying the rule to too many arguments")
   in
   try
-    Some (fold rap args)
+    fold rap args
   with
-  | Nucleus.Error _ -> None
+  | Nucleus.Error err -> raise (Fatal_error "Nucleus error")
 
 (** Apply rap to a list of arguments, return the judgement *)
 let rap_fully_apply rap args =
   let rec fold rap args =
   match rap, args with
   | Nucleus.RapDone jdg, [] -> jdg
-  | Nucleus.RapMore (_bdry, f), arg :: args -> fold (f arg) args
-  | Nucleus.RapDone _, _::_ | Nucleus.RapMore _, [] -> assert false
+  | Nucleus.RapMore (_bdry, f), arg :: args ->
+    ();
+    let tmp = f (arg) in
+    fold tmp args
+  | Nucleus.RapDone _, _::_ -> raise (Fatal_error "Applying the rule to too many arguments")
+  | Nucleus.RapMore _, [] -> raise (Fatal_error "Applying the rule to too few arguments")
   in
   try
     Some (fold rap args)
@@ -123,11 +144,18 @@ let rap_fully_apply rap args =
 
 (** Automagically compute the heads of a pattern *)
 
-let arg_is_head = function
-  | Patt.(ArgumentIsType (TypeAddMeta _ | TypeCheckMeta _)) -> false
-  | Patt.(ArgumentIsType (TypeNormal _)) -> true
-  | Patt.(ArgumentIsTerm (TermAddMeta _ | TermCheckMeta _)) -> false
-  | Patt.(ArgumentIsTerm (TermNormal _)) -> true
+let arg_is_head abstr =
+  let rec fold = function
+    | Patt.Arg_Abstract (_, abstr) -> fold abstr
+    | Patt.Arg_NotAbstract jdg ->
+      begin
+      match jdg with
+        | Patt.(ArgumentIsType (TypeAddMeta _ | TypeCheckMeta _)) -> false
+        | Patt.(ArgumentIsType (TypeNormal _)) -> true
+        | Patt.(ArgumentIsTerm (TermAddMeta _ | TermCheckMeta _)) -> false
+        | Patt.(ArgumentIsTerm (TermNormal _)) -> true
+      end
+  in fold abstr
 
 let term_is_head = function
   | Patt.(TermAddMeta _ | TermCheckMeta _) -> false
@@ -161,6 +189,8 @@ let heads_term_normal = function
   | Patt.TermConstructor (_, args) -> heads_args args
 
   | Patt.TermFreeMeta (_, es) -> heads_terms es
+
+  | Patt.TermBound v -> IntSet.empty
 
 let heads_term = function
   | Patt.TermAddMeta _ -> IntSet.empty

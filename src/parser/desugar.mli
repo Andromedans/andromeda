@@ -60,4 +60,6 @@ sig
 
   val equal_type : Path.t
   val coerce : Path.t
+  
+  val eqchk_excs : Path.t
 end

@@ -20,21 +20,21 @@ let rec abstraction inst_u abstr_v converter u eq =
 
 let judgement sgn jdg eq =
   match jdg with
-  | JudgementIsTerm e -> JudgementIsTerm (opt_fail (Form.form_is_term_convert_opt sgn e eq))
-  | JudgementEqTerm eq' -> JudgementEqTerm (opt_fail (Form.form_eq_term_convert_opt eq' eq))
+  | JudgementIsTerm e -> JudgementIsTerm (opt_fail (Form_convert.is_term_convert_opt sgn e eq))
+  | JudgementEqTerm eq' -> JudgementEqTerm (opt_fail (Form_convert.eq_term_convert_opt eq' eq))
   | JudgementEqType _ -> raise Convert_fail
   | JudgementIsType _ -> raise Convert_fail
 
 let term_abstraction sgn e eq =
   try
-    let term sgn e eq = opt_fail (Form.form_is_term_convert_opt sgn e eq) in
+    let term sgn e eq = opt_fail (Form_convert.is_term_convert_opt sgn e eq) in
     Some (abstraction Instantiate_bound.is_term Abstract.is_term (term sgn) e eq)
   with
   | Convert_fail -> None
 
 let eq_term_abstraction eq1 eq2 =
   try
-    let eq_term eq1 eq2 = opt_fail (Form.form_eq_term_convert_opt eq1 eq2) in
+    let eq_term eq1 eq2 = opt_fail (Form_convert.eq_term_convert_opt eq1 eq2) in
     Some (abstraction Instantiate_bound.eq_term Abstract.eq_term eq_term eq1 eq2)
   with
   | Convert_fail -> None

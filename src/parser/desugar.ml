@@ -369,6 +369,13 @@ module Ctx = struct
     | None | Some (Bound _ | Value _ | TTConstructor _ | MLConstructor _ | Exception _) ->
        assert false
 
+  (* Get information about the given ML operation. *)
+  let get_ml_exception exc ctx =
+    match find_name exc ctx with
+    | Some (Exception (pth, arity)) -> pth, arity
+    | None | Some (Bound _ | Value _ | TTConstructor _ | MLConstructor _ | Operation _) ->
+       assert false
+
   (* This will be needed if and when there is a builtin global ML value that has to be looked up. *)
   (* let get_ml_value x ctx =
    *   match find_name x ctx with
@@ -1132,6 +1139,11 @@ let rec comp ctx {Location.it=c';at} =
      and cs = List.map (comp ctx) cs in
      locate (Desugared.Congruence (c1, c2, cs))
 
+| Sugared.Rewrite (c, cs) ->
+     let c = comp ctx c
+     and cs = List.map (comp ctx) cs in
+     locate (Desugared.Rewrite (c, cs))
+
   | Sugared.Context c ->
      let c = comp ctx c in
      locate (Desugared.Context c)
@@ -1765,4 +1777,6 @@ struct
 
   let equal_type = fst (Ctx.get_ml_operation Name.Builtin.equal_type initial_context)
   let coerce = fst (Ctx.get_ml_operation Name.Builtin.coerce initial_context)
+
+  let eqchk_excs = fst (Ctx.get_ml_exception Name.Builtin.eqchk_excs initial_context)
 end
