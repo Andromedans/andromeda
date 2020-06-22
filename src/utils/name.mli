@@ -174,6 +174,10 @@ module Builtin : sig
   (** The name of the [hypotheses] dynamic variable *)
   val hypotheses_name : t
   val hypotheses : path
+
+  (** The name of the [EqualityCheckerException] exception *)
+  val eqchk_excs_name : t
+  val eqchk_excs : path
 end
 
 module Json :

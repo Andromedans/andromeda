@@ -1,23 +1,20 @@
 Processing module eq
 ML type eq.checker declared.
-Exception eq.Invalid_equality_rule is declared.
-Exception eq.Failed_equality is declared.
 external empty_checker : eq.checker = "Eqchk.empty_checker"
-external add_type_computation : eq.checker → derivation → ML.option
+external add_type_computation : eq.checker → derivation →
   eq.checker = "Eqchk.add_type_computation"
-external add_term_computation : eq.checker → derivation → ML.option
+external add_term_computation : eq.checker → derivation →
   eq.checker = "Eqchk.add_term_computation"
-external add : eq.checker → derivation → ML.option
-  eq.checker = "Eqchk.add"
+external add : eq.checker → derivation → eq.checker = "Eqchk.add"
 external normalize_type : ML.bool → eq.checker → judgement →
   judgement * judgement = "Eqchk.normalize_type"
 external normalize_term : ML.bool → eq.checker → judgement →
   judgement * judgement = "Eqchk.normalize_term"
-external add_extensionality : eq.checker → derivation → ML.option
+external add_extensionality : eq.checker → derivation →
   eq.checker = "Eqchk.add_extensionality"
-external prove_eqtype_abstraction : eq.checker → boundary → ML.option
+external prove_eqtype_abstraction : eq.checker → boundary →
   judgement = "Eqchk.prove_eq_type_abstraction"
-external prove_eqterm_abstraction : eq.checker → boundary → ML.option
+external prove_eqterm_abstraction : eq.checker → boundary →
   judgement = "Eqchk.prove_eq_term_abstraction"
 val ch :> ref eq.checker = ref <checker>
 val add_rule :> derivation → mlunit = <function>
@@ -27,6 +24,8 @@ val coerce_abstraction :> judgement → boundary → judgement = <function>
 val normalize :> judgement → judgement * judgement = <function>
 val compute :> judgement → judgement * judgement = <function>
 val prove :> boundary → judgement = <function>
+val add_locally :> mlforall α, derivation → (mlunit → α) → α =
+  <function>
 Rule N is postulated.
 Rule z is postulated.
 Rule s is postulated.

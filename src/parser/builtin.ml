@@ -42,6 +42,12 @@ let builtin_ops =
   [unloc decl_equal_type;
    unloc decl_coerce]
 
+let builtin_excs =
+  let un_ml_string = unloc (Sugared.ML_String) in
+  let decl_eqchk_exec = Sugared.(DeclException (Name.Builtin.eqchk_excs_name, Some un_ml_string))
+  in
+  [unloc decl_eqchk_exec]
+
 let builtin_ml_values =
   []
 
@@ -56,5 +62,5 @@ let initial =
   [ unloc decl_list ;
     unloc (Sugared.TopModule
       (Name.Builtin.ml_name,
-       List.concat [builtin_ml_types; builtin_ops; builtin_ml_values]))
+       List.concat [builtin_ml_types; builtin_ops; builtin_excs; builtin_ml_values]))
   ]

@@ -133,6 +133,7 @@ val expose_eq_type : eq_type -> Nucleus_types.eq_type
 val expose_eq_term : eq_term -> Nucleus_types.eq_term
 val expose_judgement : judgement -> Nucleus_types.judgement
 val expose_rule : 'a rule -> 'a Nucleus_types.rule
+val expose_judgement_abstraction : judgement_abstraction -> Nucleus_types.judgement_abstraction
 
 (** When we apply a rule application to one more argument two things may happen.
    Either we are done and we get a result, or more arguments are needed, in
@@ -326,6 +327,8 @@ val type_at_abstraction : 'a abstraction -> is_type option
 (** Checking that an abstracted judgement has the desired boundary *)
 val check_judgement_boundary_abstraction : signature -> judgement_abstraction -> boundary_abstraction -> bool
 
+val abstracted_boundary_of_judgement_abstraction : signature -> judgement_abstraction -> boundary_abstraction
+
 (** A judgement with its boundary, under the same abstraction *)
 val abstracted_judgement_with_boundary : signature -> judgement abstraction -> (judgement * boundary) abstraction
 
@@ -450,6 +453,11 @@ val congruence_is_type :
 
 val congruence_is_term :
   signature -> is_term -> is_term -> eq_term rule_application option
+
+(** Create rewrite for the given constructor, or raise [InvalidRewrite] if the judgement is not of correct form. *)
+val rewrite_judgement : signature -> judgement -> judgement_abstraction list -> (judgement * judgement)
+val rewrite_is_type : signature -> is_type -> judgement_abstraction list -> (eq_type * is_type)
+val rewrite_is_term : signature -> is_term -> judgement_abstraction list -> (eq_term * is_term)
 
 (** Give human names to things *)
 

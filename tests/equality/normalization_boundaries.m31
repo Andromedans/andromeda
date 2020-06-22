@@ -1,0 +1,55 @@
+(* Testing the normalization of the arguments to correct boundaries *)
+
+require eq ;;
+
+rule A type ;;
+rule A' type ;;
+rule A_eq_A' : A ≡ A' ;;
+eq.add_rule (derive -> A_eq_A') ;;
+rule B (_ : A) type ;;
+rule Π (X type) ({_ : X} Y type) type
+
+rule C (x : A) (y : B x) type ;;
+rule D (X type) (x : A) (y : B x) (z : C x y) type ;;
+rule S (x : A) (y : B x) ({z : C x y} Y type) type ;;
+
+let s = {x : A} {y : B x} S x y ({z : C x y} D A x y z) ;;
+rule a : A ;;
+rule b : B a ;;
+eq.compute s{a}{b} ;;
+
+rule B' (_ : A) type ;;
+rule B_eq_B' (x : A) : B x ≡ B' x ;;
+eq.add_rule B_eq_B' ;;
+eq.compute (Π A ({x : A} B x)) ;;
+eq.compute s{a}{b} ;;
+eq.compute (S a b ({z : C a b} D (B a) a b z)) ;;
+
+
+rule T (X type) ({x : X} Y type) (x : X) (y : Y{x}) (Z type) type ;;
+let t = T A ({x} B x) a b (s{a}{b});;
+eq.compute t ;;
+
+
+rule Prod3 (X type) (Y type) (Z type) type ;;
+rule (×) (X type) (Y type) type ;;
+
+rule ϕ (X type) (_ : Prod3 X A A') type ;;
+rule p : Prod3 A A A' ;;
+let φ = ϕ A p ;;
+eq.compute φ ;;
+
+rule ψ (X type) ({x : (X × A)} _ : Prod3 X A A') type ;;
+rule u (_ : A × A) : Prod3 A A A' ;;
+let ϑ = ψ A ({x : A × A} u x) ;;
+eq.compute ϑ ;;
+
+let M1 = meta M :? (?? type) ;;
+rule experiment: M1 ≡ A ;;
+eq.add_rule (derive -> experiment ) ;;
+
+rule triple (X type) (Y type) (Z type) (x : X) (y : Y) (z : Z) : Prod3 X Y Z ;;
+rule fst (X type) (Y type) (p : X × Y) : X ;;
+rule snd (X type) (Y type) (p : X × Y) : Y ;;
+let δ = ψ M1 ({p} (triple M1 A A' (fst M1 A p) (snd M1 A p) (convert (snd M1 A p) A_eq_A'))) ;;
+eq.compute δ ;;

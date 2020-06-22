@@ -2,20 +2,16 @@
 
 mltype checker ;;
 
-exception Invalid_equality_rule ;;
-
-exception Failed_equality of boundary ;;
-
 external empty_checker : checker
   = "Eqchk.empty_checker" ;;
 
-external add_type_computation : checker -> derivation -> ML.option checker
+external add_type_computation : checker -> derivation -> checker
   = "Eqchk.add_type_computation" ;;
 
-external add_term_computation : checker -> derivation -> ML.option checker
+external add_term_computation : checker -> derivation -> checker
   = "Eqchk.add_term_computation" ;;
 
-external add : checker -> derivation -> ML.option checker
+external add : checker -> derivation -> checker
   = "Eqchk.add" ;;
 
 external normalize_type : ML.bool -> checker -> judgement -> judgement * judgement
@@ -24,32 +20,25 @@ external normalize_type : ML.bool -> checker -> judgement -> judgement * judgeme
 external normalize_term : ML.bool -> checker -> judgement -> judgement * judgement
   = "Eqchk.normalize_term" ;;
 
-external add_extensionality : checker -> derivation -> ML.option checker
+external add_extensionality : checker -> derivation -> checker
   = "Eqchk.add_extensionality" ;;
 
-external prove_eqtype_abstraction : checker -> boundary -> ML.option judgement
+external prove_eqtype_abstraction : checker -> boundary -> judgement
   = "Eqchk.prove_eq_type_abstraction" ;;
 
-external prove_eqterm_abstraction : checker -> boundary -> ML.option judgement
+external prove_eqterm_abstraction : checker -> boundary -> judgement
   = "Eqchk.prove_eq_term_abstraction" ;;
 
 let ch = ref empty_checker ;;
 
 let add_rule der =
-  match add !ch der with
-  | ML.Some ?ch' -> (ch := ch')
-  | ML.None -> raise Invalid_equality_rule
-  end
+  let ch' = add !ch der in
+  ch := ch'
 ;;
 
 exception Coerce_fail ;;
 
-let equalize_type A B =
-  match prove_eqtype_abstraction !ch (A ≡ B by ??) with
-  | ML.Some ?eq -> eq
-  | ML.None -> raise Coerce_fail
-  end
-;;
+let equalize_type A B = prove_eqtype_abstraction !ch (A ≡ B by ??) ;;
 
 let coerce_abstraction jdg bdry =
   let rec fold jdg bdry =
@@ -91,14 +80,19 @@ let compute jdg =
 
 let prove bdry =
   match bdry with
-  | (_ ≡ _ by ??) ->
-    match prove_eqtype_abstraction (!ch) bdry with
-    | ML.Some ?ξ -> ξ
-    | ML.None -> raise (Failed_equality bdry)
-    end
-  | (_ ≡ _ : _ by ??) ->
-    match prove_eqterm_abstraction (!ch) bdry with
-    | ML.Some ?ξ -> ξ
-    | ML.None -> raise (Failed_equality bdry)
-    end
+  | (_ ≡ _ by ??) -> prove_eqtype_abstraction (!ch) bdry
+  | (_ ≡ _ : _ by ??) -> prove_eqterm_abstraction (!ch) bdry
+  end
+
+let add_locally equation cmp =
+  let ch' = ref !ch in
+  try
+    add_rule equation ;
+    let result = cmp () in
+    ch := !ch' ;
+    result
+  with
+    | raise ?exc ->
+        ch := !ch' ;
+        raise exc
   end

@@ -111,7 +111,14 @@ and assumptions ~lvl metas {free_var; free_meta; bound_var; bound_meta} =
   assert (let n = List.length metas in Bound_set.for_all (fun k -> k < n) bound_meta) ;
   let asmp0 =
     List.fold_left
-      (fun asmp0 meta -> Assumption.union asmp0 ((Collect_assumptions.argument ~lvl meta)))
+      (fun asmp0 meta -> let asmp_tmp = Assumption.union asmp0 ((Collect_assumptions.argument ~lvl meta)) in
+         (if not (Bound_set.is_empty ((Collect_assumptions.argument ~lvl meta)).bound_meta) then
+         (*let penv = ({
+            forbidden = Name.set_empty ;
+            debruijn_var = [] ;
+            debruijn_meta = [] ;
+            opens = Path.set_empty
+          }) in Format.printf "level: %d non-empty bound meta assumptions in argument %t@." lvl (Nucleus_print.argument ~penv meta)*) () else ()); asmp_tmp)
       Assumption.empty
       metas
   in

@@ -28,5 +28,7 @@ sig
 
   val equal_type : Ident.t * (Mlty.ty list * Mlty.ty)
   val coerce : Ident.t * (Mlty.ty list * Mlty.ty)
+  
+  val eqchk_excs : Ident.t * Mlty.ty option
 
 end

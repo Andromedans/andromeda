@@ -3,8 +3,9 @@
 open Eqchk_common
 
 (** Extract an optional value, or declare an equality failure *)
-let deopt = function
-  | None -> raise Normalization_fail
+let deopt x msg =
+  match x with
+  | None -> raise (Normalization_fail msg)
   | Some x -> x
 
 (** The types of beta rules. *)
@@ -29,8 +30,7 @@ let find_term_computations sym {term_computations;_} =
   SymbolMap.find_opt sym term_computations
 
 
-(** Functions [make_XYZ] convert a derivation to a rewrite rule, or raise
-    the exception, or raise the exception [Invalid_rule] when the derivation
+(** Functions [make_XYZ] convert a derivation to a rewrite rule, or raise the exception [Invalid_rule] when the derivation
     has the wrong form. *)
 
 let make_type_computation drv =
@@ -38,25 +38,20 @@ let make_type_computation drv =
 
     | Nucleus_types.(Conclusion eq)  ->
        let (Nucleus_types.EqType (_asmp, t1, _t2)) = Nucleus.expose_eq_type eq in
-       begin match Eqchk_pattern.make_is_type k t1 with
-
-       | Some patt ->
-          let s = head_symbol_type t1 in
-          (s, patt)
-
-       | None -> raise Invalid_rule
-       end
+       let patt =  Eqchk_pattern.make_is_type k t1 in
+       let s = head_symbol_type t1 in
+       (s, patt)
 
     | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
        if is_object_premise bdry then
          fold (k+1) drv
        else
-         raise Invalid_rule
+         raise (Invalid_rule "premise of a computation rule does not have an object boundary")
   in
   let drv =
     match Nucleus.as_eq_type_rule drv with
     | Some drv -> drv
-    | None -> raise Invalid_rule
+    | None -> raise (Invalid_rule "Conclusion not a type equality boundary")
   in
   let (s, patt) = fold 0 (Nucleus.expose_rule drv) in
   s, (patt, drv)
@@ -67,25 +62,20 @@ let make_term_computation drv =
 
     | Nucleus_types.(Conclusion eq) ->
        let (Nucleus_types.EqTerm (_asmp, e1, _e2, _t)) = Nucleus.expose_eq_term eq in
-       begin match Eqchk_pattern.make_is_term k e1 with
-
-       | Some patt ->
-          let s = head_symbol_term e1 in
-          (s, patt)
-
-       | None -> raise Invalid_rule
-       end
+       let patt = Eqchk_pattern.make_is_term k e1 in
+       let s = head_symbol_term e1 in
+       (s, patt)
 
     | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
        if is_object_premise bdry then
          fold (k+1) drv
        else
-         raise Invalid_rule
+         raise (Invalid_rule "premise of a computation rule does not have an object boundary")
   in
   let drv =
     match Nucleus.as_eq_term_rule drv with
     | Some drv -> drv
-    | None -> raise Invalid_rule
+    | None -> raise (Invalid_rule "Conclusion not a term equality boundary")
   in
   let (s, patt) = fold 0 (Nucleus.expose_rule drv) in
   s, (patt, drv)
@@ -130,6 +120,61 @@ let get_term_heads nrm sym =
 
 (** Functions that apply rewrite rules *)
 
+let is_alpha_equal_type_arg arg t =
+  try
+  begin
+  match Nucleus.(as_is_type (deopt (as_not_abstract arg) "")) with
+  | Some arg_ty -> Nucleus.(alpha_equal_type arg_ty t)
+  | None -> false
+  end
+  with
+     Normalization_fail _ -> false
+
+let is_alpha_equal_term_arg arg e =
+  try
+  begin
+  match Nucleus.(as_is_term (deopt (as_not_abstract arg) "")) with
+  | Some arg_e -> Nucleus.(alpha_equal_term arg_e e)
+  | None -> false
+  end
+  with
+     Normalization_fail _ -> false
+
+let rec is_alpha_equal_type_args sgn args args' args_eq_args' ty0 =
+  match args, args', args_eq_args' with
+    | [], [], [] -> None
+    | arg :: args, arg' :: args', arg_eq_arg' :: args_eq_args' ->
+      if is_alpha_equal_type_arg arg ty0 then
+        let arg_eq_arg' = deopt Nucleus.(as_eq_type (deopt (as_not_abstract arg_eq_arg') "")) ""
+        and arg' = deopt Nucleus.(as_is_type (deopt (as_not_abstract arg') "")) "" in
+        Some (arg_eq_arg', arg')
+      else
+      is_alpha_equal_type_args sgn args args' args_eq_args' ty0
+    | [], _ :: _, _ :: _
+    | _ :: _, [], _ :: _
+    | _ :: _, _ :: _, []
+    | [], [], _ :: _
+    | [], _ :: _, []
+    | _ :: _, [], [] -> None
+
+let rec is_alpha_equal_term_args sgn args args' args_eq_args' e0 =
+  match args, args', args_eq_args' with
+    | [], [], [] -> None
+    | arg :: args, arg' :: args', arg_eq_arg' :: args_eq_args' ->
+      if is_alpha_equal_term_arg arg e0 then
+        let arg_eq_arg' = deopt Nucleus.(as_eq_term (deopt (as_not_abstract arg_eq_arg') "")) ""
+        and arg' = deopt Nucleus.(as_is_term (deopt (as_not_abstract arg') "")) "" in
+        Some (arg_eq_arg', arg')
+      else
+      is_alpha_equal_term_args sgn args args' args_eq_args' e0
+    | [], _ :: _, _ :: _
+    | _ :: _, [], _ :: _
+    | _ :: _, _ :: _, []
+    | [], [], _ :: _
+    | [], _ :: _, []
+    | _ :: _, [], [] -> None
+
+
 (** Find a type computation rule and apply it to [t]. *)
 let rec apply_type_beta betas sgn t =
   let s = head_symbol_type (Nucleus.expose_is_type t) in
@@ -171,6 +216,7 @@ and apply_term_beta betas sgn e =
           | None -> fold lst
           | Some args ->
              let rap = Nucleus.form_eq_term_rap sgn rl in
+             ();
              begin match rap_fully_apply rap args with
              | Some e_eq_e' -> Some e_eq_e'
              | None -> fold lst
@@ -217,101 +263,75 @@ and normalize_term ~strong sgn nrm e0 =
   fold (Nucleus.reflexivity_term sgn e0) e0
 
 
-(* Normalize those arguments of [ty0] which are considered to be heads. *)
+(* Normalize those arguments of [ty0] which are considered to be normalizing. *)
 and normalize_heads_type ~strong sgn nrm ty0 =
-
   match Nucleus.invert_is_type sgn ty0 with
 
-  | Nucleus.Stump_TypeConstructor (s, args) ->
-     let heads = get_type_heads nrm (Ident s) in
-     let args_eq_args', Normal args' = normalize_arguments ~strong sgn nrm heads args in
-     let ty1 =
-       let jdg1 = deopt (rap_fully_apply (Nucleus.form_constructor_rap sgn s) args') in
-       deopt (Nucleus.as_is_type jdg1) in
-     let ty0_eq_ty1 =
-       let rap = deopt (Nucleus.congruence_is_type sgn ty0 ty1) in
-       deopt (rap_fully_apply rap args_eq_args')
-     in
-     ty0_eq_ty1, Normal ty1
+    | Nucleus.Stump_TypeConstructor (s, cargs) ->
+      let heads = get_type_heads nrm (Ident s) in
+      let cargs_eq_cargs', Normal cargs' = normalize_arguments ~strong sgn nrm heads cargs in
+      let ty0_eq_ty1, ty1 = Nucleus.rewrite_is_type sgn ty0 cargs_eq_cargs' in
+      ty0_eq_ty1, Normal ty1
 
-  | Nucleus.Stump_TypeMeta (mv, es) ->
-     let heads = get_type_heads nrm (Nonce (Nucleus.meta_nonce mv)) in
-     let es_eq_es', Normal es' = normalize_is_terms ~strong sgn nrm heads es in
-     let es' = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es'
-     and es_eq_es' = List.map (fun eq -> Nucleus.(abstract_not_abstract (JudgementEqTerm eq))) es_eq_es' in
-     let ty1 =
-       let jdg1 = deopt (rap_fully_apply (Nucleus.form_meta_rap sgn mv) es') in
-       deopt (Nucleus.as_is_type jdg1)
-     in
-     let ty0_eq_ty1 =
-       let rap = deopt (Nucleus.congruence_is_type sgn ty0 ty1) in
-       deopt (rap_fully_apply rap es_eq_es')
-     in
-     ty0_eq_ty1, Normal ty1
+    | Nucleus.Stump_TypeMeta (mv, es) ->
+      let heads = get_type_heads nrm (Nonce (Nucleus.meta_nonce mv)) in
+      let es = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es in
+      let es_eq_es', Normal es' = normalize_arguments ~strong sgn nrm heads es in
+      let ty0_eq_ty1, ty1 = Nucleus.rewrite_is_type sgn ty0 es_eq_es' in
+      ty0_eq_ty1, Normal ty1
 
 
-(* Normalize those arguments of [e0] which are considered to be heads. *)
+(* Normalize those arguments of [e0] which are considered to be normalizing. *)
 and normalize_heads_term ~strong sgn nrm e0 =
-
   match Nucleus.invert_is_term sgn e0 with
 
-  | Nucleus.Stump_TermConstructor (s, args) ->
+  | Nucleus.Stump_TermConstructor (s, cargs) ->
      let heads = get_term_heads nrm (Ident s) in
-     let args_eq_args', Normal args' = normalize_arguments ~strong sgn nrm heads args in
-     let e1 =
-       let jdg1 = deopt (rap_fully_apply (Nucleus.form_constructor_rap sgn s) args') in
-       deopt (Nucleus.as_is_term jdg1) in
-     let e0_eq_e1 =
-       let rap = deopt (Nucleus.congruence_is_term sgn e0 e1) in
-       deopt (rap_fully_apply rap args_eq_args')
-     in
-     e0_eq_e1, Normal e1
+     let cargs_eq_cargs', Normal cargs' = normalize_arguments ~strong sgn nrm heads cargs in
+     let e0_eq_e1, e1 = Nucleus.rewrite_is_term sgn e0 cargs_eq_cargs' in
+    e0_eq_e1, Normal e1
 
   | Nucleus.Stump_TermMeta (mv, es) ->
      let heads = get_term_heads nrm (Nonce (Nucleus.meta_nonce mv)) in
-     let es_eq_es', Normal es' = normalize_is_terms ~strong sgn nrm heads es in
-     let es' = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es'
-     and es_eq_es' = List.map (fun eq -> Nucleus.(abstract_not_abstract (JudgementEqTerm eq))) es_eq_es' in
-     let e1 =
-       let jdg1 = deopt (rap_fully_apply (Nucleus.form_meta_rap sgn mv) es') in
-       deopt (Nucleus.as_is_term jdg1)
-     in
-     let e0_eq_e1 =
-       let rap = deopt (Nucleus.congruence_is_term sgn e0 e1) in
-       deopt (rap_fully_apply rap es_eq_es')
-     in
-     e0_eq_e1, Normal e1
+     let es = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es in
+     let es_eq_es', Normal es' = normalize_arguments ~strong sgn nrm heads es in
+     let e0_eq_e1, e1 = Nucleus.rewrite_is_term sgn e0 es_eq_es' in
+    e0_eq_e1, Normal e1
 
   | Nucleus.Stump_TermAtom _ ->
-     let e0_eq_e0 = Nucleus.reflexivity_term sgn e0 in
-     e0_eq_e0, Normal e0
+     Nucleus.(reflexivity_term sgn e0), Normal e0
 
   | Nucleus.Stump_TermConvert (e0', t) (* == e0 : t *) ->
-     let e0'_eq_e1, _ = normalize_heads_term ~strong sgn nrm e0' in (* e0' == e1 : t' *)
+     let e0'_eq_e1, Normal e1 = normalize_heads_term ~strong sgn nrm e0' in (* e0' == e1 : t' *)
      (* e0 == e0 : t and e0' == e1 : t' ===> e0 == e1 : t *)
      let e0_eq_e1 = Nucleus.transitivity_term (Nucleus.reflexivity_term sgn e0) e0'_eq_e1 in
+     (* let e1 = Nucleus.form_is_term_convert sgn e1 t in *)
      let Nucleus.Stump_EqTerm (_, _, e1, _) = Nucleus.invert_eq_term sgn e0_eq_e1 in
      (* e0' == e1 : t *)
      e0_eq_e1, Normal e1
 
+(** Normalize arguments [args] and convert them along previously normalized arguments [conv_args]. Then apply rule application [rap]. *)
 and normalize_arguments ~strong sgn nrm heads args =
-  let rec fold k args' args_eq_args' = function
+  let rec fold k args' args_eq_args' args_rest =
+    match args_rest with
 
-    | [] -> List.rev args_eq_args', Normal (List.rev args')
+    | [] ->
+      List.rev args_eq_args', Normal (List.rev args')
 
-    | arg :: args ->
-         if strong || IntSet.mem k heads
-         then
-           let arg_eq_arg', Normal arg' = normalize_argument ~strong sgn nrm arg in
-           fold (k+1) (arg' :: args') (arg_eq_arg' :: args_eq_args') args
-         else
-           let arg_eq_arg', arg' = deopt (Nucleus.reflexivity_judgement_abstraction sgn arg), arg in
-           fold (k+1) (arg' :: args') (arg_eq_arg' :: args_eq_args') args
+    | arg :: args_rest ->
+      if strong || IntSet.mem k heads
+      then
+       let arg_eq_arg', Normal arg' = normalize_argument ~strong sgn nrm arg in
+       fold (k+1) (arg' :: args') (arg_eq_arg' :: args_eq_args') args_rest
+      else
+        let arg_eq_arg' = deopt (Nucleus.reflexivity_judgement_abstraction sgn arg) "unexpected equality judgement" in
+        fold (k+1) (arg :: args') (arg_eq_arg' :: args_eq_args') args_rest
   in
   fold 0 [] [] args
 
+
 and normalize_argument ~strong sgn nrm arg =
-  match Nucleus.invert_judgement_abstraction arg with
+  match (Nucleus.invert_judgement_abstraction arg) with
 
   | Nucleus.Stump_Abstract (atm, arg) ->
      let arg_eq_arg', Normal arg'= normalize_argument ~strong sgn nrm arg in
@@ -320,30 +340,14 @@ and normalize_argument ~strong sgn nrm arg =
      arg_eq_arg', Normal arg'
 
   | Nucleus.(Stump_NotAbstract (JudgementIsType t)) ->
-     let t_eq_t', Normal t' = normalize_type ~strong sgn nrm t in
-     Nucleus.(abstract_not_abstract (JudgementEqType t_eq_t')),
-     Normal (Nucleus.(abstract_not_abstract (JudgementIsType t')))
+      let t_eq_t', Normal t' = normalize_type ~strong sgn nrm t in
+      Nucleus.(abstract_not_abstract (JudgementEqType t_eq_t')),
+      Normal (Nucleus.(abstract_not_abstract (JudgementIsType t')))
 
   | Nucleus.(Stump_NotAbstract (JudgementIsTerm e)) ->
-     let e_eq_e', Normal e' = normalize_term ~strong sgn nrm e in
-     Nucleus.(abstract_not_abstract (JudgementEqTerm e_eq_e')),
-     Normal (Nucleus.(abstract_not_abstract (JudgementIsTerm e')))
+      let e_eq_e', Normal e' = normalize_term ~strong sgn nrm e in
+      Nucleus.(abstract_not_abstract (JudgementEqTerm  e_eq_e')),
+      Normal (Nucleus.(abstract_not_abstract (JudgementIsTerm e')))
 
   | Nucleus.(Stump_NotAbstract (JudgementEqType _ | JudgementEqTerm _)) ->
-     raise Normalization_fail
-
-and normalize_is_terms ~strong sgn nrm heads es =
-  let rec fold k es' es_eq_es' = function
-
-    | [] -> List.rev es_eq_es', Normal (List.rev es')
-
-    | e :: es ->
-       if strong || IntSet.mem k heads
-       then
-         let e_eq_e', Normal e' = normalize_term ~strong sgn nrm e in
-         fold (k+1) (e' :: es') (e_eq_e' :: es_eq_es') es
-       else
-         let e_eq_e', e' = Nucleus.reflexivity_term sgn e, e in
-         fold (k+1) (e' :: es') (e_eq_e' :: es_eq_es') es
-  in
-  fold 0 [] [] es
+      raise (Normalization_fail "cannot normalize equality judgements")

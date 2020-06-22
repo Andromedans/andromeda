@@ -390,6 +390,8 @@ let error ~penv err ppf =
 
   | InvalidCongruence -> Format.fprintf ppf "invalid congruence argument"
 
+  | InvalidRewrite -> Format.fprintf ppf "invalid rewrite argument"
+
   | InvalidConvert (t1, t2) ->
      Format.fprintf ppf "trying to convert something at@ %t@ using an equality on@ %t@"
        (thesis_is_type ~penv t1) (thesis_is_type ~penv t2)

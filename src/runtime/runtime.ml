@@ -702,7 +702,7 @@ let rec print_value ?max_level ~penv v ppf =
 
   | Boundary bdry -> Nucleus.print_boundary_abstraction ~penv:(mk_nucleus_penv penv) ?max_level bdry ppf
 
-  | Derivation drv -> 
+  | Derivation drv ->
     let drv = Nucleus.derivation_with_boundary penv.signature drv in
     Nucleus.print_derivation_with_boundary ~penv:(mk_nucleus_penv penv) ?max_level drv ppf
 

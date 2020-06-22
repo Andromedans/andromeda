@@ -2,6 +2,15 @@
 
 let (>>=) = Runtime.bind
 
+let catch_eqchk_exceptions cmp =
+  try
+    cmp ()
+  with
+    | Eqchk_common.Invalid_rule err
+    | Eqchk_common.Equality_fail err
+    | Eqchk_pattern.Form_fail err ->
+      Reflect.eqchk_exception ~at:Location.unknown err
+
 let externals =
   [
     ("print", (* forall a, a -> mlunit *)
@@ -84,9 +93,9 @@ let externals =
          Runtime.return_closure (fun der ->
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and drv = Runtime.as_derivation ~at:Location.unknown der in
-             match Eqchk.add_type_computation chk drv with
-             | Some chk -> Runtime.return (Reflect.mk_option (Some Runtime.(External (EqualityChecker chk))))
-             | None -> Runtime.return (Reflect.mk_option None)
+             catch_eqchk_exceptions (fun () ->
+             let chk = Eqchk.add_type_computation chk drv in
+               Runtime.return (Runtime.(External (EqualityChecker chk))))
            )));
 
     ("Eqchk.add_term_computation",
@@ -94,9 +103,9 @@ let externals =
          Runtime.return_closure (fun der ->
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and drv = Runtime.as_derivation ~at:Location.unknown der in
-             match Eqchk.add_term_computation chk drv with
-             | Some chk -> Runtime.return (Reflect.mk_option (Some Runtime.(External (EqualityChecker chk))))
-             | None -> Runtime.return (Reflect.mk_option None)
+             catch_eqchk_exceptions (fun () ->
+             let chk =  Eqchk.add_term_computation chk drv in
+               Runtime.return Runtime.(External (EqualityChecker chk)))
            )));
 
     ("Eqchk.normalize_type",
@@ -132,9 +141,9 @@ let externals =
          Runtime.return_closure (fun der ->
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and drv = Runtime.as_derivation ~at:Location.unknown der in
-             match Eqchk.add_extensionality chk drv with
-             | Some chk -> Runtime.return (Reflect.mk_option (Some Runtime.(External (EqualityChecker chk))))
-             | None -> Runtime.return (Reflect.mk_option None)
+             catch_eqchk_exceptions (fun () ->
+             let chk = Eqchk.add_extensionality chk drv in
+               Runtime.return Runtime.(External (EqualityChecker chk)))
     )));
 
     ("Eqchk.add",
@@ -143,9 +152,9 @@ let externals =
              Runtime.lookup_nucleus_penv >>= fun penv ->
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and drv = Runtime.as_derivation ~at:Location.unknown der in
-             match Eqchk.add ~quiet:false ~penv chk drv with
-             | Some chk -> Runtime.return (Reflect.mk_option (Some Runtime.(External (EqualityChecker chk))))
-             | None -> Runtime.return (Reflect.mk_option None)
+             catch_eqchk_exceptions (fun () ->
+             let chk =  Eqchk.add ~quiet:false ~penv chk drv in
+               Runtime.return Runtime.(External (EqualityChecker chk)))
     )));
 
     ("Eqchk.prove_eq_type_abstraction",
@@ -157,12 +166,11 @@ let externals =
              match Nucleus.as_eq_type_boundary_abstraction bdry with
              | None -> failwith "some error about wrong use of prove_eq_type_abstraction"
              | Some bdry ->
-                begin match Eqchk.prove_eq_type_abstraction chk sgn bdry with
-                | Some eq ->
-                   let eq = Nucleus.from_eq_type_abstraction eq in
-                   Runtime.return (Reflect.mk_option (Some Runtime.(Judgement eq)))
-                | None -> Runtime.return (Reflect.mk_option None)
-                end
+                catch_eqchk_exceptions (fun () ->
+                let eq = Eqchk.prove_eq_type_abstraction chk sgn bdry in
+                  let eq = Nucleus.from_eq_type_abstraction eq in
+                  Runtime.return Runtime.(Judgement eq)
+                )
     )));
 
     ("Eqchk.prove_eq_term_abstraction",
@@ -174,12 +182,10 @@ let externals =
              match Nucleus.as_eq_term_boundary_abstraction bdry with
              | None -> failwith "some error about wrong use of prove_eq_term_abstraction"
              | Some bdry ->
-                begin match Eqchk.prove_eq_term_abstraction chk sgn bdry with
-                | Some eq ->
-                   let eq = Nucleus.from_eq_term_abstraction eq in
-                   Runtime.return (Reflect.mk_option (Some Runtime.(Judgement eq)))
-                | None -> Runtime.return (Reflect.mk_option None)
-                end
+                catch_eqchk_exceptions (fun () ->
+                  let eq = Eqchk.prove_eq_term_abstraction chk sgn bdry in
+                  let eq = Nucleus.from_eq_term_abstraction eq in
+                  Runtime.return Runtime.(Judgement eq))
     )));
   ]
 

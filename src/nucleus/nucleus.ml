@@ -14,12 +14,14 @@ let expose_eq_type eq = eq
 let expose_eq_term eq = eq
 let expose_judgement jdg = jdg
 let expose_rule rl = rl
+let expose_judgement_abstraction abstr = abstr
 
 (** Exports from [Sanity] *)
 let type_of_term = Sanity.type_of_term
 let type_of_term_abstraction = Sanity.type_of_term_abstraction
 let type_at_abstraction = Sanity.type_at_abstraction
 let abstracted_judgement_with_boundary = Sanity.abstracted_judgement_with_boundary
+let abstracted_boundary_of_judgement_abstraction = Sanity.abstracted_boundary_of_judgement_abstraction
 let derivation_with_boundary = Sanity.derivation_with_boundary
 let type_of_atom = Sanity.type_of_atom
 let natural_type_eq = Sanity.natural_type_eq
@@ -54,8 +56,8 @@ let rule_as_derivation = Form.rule_as_derivation
 
 (** Miscelaneous constructions *)
 let form_is_term_atom = Form.form_is_term_atom
-let form_eq_term_convert = Form.form_eq_term_convert
-let form_is_term_convert = Form.form_is_term_convert
+let form_eq_term_convert = Form_convert.eq_term_convert
+let form_is_term_convert = Form_convert.is_term_convert
 
 let reflexivity_type = Form.reflexivity_type
 let reflexivity_term = Form.reflexivity_term
@@ -176,8 +178,8 @@ let occurs_eq_type_abstraction = occurs_abstraction Collect_assumptions.eq_type
 let occurs_eq_term_abstraction = occurs_abstraction Collect_assumptions.eq_term
 let occurs_judgement_abstraction = occurs_abstraction Collect_assumptions.judgement
 
-let convert_term = Form.form_is_term_convert_opt
-let convert_eq_term = Form.form_eq_term_convert_opt
+let convert_term = Form_convert.is_term_convert_opt
+let convert_eq_term = Form_convert.eq_term_convert_opt
 let convert_term_abstraction = Convert.term_abstraction
 let convert_eq_term_abstraction = Convert.eq_term_abstraction
 let convert_judgement_abstraction = Convert.judgement_abstraction
@@ -186,6 +188,9 @@ let congruence_judgement = Congruence.form_judgement
 let congruence_is_type = Congruence.form_is_type
 let congruence_is_term = Congruence.form_is_term
 
+let rewrite_judgement = Rewrite.judgement
+let rewrite_is_type = Rewrite.is_type
+let rewrite_is_term = Rewrite.is_term
 
 let print_is_term = Nucleus_print.is_term
 let print_is_type = Nucleus_print.is_type
