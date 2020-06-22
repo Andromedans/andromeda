@@ -31,7 +31,6 @@ let convert_argument sgn es asmps prem arg jdg =
 
 
       | Abstract (x, t_schema, prem'), Arg_Abstract (x1, arg1), Abstract (x2, t, jdg') ->
-        (* XXX: Make sure the levels of instantiation are correct!! *)
         let x = Name.prefer (Name.prefer x1 x2) x in
         let es_arg = List.map Coerce.to_argument es in
         let t' = Instantiate_meta.is_type ~lvl:0 es_arg t_schema in
@@ -73,10 +72,9 @@ let is_type sgn t jdg_lst =
       let rec fold es asmps rl args jdg_lst =
         begin match rl, args, jdg_lst with
         | Conclusion BoundaryIsType (), [], [] ->
-          let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in
           let es = List.rev (List.map Coerce.to_argument es) in
           let t' = Mk.type_constructor c es in
-          (Mk.eq_type asmp t t'), t'
+          (Mk.eq_type asmps t t'), t'
 
 
         | Premise ({meta_boundary=prem;_}, rl), arg :: args, jdg :: jdg_lst ->
@@ -84,14 +82,14 @@ let is_type sgn t jdg_lst =
           let asmps = Assumption.union asmps asmp in
           fold (jdg' :: es) asmps rl args jdg_lst
 
-            | Conclusion BoundaryIsTerm _, [], []
-            | Conclusion BoundaryEqType _, [], []
-            | Conclusion BoundaryEqTerm _, [], []
-            | Conclusion _, _::_, _
-            | Conclusion _, [], _::_
-            | Premise _, [], _
-            | Premise _, _::_, [] ->
-               Error.raise InvalidRewrite
+        | Conclusion BoundaryIsTerm _, [], []
+        | Conclusion BoundaryEqType _, [], []
+        | Conclusion BoundaryEqTerm _, [], []
+        | Conclusion _, _::_, _
+        | Conclusion _, [], _::_
+        | Premise _, [], _
+        | Premise _, _::_, [] ->
+           Error.raise InvalidRewrite
           end
         in
         fold [] Assumption.empty rl args jdg_lst
@@ -101,9 +99,7 @@ let is_type sgn t jdg_lst =
         begin
         match bdry, args, jdg_lst with
         | NotAbstract (BoundaryIsType ()), [], [] ->
-          (* let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in *)
           let asmp = asmps in
-          (*XXX: Are here asmp just asmps? *)
           let t' = Mk.type_meta m es in
           (Mk.eq_type asmp t t'),  t'
 
@@ -180,9 +176,7 @@ let rec is_term sgn e jdg_lst =
       begin
       match bdry, args, jdg_lst with
       | NotAbstract (BoundaryIsTerm t), [], [] ->
-        (* let asmp = Assumption.union asmps (Collect_assumptions.is_type t) in *)
         let asmp = asmps in
-        (*XXX: Are here asmp just asmps? *)
         let e' = Mk.term_meta m es in
         let e' = Form_convert.is_term_convert sgn e' (Mk.eq_type asmps (Sanity.type_of_term sgn e') t) in
         (Mk.eq_term asmp e e' t), e'
