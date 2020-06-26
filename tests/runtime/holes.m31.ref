@@ -1,0 +1,7 @@
+Operation ( ? ) is declared.
+Rule A is postulated.
+Rule B is postulated.
+Rule Σ is postulated.
+- :> judgement = ?hole₀ : A ⊢ B ?hole₀ type
+- :> judgement = ?hole₁ type, {_ : ?hole₁} ?hole₂ type ⊢ Σ ?hole₁
+  ({x₀} ?hole₂ {x₀}) type

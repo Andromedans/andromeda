@@ -418,6 +418,12 @@ op_name:
   | NAME
     { $1 }
 
+  | LPAREN op=infix RPAREN
+    { fst op }
+
+  | LPAREN op=prefix RPAREN
+    { fst op }
+
 (* ML exception name *)
 exc_name:
   | NAME
