@@ -88,3 +88,75 @@ let abstract x ~lvl abstr =
     { abstr with free_var ; bound_var }
   else
     abstr
+
+(** Compute the assumption set of a type expression, fail if a bound meta-variable is
+    encountered. *)
+let rec of_is_type ~lvl = function
+
+  | TypeMeta (MetaBound _, _) -> assert false
+
+  | TypeMeta (MetaFree {meta_nonce=mv; meta_boundary=bdry}, ts) ->
+     add_free_meta mv bdry (of_is_terms ~lvl ts)
+
+  | TypeConstructor (_, args) ->
+     of_arguments ~lvl args
+
+(** Compute the assumption set of a term expression, fail if a bound meta-variable is
+    encountered. *)
+and of_is_term ~lvl = function
+
+  | TermBoundVar k ->
+     if k < lvl then empty else singleton_bound (k - lvl)
+
+  | TermAtom {atom_nonce=atm; atom_type=ty} ->
+     (** XXX should we include the assumptions of ty? *)
+     add_free_var atm ty empty
+
+  | TermMeta (MetaBound _, _) -> assert false
+
+  | TermMeta (MetaFree {meta_nonce=mv; meta_boundary=bdry}, ts) ->
+     (** XXX should we include the assumptions of bdry? *)
+     add_free_meta mv bdry (of_is_terms ~lvl ts)
+
+  | TermConstructor (_, args) ->
+     of_arguments ~lvl args
+
+  | TermConvert (e, asmp, t) ->
+     union (at_level ~lvl asmp) (union (of_is_term ~lvl e) (of_is_type ~lvl t))
+
+(** Compute the assumption set of a list of terms, fail if a bound meta-variable is
+    encountered. *)
+and of_is_terms ~lvl = function
+  | [] -> empty
+  | t :: ts -> union (of_is_term ~lvl t) (of_is_terms ~lvl ts)
+
+(** Compute the assumption set of an argument *)
+and of_argument ~lvl = function
+  | Arg_NotAbstract jdg -> of_judgement ~lvl jdg
+  | Arg_Abstract (_, arg) -> of_argument ~lvl:(lvl+1) arg
+
+(** Compute the assumption set of a list of arguments *)
+and of_arguments ~lvl = function
+  | [] -> empty
+  | arg :: args -> union (of_argument ~lvl arg) (of_arguments ~lvl args)
+
+(** Compute the assumption set of a judgement *)
+and of_judgement ~lvl = function
+
+  | JudgementIsType t ->
+     of_is_type ~lvl t
+
+  | JudgementIsTerm e ->
+     of_is_term ~lvl e
+
+  | JudgementEqType (EqType (asmp, t1, t2)) ->
+     union (union (at_level ~lvl asmp) (of_is_type ~lvl t1)) (of_is_type ~lvl t2)
+
+  | JudgementEqTerm (EqTerm (asmp, e1, e2, t)) ->
+     union
+       (union
+          (union
+             (at_level ~lvl asmp)
+             (of_is_type ~lvl t))
+          (of_is_term ~lvl e1))
+       (of_is_term ~lvl e2)

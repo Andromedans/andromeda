@@ -17,7 +17,7 @@ let is_term_convert_opt sgn e (EqType (asmp, t1, t2)) =
        *)
        in
        (* [e] itself is not a [TermConvert] by the maintained invariant. *)
-       Some (Mk.term_convert e asmp t2)
+       Some (Mk.term_convert_panic e asmp t2)
      else
        None
 
@@ -27,7 +27,7 @@ let is_term_convert_opt sgn e (EqType (asmp, t1, t2)) =
        (* We need not include assumptions of [t1] because [t0] is alpha-equal
             to [t1] so we can use [t0] in place of [t1] if so desired. *)
        (* [e] is not a [TermConvert] by the above pattern-check *)
-       Some (Mk.term_convert e asmp t2)
+       Some (Mk.term_convert_panic e asmp t2)
      else
        None
 
