@@ -46,7 +46,7 @@ and is_term ~lvl (metas : argument list) = function
      let e = is_term ~lvl metas e
      and asmp = assumptions ~lvl metas asmp
      and t = is_type ~lvl metas t in
-     Mk.term_convert e asmp t
+     Mk.term_convert_join e asmp t
 
   | TermAtom _ as atm ->
      (** The type of an atom cannot contain bound meta-variables. *)

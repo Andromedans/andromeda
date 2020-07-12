@@ -20,11 +20,19 @@ let term_constructor c args = TermConstructor (c, args)
 
 let term_meta m args = TermMeta (m, args)
 
-(** Make a term conversion. It is illegal to pile a term conversion on top of another term
-   conversion. *)
-let term_convert e asmp t =
+(** Make a term conversion, failing if a nested conversion would arise. *)
+let term_convert_panic e asmp t =
   match e with
   | TermConvert _ -> assert false
+  | _ -> TermConvert (e, asmp, t)
+
+(** Make a term conversion, joining together a nested term conversion *without* checking types. *)
+let term_convert_join e asmp t =
+  match e with
+  | TermConvert (e', asmp', t') ->
+     let asmp'' = Assumption.(union (union asmp' asmp) (of_is_type ~lvl:0 t)) in
+     TermConvert (e', asmp'', t)
+
   | _ -> TermConvert (e, asmp, t)
 
 let arg_is_type t = JudgementIsType t

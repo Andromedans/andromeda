@@ -41,7 +41,8 @@ let convert_argument sgn es asmps prem arg jdg =
         and jdg' = Instantiate_bound.(abstraction judgement atm_jdg jdg') in
         let asmp', abstr' = fold prem' arg1 jdg' in
         let a = Mk.fresh_atom x t' in
-        let a_conv = Mk.term_convert (Mk.atom a) asmps t in (*XXX: Here the converts are not piled, because we convert an atom *)
+        (* Here the converts are not piled, because we convert an atom *)
+        let a_conv = Mk.term_convert_panic (Mk.atom a) asmps t in
         let abstr = Abstract.judgement_abstraction atm abstr' in
         let abstr = Apply_abstraction.apply_judgement_abstraction sgn abstr a_conv in
         let asmp' = Abstract.assumptions atm.atom_nonce asmp' in
@@ -241,4 +242,3 @@ let judgement sgn jdg jdg_lst =
     JudgementEqTerm e_eq_e', JudgementIsTerm e'
 
   | JudgementEqType _ | JudgementEqTerm _ -> Error.raise InvalidRewrite
-
