@@ -105,6 +105,17 @@ and prove_eq_term ~ext chk sgn bdry =
   if not ext then
     normalization_phase bdry
   else
+    let (e1, e2, t) = Nucleus.invert_eq_term_boundary bdry in
+    let t_eq_t', Normal t' = Eqchk_normalizer.normalize_type ~strong:false sgn chk.normalizer t in
+    let e1' = Nucleus.(form_is_term_convert sgn e1 t_eq_t')
+    and e2' = Nucleus.(form_is_term_convert sgn e2 t_eq_t')in
+    let bdry' = Nucleus.(form_eq_term_boundary sgn e1' e2') in
+    let bdry =
+    match Nucleus.(as_eq_term_boundary bdry' ) with
+    | Some bdry -> bdry
+    | None -> assert false
+    in
+    let eq_jdg =
     match Eqchk_extensionality.find chk.ext_rules sgn bdry with
 
     | Some rap ->
@@ -112,6 +123,11 @@ and prove_eq_term ~ext chk sgn bdry =
        resolve_rap chk sgn IntSet.empty rap
 
     | None -> normalization_phase bdry
+
+    in
+    let t'_eq_t = Nucleus.(symmetry_type t_eq_t') in
+    Nucleus.(form_eq_term_convert eq_jdg t'_eq_t)
+
 
 
 and check_normal_type chk sgn (Normal ty1) (Normal ty2) =

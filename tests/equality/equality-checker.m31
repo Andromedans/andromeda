@@ -38,6 +38,13 @@ eq.normalize (snd U V (pair U V u v));;
 
 eq.prove (p ≡ pair U V (fst U V p) (snd U V p) : (U × V) by ??);;
 
+(* Test type is normalized before applying extensionality rules *)
+rule P type ;;
+rule P_eq_prodUV : P ≡ (U × V) ;;
+eq.add_rule (derive -> P_eq_prodUV) ;;
+rule p' : P ;;
+eq.prove (p' ≡ pair U V (fst U V p') (snd U V p') : P by ??);;
+
 rule unuseful (A type) (B type) : (A × B) ≡ U ;;
 eq.add_locally unuseful (fun () -> eq.compute (U × V)) ;;
 eq.compute (U × V) ;;

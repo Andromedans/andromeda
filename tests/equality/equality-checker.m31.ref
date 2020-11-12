@@ -64,6 +64,13 @@ Rule v is postulated.
 - :> judgement * judgement =
   ((⊢ snd U V (pair U V u v) ≡ v : V), (⊢ v : V))
 - :> judgement = ⊢ p ≡ pair U V (fst U V p) (snd U V p) : ( × ) U V
+Rule P is postulated.
+Rule P_eq_prodUV is postulated.
+Type computation rule for P (heads at []):
+  derive → P ≡ ( × ) U V
+- :> mlunit = ()
+Rule p' is postulated.
+- :> judgement = ⊢ p' ≡ pair U V (fst U V p') (snd U V p') : P
 Rule unuseful is postulated.
 Type computation rule for × (heads at []):
   derive (A type) (B type) → ( × ) A B ≡ U
