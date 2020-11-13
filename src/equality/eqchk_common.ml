@@ -70,7 +70,7 @@ type invalid_rule =
   | TypeOfEquationMismatch of Nucleus.eq_term * Nucleus_types.is_type * Nucleus_types.is_type
   | ObjectPremiseAfterEqualityPremise of Nucleus_types.meta
   | DerivationWrongForm of (Nucleus.derivation)
-  | ObjectBoundaryExpected of Nucleus_types.meta * Nucleus_types.boundary_abstraction
+  | ObjectBoundaryExpected of Nucleus_types.boundary_abstraction
   | TypeEqualityConclusionExpected
   | TermEqualityConclusionExpected
 
@@ -127,10 +127,10 @@ let print_eqchk_error ~penv err ppf =
       Nucleus_print.(premise ~penv p)
     | DerivationWrongForm drv ->
       Format.fprintf ppf "Derivation not in a required form"
-    | ObjectBoundaryExpected (prem, bdry) ->
+    | ObjectBoundaryExpected (bdry) ->
       Format.fprintf ppf
-      "Premise %t of a computation rule does not have an object boundary %t"
-      Nucleus_print.(premise ~penv prem) Nucleus_print.(boundary_abstraction ~penv bdry)
+      "Premise %t of a computation rule does not have an object boundary"
+      Nucleus_print.(boundary_abstraction ~penv bdry)
     | TypeEqualityConclusionExpected ->
       Format.fprintf ppf "Conclusion not a type equality boundary"
     | TermEqualityConclusionExpected ->

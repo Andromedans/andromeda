@@ -42,11 +42,11 @@ let make_type_computation drv =
        let s = head_symbol_type t1 in
        (s, patt)
 
-    | Nucleus_types.(Premise ({meta_boundary=bdry;_}as premise, drv)) ->
+    | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
        if is_object_premise bdry then
          fold (k+1) drv
        else
-         raise (EqchkError (Invalid_rule (ObjectBoundaryExpected(premise, bdry))))
+         raise (EqchkError (Invalid_rule (ObjectBoundaryExpected(bdry))))
   in
   let drv =
     match Nucleus.as_eq_type_rule drv with
@@ -66,11 +66,11 @@ let make_term_computation drv =
        let s = head_symbol_term e1 in
        (s, patt)
 
-    | Nucleus_types.(Premise ({meta_boundary=bdry;_} as p, drv)) ->
+    | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
        if is_object_premise bdry then
          fold (k+1) drv
        else
-       raise (EqchkError (Invalid_rule (ObjectBoundaryExpected(p, bdry))))
+       raise (EqchkError (Invalid_rule (ObjectBoundaryExpected(bdry))))
   in
   let drv =
     match Nucleus.as_eq_term_rule drv with
@@ -350,4 +350,4 @@ and normalize_argument ~strong sgn nrm arg =
       Normal (Nucleus.(abstract_not_abstract (JudgementIsTerm e')))
 
   | Nucleus.(Stump_NotAbstract (JudgementEqType _ | JudgementEqTerm _)) ->
-  raise (Fatal_error (Normalization_fail (General "cannot normalize equality judgements")))
+      raise (Fatal_error (Normalization_fail (General "cannot normalize equality judgements")))

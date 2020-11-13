@@ -37,6 +37,8 @@ let add_rule der =
 ;;
 
 exception Coerce_fail ;;
+exception Not_equality_boundary of boundary ;;
+exception Not_object_judgement of judgement ;;
 
 let equalize_type A B = prove_eqtype_abstraction !ch (A ≡ B by ??) ;;
 
@@ -68,6 +70,9 @@ let normalize jdg =
   match jdg with
   | (?A type) -> normalize_type ML.false (!ch) A
   | (?a : _) -> normalize_term ML.false (!ch) a
+  | (_ ≡ _) -> raise (Not_object_judgement jdg)
+  | (_ ≡ _ : _) -> raise (Not_object_judgement jdg)
+
   end
 ;;
 
@@ -75,11 +80,15 @@ let compute jdg =
   match jdg with
   | (?A type) -> normalize_type ML.true (!ch) A
   | (?a : _) -> normalize_term ML.true (!ch) a
+  | (_ ≡ _) -> raise (Not_object_judgement jdg)
+  | (_ ≡ _ : _) -> raise (Not_object_judgement jdg)
   end
 ;;
 
 let prove bdry =
   match bdry with
+  | (?? type) -> raise (Not_equality_boundary bdry)
+  | (?? : _) -> raise (Not_equality_boundary bdry)
   | (_ ≡ _ by ??) -> prove_eqtype_abstraction (!ch) bdry
   | (_ ≡ _ : _ by ??) -> prove_eqterm_abstraction (!ch) bdry
   end
