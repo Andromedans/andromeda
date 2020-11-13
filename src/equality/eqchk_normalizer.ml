@@ -5,7 +5,7 @@ open Eqchk_common
 (** Extract an optional value, or declare an equality failure *)
 let deopt x msg =
   match x with
-  | None -> raise (Normalization_fail msg)
+  | None -> raise (Fatal_error (Normalization_fail ( General msg)))
   | Some x -> x
 
 (** The types of beta rules. *)
@@ -42,16 +42,16 @@ let make_type_computation drv =
        let s = head_symbol_type t1 in
        (s, patt)
 
-    | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
+    | Nucleus_types.(Premise ({meta_boundary=bdry;_}as premise, drv)) ->
        if is_object_premise bdry then
          fold (k+1) drv
        else
-         raise (Invalid_rule "premise of a computation rule does not have an object boundary")
+         raise (EqchkError (Invalid_rule (ObjectBoundaryExpected(premise, bdry))))
   in
   let drv =
     match Nucleus.as_eq_type_rule drv with
     | Some drv -> drv
-    | None -> raise (Invalid_rule "Conclusion not a type equality boundary")
+    | None -> raise (EqchkError (Invalid_rule TypeEqualityConclusionExpected))
   in
   let (s, patt) = fold 0 (Nucleus.expose_rule drv) in
   s, (patt, drv)
@@ -66,16 +66,16 @@ let make_term_computation drv =
        let s = head_symbol_term e1 in
        (s, patt)
 
-    | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
+    | Nucleus_types.(Premise ({meta_boundary=bdry;_} as p, drv)) ->
        if is_object_premise bdry then
          fold (k+1) drv
        else
-         raise (Invalid_rule "premise of a computation rule does not have an object boundary")
+       raise (EqchkError (Invalid_rule (ObjectBoundaryExpected(p, bdry))))
   in
   let drv =
     match Nucleus.as_eq_term_rule drv with
     | Some drv -> drv
-    | None -> raise (Invalid_rule "Conclusion not a term equality boundary")
+    | None -> raise (EqchkError (Invalid_rule TermEqualityConclusionExpected))
   in
   let (s, patt) = fold 0 (Nucleus.expose_rule drv) in
   s, (patt, drv)
@@ -128,7 +128,7 @@ let is_alpha_equal_type_arg arg t =
   | None -> false
   end
   with
-     Normalization_fail _ -> false
+    Fatal_error (Normalization_fail _) -> false
 
 let is_alpha_equal_term_arg arg e =
   try
@@ -138,7 +138,7 @@ let is_alpha_equal_term_arg arg e =
   | None -> false
   end
   with
-     Normalization_fail _ -> false
+     Fatal_error (Normalization_fail _) -> false
 
 let rec is_alpha_equal_type_args sgn args args' args_eq_args' ty0 =
   match args, args', args_eq_args' with
@@ -350,4 +350,4 @@ and normalize_argument ~strong sgn nrm arg =
       Normal (Nucleus.(abstract_not_abstract (JudgementIsTerm e')))
 
   | Nucleus.(Stump_NotAbstract (JudgementEqType _ | JudgementEqTerm _)) ->
-      raise (Normalization_fail "cannot normalize equality judgements")
+  raise (Fatal_error (Normalization_fail (General "cannot normalize equality judgements")))

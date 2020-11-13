@@ -11,20 +11,22 @@ type equation =
 let make_equation drv =
 
   (* Check that e is the bound meta-variable k *)
-  let check_meta k = function
-    | Nucleus_types.(TermMeta (MetaBound j, [])) -> if j <> k then raise (Invalid_rule "not a correct bound metavariable")
+  let check_meta k e =
+    match e with
+    | Nucleus_types.(TermMeta (MetaBound j, [])) -> if j <> k then raise (EqchkError (Invalid_rule (WrongMetavariable (k, j))))
     | Nucleus_types.(TermMeta (MetaFree _, _) | TermMeta (MetaBound _, _::_) | TermBoundVar _ | TermAtom _ |
                      TermConstructor _ | TermConvert _) ->
-       raise (Invalid_rule "not a bound metavariable")
+       raise (EqchkError (Invalid_rule (BoundMetavariableExpected (k, e))))
   in
 
   (* Extract a type from an optional boundary *)
   let extract_type = function
     | Some (Nucleus_types.(NotAbstract (BoundaryIsTerm t))) -> t
-    | Some (Nucleus_types.(NotAbstract (BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _) | Abstract _)) ->
-      raise (Invalid_rule "given boundary in not a term boundary")
+    | Some (Nucleus_types.(Abstract _ ) as abst) -> raise (EqchkError (Invalid_rule (TermBoundaryExpectedGotAbstraction abst)))
+    | Some (Nucleus_types.(NotAbstract (BoundaryIsType _ | BoundaryEqType _ | BoundaryEqTerm _ as b ))) ->
+      raise (EqchkError (Invalid_rule (TermBoundaryExpected b)))
     | None ->
-       raise (Invalid_rule "boundary not given")
+       raise (EqchkError (Invalid_rule (TermBoundaryNotGiven)))
   in
 
   (* do the main work where:
@@ -39,27 +41,27 @@ let make_equation drv =
        try (* check LHS *)
          check_meta (n_eq+1) e1
        with
-         Invalid_rule _ -> raise (Invalid_rule "LHS of equation is not a correct metavariable")
+         EqchkError( Invalid_rule _ ) -> raise (EqchkError (Invalid_rule (EquationLHSnotCorrect (eq, n_eq + 1))))
        end ;
        begin
        try (* check RHS *)
          check_meta n_eq e2
        with
-         Invalid_rule _ -> raise (Invalid_rule "RHS of equation is not a correct metavariable")
+          EqchkError ( Invalid_rule _ ) -> raise (EqchkError (Invalid_rule (EquationRHSnotCorrect (eq, n_eq))))
        end ;
        let t1 = extract_type bdry1opt in
        let t1' = Shift_meta.is_type (n_eq+2) t1
        and t2' = Shift_meta.is_type (n_eq+1) (extract_type bdry2opt) in
        (* check that types are equal *)
-       if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then raise (Invalid_rule "terms do not have alfa equal types") ;
+       if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then raise (EqchkError (Invalid_rule (TypeOfEquationMismatch (eq, t1', t2')))); ;
        let patt = Eqchk_pattern.make_is_type (n_ob-2) t1 in
        let s = head_symbol_type t1 in
        (s, patt)
 
-    | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
+    | Nucleus_types.(Premise ({meta_boundary=bdry;_} as p, drv)) ->
        if is_object_premise bdry then
          begin
-           if n_eq > 0 then raise (Invalid_rule "object premise appears after equality premise");
+           if n_eq > 0 then raise (EqchkError (Invalid_rule (ObjectPremiseAfterEqualityPremise p)));
            fold (bdry2opt, Some bdry) (n_ob + 1) n_eq drv
          end
        else
@@ -70,7 +72,7 @@ let make_equation drv =
   let drv =
     match Nucleus.as_eq_term_rule drv with
     | Some drv -> drv
-    | None -> raise (Invalid_rule "derivation not in a required form")
+    | None -> raise ( EqchkError(Invalid_rule (DerivationWrongForm drv)))
   in
   (* Collect head symbol and pattern (and verify that drv has the correct form) *)
   let s, patt = fold (None, None) 0 0 (Nucleus.expose_rule drv) in
