@@ -17,7 +17,7 @@ let is_term_convert_opt sgn e (EqType (asmp, t1, t2)) =
        *)
        in
        (* [e] itself is not a [TermConvert] by the maintained invariant. *)
-       Some (Mk.term_convert_panic e asmp t2)
+       Some (Mk.term_convert_join e asmp t2) (* XXX: this may not be true, this is why we use join here!! *)
      else
        None
 
