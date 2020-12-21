@@ -248,7 +248,6 @@ let match_is_term sgn e (r, k) =
   with
     Match_fail -> None
 
-exception Form_fail of string
 exception Eta_expanded_meta_fail
 
 (** Is the given judgement abstraction an eta-expanded meta-variable? *)
@@ -326,7 +325,7 @@ let rec form_is_type metas ~checking = function
        metas, Patt.TypeCheckMeta i
      else
        begin
-       if checking then raise (Form_fail "cannot introduce a new type metavariable in checking mode")
+       if checking then raise (EqchkError (Form_fail (NewTypeMetaCheckingMode i)))
        else
        let metas = Bound_set.add i metas in
        metas, Patt.TypeAddMeta i
@@ -345,8 +344,8 @@ let rec form_is_type metas ~checking = function
      in
      fold metas [] es
 
-  | Nucleus_types.(TypeMeta (MetaBound _, _::_)) ->
-     raise (Form_fail "cannot make a pattern from a bound type metavariable")
+  | Nucleus_types.(TypeMeta (MetaBound k, _::_)) ->
+     raise (EqchkError (Form_fail (MetaBoundTypeInPatt k)))
 
 
 and form_is_term metas ~checking e =
@@ -365,7 +364,7 @@ and form_is_term metas ~checking e =
      if Bound_set.mem i metas then
        metas, Patt.TermCheckMeta i
      else
-       if checking then raise (Form_fail "cannot introduce a new term metavariable in checking mode")
+       if checking then raise (EqchkError (Form_fail (NewTermMetaCheckingMode i)))
        else
        let metas = Bound_set.add i metas in
        metas, Patt.TermAddMeta i
@@ -386,8 +385,8 @@ and form_is_term metas ~checking e =
   | Nucleus_types.TermConvert (e, _, _) ->
      form_is_term metas ~checking e
 
-  | Nucleus_types.(TermMeta (MetaBound _, _::_)) ->
-     raise (Form_fail "cannot make a pattern out of a bound term metavariable")
+  | Nucleus_types.(TermMeta (MetaBound k, _::_)) ->
+     raise (EqchkError (Form_fail (MetaBoundTermInPatt k)))
 
 
 and form_arguments metas ~checking args =
@@ -414,11 +413,14 @@ and form_argument metas ~checking = function
         let metas, t = form_is_type metas ~checking t in
         metas, Patt.(Arg_NotAbstract (ArgumentIsType t))
 
-     | Nucleus_types.JudgementEqType _
-     | Nucleus_types.JudgementEqTerm _ ->
+     | Nucleus_types.JudgementEqType ty ->
+       (* For the time being we don't support equality arguments.
+           It's not entirely clear how we should treat them. *)
+        raise (EqchkError (Form_fail (EqualityTypeArgumentInPatt ty)))
+     | Nucleus_types.JudgementEqTerm e ->
         (* For the time being we don't support equality arguments.
            It's not entirely clear how we should treat them. *)
-        raise (Form_fail "cannot form a pattern out of an equality argument")
+           raise (EqchkError (Form_fail (EqualityTermArgumentInPatt e)))
      end
 
   | Nucleus_types.Arg_Abstract (atm, jdg) as abstr ->
@@ -455,7 +457,7 @@ let make_is_type k t =
    if is_range metas k then
      (patt, k)
    else
-     raise (Form_fail "type does not capture correct metavariables")
+     raise (EqchkError (Form_fail (CaptureMetasNotCorrectType t)))
 
 (** Construct a pattern [p] from term [e], and verify that the pattern captures exactly
    the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
@@ -465,4 +467,4 @@ let make_is_term k e =
    if is_range metas k then
      (patt, k)
    else
-     raise (Form_fail "term does not capture correct metavariables")
+     raise (EqchkError (Form_fail (CaptureMetasNotCorrectTerm e)))

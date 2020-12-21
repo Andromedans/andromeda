@@ -12,9 +12,6 @@ let catch_eqchk_exceptions cmp =
       let s = Format.fprintf Format.str_formatter "%t" (Eqchk_common.print_eqchk_error ~penv err) ; Format.flush_str_formatter () in
       Reflect.eqchk_exception ~at:Location.unknown s
 
-    | Eqchk_pattern.Form_fail err ->
-      Reflect.eqchk_exception ~at:Location.unknown err
-
 let externals =
   [
     ("print", (* forall a, a -> mlunit *)

@@ -78,9 +78,21 @@ type equality_fail =
   | NoCongruenceTypes of Nucleus.is_type * Nucleus.is_type
   | NoCongruenceTerms of Nucleus.is_term * Nucleus.is_term
 
+type form_fail =
+  | NewTypeMetaCheckingMode of int
+  | NewTermMetaCheckingMode of int
+  | MetaBoundTypeInPatt of int
+  | MetaBoundTermInPatt of int
+  | EqualityTypeArgumentInPatt of Nucleus_types.eq_type
+  | EqualityTermArgumentInPatt of Nucleus_types.eq_term
+  | CaptureMetasNotCorrectType of Nucleus_types.is_type
+  | CaptureMetasNotCorrectTerm of Nucleus_types.is_term
+
+
 type eqchk_error =
   | Invalid_rule of invalid_rule
   | Equality_fail of equality_fail
+  | Form_fail of form_fail
 
 type normalization_error =
   | General of string
@@ -134,7 +146,7 @@ let print_eqchk_error ~penv err ppf =
     | TypeEqualityConclusionExpected ->
       Format.fprintf ppf "Conclusion not a type equality boundary"
     | TermEqualityConclusionExpected ->
-      Format.fprintf ppf "Conclusion not a type equality boundary"
+      Format.fprintf ppf "Conclusion not a term equality boundary"
 
     end
   | Equality_fail (NoCongruenceTypes (ty1, ty2)) ->
@@ -146,6 +158,23 @@ let print_eqchk_error ~penv err ppf =
     Format.fprintf ppf "Cannot find a congruence rule for terms %t and %t"
     Nucleus_print.(thesis_is_term ~penv (Nucleus.expose_is_term e1))
     Nucleus_print.(thesis_is_term ~penv (Nucleus.expose_is_term e2))
+
+  | Form_fail er ->
+    begin
+      match er with
+      | NewTypeMetaCheckingMode i -> Format.fprintf ppf "Cannot introduce a new type metavariable with index %d in checking mode" i
+      | NewTermMetaCheckingMode i -> Format.fprintf ppf "Cannot introduce a new term metavariable with index %d in checking mode" i
+      | MetaBoundTypeInPatt i -> Format.fprintf ppf "Cannot make a pattern from a bound type metavariable with index %d" i
+      | MetaBoundTermInPatt i -> Format.fprintf ppf "Cannot make a pattern from a bound term metavariable with index %d" i
+      | EqualityTypeArgumentInPatt eqty -> Format.fprintf ppf "Cannot form a pattern out of a type equality argument %t"
+        Nucleus_print.(thesis_eq_type ~penv eqty)
+      | EqualityTermArgumentInPatt eqtm -> Format.fprintf ppf "Cannot form a pattern out of a term equality argument %t"
+        Nucleus_print.(thesis_eq_term ~penv eqtm)
+      | CaptureMetasNotCorrectType ty -> Format.fprintf ppf "Pattern type %t does not capture correct metavariables"
+        Nucleus_print.(thesis_is_type ~penv ty)
+      | CaptureMetasNotCorrectTerm e -> Format.fprintf ppf "Pattern term %t does not capture correct metavariables"
+        Nucleus_print.(thesis_is_term ~penv e)
+    end
 
 
 (** A tag to indicate that a term or a type is normalized *)
