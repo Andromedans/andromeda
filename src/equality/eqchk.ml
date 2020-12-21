@@ -185,7 +185,7 @@ and prove_boundary_abstraction ~ext chk sgn bdry =
      Nucleus.abstract_judgement atm eq_abstr
 
   | Nucleus.(Stump_NotAbstract (BoundaryIsTerm _ | BoundaryIsType _)) ->
-    raise (Fatal_error (Fatal "cannot prove an object boundary"))
+    raise (Fatal_error ("cannot prove an object boundary"))
 
   in
   prove bdry

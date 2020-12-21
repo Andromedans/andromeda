@@ -1,0 +1,186 @@
+(* Testing Exceptions in equality checker *)
+require eq ;;
+
+(* Proving non-object boundaries *)
+rule U type;;
+let jdg1 =
+    try
+        eq.prove (?? : U)
+    with
+        | raise (eq.Not_equality_boundary (?? : ?A)) -> base.print "passed test non-object boundaries" ; A
+    end ;;
+
+(* Adding extensionality rules *)
+
+rule U' (x : U) : U ;;
+rule x_eq_y_U (x : U) (y : U) : y ≡ x : U ;;
+let nothing1 =
+    try
+        eq.add_extensionality (!eq.ch) x_eq_y_U ; ()
+    with
+        | raise ML.EqualityCheckerException "LHS of equation [0] ≡ [1] :
+U not a correct metavariable 1" -> base.print "passed test extensionality LHS" ; ()
+    end ;;
+
+rule x_eq_y_U1 (x : U) (y : U) : x ≡ U' y : U ;;
+let nothing2 =
+    try
+        eq.add_extensionality (!eq.ch) x_eq_y_U1 ; ()
+    with
+        | raise ML.EqualityCheckerException "RHS of equation [1] ≡ U' [0] :
+U not a correct metavariable 0" -> base.print "passed test extensionality RHS" ; ()
+    end ;;
+
+rule x_eq_y_U2 (x : U) (y : U) (x ≡ x : U by ξ) (a : U) : x ≡ y : U ;;
+let nothing3 =
+    try
+        eq.add_extensionality (!eq.ch) x_eq_y_U2 ; ()
+    with
+        | raise ML.EqualityCheckerException "Object premise a :
+U appears after equality premise" -> base.print "passed test extensionality object after equality premise" ; ()
+    end ;;
+
+rule x_eq_y_U3 (x : U) (y : U) : U ≡ U ;;
+let nothing4 =
+    try
+        eq.add_extensionality (!eq.ch) x_eq_y_U3 ; ()
+    with
+        | raise ML.EqualityCheckerException "Derivation not in a required form" -> base.print "passed test extensionality derivation wrong from" ; ()
+    end ;;
+
+rule V type ;;
+rule V_eq_U : V ≡ U ;;
+rule x_eq_y_U4 (x : U) (y : V) :?
+               (eq.add_locally (derive -> V_eq_U) (fun () -> x ≡ y : U by ??)) ;;
+let nothing4' =
+    try
+        eq.add_extensionality (!eq.ch) x_eq_y_U4 ; ()
+    with
+        | raise ML.EqualityCheckerException "RHS of equation [1] ≡ [0] :
+U not a correct metavariable 0" -> base.print "passed test extensionality type mismatch in metavars" ; ()
+    end ;;
+
+(* Adding computation rules *)
+
+(* Term computation rule with equality premises *)
+rule u : U ;;
+rule v : U ;;
+rule u_eq_v (U ≡ U by ξ) : u ≡ v : U ;;
+let jdg3 =
+    try
+        eq.add_rule u_eq_v
+    with
+        | raise ML.EqualityCheckerException "Premise ⊢ U ≡
+U by ⁇ of a computation rule does not have an object boundary"-> base.print "passed test term computation rule equality prems" ; ()
+    end ;;
+
+rule U_is_everything (X type) : U ≡ X ;;
+let nothing5 =
+    try
+       eq.add_rule U_is_everything ; ()
+    with
+        | raise ML.EqualityCheckerException "Pattern type U does not capture correct metavariables" -> base.print "passed test adding type computation not correct metas" ; ()
+    end ;;
+
+rule u_is_everything (x : U) : u ≡ x : U ;;
+let nothing6 =
+    try
+       eq.add_rule u_is_everything ; ()
+    with
+        | raise ML.EqualityCheckerException "Pattern term u does not capture correct metavariables" -> base.print "passed test adding term computation not correct metas" ; ()
+    end ;;
+
+rule refl (A type) : A ≡ A ;;
+rule w (U ≡ U) : U ;;
+rule all_eq_u (x : U) : x ≡ u : U ;;
+let w_eq_u = derive -> all_eq_u (w (refl U)) ;;
+let nothing7 =
+    try
+       eq.add_rule w_eq_u ; ()
+    with
+        | raise ML.EqualityCheckerException "Cannot form a pattern out of a type equality argument U ≡
+U" -> base.print "passed test adding computation equality argument" ; ()
+    end ;;
+
+rule R ({x : U} B type) type ;;
+rule R_eq_U ({x : U} B type) : B{u} ≡ U ;;
+let nothing8 =
+    try
+       eq.add_rule R_eq_U ; ()
+    with
+        | raise ML.EqualityCheckerException "Cannot make a pattern from a bound type metavariable with index 0" -> base.print "passed test adding computation bound type metavariable" ; ()
+    end ;;
+
+rule r ({x : U} b : U) : U ;;
+rule r_eq_u ({x : U} b : U) : b {u} ≡ u : U ;;
+let nothing9 =
+    try
+       eq.add_rule r_eq_u ; ()
+    with
+        | raise ML.EqualityCheckerException "Cannot make a pattern from a bound term metavariable with index 0" -> base.print "passed test adding computation bound term metavariable" ; ()
+    end ;;
+
+
+rule S (x : U) type ;;
+rule S_eq_U ({x : U} b : U) : S (b{u}) ≡ U ;;
+let nothing10 =
+    try
+       eq.add_rule S_eq_U ; ()
+    with
+        | raise ML.EqualityCheckerException "Cannot make a pattern from a bound term metavariable with index 0" -> base.print "passed test adding computation bound term metavariable as argument" ; ()
+    end ;;
+
+rule S_eq_U_again (x : U) : S x ≡ U ;;
+let nothing11 =
+    try
+        eq.add_term_computation (!eq.ch) S_eq_U_again ; ()
+    with
+        | raise ML.EqualityCheckerException "Conclusion not a term equality boundary" -> base.print "passed test adding term computation conclusion" ; ()
+    end ;;
+
+rule s (x : U) : U ;;
+rule s_eq_u (x : U) : s x ≡ u : U ;;
+let nothing12 =
+    try
+        eq.add_type_computation (!eq.ch) s_eq_u ; ()
+    with
+        | raise ML.EqualityCheckerException "Conclusion not a type equality boundary" -> base.print "passed test adding type computation conclusion" ; ()
+    end ;;
+
+(* Normalizing equations *)
+let jdg2 =
+    try
+        eq.normalize( refl U )
+    with
+        | raise eq.Not_object_judgement (?A ≡ ?B) -> base.print "passed test normalizing equalities" ; (A, B)
+    end ;;
+
+(* Normalizing judgements with equality arguments *)
+rule W (U ≡ U by ξ) type ;;
+let nothing13 =
+    try
+        eq.normalize(W (refl U)) ; ()
+    with
+        | raise ML.EqualityCheckerException "Cannot normalize equality argument ⊢ U ≡
+U" -> base.print "passed test normalizing equality argument" ; ()
+    end ;;
+
+(* Proving equality *)
+
+rule UU type ;;
+rule VV type ;;
+let nothing14 =
+    try
+        eq.prove (UU ≡ VV by ??) ; ()
+    with
+        | raise ML.EqualityCheckerException "Cannot find a congruence rule for types UU and VV" -> base.print "passed test proving bdry no congruence type" ; ()
+    end ;;
+
+rule uu : UU ;;
+rule vv : UU ;;
+let nothing15 =
+    try
+        eq.prove (uu ≡ vv : UU by ??) ; ()
+    with
+        | raise ML.EqualityCheckerException "Cannot find a congruence rule for terms uu and vv" -> base.print "passed test proving bdry no congruence term" ; ()
+    end ;;
