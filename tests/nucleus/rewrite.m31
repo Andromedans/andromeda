@@ -25,4 +25,18 @@ rewrite ((Π A ({x : A} B x))) A_eq_A' ({x : A} β x);;
 
 rule F (X type) ({x : X} y : A) : A ;;
 let fa = rewrite (F A ({_ : A} a)) A_eq_A' ({x : A} a_eq_a')  ;;
-match fa with | (?e, F ?arg1 ?arg2) -> arg2 end
+match fa with | (?e, F ?arg1 ?arg2) -> arg2 end ;;
+
+rule refl_tm (X type) (x : X) : x ≡ x : X ;;
+let der = derive
+            (M type)
+            (N type)
+            ({x : M}{y : N} op : M)
+            (m : M)
+            (m' : M)
+            (m' ≡ m : M by ξ)
+            (n : N)
+            ->
+            let (?e, _) = rewrite op{m'}{n} ξ (refl_tm N n) in
+            e
+            ;;

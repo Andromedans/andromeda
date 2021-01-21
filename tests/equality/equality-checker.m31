@@ -95,3 +95,23 @@ rule weird (A type)
            (B{a} == A by ξ)
            (_ :? eq.add_locally (derive -> ξ) (fun () -> a == b : A by ??))
            type ;;
+
+let d = derive
+    (A type)
+    (B type)
+    ({a : A}{b : B} op : A)
+    (e : B)
+    ({a : A} op{a}{e} ≡ a : A by ξ)
+    (e' : B)
+    (e' ≡ e : B by η)
+    (x : A)
+    ->
+    eq.add_locally
+        (derive (y : A) -> ξ{y})
+        (fun () ->
+            eq.add_locally (derive -> η)
+             (fun () ->
+                eq.prove(op{x}{e'} ≡ x : A by ??)
+            )
+        )
+    ;;

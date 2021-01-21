@@ -101,7 +101,7 @@ let is_type sgn t jdg_lst =
         match bdry, args, jdg_lst with
         | NotAbstract (BoundaryIsType ()), [], [] ->
           let asmp = asmps in
-          let t' = Mk.type_meta m es in
+          let t' = Mk.type_meta m (List.rev es) in
           (Mk.eq_type asmp t t'),  t'
 
         | Abstract (_, t', abstr), arg :: args, jdg :: jdg_lst  ->
@@ -178,7 +178,7 @@ let rec is_term sgn e jdg_lst =
       match bdry, args, jdg_lst with
       | NotAbstract (BoundaryIsTerm t), [], [] ->
         let asmp = asmps in
-        let e' = Mk.term_meta m es in
+        let e' = Mk.term_meta m (List.rev es) in
         let e' = Form_convert.is_term_convert sgn e' (Mk.eq_type asmps (Sanity.type_of_term sgn e') t) in
         (Mk.eq_term asmp e e' t), e'
 
