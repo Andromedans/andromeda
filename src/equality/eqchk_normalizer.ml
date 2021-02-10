@@ -2,10 +2,10 @@
 
 open Eqchk_common
 
-(** Extract an optional value, or declare an equality failure *)
-let deopt x msg =
+(** Extract an optional value, or declare a normalization fail *)
+let deopt x err =
   match x with
-  | None -> raise (Normalization_fail msg)
+  | None -> raise (EqchkError (Normalization_fail err))
   | Some x -> x
 
 (** The types of beta rules. *)
@@ -46,12 +46,12 @@ let make_type_computation drv =
        if is_object_premise bdry then
          fold (k+1) drv
        else
-         raise (Invalid_rule "premise of a computation rule does not have an object boundary")
+         raise (EqchkError (Invalid_rule (ObjectBoundaryExpected(bdry))))
   in
   let drv =
     match Nucleus.as_eq_type_rule drv with
     | Some drv -> drv
-    | None -> raise (Invalid_rule "Conclusion not a type equality boundary")
+    | None -> raise (EqchkError (Invalid_rule TypeEqualityConclusionExpected))
   in
   let (s, patt) = fold 0 (Nucleus.expose_rule drv) in
   s, (patt, drv)
@@ -70,12 +70,12 @@ let make_term_computation drv =
        if is_object_premise bdry then
          fold (k+1) drv
        else
-         raise (Invalid_rule "premise of a computation rule does not have an object boundary")
+       raise (EqchkError (Invalid_rule (ObjectBoundaryExpected(bdry))))
   in
   let drv =
     match Nucleus.as_eq_term_rule drv with
     | Some drv -> drv
-    | None -> raise (Invalid_rule "Conclusion not a term equality boundary")
+    | None -> raise (EqchkError (Invalid_rule TermEqualityConclusionExpected))
   in
   let (s, patt) = fold 0 (Nucleus.expose_rule drv) in
   s, (patt, drv)
@@ -119,61 +119,6 @@ let get_term_heads nrm sym =
   | Some hs -> hs
 
 (** Functions that apply rewrite rules *)
-
-let is_alpha_equal_type_arg arg t =
-  try
-  begin
-  match Nucleus.(as_is_type (deopt (as_not_abstract arg) "")) with
-  | Some arg_ty -> Nucleus.(alpha_equal_type arg_ty t)
-  | None -> false
-  end
-  with
-     Normalization_fail _ -> false
-
-let is_alpha_equal_term_arg arg e =
-  try
-  begin
-  match Nucleus.(as_is_term (deopt (as_not_abstract arg) "")) with
-  | Some arg_e -> Nucleus.(alpha_equal_term arg_e e)
-  | None -> false
-  end
-  with
-     Normalization_fail _ -> false
-
-let rec is_alpha_equal_type_args sgn args args' args_eq_args' ty0 =
-  match args, args', args_eq_args' with
-    | [], [], [] -> None
-    | arg :: args, arg' :: args', arg_eq_arg' :: args_eq_args' ->
-      if is_alpha_equal_type_arg arg ty0 then
-        let arg_eq_arg' = deopt Nucleus.(as_eq_type (deopt (as_not_abstract arg_eq_arg') "")) ""
-        and arg' = deopt Nucleus.(as_is_type (deopt (as_not_abstract arg') "")) "" in
-        Some (arg_eq_arg', arg')
-      else
-      is_alpha_equal_type_args sgn args args' args_eq_args' ty0
-    | [], _ :: _, _ :: _
-    | _ :: _, [], _ :: _
-    | _ :: _, _ :: _, []
-    | [], [], _ :: _
-    | [], _ :: _, []
-    | _ :: _, [], [] -> None
-
-let rec is_alpha_equal_term_args sgn args args' args_eq_args' e0 =
-  match args, args', args_eq_args' with
-    | [], [], [] -> None
-    | arg :: args, arg' :: args', arg_eq_arg' :: args_eq_args' ->
-      if is_alpha_equal_term_arg arg e0 then
-        let arg_eq_arg' = deopt Nucleus.(as_eq_term (deopt (as_not_abstract arg_eq_arg') "")) ""
-        and arg' = deopt Nucleus.(as_is_term (deopt (as_not_abstract arg') "")) "" in
-        Some (arg_eq_arg', arg')
-      else
-      is_alpha_equal_term_args sgn args args' args_eq_args' e0
-    | [], _ :: _, _ :: _
-    | _ :: _, [], _ :: _
-    | _ :: _, _ :: _, []
-    | [], [], _ :: _
-    | [], _ :: _, []
-    | _ :: _, [], [] -> None
-
 
 (** Find a type computation rule and apply it to [t]. *)
 let rec apply_type_beta betas sgn t =
@@ -324,7 +269,7 @@ and normalize_arguments ~strong sgn nrm heads args =
        let arg_eq_arg', Normal arg' = normalize_argument ~strong sgn nrm arg in
        fold (k+1) (arg' :: args') (arg_eq_arg' :: args_eq_args') args_rest
       else
-        let arg_eq_arg' = deopt (Nucleus.reflexivity_judgement_abstraction sgn arg) "unexpected equality judgement" in
+        let arg_eq_arg' = deopt (Nucleus.reflexivity_judgement_abstraction sgn arg) (EqualityArgument arg) in
         fold (k+1) (arg :: args') (arg_eq_arg' :: args_eq_args') args_rest
   in
   fold 0 [] [] args
@@ -349,5 +294,7 @@ and normalize_argument ~strong sgn nrm arg =
       Nucleus.(abstract_not_abstract (JudgementEqTerm  e_eq_e')),
       Normal (Nucleus.(abstract_not_abstract (JudgementIsTerm e')))
 
-  | Nucleus.(Stump_NotAbstract (JudgementEqType _ | JudgementEqTerm _)) ->
-      raise (Normalization_fail "cannot normalize equality judgements")
+  | Nucleus.(Stump_NotAbstract (JudgementEqType eqty)) ->
+      raise (EqchkError (Normalization_fail (EqualityTypeArguement eqty)))
+  | Nucleus.(Stump_NotAbstract (JudgementEqTerm eqtm)) ->
+      raise (EqchkError (Normalization_fail (EqualityTermArguement eqtm)))

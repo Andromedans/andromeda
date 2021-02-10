@@ -58,13 +58,158 @@ type symbol =
   | Ident of Ident.t
   | Nonce of Nonce.t
 
-exception Equality_fail of string
+(** Reporting Equality Checker errors. *)
+type invalid_rule =
+  | WrongMetavariable of int * int
+  | BoundMetavariableExpected of int * (Nucleus_types.is_term)
+  | TermBoundaryExpected of Nucleus_types.boundary
+  | TermBoundaryExpectedGotAbstraction of Nucleus_types.boundary_abstraction
+  | TermBoundaryNotGiven
+  | EquationLHSnotCorrect of Nucleus.eq_term * int
+  | EquationRHSnotCorrect of Nucleus.eq_term * int
+  | TypeOfEquationMismatch of Nucleus.eq_term * Nucleus_types.is_type * Nucleus_types.is_type
+  | ObjectPremiseAfterEqualityPremise of Nucleus_types.meta
+  | DerivationWrongForm of (Nucleus.derivation)
+  | ObjectBoundaryExpected of Nucleus_types.boundary_abstraction
+  | TypeEqualityConclusionExpected
+  | TermEqualityConclusionExpected
 
-exception Invalid_rule of string
+type equality_fail =
+  | NoCongruenceTypes of Nucleus.is_type * Nucleus.is_type
+  | NoCongruenceTerms of Nucleus.is_term * Nucleus.is_term
 
-exception Normalization_fail of string
+type form_fail =
+  | NewTypeMetaCheckingMode of int
+  | NewTermMetaCheckingMode of int
+  | MetaBoundTypeInPatt of int
+  | MetaBoundTermInPatt of int
+  | EqualityTypeArgumentInPatt of Nucleus_types.eq_type
+  | EqualityTermArgumentInPatt of Nucleus_types.eq_term
+  | CaptureMetasNotCorrectType of Nucleus_types.is_type
+  | CaptureMetasNotCorrectTerm of Nucleus_types.is_term
+
+type normalization_error =
+  | EqualityTypeArguement of Nucleus.eq_type
+  | EqualityTermArguement of Nucleus.eq_term
+  | EqualityArgument of Nucleus.judgement_abstraction
+
+type eqchk_error =
+  | Invalid_rule of invalid_rule
+  | Equality_fail of equality_fail
+  | Form_fail of form_fail
+  | Normalization_fail of normalization_error
+
+exception EqchkError of eqchk_error
 
 exception Fatal_error of string
+
+let print_eqchk_error ~penv err ppf =
+  match err with
+  | Invalid_rule e ->
+    begin
+    match e with
+    | WrongMetavariable (k,j) ->
+      Format.fprintf ppf "expected a bound metavaribale %d, but got %d" k j
+    | BoundMetavariableExpected (k, e) ->
+      Format.fprintf ppf "expected a bound metavariable %d, but got %t"
+      k (Nucleus_print.thesis_is_term ~penv e)
+    | TermBoundaryExpected b ->
+      Format.fprintf ppf "expected a term boundary, but got %t"
+      (Nucleus_print.thesis_boundary ~penv ~print_head:(Nucleus_print.print_qqmark) b)
+    | TermBoundaryExpectedGotAbstraction abstr ->
+      Format.fprintf ppf "expected a term boundary, but got %t"
+      (Nucleus_print.boundary_abstraction ~penv abstr)
+    | TermBoundaryNotGiven ->
+      Format.fprintf ppf "expected a term boundary, but got None"
+    | EquationLHSnotCorrect (eq, k) ->
+      Format.fprintf ppf "LHS of equation %t not a correct metavariable %d"
+      Nucleus_print.(thesis_eq_term ~penv (Nucleus.expose_eq_term eq))
+      k
+    | EquationRHSnotCorrect (eq, k) ->
+      Format.fprintf ppf "RHS of equation %t not a correct metavariable %d"
+      Nucleus_print.(thesis_eq_term ~penv (Nucleus.expose_eq_term eq))
+      k
+    | TypeOfEquationMismatch (eq, t1, t2) ->
+      Format.fprintf ppf
+      "Type at equation %t should be equal to both types of metavariabels %t and %t"
+      Nucleus_print.(thesis_eq_term ~penv (Nucleus.expose_eq_term eq))
+      Nucleus_print.(thesis_is_type ~penv t1)
+      Nucleus_print.(thesis_is_type ~penv t2)
+    | ObjectPremiseAfterEqualityPremise p ->
+      Format.fprintf ppf "Object premise %t appears after equality premise"
+      Nucleus_print.(premise ~penv p)
+    | DerivationWrongForm drv ->
+      Format.fprintf ppf "Derivation not in a required form"
+    | ObjectBoundaryExpected (bdry) ->
+      Format.fprintf ppf
+      "Premise %t of a computation rule does not have an object boundary"
+      Nucleus_print.(boundary_abstraction ~penv bdry)
+    | TypeEqualityConclusionExpected ->
+      Format.fprintf ppf "Conclusion not a type equality boundary"
+    | TermEqualityConclusionExpected ->
+      Format.fprintf ppf "Conclusion not a term equality boundary"
+    end
+
+  | Equality_fail (NoCongruenceTypes (ty1, ty2)) ->
+    Format.fprintf ppf "Cannot find a congruence rule for types %t and %t"
+    Nucleus_print.(thesis_is_type ~penv (Nucleus.expose_is_type ty1))
+    Nucleus_print.(thesis_is_type ~penv (Nucleus.expose_is_type ty2))
+
+  | Equality_fail (NoCongruenceTerms (e1, e2)) ->
+    Format.fprintf ppf "Cannot find a congruence rule for terms %t and %t"
+    Nucleus_print.(thesis_is_term ~penv (Nucleus.expose_is_term e1))
+    Nucleus_print.(thesis_is_term ~penv (Nucleus.expose_is_term e2))
+
+  | Form_fail er ->
+    begin
+      match er with
+      | NewTypeMetaCheckingMode i ->
+        Format.fprintf ppf
+        "Cannot introduce a new type metavariable with index %d in checking mode" i
+      | NewTermMetaCheckingMode i ->
+        Format.fprintf ppf
+        "Cannot introduce a new term metavariable with index %d in checking mode" i
+      | MetaBoundTypeInPatt i ->
+        Format.fprintf ppf
+        "Cannot make a pattern from a bound type metavariable with index %d" i
+      | MetaBoundTermInPatt i ->
+        Format.fprintf ppf
+        "Cannot make a pattern from a bound term metavariable with index %d" i
+      | EqualityTypeArgumentInPatt eqty ->
+        Format.fprintf ppf
+        "Cannot form a pattern out of a type equality argument %t"
+        Nucleus_print.(thesis_eq_type ~penv eqty)
+      | EqualityTermArgumentInPatt eqtm ->
+        Format.fprintf ppf
+        "Cannot form a pattern out of a term equality argument %t"
+        Nucleus_print.(thesis_eq_term ~penv eqtm)
+      | CaptureMetasNotCorrectType ty ->
+        Format.fprintf ppf
+        "Pattern type %t does not capture correct metavariables"
+        Nucleus_print.(thesis_is_type ~penv ty)
+      | CaptureMetasNotCorrectTerm e ->
+        Format.fprintf ppf
+        "Pattern term %t does not capture correct metavariables"
+        Nucleus_print.(thesis_is_term ~penv e)
+    end
+
+  | Normalization_fail er ->
+    begin
+      match er with
+      | EqualityTypeArguement eqty ->
+        Format.fprintf ppf
+        "Cannot normalize type equality argument %t"
+        Nucleus_print.(thesis_eq_type ~penv (Nucleus.expose_eq_type eqty))
+      | EqualityTermArguement eqtm ->
+        Format.fprintf ppf
+        "Cannot normalize term equality argument %t"
+        Nucleus_print.(thesis_eq_term ~penv (Nucleus.expose_eq_term eqtm))
+      | EqualityArgument jdg_abstr ->
+        Format.fprintf ppf
+        "Cannot normalize equality argument %t"
+        Nucleus_print.(judgement_abstraction ~penv (Nucleus.expose_judgement_abstraction jdg_abstr))
+    end
+
 
 (** A tag to indicate that a term or a type is normalized *)
 type 'a normal = Normal of 'a
@@ -100,7 +245,7 @@ let head_symbol_term e =
     | Nucleus_types.(TermAtom {atom_nonce=n; _}) -> Nonce n
     | Nucleus_types.TermConstructor (c, _) -> Ident c
     | Nucleus_types.(TermMeta (MetaFree {meta_nonce;_}, _)) -> Nonce meta_nonce
-    | Nucleus_types.(TermMeta (MetaBound _, _)) -> raise (Fatal_error "head symbol of a bound term metavariable does not exist")
+    | Nucleus_types.(TermMeta (MetaBound _, _)) -> raise (Fatal_error ("head symbol of a bound term metavariable does not exist"))
     | Nucleus_types.TermConvert (e, _, _) -> fold e
   in
   fold e
@@ -110,20 +255,19 @@ let head_symbol_term e =
 let head_symbol_type = function
   | Nucleus_types.TypeConstructor (c, _) -> Ident c
   | Nucleus_types.(TypeMeta (MetaFree {meta_nonce=n;_}, _)) -> Nonce n
-  | Nucleus_types.(TypeMeta (MetaBound _, _)) -> raise (Fatal_error "head symbol of a bound type metavariable does not exist")
-
+  | Nucleus_types.(TypeMeta (MetaBound _, _)) -> raise (Fatal_error ("head symbol of a bound type metavariable does not exist"))
 (** Apply rap to a list of arguments *)
 let rap_apply rap args =
   let rec fold rap args =
   match rap, args with
   | rap, [] -> rap
   | Nucleus.RapMore (_bdry, f), arg :: args -> fold (f arg) args
-  | Nucleus.RapDone _, _::_ -> raise (Fatal_error "Applying the rule to too many arguments")
+  | Nucleus.RapDone _, _::_ -> raise (Fatal_error ("Applying the rule to too many arguments"))
   in
   try
     fold rap args
   with
-  | Nucleus.Error err -> raise (Fatal_error "Nucleus error")
+  | Nucleus.Error err -> raise (Fatal_error ("Nucleus error"))
 
 (** Apply rap to a list of arguments, return the judgement *)
 let rap_fully_apply rap args =
@@ -134,8 +278,8 @@ let rap_fully_apply rap args =
     ();
     let tmp = f (arg) in
     fold tmp args
-  | Nucleus.RapDone _, _::_ -> raise (Fatal_error "Applying the rule to too many arguments")
-  | Nucleus.RapMore _, [] -> raise (Fatal_error "Applying the rule to too few arguments")
+  | Nucleus.RapDone _, _::_ -> raise (Fatal_error ("Applying the rule to too many arguments"))
+  | Nucleus.RapMore _, [] -> raise (Fatal_error ("Applying the rule to too few arguments"))
   in
   try
     Some (fold rap args)

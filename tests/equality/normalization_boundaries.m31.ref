@@ -19,6 +19,8 @@ external prove_eqterm_abstraction : eq.checker → boundary →
 val ch :> ref eq.checker = ref <checker>
 val add_rule :> derivation → mlunit = <function>
 Exception eq.Coerce_fail is declared.
+Exception eq.Not_equality_boundary is declared.
+Exception eq.Not_object_judgement is declared.
 val equalize_type :> judgement → judgement → judgement = <function>
 val coerce_abstraction :> judgement → boundary → judgement = <function>
 val normalize :> judgement → judgement * judgement = <function>

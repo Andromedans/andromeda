@@ -6,10 +6,11 @@ let catch_eqchk_exceptions cmp =
   try
     cmp ()
   with
-    | Eqchk_common.Invalid_rule err
-    | Eqchk_common.Equality_fail err
-    | Eqchk_pattern.Form_fail err ->
-      Reflect.eqchk_exception ~at:Location.unknown err
+    | Eqchk_common.EqchkError (err) ->
+      Runtime.lookup_nucleus_penv >>= fun penv ->
+      let penv = Nucleus.(expose_penv penv) in
+      let s = Format.fprintf Format.str_formatter "%t" (Eqchk_common.print_eqchk_error ~penv err) ; Format.flush_str_formatter () in
+      Reflect.eqchk_exception ~at:Location.unknown s
 
 let externals =
   [
@@ -95,7 +96,8 @@ let externals =
              and drv = Runtime.as_derivation ~at:Location.unknown der in
              catch_eqchk_exceptions (fun () ->
              let chk = Eqchk.add_type_computation chk drv in
-               Runtime.return (Runtime.(External (EqualityChecker chk))))
+             Runtime.return (Runtime.(External (EqualityChecker chk)))
+             )
            )));
 
     ("Eqchk.add_term_computation",
@@ -104,8 +106,9 @@ let externals =
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and drv = Runtime.as_derivation ~at:Location.unknown der in
              catch_eqchk_exceptions (fun () ->
-             let chk =  Eqchk.add_term_computation chk drv in
-               Runtime.return Runtime.(External (EqualityChecker chk)))
+               let chk =  Eqchk.add_term_computation chk drv in
+               Runtime.return Runtime.(External (EqualityChecker chk))
+             )
            )));
 
     ("Eqchk.normalize_type",
@@ -116,11 +119,12 @@ let externals =
        let strong = Runtime.as_bool ~at:Location.unknown strong
        and chk = Runtime.as_equality_checker ~at:Location.unknown chk
        and t = Runtime.as_is_type ~at:Location.unknown t in
-       let (t_eq_t', t') = Eqchk.normalize_type ~strong chk sgn t in
-       let t_eq_t' = Nucleus.(abstract_not_abstract (JudgementEqType t_eq_t'))
-       and t' = Nucleus.(abstract_not_abstract (JudgementIsType t')) in
-       Runtime.(return (Tuple [Judgement t_eq_t'; Judgement t']))
-       ))));
+       catch_eqchk_exceptions (fun () ->
+          let (t_eq_t', t') = Eqchk.normalize_type ~strong chk sgn t in
+          let t_eq_t' = Nucleus.(abstract_not_abstract (JudgementEqType t_eq_t'))
+          and t' = Nucleus.(abstract_not_abstract (JudgementIsType t')) in
+          Runtime.(return (Tuple [Judgement t_eq_t'; Judgement t']))
+       )))));
 
     ("Eqchk.normalize_term",
      Runtime.mk_closure_external (fun strong ->
@@ -130,11 +134,12 @@ let externals =
        let strong = Runtime.as_bool ~at:Location.unknown strong
        and chk = Runtime.as_equality_checker ~at:Location.unknown chk
        and e = Runtime.as_is_term ~at:Location.unknown e in
-       let (e_eq_e', e') = Eqchk.normalize_term ~strong chk sgn e in
-       let e_eq_e' = Nucleus.(abstract_not_abstract (JudgementEqTerm e_eq_e'))
-       and e' = Nucleus.(abstract_not_abstract (JudgementIsTerm e')) in
-       Runtime.(return (Tuple [Judgement e_eq_e'; Judgement e']))
-    ))));
+       catch_eqchk_exceptions (fun () ->
+          let (e_eq_e', e') = Eqchk.normalize_term ~strong chk sgn e in
+          let e_eq_e' = Nucleus.(abstract_not_abstract (JudgementEqTerm e_eq_e'))
+          and e' = Nucleus.(abstract_not_abstract (JudgementIsTerm e')) in
+          Runtime.(return (Tuple [Judgement e_eq_e'; Judgement e']))
+    )))));
 
     ("Eqchk.add_extensionality",
      Runtime.mk_closure_external (fun chk ->
@@ -142,8 +147,9 @@ let externals =
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and drv = Runtime.as_derivation ~at:Location.unknown der in
              catch_eqchk_exceptions (fun () ->
-             let chk = Eqchk.add_extensionality chk drv in
-               Runtime.return Runtime.(External (EqualityChecker chk)))
+               let chk = Eqchk.add_extensionality chk drv in
+               Runtime.return Runtime.(External (EqualityChecker chk))
+             )
     )));
 
     ("Eqchk.add",
@@ -153,8 +159,9 @@ let externals =
              let chk = Runtime.as_equality_checker ~at:Location.unknown chk
              and drv = Runtime.as_derivation ~at:Location.unknown der in
              catch_eqchk_exceptions (fun () ->
-             let chk =  Eqchk.add ~quiet:false ~penv chk drv in
-               Runtime.return Runtime.(External (EqualityChecker chk)))
+               let chk =  Eqchk.add ~quiet:false ~penv chk drv in
+               Runtime.return Runtime.(External (EqualityChecker chk))
+             )
     )));
 
     ("Eqchk.prove_eq_type_abstraction",
@@ -166,11 +173,11 @@ let externals =
              match Nucleus.as_eq_type_boundary_abstraction bdry with
              | None -> failwith "some error about wrong use of prove_eq_type_abstraction"
              | Some bdry ->
-                catch_eqchk_exceptions (fun () ->
-                let eq = Eqchk.prove_eq_type_abstraction chk sgn bdry in
+               catch_eqchk_exceptions (fun () ->
+                  let eq = Eqchk.prove_eq_type_abstraction chk sgn bdry in
                   let eq = Nucleus.from_eq_type_abstraction eq in
                   Runtime.return Runtime.(Judgement eq)
-                )
+               )
     )));
 
     ("Eqchk.prove_eq_term_abstraction",
@@ -185,7 +192,8 @@ let externals =
                 catch_eqchk_exceptions (fun () ->
                   let eq = Eqchk.prove_eq_term_abstraction chk sgn bdry in
                   let eq = Nucleus.from_eq_term_abstraction eq in
-                  Runtime.return Runtime.(Judgement eq))
+                  Runtime.return Runtime.(Judgement eq)
+                )
     )));
   ]
 
