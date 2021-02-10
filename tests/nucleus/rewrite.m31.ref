@@ -29,3 +29,7 @@ Rule F is postulated.
 val fa :> judgement * judgement =
   ((⊢ F A ({_} a) ≡ F A' ({_} a') : A), (⊢ F A' ({_} a') : A))
 - :> judgement = ⊢ {_ : A'} a' : A
+Rule refl_tm is postulated.
+val der :> derivation = derive (M type) (N type) ({_ : M} {_ : N} op : M) (m
+  : M) (m' : M) (m' ≡ m : M by ξ) (n : N) → op {m'} {n} ≡ op {m} {n} :
+  M

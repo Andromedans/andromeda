@@ -119,3 +119,12 @@ val foo :> judgement = ⊢ ℕ_ind ({_} ℕ) z ({c_n _} s c_n) (s z) : ℕ
 Type computation rule for B₀ (heads at [0]):
   derive → ?B₀ {?a₁} ≡ ?A₂
 Rule weird is postulated.
+Term computation rule for op₃ (heads at [1]):
+  derive (y : ?A₄) → ?op₃ {y} {?e₅} ≡ y : ?A₄
+
+Term computation rule for e'₆ (heads at []):
+  derive → ?e'₆ ≡ ?e₅ : ?B₇
+
+val d :> derivation = derive (A type) (B type) ({_ : A} {_ : B} op : A) (e :
+  B) ({a : A} op {a} {e} ≡ a : A by ξ) (e' : B) (e' ≡ e : B by η) (x :
+  A) → op {x} {e'} ≡ x : A
