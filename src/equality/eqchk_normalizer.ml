@@ -87,7 +87,7 @@ let make_term_computation drv =
   s, (patt, drv)
 
 
-let add_type_computation normalizer drv =
+let add_type_computation_norm normalizer drv =
   let sym, bt = make_type_computation drv in
   let rls =
     match find_type_computations sym normalizer with
@@ -98,7 +98,7 @@ let add_type_computation normalizer drv =
   { normalizer with type_computations = SymbolMap.add sym rls normalizer.type_computations }
 
 
-let add_term_computation normalizer drv =
+let add_term_computation_norm normalizer drv =
   let sym, bt = make_term_computation drv in
   let rls =
     match find_term_computations sym normalizer with
@@ -108,10 +108,10 @@ let add_term_computation normalizer drv =
   sym, bt,
   { normalizer with term_computations = SymbolMap.add sym rls normalizer.term_computations }
 
-let set_type_heads nrm sym heads =
+let set_type_heads_norm nrm sym heads =
   { nrm with type_heads = SymbolMap.add sym heads nrm.type_heads }
 
-let set_term_heads normalizer sym heads =
+let set_term_heads_norm normalizer sym heads =
   { normalizer with term_heads = SymbolMap.add sym heads normalizer.term_heads }
 
 let get_type_heads nrm sym =
@@ -142,10 +142,12 @@ let rec apply_type_beta betas sgn t =
           | None -> fold lst
           | Some args ->
              let rap = Nucleus.form_eq_type_rap sgn rl in
-             begin match rap_fully_apply rap args with
-             | Some t_eq_t' -> Some t_eq_t'
-             | None -> fold lst
-             end
+             try
+              let rap' = rap_apply rap args in
+              let t_eq_t' = resolve_rap rap' in
+              Some t_eq_t'
+             with
+               | Fatal_error _ -> fold lst
           end
      in
      fold lst
@@ -167,17 +169,18 @@ and apply_term_beta betas sgn e =
           | None -> fold lst
           | Some args ->
              let rap = Nucleus.form_eq_term_rap sgn rl in
-             ();
-             begin match rap_fully_apply rap args with
-             | Some e_eq_e' -> Some e_eq_e'
-             | None -> fold lst
-             end
+             try
+              let rap' = rap_apply rap args in
+              let e_eq_e' = resolve_rap rap' in
+              Some e_eq_e'
+             with
+               | Fatal_error _ -> fold lst
           end
      in
      fold lst
 
 (** Normalize a type *)
-and normalize_type ~strong sgn nrm ty0 =
+and normalize_type_norm ~strong sgn nrm ty0 =
   let rec fold ty0_eq_ty1 ty1 =
     let ty1_eq_ty2, Normal ty2 = normalize_heads_type ~strong sgn nrm ty1 in
     let ty0_eq_ty2 = Nucleus.transitivity_type ty0_eq_ty1 ty1_eq_ty2 in
@@ -194,7 +197,7 @@ and normalize_type ~strong sgn nrm ty0 =
   fold (Nucleus.reflexivity_type ty0) ty0
 
 
-and normalize_term ~strong sgn nrm e0 =
+and normalize_term_norm ~strong sgn nrm e0 =
   let rec fold e0_eq_e1 e1 =
     let e1_eq_e2, Normal e2 = normalize_heads_term ~strong sgn nrm e1 in
     let e0_eq_e2 = Nucleus.transitivity_term e0_eq_e1 e1_eq_e2 in
@@ -291,12 +294,12 @@ and normalize_argument ~strong sgn nrm arg =
      arg_eq_arg', Normal arg'
 
   | Nucleus.(Stump_NotAbstract (JudgementIsType t)) ->
-      let t_eq_t', Normal t' = normalize_type ~strong sgn nrm t in
+      let t_eq_t', Normal t' = normalize_type_norm ~strong sgn nrm t in
       Nucleus.(abstract_not_abstract (JudgementEqType t_eq_t')),
       Normal (Nucleus.(abstract_not_abstract (JudgementIsType t')))
 
   | Nucleus.(Stump_NotAbstract (JudgementIsTerm e)) ->
-      let e_eq_e', Normal e' = normalize_term ~strong sgn nrm e in
+      let e_eq_e', Normal e' = normalize_term_norm ~strong sgn nrm e in
       Nucleus.(abstract_not_abstract (JudgementEqTerm  e_eq_e')),
       Normal (Nucleus.(abstract_not_abstract (JudgementIsTerm e')))
 
