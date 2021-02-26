@@ -18,14 +18,6 @@ let add_meta = MetaMap.add
 let add_bound atm bounds = BoundMap.(add atm (cardinal bounds) bounds)
 let find_bound = BoundMap.find_opt
 
-(** Verifty that the [abstr] equals the abstraction that the bound meta-variable [k]
-    was matched to previosuly. *)
-let check_meta k abstr metas =
-  let abstr' = MetaMap.find k metas in
-  if not (Nucleus.alpha_equal_abstraction Nucleus.alpha_equal_judgement abstr abstr') then
-    raise Match_fail
-
-
 (** The [collect_XYZ] functions provide low-level functionality for matching a judgement against
     a pattern. They collect the values of meta-variables, but do not check whether all meta-variables
     were matched. *)
@@ -34,10 +26,6 @@ let rec collect_is_type sgn metas bounds abstr = function
 
   | Patt.TypeAddMeta k ->
      add_meta k abstr metas
-
-  | Patt.TypeCheckMeta k ->
-     check_meta k abstr metas ;
-     metas
 
   | Patt.TypeNormal patt ->
      begin match Nucleus.(as_not_abstract abstr) with
@@ -79,10 +67,6 @@ and collect_is_term sgn metas bounds abstr = function
 
   | Patt.TermAddMeta k ->
      add_meta k abstr metas
-
-  | Patt.TermCheckMeta k ->
-     check_meta k abstr metas ;
-     metas
 
   | Patt.TermNormal patt ->
      begin match Nucleus.as_not_abstract abstr with
@@ -278,7 +262,7 @@ let rec extract_meta metas abstr =
           | Nucleus_types.(TermMeta (MetaBound m, es)) ->
              check_es k es ;
              if Bound_set.mem m metas then
-               metas, Patt.(Arg_NotAbstract (ArgumentIsTerm (TermCheckMeta m)))
+               raise (EqchkError (Form_fail (NonLinearPattern m)))
              else
                let metas = Bound_set.add m metas in
                metas, Patt.(Arg_NotAbstract (ArgumentIsTerm (Patt.TermAddMeta m)))
@@ -295,7 +279,7 @@ let rec extract_meta metas abstr =
           | Nucleus_types.(TypeMeta (MetaBound m, es)) ->
              check_es k es ;
              if Bound_set.mem m metas then
-               metas, Patt.(Arg_NotAbstract (ArgumentIsType (Patt.TypeCheckMeta m)))
+               raise (EqchkError (Form_fail (NonLinearPattern m)))
              else
                let metas = Bound_set.add m metas in
                metas, Patt.(Arg_NotAbstract (ArgumentIsType (Patt.TypeAddMeta m)))
@@ -314,22 +298,19 @@ let rec extract_meta metas abstr =
 (** The [form_XYZ] functions form a pattern from a given judgement. They return the set of
     bound meta-variables that were encountered and turned into pattern variables. *)
 
-let rec form_is_type metas ~checking = function
+let rec form_is_type metas = function
 
   | Nucleus_types.TypeConstructor (c, args) ->
-     let metas, args = form_arguments metas ~checking args in
+     let metas, args = form_arguments metas args in
      metas, Patt.(TypeNormal (TypeConstructor (c, args)))
 
   | Nucleus_types.(TypeMeta (MetaBound i, [])) ->
      if Bound_set.mem i metas then
-       metas, Patt.TypeCheckMeta i
+       raise (EqchkError (Form_fail (NonLinearPattern i)))
      else
-       begin
-       if checking then raise (EqchkError (Form_fail (NewTypeMetaCheckingMode i)))
-       else
        let metas = Bound_set.add i metas in
        metas, Patt.TypeAddMeta i
-       end
+
 
   | Nucleus_types.(TypeMeta (MetaFree {meta_nonce=n;_}, es)) ->
      let rec fold metas es_out = function
@@ -339,7 +320,7 @@ let rec form_is_type metas ~checking = function
           metas, Patt.(TypeNormal (TypeFreeMeta (n, es_out)))
 
        | e :: es ->
-          let metas, e = form_is_term metas ~checking e in
+          let metas, e = form_is_term metas e in
           fold metas (e :: es_out) es
      in
      fold metas [] es
@@ -348,7 +329,7 @@ let rec form_is_type metas ~checking = function
      raise (EqchkError (Form_fail (MetaBoundTypeInPatt k)))
 
 
-and form_is_term metas ~checking e =
+and form_is_term metas e =
   match e with
   | Nucleus_types.TermBoundVar v ->
      metas, Patt.(TermNormal (TermBound v))
@@ -357,15 +338,13 @@ and form_is_term metas ~checking e =
      metas, Patt.(TermNormal (TermAtom n))
 
   | Nucleus_types.TermConstructor (c, args) ->
-     let metas, args = form_arguments metas ~checking args in
+     let metas, args = form_arguments metas args in
      metas, Patt.(TermNormal (TermConstructor (c, args)))
 
   | Nucleus_types.(TermMeta (MetaBound i, [])) ->
      if Bound_set.mem i metas then
-       metas, Patt.TermCheckMeta i
+       raise (EqchkError (Form_fail (NonLinearPattern i)))
      else
-       if checking then raise (EqchkError (Form_fail (NewTermMetaCheckingMode i)))
-       else
        let metas = Bound_set.add i metas in
        metas, Patt.TermAddMeta i
 
@@ -377,19 +356,19 @@ and form_is_term metas ~checking e =
           metas, Patt.(TermNormal (TermFreeMeta (n, es_out)))
 
        | e :: es ->
-          let metas, e = form_is_term metas ~checking e in
+          let metas, e = form_is_term metas e in
           fold metas (e :: es_out) es
      in
      fold metas [] es
 
   | Nucleus_types.TermConvert (e, _, _) ->
-     form_is_term metas ~checking e
+     form_is_term metas e
 
   | Nucleus_types.(TermMeta (MetaBound k, _::_)) ->
      raise (EqchkError (Form_fail (MetaBoundTermInPatt k)))
 
 
-and form_arguments metas ~checking args =
+and form_arguments metas args =
   let rec fold metas args_out = function
 
     | [] ->
@@ -397,20 +376,20 @@ and form_arguments metas ~checking args =
        metas, args_out
 
     | arg :: args ->
-       let metas, arg = form_argument metas ~checking arg in
+       let metas, arg = form_argument metas arg in
        fold metas (arg :: args_out) args
   in
   fold metas [] args
 
-and form_argument metas ~checking = function
+and form_argument metas = function
   | Nucleus_types.Arg_NotAbstract jdg ->
      begin match jdg with
      | Nucleus_types.JudgementIsTerm e ->
-        let metas, e = form_is_term metas ~checking e in
+        let metas, e = form_is_term metas e in
         metas, Patt.(Arg_NotAbstract (ArgumentIsTerm e))
 
      | Nucleus_types.JudgementIsType t ->
-        let metas, t = form_is_type metas ~checking t in
+        let metas, t = form_is_type metas t in
         metas, Patt.(Arg_NotAbstract (ArgumentIsType t))
 
      | Nucleus_types.JudgementEqType ty ->
@@ -424,19 +403,12 @@ and form_argument metas ~checking = function
      end
 
   | Nucleus_types.Arg_Abstract (atm, jdg) as abstr ->
-      if not checking then
-      begin
       (* Is this an eta-expanded meta-variable? *)
       try
         extract_meta metas abstr
       with
         Eta_expanded_meta_fail ->
-          let metas, jdg' = form_argument metas ~checking:true jdg in
-          metas, Patt.(Arg_Abstract (atm,jdg'))
-      end
-      else
-        let metas, jdg' = form_argument metas ~checking:true jdg in
-        metas, Patt.(Arg_Abstract (atm, jdg'))
+          raise (EqchkError (Form_fail (AbstractionInPattern abstr)))
 
 
 (** Check that the given set of integers contains
@@ -453,7 +425,7 @@ let is_range s k =
    the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
    a beta or extensionality rule. *)
 let make_is_type k t =
-   let metas, patt = form_is_type Bound_set.empty ~checking:false t in
+   let metas, patt = form_is_type Bound_set.empty t in
    if is_range metas k then
      (patt, k)
    else
@@ -463,7 +435,7 @@ let make_is_type k t =
    the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
    a beta or extensionality rule. *)
 let make_is_term k e =
-   let metas, patt = form_is_term Bound_set.empty ~checking:false e in
+   let metas, patt = form_is_term Bound_set.empty e in
    if is_range metas k then
      (patt, k)
    else
