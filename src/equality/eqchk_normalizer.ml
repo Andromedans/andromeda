@@ -34,7 +34,7 @@ let find_term_computations sym {term_computations;_} =
     has the wrong form. *)
 
 let make_type_computation drv =
-  let rec fold k  = function
+  let rec fold k ~equations = function
 
     | Nucleus_types.(Conclusion eq)  ->
        let (Nucleus_types.EqType (_asmp, t1, _t2)) = Nucleus.expose_eq_type eq in
@@ -42,23 +42,26 @@ let make_type_computation drv =
        let s = head_symbol_type t1 in
        (s, patt)
 
-    | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
-       if is_object_premise bdry then
-         fold (k+1) drv
+    | Nucleus_types.(Premise ({meta_boundary=bdry;_} as m, drv)) ->
+       if ((is_object_premise bdry) && not equations) || (not (is_object_premise bdry) && equations) then
+         fold (k+1) ~equations drv
        else
-         raise (EqchkError (Invalid_rule (ObjectBoundaryExpected(bdry))))
+         if (not (is_object_premise bdry) && not equations) then
+           fold (k+1) ~equations:true drv
+         else
+           raise (EqchkError (Invalid_rule (ObjectPremiseAfterEqualityPremise(m))))
   in
   let drv =
     match Nucleus.as_eq_type_rule drv with
     | Some drv -> drv
     | None -> raise (EqchkError (Invalid_rule TypeEqualityConclusionExpected))
   in
-  let (s, patt) = fold 0 (Nucleus.expose_rule drv) in
+  let (s, patt) = fold 0 ~equations:false (Nucleus.expose_rule drv) in
   s, (patt, drv)
 
 
 let make_term_computation drv =
-  let rec fold k = function
+  let rec fold k ~equations = function
 
     | Nucleus_types.(Conclusion eq) ->
        let (Nucleus_types.EqTerm (_asmp, e1, _e2, _t)) = Nucleus.expose_eq_term eq in
@@ -66,18 +69,21 @@ let make_term_computation drv =
        let s = head_symbol_term e1 in
        (s, patt)
 
-    | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
-       if is_object_premise bdry then
-         fold (k+1) drv
+    | Nucleus_types.(Premise ({meta_boundary=bdry;_} as m, drv)) ->
+       if ((is_object_premise bdry) && not equations) || (not (is_object_premise bdry) && equations) then
+         fold (k+1) ~equations drv
        else
-       raise (EqchkError (Invalid_rule (ObjectBoundaryExpected(bdry))))
+         if (not (is_object_premise bdry) && not equations) then
+           fold (k+1) ~equations:true drv
+         else
+           raise (EqchkError (Invalid_rule (ObjectPremiseAfterEqualityPremise(m))))
   in
   let drv =
     match Nucleus.as_eq_term_rule drv with
     | Some drv -> drv
     | None -> raise (EqchkError (Invalid_rule TermEqualityConclusionExpected))
   in
-  let (s, patt) = fold 0 (Nucleus.expose_rule drv) in
+  let (s, patt) = fold 0 ~equations:false (Nucleus.expose_rule drv) in
   s, (patt, drv)
 
 
