@@ -55,20 +55,20 @@ let find_term_computations sym {term_computations;_} =
     has the wrong form. *)
 
 let make_type_computation drv =
-  let rec fold k ~equations = function
+  let rec fold n_ob n_eq ~equations = function
 
     | Nucleus_types.(Conclusion eq)  ->
        let (Nucleus_types.EqType (_asmp, t1, _t2)) = Nucleus.expose_eq_type eq in
-       let patt =  Eqchk_pattern.make_is_type k t1 in
+       let patt =  Eqchk_pattern.make_is_type n_ob n_eq t1 in
        let s = head_symbol_type t1 in
        (s, patt)
 
     | Nucleus_types.(Premise ({meta_boundary=bdry;_} as m, drv)) ->
-       if ((is_object_premise bdry) && not equations) || (not (is_object_premise bdry) && equations) then
-         fold (k+1) ~equations drv
+       if ((is_object_premise bdry) && not equations) then
+         fold (n_ob + 1) n_eq ~equations drv
        else
-         if (not (is_object_premise bdry) && not equations) then
-           fold (k+1) ~equations:true drv
+         if (not (is_object_premise bdry) && not equations)|| (not (is_object_premise bdry) && equations) then
+           fold n_ob (n_eq + 1) ~equations:true drv
          else
            raise (EqchkError (Invalid_rule (ObjectPremiseAfterEqualityPremise(m))))
   in
@@ -77,25 +77,25 @@ let make_type_computation drv =
     | Some drv -> drv
     | None -> raise (EqchkError (Invalid_rule TypeEqualityConclusionExpected))
   in
-  let (s, patt) = fold 0 ~equations:false (Nucleus.expose_rule drv) in
+  let (s, patt) = fold 0 0 ~equations:false (Nucleus.expose_rule drv) in
   s, (patt, drv)
 
 
 let make_term_computation drv =
-  let rec fold k ~equations = function
+  let rec fold n_ob n_eq ~equations = function
 
     | Nucleus_types.(Conclusion eq) ->
        let (Nucleus_types.EqTerm (_asmp, e1, _e2, _t)) = Nucleus.expose_eq_term eq in
-       let patt = Eqchk_pattern.make_is_term k e1 in
+       let patt = Eqchk_pattern.make_is_term n_ob n_eq e1 in
        let s = head_symbol_term e1 in
        (s, patt)
 
     | Nucleus_types.(Premise ({meta_boundary=bdry;_} as m, drv)) ->
-       if ((is_object_premise bdry) && not equations) || (not (is_object_premise bdry) && equations) then
-         fold (k+1) ~equations drv
+       if ((is_object_premise bdry) && not equations) then
+         fold (n_ob + 1) n_eq ~equations drv
        else
-         if (not (is_object_premise bdry) && not equations) then
-           fold (k+1) ~equations:true drv
+         if (not (is_object_premise bdry) && not equations) || (not (is_object_premise bdry) && equations) then
+           fold n_ob (n_eq + 1) ~equations:true drv
          else
            raise (EqchkError (Invalid_rule (ObjectPremiseAfterEqualityPremise(m))))
   in
@@ -104,7 +104,7 @@ let make_term_computation drv =
     | Some drv -> drv
     | None -> raise (EqchkError (Invalid_rule TermEqualityConclusionExpected))
   in
-  let (s, patt) = fold 0 ~equations:false (Nucleus.expose_rule drv) in
+  let (s, patt) = fold 0 0 ~equations:false (Nucleus.expose_rule drv) in
   s, (patt, drv)
 
 
@@ -355,42 +355,63 @@ and make_equation drv =
   in
 
   (* do the main work where:
-     n_ob counts leading object premises, n_eq counts trailing equality premises,
+     n_ob counts leading object premises, n_ob2 counts the two variables, n_eq1 and n_eq2 counts trailing equality premises,
      (bdry1opt, bdry2opt) are the last two seen object premise boundaries
   *)
-  let rec fold (bdry1opt, bdry2opt) n_ob n_eq = function
+  let rec fold (bdry1opt, bdry2opt) n_ob n_ob2 n_eq1 n_eq2 = function
 
     | Nucleus_types.(Conclusion eq) ->
+       (* correct counters *)
+       let n_eq2 = if n_ob2 <2 then n_eq1 else n_eq2 in
+       let n_eq1 = if n_ob2 <2 then 0 else n_eq1 in
+       let n_ob = if n_ob2 <2 then n_ob - 2 else n_ob in
+       (* extract equality *)
        let (Nucleus_types.EqTerm (_asmp, e1, e2, t)) = Nucleus.expose_eq_term eq in
        begin
        try (* check LHS *)
-         check_meta (n_eq+1) e1
+         check_meta (n_eq2 +1) e1
        with
-         EqchkError( Invalid_rule _ ) -> raise (EqchkError (Invalid_rule (EquationLHSnotCorrect (eq, n_eq + 1))))
+         EqchkError( Invalid_rule _ ) -> raise (EqchkError (Invalid_rule (EquationLHSnotCorrect (eq, n_eq2 + 1))))
        end ;
        begin
        try (* check RHS *)
-         check_meta n_eq e2
+         check_meta n_eq2 e2
        with
-          EqchkError ( Invalid_rule _ ) -> raise (EqchkError (Invalid_rule (EquationRHSnotCorrect (eq, n_eq))))
+          EqchkError ( Invalid_rule _ ) -> raise (EqchkError (Invalid_rule (EquationRHSnotCorrect (eq, n_eq2))))
        end ;
        let t1 = extract_type bdry1opt in
-       let t1' = Shift_meta.is_type (n_eq+2) t1
-       and t2' = Shift_meta.is_type (n_eq+1) (extract_type bdry2opt) in
+       let t1' = Shift_meta.is_type (n_eq2+ 2) t1
+       and t2' = Shift_meta.is_type (n_eq2+1) (extract_type bdry2opt) in
        (* check that types are equal *)
        if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then raise (EqchkError (Invalid_rule (TypeOfEquationMismatch (eq, t1', t2')))); ;
-       let patt = Eqchk_pattern.make_is_type (n_ob-2) t1 in
+       let patt = Eqchk_pattern.make_is_type n_ob (n_eq2 + 2 + n_eq1) t in
        let s = head_symbol_type t1 in
        (s, patt)
 
     | Nucleus_types.(Premise ({meta_boundary=bdry;_} as p, drv)) ->
        if is_object_premise bdry then
          begin
-           if n_eq > 0 then raise (EqchkError (Invalid_rule (ObjectPremiseAfterEqualityPremise p)));
-           fold (bdry2opt, Some bdry) (n_ob + 1) n_eq drv
-         end
+           if n_eq2 > 0 || n_ob2 >= 2 then raise (EqchkError (Invalid_rule (EqualityPremiseExpected p)))
+           else
+           begin
+           if n_eq1 > 0 then
+             fold (bdry2opt, Some bdry) n_ob (n_ob2 + 1) n_eq1 n_eq2 drv
+           else
+             fold (bdry2opt, Some bdry) (n_ob + 1) n_ob2 n_eq1 n_eq2 drv
+           end
+          end
        else
-         fold (bdry1opt, bdry2opt) n_ob (n_eq + 1) drv
+         begin
+           if n_ob2 == 1 then
+             raise (EqchkError (Invalid_rule (ObjectPremiseExpected p)))
+           else
+           begin
+             if n_ob2 == 2 then
+               fold (bdry1opt, bdry2opt) n_ob n_ob2 n_eq1 (n_eq2 + 1) drv
+             else
+               fold (bdry1opt, bdry2opt) n_ob n_ob2 (n_eq1 + 1) n_eq2 drv
+           end
+         end
   in
 
   (* Put the derivation into the required form *)
@@ -400,7 +421,7 @@ and make_equation drv =
     | None -> raise ( EqchkError(Invalid_rule (DerivationWrongForm drv)))
   in
   (* Collect head symbol and pattern (and verify that drv has the correct form) *)
-  let s, patt = fold (None, None) 0 0 (Nucleus.expose_rule drv) in
+  let s, patt = fold (None, None) 0 0 0 0 (Nucleus.expose_rule drv) in
   s, { ext_pattern = patt; ext_rule = drv }
 
 (** Find an extensionality rule for [e1 == e2 : t], if there is one, return a rule
@@ -635,7 +656,7 @@ let add ~quiet ~penv chk drv =
       try
         begin match add_type_computation' chk drv with
 
-        |  (sym, ((patt, _), _), chk) ->
+        |  (sym, ((patt, _, _), _), chk) ->
             let heads = heads_type patt in
             let chk = { chk with normalizer = set_type_heads_norm chk.normalizer sym heads } in
             if not quiet then
@@ -649,7 +670,7 @@ let add ~quiet ~penv chk drv =
      with
       | EqchkError ( Invalid_rule _ ) ->
           begin match add_term_computation' chk drv with
-            | (sym, ((patt, _), _), chk) ->
+            | (sym, ((patt, _, _), _), chk) ->
               let heads = heads_term patt in
               let chk = { chk with normalizer = set_term_heads_norm chk.normalizer sym heads } in
               if not quiet then

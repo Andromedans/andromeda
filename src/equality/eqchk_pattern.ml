@@ -200,35 +200,35 @@ and collect_argument sgn metas bounds jdg arg_abstr =
   fold jdg arg_abstr bounds
 
 
-(** Given a mapping of de Bruijn indices [0, ..., k-1] to their values, convert
+(** Given a mapping of de Bruijn indices [n_eq, ..., n_eq + n_ob-1] to their values, convert
    them to a list. *)
-let metas_to_list k metas =
+let metas_to_list n_ob n_eq metas =
   let rec fold lst i =
-    if i >= k then
+    if i >= n_eq + n_ob then
       Some lst
     else
        match MetaMap.find_opt i metas with
        | None -> None
        | Some x -> fold (x :: lst) (i + 1)
   in
-  fold [] 0
+  fold [] n_eq
 
 (** The [match_XYZ] functions match judgements against patterns, making sure
-    to collect precisely [k] meta-variables. *)
+    to collect precisely meta-variables [n_eq, ..., n_ob + n_eq-1]. *)
 
-(** Match type [t] against pattern [r] with meta-indices [0, ..., k-1]. *)
-let match_is_type sgn t (r, k) =
+(** Match type [t] against pattern [r] with meta-indices [n_eq, ..., n_ob + n_eq-1]. *)
+let match_is_type sgn t (r, n_ob, n_eq) =
   try
     let t = Nucleus.(abstract_not_abstract (JudgementIsType t)) in
-    metas_to_list k (collect_is_type sgn MetaMap.empty BoundMap.empty t r)
+    metas_to_list n_ob n_eq (collect_is_type sgn MetaMap.empty BoundMap.empty t r)
   with
     Match_fail -> None
 
 (** Match term [e] against pattern [r] with meta-indices [0, ..., k-1]. *)
-let match_is_term sgn e (r, k) =
+let match_is_term sgn e (r, n_ob, n_eq) =
   try
     let e = Nucleus.(abstract_not_abstract (JudgementIsTerm e)) in
-    metas_to_list k (collect_is_term sgn MetaMap.empty BoundMap.empty e r)
+    metas_to_list n_ob n_eq (collect_is_term sgn MetaMap.empty BoundMap.empty e r)
   with
     Match_fail -> None
 
@@ -412,31 +412,30 @@ and form_argument metas = function
 
 
 (** Check that the given set of integers contains
-    precisely the numbers 0, 1, ..., k-1 *)
-let is_range s k =
-  let rec scan = function
-    | 0 -> true
-    | k ->
-    Bound_set.mem (k-1) s && scan (k-1)
+    precisely the numbers mi, mi + 1, ..., ma-1 *)
+let is_range s mi ma =
+  let rec scan k =
+    if k == mi then true else
+      Bound_set.mem (k-1) s && scan (k-1)
   in
-  Bound_set.cardinal s = k && scan k
+  Bound_set.cardinal s = (ma - mi) && scan ma
 
 (** Construct a pattern [p] from type [t], and verify that the pattern captures exactly
-   the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
-   a beta or extensionality rule. *)
-let make_is_type k t =
+   the bound meta-variables [n_eq, ..., n_ob + n_eq -1]. Return the pair [(p, n_ob, n_eq)]
+   to be used as part of a beta or extensionality rule. *)
+let make_is_type n_ob n_eq t =
    let metas, patt = form_is_type Bound_set.empty t in
-   if is_range metas k then
-     (patt, k)
+   if is_range metas n_eq (n_eq + n_ob) then
+     (patt, n_ob, n_eq)
    else
      raise (EqchkError (Form_fail (CaptureMetasNotCorrectType t)))
 
 (** Construct a pattern [p] from term [e], and verify that the pattern captures exactly
-   the bound meta-variables [0, ..., k-1]. Return the pair [(p, k)] to be used as part of
-   a beta or extensionality rule. *)
-let make_is_term k e =
+   the bound meta-variables [n_eq, ..., n_ob + n_eq -1]. Return the pair [(p, n_ob, n_eq)]
+   to be used as part of a beta or extensionality rule. *)
+let make_is_term n_ob n_eq e =
    let metas, patt = form_is_term Bound_set.empty e in
-   if is_range metas k then
-     (patt, k)
+   if is_range metas n_eq (n_ob + n_eq) then
+     (patt, n_ob, n_eq)
    else
      raise (EqchkError (Form_fail (CaptureMetasNotCorrectTerm e)))

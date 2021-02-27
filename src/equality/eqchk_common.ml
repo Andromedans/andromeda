@@ -28,9 +28,9 @@ struct
     | ArgumentIsType of is_type'
     | ArgumentIsTerm of is_term'
 
-  (** the exported types also record how many meta-variables we're capturing. *)
-  type is_term = is_term' * int
-  type is_type = is_type' * int
+  (** the exported types also record how many object and equality meta-variables we're capturing. *)
+  type is_term = is_term' * int * int
+  type is_type = is_type' * int * int
 
 end
 
@@ -67,6 +67,8 @@ type invalid_rule =
   | EquationRHSnotCorrect of Nucleus.eq_term * int
   | TypeOfEquationMismatch of Nucleus.eq_term * Nucleus_types.is_type * Nucleus_types.is_type
   | ObjectPremiseAfterEqualityPremise of Nucleus_types.meta
+  | ObjectPremiseExpected of Nucleus_types.meta
+  | EqualityPremiseExpected of Nucleus_types.meta
   | DerivationWrongForm of (Nucleus.derivation)
   | ObjectBoundaryExpected of Nucleus_types.boundary_abstraction
   | TypeEqualityConclusionExpected
@@ -137,6 +139,12 @@ let print_eqchk_error ~penv err ppf =
       Nucleus_print.(thesis_is_type ~penv t2)
     | ObjectPremiseAfterEqualityPremise p ->
       Format.fprintf ppf "Object premise %t appears after equality premise"
+      Nucleus_print.(premise ~penv p)
+    | ObjectPremiseExpected p ->
+      Format.fprintf ppf "Equality premise %t appears where object premise expected"
+      Nucleus_print.(premise ~penv p)
+    | EqualityPremiseExpected p ->
+      Format.fprintf ppf "Object premise %t appears where equality premise expected"
       Nucleus_print.(premise ~penv p)
     | DerivationWrongForm drv ->
       Format.fprintf ppf "Derivation not in a required form"
