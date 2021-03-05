@@ -29,8 +29,8 @@ struct
     | ArgumentIsTerm of is_term'
 
   (** the exported types also record how many object and equality meta-variables we're capturing. *)
-  type is_term = is_term' * int * int
-  type is_type = is_type' * int * int
+  type is_term = is_term' * int
+  type is_type = is_type' * int
 
 end
 

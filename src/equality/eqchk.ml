@@ -55,56 +55,52 @@ let find_term_computations sym {term_computations;_} =
     has the wrong form. *)
 
 let make_type_computation drv =
-  let rec fold n_ob n_eq ~equations = function
+  let rec fold metas k = function
 
     | Nucleus_types.(Conclusion eq)  ->
        let (Nucleus_types.EqType (_asmp, t1, _t2)) = Nucleus.expose_eq_type eq in
-       let patt =  Eqchk_pattern.make_is_type n_ob n_eq t1 in
+       let metas = Bound_set.map (fun i -> k-i) metas in
+       let patt =  Eqchk_pattern.make_is_type metas k t1 in
        let s = head_symbol_type t1 in
        (s, patt)
 
-    | Nucleus_types.(Premise ({meta_boundary=bdry;_} as m, drv)) ->
-       if ((is_object_premise bdry) && not equations) then
-         fold (n_ob + 1) n_eq ~equations drv
+    | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
+       if (is_object_premise bdry) then
+         fold (Bound_set.add k metas) (k+1) drv
        else
-         if (not (is_object_premise bdry) && not equations)|| (not (is_object_premise bdry) && equations) then
-           fold n_ob (n_eq + 1) ~equations:true drv
-         else
-           raise (EqchkError (Invalid_rule (ObjectPremiseAfterEqualityPremise(m))))
+          fold metas (k+1) drv
   in
   let drv =
     match Nucleus.as_eq_type_rule drv with
     | Some drv -> drv
     | None -> raise (EqchkError (Invalid_rule TypeEqualityConclusionExpected))
   in
-  let (s, patt) = fold 0 0 ~equations:false (Nucleus.expose_rule drv) in
+  let (s, patt) = fold Bound_set.empty 0 (Nucleus.expose_rule drv) in
   s, (patt, drv)
 
 
 let make_term_computation drv =
-  let rec fold n_ob n_eq ~equations = function
+  let rec fold metas k = function
 
     | Nucleus_types.(Conclusion eq) ->
        let (Nucleus_types.EqTerm (_asmp, e1, _e2, _t)) = Nucleus.expose_eq_term eq in
-       let patt = Eqchk_pattern.make_is_term n_ob n_eq e1 in
+       let metas = Bound_set.map (fun i -> k-i) metas in
+       let patt = Eqchk_pattern.make_is_term metas k e1 in
        let s = head_symbol_term e1 in
        (s, patt)
 
-    | Nucleus_types.(Premise ({meta_boundary=bdry;_} as m, drv)) ->
-       if ((is_object_premise bdry) && not equations) then
-         fold (n_ob + 1) n_eq ~equations drv
+    | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
+       if (is_object_premise bdry) then
+         fold (Bound_set.add k metas) (k+1) drv
        else
-         if (not (is_object_premise bdry) && not equations) || (not (is_object_premise bdry) && equations) then
-           fold n_ob (n_eq + 1) ~equations:true drv
-         else
-           raise (EqchkError (Invalid_rule (ObjectPremiseAfterEqualityPremise(m))))
+         fold metas (k+1) drv
   in
   let drv =
     match Nucleus.as_eq_term_rule drv with
     | Some drv -> drv
     | None -> raise (EqchkError (Invalid_rule TermEqualityConclusionExpected))
   in
-  let (s, patt) = fold 0 0 ~equations:false (Nucleus.expose_rule drv) in
+  let (s, patt) = fold Bound_set.empty 0 (Nucleus.expose_rule drv) in
   s, (patt, drv)
 
 
@@ -569,6 +565,40 @@ and resolve_rap :
        fold (k+1) (rap eq)
   in
   fold 0 rap
+
+and rap_apply_and_resolve :
+  'a . checker -> Nucleus.signature -> Nucleus.judgement_abstraction list -> 'a Nucleus.rule_application -> 'a
+  = fun chk sgn args_ob rap ->
+  let rec fold args = function
+
+    | Nucleus.RapDone jdg ->
+      begin
+        match args with
+        | [] -> jdg
+        | _ :: _ -> raise (Fatal_error ("Applying the rule to too many arguments"))
+      end
+
+    | Nucleus.RapMore (bdry, rap) ->
+      begin
+        match Nucleus.(as_eq_type_boundary_abstraction bdry),
+         Nucleus.(as_eq_term_boundary_abstraction bdry) with
+        | Some _ , Some _ -> raise (Fatal_error ("Nucleus is broken!"))
+        | Some _, None
+        | None, Some _ ->
+          let eq = prove_boundary_abstraction ~ext:true chk sgn bdry
+          in
+          fold args (rap eq)
+        | None, None ->
+          begin match args with
+            | [] -> raise (Fatal_error ("Applying the rule to too few arguments"))
+            | arg :: args ->
+              ();
+              let tmp = rap (arg) in
+              fold args tmp
+          end
+       end
+  in
+  fold args_ob rap
 
 (* Prove an abstracted equality boundary. The [ext] flag tells us whether
    we should proceed wither with the type-directed phase or or the normalization-phase. *)
