@@ -59,7 +59,7 @@ let make_type_computation drv =
 
     | Nucleus_types.(Conclusion eq)  ->
        let (Nucleus_types.EqType (_asmp, t1, _t2)) = Nucleus.expose_eq_type eq in
-       let metas = Bound_set.map (fun i -> k-i) metas in
+       let metas = Bound_set.map (fun i -> k-i-1) metas in
        let patt =  Eqchk_pattern.make_is_type metas k t1 in
        let s = head_symbol_type t1 in
        (s, patt)
@@ -84,7 +84,7 @@ let make_term_computation drv =
 
     | Nucleus_types.(Conclusion eq) ->
        let (Nucleus_types.EqTerm (_asmp, e1, _e2, _t)) = Nucleus.expose_eq_term eq in
-       let metas = Bound_set.map (fun i -> k-i) metas in
+       let metas = Bound_set.map (fun i -> k-1-i) metas in
        let patt = Eqchk_pattern.make_is_term metas k e1 in
        let s = head_symbol_term e1 in
        (s, patt)
@@ -161,8 +161,7 @@ let rec apply_type_beta chk sgn t =
           | Some args ->
              let rap = Nucleus.form_eq_type_rap sgn rl in
              try
-              let rap' = rap_apply rap args in
-              let t_eq_t' = resolve_rap chk sgn IntSet.empty rap' in
+              let t_eq_t' = rap_apply_and_resolve chk sgn args rap in
               Some t_eq_t'
              with
                | Fatal_error _ -> fold lst
@@ -189,8 +188,7 @@ and apply_term_beta chk sgn e =
           | Some args ->
              let rap = Nucleus.form_eq_term_rap sgn rl in
              try
-              let rap' = rap_apply rap args in
-              let e_eq_e' = resolve_rap chk sgn IntSet.empty rap' in
+              let e_eq_e' = rap_apply_and_resolve chk sgn args rap in
               Some e_eq_e'
              with
                | Fatal_error _ -> fold lst
@@ -351,63 +349,44 @@ and make_equation drv =
   in
 
   (* do the main work where:
-     n_ob counts leading object premises, n_ob2 counts the two variables, n_eq1 and n_eq2 counts trailing equality premises,
+     n_p counts leading premises, n_eq counts trailing equality premises,
      (bdry1opt, bdry2opt) are the last two seen object premise boundaries
+     metas is the set of object metavariables, k counts premises
   *)
-  let rec fold (bdry1opt, bdry2opt) n_ob n_ob2 n_eq1 n_eq2 = function
+  let rec fold (bdry1opt, bdry2opt) n_p n_eq metas = function
 
     | Nucleus_types.(Conclusion eq) ->
-       (* correct counters *)
-       let n_eq2 = if n_ob2 <2 then n_eq1 else n_eq2 in
-       let n_eq1 = if n_ob2 <2 then 0 else n_eq1 in
-       let n_ob = if n_ob2 <2 then n_ob - 2 else n_ob in
        (* extract equality *)
        let (Nucleus_types.EqTerm (_asmp, e1, e2, t)) = Nucleus.expose_eq_term eq in
        begin
        try (* check LHS *)
-         check_meta (n_eq2 +1) e1
+         check_meta (n_eq +1) e1
        with
-         EqchkError( Invalid_rule _ ) -> raise (EqchkError (Invalid_rule (EquationLHSnotCorrect (eq, n_eq2 + 1))))
+         EqchkError( Invalid_rule _ ) -> raise (EqchkError (Invalid_rule (EquationLHSnotCorrect (eq, n_eq + 1))))
        end ;
        begin
        try (* check RHS *)
-         check_meta n_eq2 e2
+         check_meta n_eq e2
        with
-          EqchkError ( Invalid_rule _ ) -> raise (EqchkError (Invalid_rule (EquationRHSnotCorrect (eq, n_eq2))))
+          EqchkError ( Invalid_rule _ ) -> raise (EqchkError (Invalid_rule (EquationRHSnotCorrect (eq, n_eq))))
        end ;
        let t1 = extract_type bdry1opt in
-       let t1' = Shift_meta.is_type (n_eq2+ 2) t1
-       and t2' = Shift_meta.is_type (n_eq2+1) (extract_type bdry2opt) in
+       let t1' = Shift_meta.is_type (n_eq+ 2) t1
+       and t2' = Shift_meta.is_type (n_eq+1) (extract_type bdry2opt) in
        (* check that types are equal *)
        if not (Alpha_equal.is_type t1' t) || not (Alpha_equal.is_type t2' t) then raise (EqchkError (Invalid_rule (TypeOfEquationMismatch (eq, t1', t2')))); ;
-       let patt = Eqchk_pattern.make_is_type n_ob (n_eq2 + 2 + n_eq1) t in
+       let metas = Bound_set.map (fun i -> (n_p + n_eq) - i) metas in
+       let metas  = Bound_set.remove (n_eq) metas in
+       let metas  = Bound_set.remove (n_eq + 1) metas in
+       let patt = Eqchk_pattern.make_is_type metas (n_p + n_eq) t in
        let s = head_symbol_type t1 in
        (s, patt)
 
-    | Nucleus_types.(Premise ({meta_boundary=bdry;_} as p, drv)) ->
+    | Nucleus_types.(Premise ({meta_boundary=bdry;_}, drv)) ->
        if is_object_premise bdry then
-         begin
-           if n_eq2 > 0 || n_ob2 >= 2 then raise (EqchkError (Invalid_rule (EqualityPremiseExpected p)))
-           else
-           begin
-           if n_eq1 > 0 then
-             fold (bdry2opt, Some bdry) n_ob (n_ob2 + 1) n_eq1 n_eq2 drv
-           else
-             fold (bdry2opt, Some bdry) (n_ob + 1) n_ob2 n_eq1 n_eq2 drv
-           end
-          end
+         fold (bdry2opt, Some bdry) (n_p + n_eq + 1) 0 (Bound_set.add (n_p + n_eq + 1) metas) drv
        else
-         begin
-           if n_ob2 == 1 then
-             raise (EqchkError (Invalid_rule (ObjectPremiseExpected p)))
-           else
-           begin
-             if n_ob2 == 2 then
-               fold (bdry1opt, bdry2opt) n_ob n_ob2 n_eq1 (n_eq2 + 1) drv
-             else
-               fold (bdry1opt, bdry2opt) n_ob n_ob2 (n_eq1 + 1) n_eq2 drv
-           end
-         end
+         fold (bdry1opt, bdry2opt) n_p (n_eq + 1) metas drv
   in
 
   (* Put the derivation into the required form *)
@@ -417,14 +396,14 @@ and make_equation drv =
     | None -> raise ( EqchkError(Invalid_rule (DerivationWrongForm drv)))
   in
   (* Collect head symbol and pattern (and verify that drv has the correct form) *)
-  let s, patt = fold (None, None) 0 0 0 0 (Nucleus.expose_rule drv) in
+  let s, patt = fold (None, None) 0 0 Bound_set.empty (Nucleus.expose_rule drv) in
   s, { ext_pattern = patt; ext_rule = drv }
 
 (** Find an extensionality rule for [e1 == e2 : t], if there is one, return a rule
    application that will prove it. *)
-and find ext_eqs sgn bdry =
+and find chk sgn bdry =
   let (e1, e2, t) = Nucleus.invert_eq_term_boundary bdry in
-  match SymbolMap.find_opt (head_symbol_type (Nucleus.expose_is_type t)) ext_eqs with
+  match SymbolMap.find_opt (head_symbol_type (Nucleus.expose_is_type t)) chk.ext_rules with
   | None -> None
   | Some lst ->
      let rec fold = function
@@ -437,7 +416,7 @@ and find ext_eqs sgn bdry =
              let arg1 = Nucleus.(abstract_not_abstract (JudgementIsTerm e1))
              and arg2 = Nucleus.(abstract_not_abstract (JudgementIsTerm e2)) in
              try
-               Some (rap_apply rap (args @ [arg1; arg2]))
+               Some (rap_apply_and_resolve chk sgn (args @ [arg1; arg2]) rap)
              with
               | Fatal_error _ -> fold lst
           end
@@ -514,11 +493,9 @@ and prove_eq_term ~ext chk sgn bdry =
     | None -> assert false
     in
     let eq_jdg =
-    match find chk.ext_rules sgn bdry with
+    match find chk sgn bdry with
 
-    | Some rap ->
-       (* reduce the problem to an application of an extensionality rule *)
-       resolve_rap chk sgn IntSet.empty rap
+    | Some ty1_eq_ty2 -> ty1_eq_ty2
 
     | None -> normalization_phase bdry
 
@@ -686,7 +663,7 @@ let add ~quiet ~penv chk drv =
       try
         begin match add_type_computation' chk drv with
 
-        |  (sym, ((patt, _, _), _), chk) ->
+        |  (sym, ((patt, _), _), chk) ->
             let heads = heads_type patt in
             let chk = { chk with normalizer = set_type_heads_norm chk.normalizer sym heads } in
             if not quiet then
@@ -700,7 +677,7 @@ let add ~quiet ~penv chk drv =
      with
       | EqchkError ( Invalid_rule _ ) ->
           begin match add_term_computation' chk drv with
-            | (sym, ((patt, _, _), _), chk) ->
+            | (sym, ((patt, _), _), chk) ->
               let heads = heads_term patt in
               let chk = { chk with normalizer = set_term_heads_norm chk.normalizer sym heads } in
               if not quiet then
