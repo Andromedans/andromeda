@@ -18,16 +18,16 @@ rule sym_ty (A type) (A' type) (A ≡ A') : A' ≡ A ;;
 
 rule β_fst (A type) (A' type)
            (B type) (B' type)
-           (x : A') (y : B')
            (A' ≡ A by ξ) (B' ≡ B by ζ)
+           (x : A') (y : B')
            :
            fst A B (convert (pair A' B' x y) (congruence (A' × B') (A × B) ξ ζ)) ≡ (convert x ξ) : A
            ;;
 
 rule β_snd (A type) (A' type)
            (B type) (B' type)
-           (x : A') (y : B')
            (A' ≡ A by ξ) (B' ≡ B by ζ)
+           (x : A') (y : B')
            :
            snd A B (convert (pair A' B' x y) (congruence (A' × B') (A × B) ξ ζ)) ≡ (convert y ζ) : B
            ;;

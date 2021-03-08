@@ -43,13 +43,13 @@ Rule β_fst is postulated.
 Rule β_snd is postulated.
 Rule prod_ext is postulated.
 Term computation rule for fst (heads at [2]):
-  derive (A type) (A' type) (B type) (B' type) (x : A') (y : B') (A' ≡
-  A by ξ) (B' ≡ B by ζ) → fst A B (pair A' B' x y) ≡ x : A
+  derive (A type) (A' type) (B type) (B' type) (A' ≡ A by ξ) (B' ≡
+  B by ζ) (x : A') (y : B') → fst A B (pair A' B' x y) ≡ x : A
 
 - :> mlunit = ()
 Term computation rule for snd (heads at [2]):
-  derive (A type) (A' type) (B type) (B' type) (x : A') (y : B') (A' ≡
-  A by ξ) (B' ≡ B by ζ) → snd A B (pair A' B' x y) ≡ y : B
+  derive (A type) (A' type) (B type) (B' type) (A' ≡ A by ξ) (B' ≡
+  B by ζ) (x : A') (y : B') → snd A B (pair A' B' x y) ≡ y : B
 
 - :> mlunit = ()
 Extensionality rule for ×: derive (A type) (B type) (u : ( × ) A B) (v :
