@@ -8,7 +8,6 @@ struct
 
   and is_type' =
     | TypeAddMeta of int
-    | TypeCheckMeta of int
     | TypeNormal of is_type_normal'
 
   and is_term_normal' =
@@ -19,7 +18,6 @@ struct
 
   and is_term' =
     | TermAddMeta of int
-    | TermCheckMeta of int
     | TermNormal of is_term_normal'
 
   and argument =
@@ -30,7 +28,7 @@ struct
     | ArgumentIsType of is_type'
     | ArgumentIsTerm of is_term'
 
-  (** the exported types also record how many meta-variables we're capturing. *)
+  (** the exported types also record how many object and equality meta-variables we're capturing. *)
   type is_term = is_term' * int
   type is_type = is_type' * int
 
@@ -69,6 +67,8 @@ type invalid_rule =
   | EquationRHSnotCorrect of Nucleus.eq_term * int
   | TypeOfEquationMismatch of Nucleus.eq_term * Nucleus_types.is_type * Nucleus_types.is_type
   | ObjectPremiseAfterEqualityPremise of Nucleus_types.meta
+  | ObjectPremiseExpected of Nucleus_types.meta
+  | EqualityPremiseExpected of Nucleus_types.meta
   | DerivationWrongForm of (Nucleus.derivation)
   | ObjectBoundaryExpected of Nucleus_types.boundary_abstraction
   | TypeEqualityConclusionExpected
@@ -87,6 +87,8 @@ type form_fail =
   | EqualityTermArgumentInPatt of Nucleus_types.eq_term
   | CaptureMetasNotCorrectType of Nucleus_types.is_type
   | CaptureMetasNotCorrectTerm of Nucleus_types.is_term
+  | NonLinearPattern of int
+  | AbstractionInPattern of Nucleus_types.argument
 
 type normalization_error =
   | EqualityTypeArguement of Nucleus.eq_type
@@ -137,6 +139,12 @@ let print_eqchk_error ~penv err ppf =
       Nucleus_print.(thesis_is_type ~penv t2)
     | ObjectPremiseAfterEqualityPremise p ->
       Format.fprintf ppf "Object premise %t appears after equality premise"
+      Nucleus_print.(premise ~penv p)
+    | ObjectPremiseExpected p ->
+      Format.fprintf ppf "Equality premise %t appears where object premise expected"
+      Nucleus_print.(premise ~penv p)
+    | EqualityPremiseExpected p ->
+      Format.fprintf ppf "Object premise %t appears where equality premise expected"
       Nucleus_print.(premise ~penv p)
     | DerivationWrongForm drv ->
       Format.fprintf ppf "Derivation not in a required form"
@@ -191,6 +199,13 @@ let print_eqchk_error ~penv err ppf =
         Format.fprintf ppf
         "Pattern term %t does not capture correct metavariables"
         Nucleus_print.(thesis_is_term ~penv e)
+      |  NonLinearPattern i ->
+        Format.fprintf ppf
+        "Pattern is not linear at metavariable with index %d" i
+      | AbstractionInPattern abstr ->
+        Format.fprintf ppf
+        "Cannot form a pattern out an abstracted argument %t"
+        Nucleus_print.(argument ~penv abstr)
     end
 
   | Normalization_fail er ->
@@ -294,15 +309,15 @@ let arg_is_head abstr =
     | Patt.Arg_NotAbstract jdg ->
       begin
       match jdg with
-        | Patt.(ArgumentIsType (TypeAddMeta _ | TypeCheckMeta _)) -> false
+        | Patt.(ArgumentIsType (TypeAddMeta _ )) -> false
         | Patt.(ArgumentIsType (TypeNormal _)) -> true
-        | Patt.(ArgumentIsTerm (TermAddMeta _ | TermCheckMeta _)) -> false
+        | Patt.(ArgumentIsTerm (TermAddMeta _ )) -> false
         | Patt.(ArgumentIsTerm (TermNormal _)) -> true
       end
   in fold abstr
 
 let term_is_head = function
-  | Patt.(TermAddMeta _ | TermCheckMeta _) -> false
+  | Patt.TermAddMeta _ -> false
   | Patt.TermNormal _ -> true
 
 let heads_args args =
@@ -338,7 +353,6 @@ let heads_term_normal = function
 
 let heads_term = function
   | Patt.TermAddMeta _ -> IntSet.empty
-  | Patt.TermCheckMeta _ -> IntSet.empty
   | Patt.TermNormal patt -> heads_term_normal patt
 
 let heads_type_normal = function
@@ -347,5 +361,4 @@ let heads_type_normal = function
 
 let heads_type = function
   | Patt.TypeAddMeta _ -> IntSet.empty
-  | Patt.TypeCheckMeta _ -> IntSet.empty
   | Patt.TypeNormal patt -> heads_type_normal patt
