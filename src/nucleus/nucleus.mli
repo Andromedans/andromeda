@@ -460,6 +460,18 @@ val rewrite_judgement : signature -> judgement -> judgement_abstraction list -> 
 val rewrite_is_type : signature -> is_type -> judgement_abstraction list -> (eq_type * is_type)
 val rewrite_is_term : signature -> is_term -> judgement_abstraction list -> (eq_term * is_term)
 
+(** Partial transformations of the symbol rules. *)
+
+type transformation
+
+module Transformation : sig
+
+  val empty : transformation
+
+  val act : transformation -> judgement -> judgement
+end
+
+
 (** Give human names to things *)
 
 val name_of_judgement : judgement_abstraction -> string
