@@ -468,7 +468,11 @@ module Transformation : sig
 
   val empty : transformation
 
-  val act : transformation -> judgement -> judgement
+  val add_rule : signature ->  Ident.t -> derivation -> transformation -> transformation
+
+  val act_judgement_abstraction : signature -> transformation -> judgement_abstraction -> judgement_abstraction
+
+  val act_boundary_abstraction : signature -> transformation -> boundary_abstraction -> boundary_abstraction
 end
 
 
