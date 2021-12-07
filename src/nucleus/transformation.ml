@@ -2,6 +2,7 @@ open Nucleus_types
 
 exception Not_transformation
 exception Not_specified
+exception Already_specified
 exception Fatal_failure
 
 module MetaMap =
@@ -50,7 +51,7 @@ let rec check_eq_bdry_arities bdry_abstr1 bdry_abstr2 =
 
 let add_rule sgn c der (transf : derivation Ident.map) =
   (* Check that the constructor is not already specified*)
-  assert (not (Ident.mem c sgn)) ;
+  if (Ident.mem c transf) then raise Already_specified else
   (* Check that the arities of boundaries in the rule for c match the arities the premises of derivation der *)
   let rule = Signature.lookup_rule c sgn in
   (* recursively check both rules *)
