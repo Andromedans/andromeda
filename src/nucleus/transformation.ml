@@ -2,6 +2,7 @@ open Nucleus_types
 
 exception Not_transformation
 exception Not_specified
+exception Fatal_failure
 
 module MetaMap =
   Map.Make
@@ -148,17 +149,41 @@ and act_is_type sgn transf metas atoms = function
     let metas', atoms', meta = act_meta_any sgn transf metas atoms m in
     let metas'', atoms'', es' = act_is_terms sgn transf metas' atoms' [] es in
     metas'', atoms'', TypeMeta (meta, es')
-  | TypeConstructor (c, args) ->
-    let rule = Ident.find_opt c transf in
+  | TypeConstructor (_c, _args) as t ->
     begin
-      match rule with
-      | None -> raise Not_specified
-      | Some rl ->
-        (* let rl_rap = Form.form_derivation_rap sgn rl in
-        let metas', atoms', args' = act_arguments sgn transf metas atoms args in
-        let rec fold *)
-        failwith "todo"
+      match Invert.invert_is_type sgn t with
+      | Stump_TypeMeta _ -> raise Fatal_failure
+      | Stump_TypeConstructor (c, arg_jdgs) ->
+      let derived_rule = Ident.find_opt c transf in
+      begin
+        match derived_rule with
+        | None -> raise Not_specified
+        | Some rl ->
+          begin
+          match Coerce.as_is_type_rule rl with
+          | None -> raise Not_transformation
+          | Some rl_is_type ->
+          let der_rl_rap = Form.form_is_type_rap sgn rl_is_type in
+          let metas', atoms', arg_jdgs' = act_judgement_abstractions sgn transf metas atoms [] arg_jdgs in
+          let rec fold rl_rap args1 =
+            begin
+              match rl_rap, args1 with
+              | RapDone jdg, [] -> jdg
+              | RapMore (bdry_abstr, rap_apply), arg :: args2 -> fold (rap_apply arg) args2
+              | RapDone _ , _ :: _
+              | RapMore _ , [] -> raise Not_transformation
+            end
+          in
+          metas', atoms', fold der_rl_rap arg_jdgs'
+          end
+        end
     end
+
+and act_judgement_abstractions sgn transf metas atoms acc = function
+  | [] -> metas, atoms, List.rev acc
+  | jdg_abstr :: jdg_abstrs' ->
+    let metas', atoms', jdg_abstr' = act_judgement_abstraction' sgn transf metas atoms jdg_abstr in
+    act_judgement_abstractions sgn transf metas' atoms' (jdg_abstr' :: acc) jdg_abstrs'
 
 and act_is_term sgn transf metas atoms = function
   | TermBoundVar k -> metas, atoms, TermBoundVar k
@@ -169,7 +194,37 @@ and act_is_term sgn transf metas atoms = function
     let metas', atoms', meta = act_meta_any sgn transf metas atoms m in
     let metas'', atoms'', es' = act_is_terms sgn transf metas' atoms' [] es in
     metas'', atoms'', TermMeta (meta, es')
-  | TermConstructor (c, args) -> failwith "todo"
+  | TermConstructor (_c, _args) as e ->
+    begin
+        match Invert.invert_is_term sgn e with
+        | Stump_TermAtom _
+        | Stump_TermConvert _
+        | Stump_TermMeta _ -> raise Fatal_failure
+        | Stump_TermConstructor (c, arg_jdgs) ->
+        let derived_rule = Ident.find_opt c transf in
+        begin
+          match derived_rule with
+          | None -> raise Not_specified
+          | Some rl ->
+            begin
+            match Coerce.as_is_term_rule rl with
+            | None -> raise Not_transformation
+            | Some rl_is_term ->
+            let der_rl_rap = Form.form_is_term_rap sgn rl_is_term in
+            let metas', atoms', arg_jdgs' = act_judgement_abstractions sgn transf metas atoms [] arg_jdgs in
+            let rec fold rl_rap args1 =
+              begin
+                match rl_rap, args1 with
+                | RapDone jdg, [] -> jdg
+                | RapMore (bdry_abstr, rap_apply), arg :: args2 -> fold (rap_apply arg) args2
+                | RapDone _ , _ :: _
+                | RapMore _ , [] -> raise Not_transformation
+              end
+            in
+            metas', atoms', fold der_rl_rap arg_jdgs'
+            end
+          end
+      end
   | TermConvert (e, asm, t) ->
     let metas1, atoms1, e' = act_is_term sgn transf metas atoms e in
     let metas2, atoms2, asm' = act_assumption sgn transf metas1 atoms1 asm in
