@@ -145,7 +145,7 @@ and act_boundary sgn transf metas atoms = function
 
 and act_is_type sgn transf metas atoms = function
   | TypeMeta (m, es) ->
-    let metas', atoms', meta = act_meta sgn transf metas atoms m in
+    let metas', atoms', meta = act_meta_any sgn transf metas atoms m in
     let metas'', atoms'', es' = act_is_terms sgn transf metas' atoms' [] es in
     metas'', atoms'', TypeMeta (meta, es')
   | TypeConstructor (c, args) ->
@@ -154,7 +154,9 @@ and act_is_type sgn transf metas atoms = function
       match rule with
       | None -> raise Not_specified
       | Some rl ->
-        (* let rl_rap = Form.form_derivation_rap sgn rl in *)
+        (* let rl_rap = Form.form_derivation_rap sgn rl in
+        let metas', atoms', args' = act_arguments sgn transf metas atoms args in
+        let rec fold *)
         failwith "todo"
     end
 
@@ -164,7 +166,7 @@ and act_is_term sgn transf metas atoms = function
       let metas', atoms', a' = act_atom sgn transf metas atoms a in
       metas', atoms', TermAtom a
   | TermMeta (m, es) ->
-    let metas', atoms', meta = act_meta sgn transf metas atoms m in
+    let metas', atoms', meta = act_meta_any sgn transf metas atoms m in
     let metas'', atoms'', es' = act_is_terms sgn transf metas' atoms' [] es in
     metas'', atoms'', TermMeta (meta, es')
   | TermConstructor (c, args) -> failwith "todo"
@@ -182,18 +184,22 @@ and act_is_terms sgn transf metas atoms acc = function
 
 
 (* We need to keep track of which metavariables are mappped to which translations *)
-and act_meta sgn transf metas atoms = function
+and act_meta_any sgn transf metas atoms = function
   | MetaBound k -> metas, atoms, MetaBound k
-  | MetaFree ({meta_nonce; meta_boundary} as m) ->
-      begin
+  | MetaFree m ->
+    let metas', atoms', m' = act_meta sgn transf metas atoms m in
+      metas', atoms', MetaFree m'
+
+and act_meta sgn transf metas atoms = function
+  | {meta_nonce; meta_boundary} as m ->
+    begin
       match MetaMap.find_opt m metas with
       | None ->
         let metas', atoms', bdry' = act_boundary_abstraction' sgn transf metas atoms meta_boundary in
         let m' = Mk.free_meta (Nonce.name meta_nonce) bdry' in
-        (MetaMap.add m m' metas'), atoms', MetaFree m'
-      | Some meta -> metas, atoms, MetaFree meta
-      end
-
+        (MetaMap.add m m' metas'), atoms', m'
+      | Some meta -> metas, atoms, meta
+    end
 
 (* We need to keep track of which atoms are mappped to which translations *)
 and act_atom sgn transf metas atoms = function
@@ -208,7 +214,44 @@ and act_atom sgn transf metas atoms = function
     end
 
 and act_assumption sgn transf metas atoms = function
-  | {free_var; free_meta; bound_var; bound_meta} -> failwith "todo"
+  | {free_var; free_meta; bound_var; bound_meta} ->
+    let fold_metas nonce bdry (mets, atms, acc) =
+      begin
+        (* Check if meta has already been processed in the assumption set *)
+        match Nonce.map_find_opt nonce acc with
+        | Some _ -> mets, atms, acc
+        | None ->
+          begin
+            let m = {meta_nonce=nonce ; meta_boundary=bdry} in
+            (* Check if meta m has already been translated *)
+            match MetaMap.find_opt m mets with
+            | Some {meta_nonce=nonce' ; meta_boundary=bdry'} ->
+              mets, atms, (Nonce.map_add nonce' bdry' acc)
+            | None ->
+              let mets', atms', {meta_nonce=nonce' ; meta_boundary = bdry'} = act_meta sgn transf mets atms m in
+              mets', atms', (Nonce.map_add nonce' bdry' acc)
+          end
+      end in
+    let fold_free_vars nonce atm_type (mets, atms, acc) =
+      begin
+        (* Check if atom a has already been processed in the assumption set *)
+        match Nonce.map_find_opt nonce acc with
+        | Some _ -> mets, atms, acc
+        | None ->
+          begin
+            let a = {atom_nonce=nonce ; atom_type=atm_type} in
+            (* Check if atom a has already been translated *)
+            match AtomMap.find_opt a atms with
+            | Some {atom_nonce=nonce' ; atom_type=t'} ->
+              mets, atms, (Nonce.map_add nonce' t' acc)
+            | None ->
+              let mets', atms', {atom_nonce=nonce' ; atom_type = t'} = act_atom sgn transf mets atms a in
+              mets', atms', (Nonce.map_add nonce' t' acc)
+          end
+      end in
+    let metas1, atoms1, free_var' = Nonce.map_fold fold_free_vars free_var (metas, atoms, Nonce.map_empty) in
+    let metas2, atoms2, free_meta' = Nonce.map_fold fold_metas free_meta (metas1, atoms1, Nonce.map_empty) in
+    metas2, atoms2, {free_var = free_var' ; free_meta = free_meta' ; bound_var ; bound_meta}
 
 and act_eq_type sgn transf metas atoms = function
   | EqType (asm, t1, t2) ->

@@ -33,6 +33,8 @@ let map_add = NonceMap.add
 
 let map_find = NonceMap.find
 
+let map_find_opt = NonceMap.find_opt
+
 let map_is_empty = NonceMap.is_empty
 
 let map_mem = NonceMap.mem
@@ -42,6 +44,8 @@ let map_union = NonceMap.union
 let map_remove = NonceMap.remove
 
 let map_bindings = NonceMap.bindings
+
+let map_fold = NonceMap.fold
 
 let map_for_all = NonceMap.for_all
 

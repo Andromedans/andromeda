@@ -35,6 +35,9 @@ val map_mem : t -> 'a map -> bool
 (** Map a key to its value, raise [Not_found] if not there *)
 val map_find : t -> 'a map -> 'a
 
+(** Map a key to its value wrapped in the option type *)
+val map_find_opt : t -> 'a map -> 'a option
+
 (** Union two maps *)
 val map_union : (t -> 'a -> 'a -> 'a option) -> 'a map -> 'a map -> 'a map
 
@@ -43,6 +46,9 @@ val map_remove : t -> 'a map -> 'a map
 
 (** The list of key-value pairs of a map *)
 val map_bindings : 'a map -> (t * 'a) list
+
+(* Fold over a map *)
+val map_fold : (t -> 'a -> 'b -> 'b) -> 'a map -> 'b -> 'b
 
 val map_for_all : (t -> 'a -> bool) -> 'a map -> bool
 
