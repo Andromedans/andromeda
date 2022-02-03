@@ -180,6 +180,9 @@ let rec comp {Location.it=c'; at} =
      comp c >>=
      match_cases ~at cases comp
 
+  | Syntax.Transformation cases ->
+    transformation_cases cases
+
   | Syntax.BoundaryAscribe (c1, c2) ->
      comp_as_boundary_abstraction c2 >>= fun bdry ->
      check_judgement c1 bdry >>=
@@ -411,6 +414,7 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.Natural _
   | Syntax.MLBoundary _
   | Syntax.Raise _
+  | Syntax.Transformation _
     ->
 
     comp c >>= fun v ->
@@ -593,6 +597,8 @@ and match_op_case other (ps, ptopt, c) (Runtime.{args; checking} as op_args) =
     function
     | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (comp c) vs
     | None -> other op_args
+
+and transformation_cases = failwith "todo"
 
 (** Run [c] and convert the result to a derivation. *)
 and comp_as_derivation c =

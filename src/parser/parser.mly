@@ -55,6 +55,7 @@
 
 (* TT commands *)
 %token FRESH META CONVERT CONGRUENCE CONTEXT OCCURS DERIVE ABSTRACT REWRITE
+%token TRANSFORMATION
 
 (* Toplevel directives *)
 %token VERBOSITY
@@ -257,6 +258,9 @@ term_:
 
   | FRESH x=opt_name(ml_name) COLON t=ty_term
     { Sugared.Fresh (x, t) }
+
+  | TRANSFORMATION lst=transformation_cases END
+    { Sugared.Transformation lst }
 
   | e=app_term COLONQT bdry=ty_term
     { Sugared.BoundaryAscribe (e, bdry) }
@@ -641,6 +645,14 @@ when_guard:
 
   | WHEN c=binop_term
     { Some c }
+
+transformation_cases:
+  | BAR lst=separated_nonempty_list(BAR, transformation_case)
+    { lst }
+
+transformation_case:
+  | s=tt_name ARROW d=term
+    {(s, d)}
 
 (** Pattern matching *)
 

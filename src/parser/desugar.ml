@@ -1014,6 +1014,10 @@ let rec comp ctx {Location.it=c';at} =
      and cases = List.map (match_case ctx) cases in
      locate (Desugared.Match (c, cases))
 
+   | Sugared.Transformation cases ->
+     let cases = List.map (transformation_case ctx) cases in
+     locate (Desugared.Transformation cases)
+
   | Sugared.BoundaryAscribe (c, bdry) ->
      let bdry = comp ctx bdry
      and c = comp ctx c in
@@ -1398,6 +1402,13 @@ and when_guard ctx = function
   | Some c ->
      let c = comp ctx c in
      Some c
+
+(* Desugar a transformation case*)
+
+and transformation_case ctx (sym, deriv) =
+   let sym' = sym in
+   let deriv' = comp ctx deriv in
+   (sym', deriv')
 
 
 and match_op_case ~at ctx op (ps, pt, c) =

@@ -43,6 +43,7 @@ let reserved = [
   ("rec", REC) ;
   ("ref", REF) ;
   ("rule", RULE) ;
+  ("transformation", TRANSFORMATION) ;
   ("type", TYPE) ;
   ("require", REQUIRE) ;
   ("struct", STRUCT) ;
