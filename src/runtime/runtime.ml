@@ -158,6 +158,7 @@ and value =
   | Judgement of Nucleus.judgement_abstraction
   | Boundary of Nucleus.boundary_abstraction
   | Derivation of Nucleus.derivation
+  | Transformation of Nucleus.transformation
   | External of external_value
   | Closure of (value, value) closure
   | Handler of handler
@@ -333,6 +334,8 @@ let return_judgement jdg = return (Judgement jdg)
 
 let return_boundary bdry = return (Boundary bdry)
 
+let return_transformation transf = return (Transformation transf)
+
 let return_closure f env = Return (Closure (mk_closure0 f env))
 
 let return_handler handler_val handler_ops handler_exc env =
@@ -368,6 +371,7 @@ let name_of v =
     | Judgement abstr -> Nucleus.name_of_judgement abstr
     | Boundary abstr -> Nucleus.name_of_boundary abstr
     | Derivation _ -> "a derivation"
+    | Transformation _ -> "a transformation"
     | Closure _ -> "a function"
     | Handler _ -> "a handler"
     | Exc _ -> "an exception"
@@ -382,13 +386,13 @@ let name_of v =
 let as_equality_checker ~at = function
   | External (EqualityChecker chk) -> chk
 
-  | (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (Judgement _ | Boundary _ | Derivation _  | Transformation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (EqualityCheckerExpected v)
 
 let as_derivation ~at = function
   | Derivation drv -> drv
 
-  | (Judgement _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (Judgement _ | Boundary _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (DerivationExpected v)
 
 let as_not_abstract ~at abstr =
@@ -403,7 +407,7 @@ let as_is_type ~at = function
      | Some Nucleus.(JudgementIsTerm _ | JudgementEqType _ | JudgementEqTerm _)
      | None -> error ~at (IsTypeExpected v)
      end
-  | (Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (Derivation _ | Boundary _ |Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (IsTypeExpected v)
 
 let as_is_term ~at = function
@@ -413,7 +417,7 @@ let as_is_term ~at = function
      | Some Nucleus.(JudgementIsType _ | JudgementEqType _ | JudgementEqTerm _)
      | None -> error ~at (IsTermExpected v)
      end
-  | (Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (Derivation _ | Boundary _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (IsTermExpected v)
 
 let as_eq_type ~at = function
@@ -423,7 +427,7 @@ let as_eq_type ~at = function
      | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqTerm _)
      | None -> error ~at (EqTypeExpected v)
      end
-  | (Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (Derivation _ | Boundary _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (EqTypeExpected v)
 
 let as_eq_term ~at = function
@@ -433,7 +437,7 @@ let as_eq_term ~at = function
      | Some Nucleus.(JudgementIsType _ | JudgementIsTerm _ | JudgementEqType _)
      | None -> error ~at (EqTermExpected v)
      end
-  | (Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (Derivation _ | Boundary _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (EqTermExpected v)
 
 let as_judgement ~at = function
@@ -442,7 +446,7 @@ let as_judgement ~at = function
      | Some jdg -> jdg
      | None -> error ~at (JudgementExpected v)
      end
-  | (Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (Derivation _ | Boundary _  | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (EqTermExpected v)
 
 let as_is_type_abstraction ~at v =
@@ -452,7 +456,7 @@ let as_is_type_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at (IsTypeAbstractionExpected v)
      end
-  | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
+  | Derivation _ | Boundary _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at (IsTypeAbstractionExpected v)
 
 let as_is_term_abstraction ~at v =
@@ -462,7 +466,7 @@ let as_is_term_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at (IsTermAbstractionExpected v)
      end
-  | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
+  | Derivation _ | Boundary _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at (IsTermAbstractionExpected v)
 
 let as_eq_type_abstraction ~at v =
@@ -472,7 +476,7 @@ let as_eq_type_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at (EqTypeAbstractionExpected v)
      end
-  | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
+  | Derivation _ | Boundary _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at (EqTypeAbstractionExpected v)
 
 let as_eq_term_abstraction ~at v =
@@ -482,19 +486,19 @@ let as_eq_term_abstraction ~at v =
      | Some abstr -> abstr
      | None -> error ~at (EqTermAbstractionExpected v)
      end
-  | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
+  | Derivation _ | Boundary _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at (EqTermAbstractionExpected v)
 
 let as_judgement_abstraction ~at v =
   match v with
   | Judgement abstr -> abstr
-  | Derivation _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
+  | Derivation _ | Boundary _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at (JudgementAbstractionExpected v)
 
 let as_boundary_abstraction ~at v =
   match v with
   | Boundary abstr -> abstr
-  | Derivation _ | Judgement _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
+  | Derivation _ | Judgement _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at (BoundaryAbstractionExpected v)
 
 let as_boundary ~at v =
@@ -504,36 +508,36 @@ let as_boundary ~at v =
      | Some bdry -> bdry
      | None -> error ~at (BoundaryExpected v)
      end
-  | Derivation _ | Judgement _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
+  | Derivation _ | Judgement _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at (BoundaryExpected v)
 
 let as_closure ~at = function
   | Closure f -> f
-  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+  | (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ |
      Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (ClosureExpected v)
 
 let as_handler ~at = function
   | Handler h -> h
-  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+  | (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ |
      Closure _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~at (HandlerExpected v)
 
 let as_exception ~at = function
   | Exc (exc, vopt) -> (exc, vopt)
-  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+  | (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ |
      Closure _ | Handler _ | Ref _ | Tag _ | Tuple _ | String _) as v ->
     error ~at (ExceptionExpected v)
 
 let as_ref ~at = function
   | Ref v -> v
-  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+  | (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ |
      Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | String _) as v ->
     error ~at (RefExpected v)
 
 let as_string ~at = function
   | String v -> v
-  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+  | (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ |
      Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _) as v ->
     error ~at (StringExpected v)
 
@@ -543,7 +547,7 @@ let as_bool ~at v =
   match v with
   | Tag (t, []) when equal_tag t tag_true -> true
   | Tag (t, []) when equal_tag t tag_false -> false
-  | (Judgement _ | Boundary _ | Derivation _ | External _ |
+  | (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ |
      Closure _ | Handler _ | Exc _ | Tag _ | String _ | Tuple _ | Ref _) as v ->
     error ~at (BoolExpected v)
 
@@ -705,6 +709,8 @@ let rec print_value ?max_level ~penv v ppf =
   | Derivation drv ->
     let drv = Nucleus.derivation_with_boundary penv.signature drv in
     Nucleus.print_derivation_with_boundary ~penv:(mk_nucleus_penv penv) ?max_level drv ppf
+
+  | Transformation _ ->  Format.fprintf ppf "<transformation>"
 
   | External v -> print_external ?max_level ~penv v ppf
 
@@ -1115,6 +1121,7 @@ let rec equal_value v1 v2 =
       s1 = s2
 
     | Derivation _, Derivation _
+    | Transformation _, Transformation _
     | Closure _, Closure _
     | Handler _, Handler _ ->
        v1 == v2
@@ -1123,17 +1130,18 @@ let rec equal_value v1 v2 =
        equal_external_value v1 v2
 
     (* At some level the following is a bit ridiculous *)
-    | Judgement _, (Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
-    | Derivation _, (Judgement _ | Boundary _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
-    | Boundary _, (Judgement _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
-    | External _, (Judgement _ | Boundary _ | Derivation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
-    | Closure _, (Judgement _ | Boundary _ | External _ | Derivation _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
-    | Handler _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
-    | Tag _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Tuple _ | Ref _ | Exc _ | String _)
-    | Exc _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Tuple _ | Ref _ | Tag _ | String _)
-    | Tuple _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | String _)
-    | String _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _)
-    | Ref _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | String _) ->
+    | Judgement _, (Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Derivation _, (Judgement _ | Boundary _ |Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Transformation _, (Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Boundary _, (Judgement _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | External _, (Judgement _ | Boundary _ | Derivation _ | Transformation _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Closure _, (Judgement _ | Boundary _ | External _ | Derivation _ | Transformation _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Handler _, (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Tag _, (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Tuple _ | Ref _ | Exc _ | String _)
+    | Exc _, (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Tuple _ | Ref _ | Tag _ | String _)
+    | Tuple _, (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | String _)
+    | String _, (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _)
+    | Ref _, (Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | String _) ->
        false
 
 let exec m env = m env
@@ -1149,6 +1157,8 @@ struct
     | Boundary bdry -> Json.tag "Boundary" [Nucleus.Json.boundary_abstraction bdry]
 
     | Derivation drv -> Json.tag "Derivation" []
+
+    | Transformation transf -> Json.tag "Transformation" []
 
     | Closure _ -> Json.tag "Function" []
 

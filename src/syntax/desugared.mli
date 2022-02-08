@@ -119,7 +119,7 @@ and exception_case = match_case
 
 and top_operation_case = Path.t * match_op_case
 
-and transformation_case = Name.t * comp
+and transformation_case = Path.t * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = pattern list * pattern option * comp

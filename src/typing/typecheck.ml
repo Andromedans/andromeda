@@ -41,6 +41,7 @@ let rec generalizable c =
     | Meta _
     | AbstractAtom _
     | Match _
+    | Transformation _
     | BoundaryAscribe _
     | AsDerivation _
     | TTConstructor _
@@ -456,6 +457,10 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
     match_cases ~at tc cases >>= fun (cases, t) ->
     return (locate ~at (Syntax.Match (c, cases)), t)
 
+  | Desugared.Transformation cases ->
+    transformation_cases cases >>= fun (cases, t) ->
+    return (locate ~at (Syntax.Transformation cases), t)
+
   | Desugared.BoundaryAscribe (c1, c2) ->
      check_comp c2 Mlty.Boundary >>= fun c2 ->
      check_comp c1 Mlty.Judgement >>= fun c1 ->
@@ -713,6 +718,17 @@ and match_op_case ts t_out (ps, popt, c) =
        assert false
   in
   fold_args [] [] ps ts
+
+and transformation_cases cases =
+   let rec fold acc = function
+   | [] -> return (List.rev acc, Mlty.fresh_type ())
+
+   | (pth, der) :: cases' ->
+      Tyenv.lookup_tt_constructor pth >>= fun c_id ->
+      check_comp der Mlty.Derivation >>= fun d' ->
+      fold ((c_id, d') :: acc) cases'
+   in
+   fold [] cases
 
 
 and check_comp c t =

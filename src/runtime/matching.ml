@@ -161,25 +161,25 @@ let rec collect_pattern sgn xvs {Location.it=p'; at} v =
 
   (* mismatches *)
   | Syntax.Patt_MLException _,
-    Runtime.(Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Tag _ | Ref _ | Tuple _ | String _)
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Tag _ | Ref _ | Tuple _ | String _)
 
   | Syntax.Patt_MLConstructor _,
-    Runtime.(Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Ref _ | Tuple _ | String _)
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Ref _ | Tuple _ | String _)
 
   | Syntax.Patt_Abstract _,
-    Runtime.(Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _ | String _)
+    Runtime.(Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _ | String _)
 
   | Syntax.(Patt_TTConstructor _ | Patt_GenAtom _ | Patt_IsType _ | Patt_IsTerm _ | Patt_EqType _ | Patt_EqTerm _),
-    Runtime.(Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _ | String _)
+    Runtime.(Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _ | String _)
 
   | Syntax.(Patt_BoundaryIsType | Patt_BoundaryIsTerm _ | Patt_BoundaryEqType _ | Patt_BoundaryEqTerm _) ,
-    Runtime.(Judgement _ | Derivation _  | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _ | String _)
+    Runtime.(Judgement _ | Derivation _ | Transformation _  | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _ | String _)
 
   | Syntax.Patt_Tuple _,
-    Runtime.(Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | String _)
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | String _)
 
   | Syntax.Patt_String _,
-    Runtime.(Judgement _ | Boundary _ | Derivation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _) ->
+    Runtime.(Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Ref _ | Tuple _) ->
      Runtime.(error ~at (InvalidPatternMatch v))
 
 and collect_judgement sgn xvs p abstr =

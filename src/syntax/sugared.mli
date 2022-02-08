@@ -120,7 +120,7 @@ and handle_case =
 
 and match_case = pattern * comp option * comp
 
-and transformation_case = Name.t * comp
+and transformation_case = Name.path * comp
 
 and exception_case = match_case
 

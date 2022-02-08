@@ -27,7 +27,7 @@ let as_bool ~at v =
      else
      Runtime.(error ~at (BoolExpected v))
 
-  | Runtime.(Tag (_, _::_) | Exc _ | Judgement _ | Boundary _ | Derivation _ | External _ |
+  | Runtime.(Tag (_, _::_) | Exc _ | Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ |
              Closure _ | Handler _ | Tuple _ | Ref _ | String _) ->
      Runtime.(error ~at (BoolExpected v))
 
@@ -199,7 +199,7 @@ let rec comp {Location.it=c'; at} =
 
         | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-        | Runtime.(Derivation _ | External  _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+        | Runtime.(Derivation _ | Transformation _ | External  _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
            Runtime.(error ~at (JudgementOrBoundaryExpected v)))
 
   | Syntax.AbstractAtom (a, c) ->
@@ -210,7 +210,7 @@ let rec comp {Location.it=c'; at} =
 
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-             | Runtime.(External _ | Closure _ | Derivation _| Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+             | Runtime.(External _ | Closure _ | Derivation _ | Transformation _| Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
                 Runtime.(error ~at (JudgementOrBoundaryExpected v))
            end
 
@@ -285,7 +285,7 @@ let rec comp {Location.it=c'; at} =
       | Runtime.Closure f ->
         comp c2 >>= fun v ->
         Runtime.apply_closure f v
-      | Runtime.(Judgement _ | Boundary _ | Derivation _ | External _ |  Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as h ->
+      | Runtime.(Judgement _ | Boundary _ | Derivation _ |Transformation _ | External _ |  Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as h ->
         Runtime.(error ~at (Inapplicable h))
     end
 
@@ -598,7 +598,18 @@ and match_op_case other (ps, ptopt, c) (Runtime.{args; checking} as op_args) =
     | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (comp c) vs
     | None -> other op_args
 
-and transformation_cases = failwith "todo"
+and transformation_cases : Syntax.transformation_case list -> Runtime.value Runtime.comp  = fun cases ->
+    let transf = Nucleus.Transformation.empty in
+    Runtime.lookup_signature >>= fun sgn ->
+    let rec fold tr = function
+    | [] -> Runtime.return_transformation tr
+    | (s, d) :: cases' ->
+      comp_as_derivation d >>= fun der ->
+      let tr' = Nucleus.Transformation.add_rule sgn s der tr in
+      fold tr' cases'
+    in
+    fold transf cases
+
 
 (** Run [c] and convert the result to a derivation. *)
 and comp_as_derivation c =

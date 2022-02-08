@@ -651,7 +651,7 @@ transformation_cases:
     { lst }
 
 transformation_case:
-  | s=tt_name ARROW d=term
+  | s=long(tt_name) ARROW d=term
     {(s, d)}
 
 (** Pattern matching *)

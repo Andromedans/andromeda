@@ -9,6 +9,7 @@ type value =
   | Judgement of Nucleus.judgement_abstraction (** A judgement *)
   | Boundary of Nucleus.boundary_abstraction   (** A judgement boundary (also known as a goal) *)
   | Derivation of Nucleus.derivation           (** A hypothetical derivation *)
+  | Transformation of Nucleus.transformation
   | External of external_value                 (** An external ML value *)
   | Closure of (value,value) closure           (** An ML function *)
   | Handler of handler                         (** Handler value *)
@@ -233,6 +234,8 @@ val return_unit : value comp
 val return_judgement : Nucleus.judgement_abstraction -> value comp
 
 val return_boundary : Nucleus.boundary_abstraction -> value comp
+
+val return_transformation : Nucleus.transformation -> value comp
 
 val return_closure : (value -> value comp) -> value comp
 
