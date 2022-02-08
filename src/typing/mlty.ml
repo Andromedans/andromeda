@@ -41,6 +41,7 @@ type ty =
   | Judgement
   | Boundary
   | Derivation
+  | Transformation
   | String
   | Meta of meta
   | Param of param
@@ -133,6 +134,8 @@ let rec print_ty ~penv ?max_level t ppf =
   | Boundary -> Format.fprintf ppf "boundary"
 
   | Derivation -> Format.fprintf ppf "derivation"
+
+  | Transformation -> Format.fprintf ppf "transformation"
 
   | String -> Format.fprintf ppf "mlstring"
 
@@ -229,7 +232,7 @@ let print_error err ppf =
       (print_ty ~penv ty)
 
 let rec occurs m = function
-  | Judgement | Boundary | Derivation | String | Param _ -> false
+  | Judgement | Boundary | Derivation | Transformation | String | Param _ -> false
   | Meta m' -> eq_meta m m'
   | Prod ts  | Apply (_, ts) -> List.exists (occurs m) ts
   | Arrow (t1, t2) | Handler (t1, t2) -> occurs m t1 || occurs m t2
@@ -237,7 +240,7 @@ let rec occurs m = function
   | Exn -> false
 
 let rec occuring = function
-  | Judgement | Boundary | Derivation | String | Param _ -> MetaSet.empty
+  | Judgement | Boundary | Derivation | Transformation | String | Param _ -> MetaSet.empty
   | Meta m -> MetaSet.singleton m
   | Prod ts  | Apply (_, ts) ->
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
@@ -252,7 +255,7 @@ let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
 let instantiate pus t =
   let rec inst = function
 
-    | Exn | Judgement | Boundary | Derivation | String | Meta _ as t -> t
+    | Exn | Judgement | Boundary | Derivation | Transformation | String | Meta _ as t -> t
 
     | Param p as t ->
        begin
@@ -288,7 +291,7 @@ let instantiate pus t =
 
 let params_occur ps t =
   let rec occurs = function
-  | Exn | Judgement | Boundary | Derivation | String | Meta _ -> false
+  | Exn | Judgement | Boundary | Derivation | Transformation | String | Meta _ -> false
   | Param p -> List.mem p ps
   | Prod ts  | Apply (_, ts) ->
     List.exists occurs ts

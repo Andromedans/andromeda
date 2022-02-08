@@ -21,6 +21,7 @@ type ty =
   | Judgement
   | Boundary
   | Derivation
+  | Transformation
   | String
   | Meta of meta
   | Param of param

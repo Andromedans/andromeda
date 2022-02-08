@@ -721,7 +721,7 @@ and match_op_case ts t_out (ps, popt, c) =
 
 and transformation_cases cases =
    let rec fold acc = function
-   | [] -> return (List.rev acc, Mlty.fresh_type ())
+   | [] -> return (List.rev acc, Mlty.Transformation)
 
    | (pth, der) :: cases' ->
       Tyenv.lookup_tt_constructor pth >>= fun c_id ->
