@@ -1,0 +1,106 @@
+Processing module eq
+ML type eq.checker declared.
+external empty_checker : eq.checker = "Eqchk.empty_checker"
+external add_type_computation : eq.checker → derivation →
+  eq.checker = "Eqchk.add_type_computation"
+external add_term_computation : eq.checker → derivation →
+  eq.checker = "Eqchk.add_term_computation"
+external add : eq.checker → derivation → eq.checker = "Eqchk.add"
+external normalize_type : ML.bool → eq.checker → judgement →
+  judgement * judgement = "Eqchk.normalize_type"
+external normalize_term : ML.bool → eq.checker → judgement →
+  judgement * judgement = "Eqchk.normalize_term"
+external add_extensionality : eq.checker → derivation →
+  eq.checker = "Eqchk.add_extensionality"
+external prove_eqtype_abstraction : eq.checker → boundary →
+  judgement = "Eqchk.prove_eq_type_abstraction"
+external prove_eqterm_abstraction : eq.checker → boundary →
+  judgement = "Eqchk.prove_eq_term_abstraction"
+val ch :> ref eq.checker = ref <checker>
+val add_rule :> derivation → mlunit = <function>
+Exception eq.Coerce_fail is declared.
+Exception eq.Not_equality_boundary is declared.
+Exception eq.Not_object_judgement is declared.
+val equalize_type :> judgement → judgement → judgement = <function>
+val coerce_abstraction :> judgement → boundary → judgement = <function>
+val normalize :> judgement → judgement * judgement = <function>
+val compute :> judgement → judgement * judgement = <function>
+val prove :> boundary → judgement = <function>
+val add_locally :> mlforall α, derivation → (mlunit → α) → α =
+  <function>
+Processing module FOL
+Rule FOL.o is postulated.
+Rule FOL.true is postulated.
+Rule FOL.false is postulated.
+Rule FOL.falseE is postulated.
+Rule FOL.conj is postulated.
+Rule FOL.conjI is postulated.
+Rule FOL.conjunct1 is postulated.
+Rule FOL.conjunct2 is postulated.
+Rule FOL.disj is postulated.
+Rule FOL.dijsI1 is postulated.
+Rule FOL.dijsI2 is postulated.
+Rule FOL.disjE is postulated.
+Rule FOL.imp is postulated.
+Rule FOL.impI is postulated.
+Rule FOL.mp is postulated.
+Rule FOL.i is postulated.
+Rule FOL.all is postulated.
+Rule FOL.allI is postulated.
+Rule FOL.spec is postulated.
+Rule FOL.exists is postulated.
+Rule FOL.existsI is postulated.
+Rule FOL.existsE is postulated.
+Processing module MLTT
+Rule MLTT.U is postulated.
+Rule MLTT.El is postulated.
+Rule MLTT.⊥ is postulated.
+Rule MLTT.Empty is postulated.
+Rule MLTT.El_bot is postulated.
+Type computation rule for MLTT.El (heads at [0]):
+  derive → MLTT.El MLTT.⊥ ≡ MLTT.Empty
+- :> mlunit = ()
+Rule MLTT.Empty_ind is postulated.
+Rule MLTT.plus is postulated.
+Rule MLTT.( + ) is postulated.
+Rule MLTT.El_plus is postulated.
+Type computation rule for MLTT.El (heads at [0]):
+  derive (a : MLTT.U) (b : MLTT.U) → MLTT.El (MLTT.plus a b) ≡ MLTT.( + )
+  (MLTT.El a) (MLTT.El b)
+- :> mlunit = ()
+Rule MLTT.inl is postulated.
+Rule MLTT.inr is postulated.
+Rule MLTT.cases is postulated.
+Rule MLTT.plus_beta_1 is postulated.
+Rule MLTT.plus_beta_2 is postulated.
+Rule MLTT.σ is postulated.
+Rule MLTT.Σ is postulated.
+Rule MLTT.El_σ is postulated.
+Type computation rule for MLTT.El (heads at [0]):
+  derive (a : MLTT.U) ({_ : MLTT.El a} P : MLTT.U) → MLTT.El (MLTT.σ a
+  ({x} P {x})) ≡ MLTT.Σ (MLTT.El a) ({x} MLTT.El (P {x}))
+- :> mlunit = ()
+Rule MLTT.pair is postulated.
+Rule MLTT.π₁ is postulated.
+Rule MLTT.π₂ is postulated.
+Rule MLTT.Σ_β₁ is postulated.
+Rule MLTT.Σ_β₂ is postulated.
+Rule MLTT.Σ_ext is postulated.
+Rule MLTT.π is postulated.
+Rule MLTT.Π is postulated.
+Rule MLTT.El_π is postulated.
+Type computation rule for MLTT.El (heads at [0]):
+  derive (a : MLTT.U) ({_ : MLTT.El a} P : MLTT.U) → MLTT.El (MLTT.π a
+  ({x} P {x})) ≡ MLTT.Π (MLTT.El a) ({x} MLTT.El (P {x}))
+- :> mlunit = ()
+Rule MLTT.λ is postulated.
+Rule MLTT.app is postulated.
+Rule MLTT.Π_β is postulated.
+Rule MLTT.Π_ext is postulated.
+Rule MLTT.base is postulated.
+val transf :> transformation = <transformation>
+- :> judgement = ⊢ MLTT.El MLTT.⊥ type
+- :> judgement = ⊢ MLTT.σ MLTT.⊥ ({_} MLTT.⊥) : MLTT.U
+- :> boundary = ⊢ ⁇ : MLTT.El MLTT.⊥
+- :> derivation = derive (p : FOL.true FOL.false) → MLTT.Empty_ind ({_}
+  MLTT.El MLTT.⊥) ?p₀ : MLTT.El MLTT.⊥

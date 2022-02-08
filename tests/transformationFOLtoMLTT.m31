@@ -1,0 +1,173 @@
+require eq ;;
+
+module FOL =
+struct
+(* class of propositions *)
+rule o type ;;
+(* p : true P means that "p proves that P is true" *)
+rule true (p : o) type ;;
+
+rule false : o ;;
+rule falseE (p : o) (a : true false) : true p ;;
+
+rule conj (p : o) (q : o) : o ;;
+rule conjI (p : o) (q : o) (a : true p) (b : true q) : true (conj p q) ;;
+rule conjunct1 (p : o) (q : o) (a : true (conj p q)) : true p ;;
+rule conjunct2 (p : o) (q : o) (a : true (conj p q)) : true q ;;
+
+
+rule disj (p : o) (q : o) : o ;;
+rule dijsI1 (p : o) (q : o) (a : true p) : true (disj p q) ;;
+rule dijsI2 (p : o) (q : o) (a : true q) : true (disj p q) ;;
+rule disjE (p : o) (q : o) (r : o)
+           (a : true (disj p q))
+           ({x : true p} b : true r)
+           ({x : true q} c : true r)
+           : true r ;;
+
+rule imp (p : o) (q : o) : o ;;
+rule impI (p : o) (q : o) ({x : true p} a : true q) : true (imp p q) ;;
+rule mp (p : o) (q : o) (a : true (imp p q)) (b : true p) : true q ;;
+
+
+(* Quantifiers *)
+(* a type of individuals *)
+rule i type ;;
+
+rule all ({x : i} P : o) : o ;;
+rule allI ({x : i} P : o) ({x : i} a : true (P{x})) : true (all ({x} P{x})) ;;
+rule spec ({x : i} P : o) (a : true (all ({x} P{x}))) (M : i) : true (P{M}) ;;
+
+rule exists ({x : i} P : o) : o ;;
+rule existsI ({x : i} P : o) (M : i) (a : true (P{M})) : true (exists ({x} P{x})) ;;
+rule existsE ({x : i} P : o)
+             (R : o)
+             (a : true (exists ({x} P{x})))
+             ({x : i} {y : true (P{x})} b : true R)
+             : true R ;;
+
+end
+
+
+module MLTT =
+struct
+
+(* the universe of types, we call its elements "small types" *)
+rule U type ;;
+
+(* the decoding of small types to types *)
+rule El (t : U) type ;;
+
+(* The Empty type *)
+
+rule ⊥ : U ;;
+rule Empty type ;;
+rule El_bot : El ⊥ ≡ Empty ;;
+eq.add_rule (derive -> El_bot) ;;
+
+
+rule Empty_ind
+  ({x : Empty} C type) (a : Empty)
+  : C{a} ;;
+
+(* Binary sums *)
+
+rule plus (a : U) (b : U) : U ;;
+rule (+) (A type) (B type) type ;;
+rule El_plus (a : U) (b : U)
+  : El (plus a b) ≡ (El a) + (El b) ;;
+eq.add_rule El_plus ;;
+
+rule inl (A type) (B type) (s : A) : A + B ;;
+rule inr (A type) (B type) (t : B) : A + B ;;
+
+rule cases
+  (A type) (B type) ({x : A + B } C type) (s : A + B)
+  ({x : A} c₁ : C{inl  A B x}) ({x : B} c₂ : C{inr A B x})
+  : C{s} ;;
+
+rule plus_beta_1
+  (A type) (B type) ({x : A + B } C type) (a : A)
+  ({x : A} c₁ : C{inl  A B x}) ({x : B} c₂ : C{inr A B x})
+  : cases A B C (inl A B a) c₁ c₂ ≡ c₁{a} : C{inl A B a} ;;
+
+rule plus_beta_2
+  (A type) (B type) ({x : A + B } C type) (b : B)
+  ({x : A} c₁ : C{inl  A B x}) ({x : B} c₂ : C{inr A B x})
+  : cases A B C (inr A B b) c₁ c₂ ≡ c₂{b} : C{inr A B b} ;;
+
+(* Dependent sums *)
+
+rule σ (a : U) ({x : El a} P : U) : U ;;
+rule Σ (A type) ({x : A} B type) type ;;
+rule El_σ (a : U) ({x : El a} P : U)
+  : El (σ a ({x} P{x})) ≡ Σ (El a) ({x} El P{x}) ;;
+eq.add_rule El_σ ;;
+
+rule pair (A type) ({x : A} B type) (s : A) (t : B{s})
+  : Σ A B ;;
+
+rule π₁ (A type) ({x : A} B type) (s : Σ A B) : A ;;
+rule π₂ (A type) ({x : A} B type) (s : Σ A B) : B{π₁ A B s} ;;
+
+rule Σ_β₁ (A type) ({x : A} B type) (s : A) (t : B{s})
+  : π₁ A B (pair A B s t) ≡ s : A ;;
+
+rule Σ_β₂ (A type) ({x : A} B type) (s : A) (t : B{s})
+  : convert (π₂ A B (pair A B s t)) (congruence (B{π₁ A B (pair A B s t)}) (B{s}) (Σ_β₁ A B s t) )
+  ≡ t : B{s} ;;
+
+rule Σ_ext
+  (A type) ({x : A} B type) (s : Σ A B) (t : Σ A B)
+  (π₁ A B s ≡ π₁ A B t : A by ξ)
+  (convert (π₂ A B s) (congruence B{π₁ A B s} B{π₁ A B t} ξ) ≡ π₂ A B t : B{π₁ A B t} by ϑ)
+  : s ≡ t : Σ A B
+;;
+
+(* Dependent products *)
+
+rule π (a : U) ({x : El a} P : U) : U ;;
+rule Π (A type) ({x : A} B type) type ;;
+rule El_π (a : U) ({x : El a} P : U)
+  : El (π a ({x} P{x})) ≡ Π (El a) ({x} El P{x}) ;;
+eq.add_rule El_π ;;
+
+rule λ (A type) ({x : A} B type) ({x : A} e : B{x}) : Π A B ;;
+
+rule app (A type) ({x : A} B type) (f : Π A B) (s : A) : B{s} ;;
+
+rule Π_β (A type) ({x : A} B type) ({x : A} e : B{x}) (s : A)
+  : app A B (λ A B e) s ≡ e{s} : B{s} ;;
+rule Π_ext (A type) ({x : A} B type)
+           (f : Π A B) (g : Π A B)
+           ({x : A} app A B f x ≡ app A B g x : B{x})
+           :
+           f ≡ g : Π A B;;
+
+(* A base types for individuals *)
+rule base : U ;;
+
+end
+
+(* Transformation *)
+
+let transf = transformation
+| FOL.o -> (derive -> MLTT.U)
+| FOL.true -> (derive (t : MLTT.U) -> MLTT.El t)
+| FOL.false -> derive -> MLTT.⊥
+| FOL.falseE ->
+    derive (p : MLTT.U) (a : MLTT.El (MLTT.⊥))
+    ->
+    MLTT.Empty_ind ({x} MLTT.El p) a
+| FOL.conj ->
+    derive (p : MLTT.U) (q : MLTT.U)
+    -> MLTT.σ p ({x} q)
+end ;;
+
+(* Action of transformation*)
+
+map transf to FOL.true (FOL.false) ;;
+map transf to FOL.conj (FOL.false) (FOL.false) ;;
+map transf to ?? : FOL.true FOL.false  ;;
+
+derive (p : FOL.true FOL.false) -> map transf to FOL.falseE FOL.false p ;;
