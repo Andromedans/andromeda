@@ -55,7 +55,7 @@
 
 (* TT commands *)
 %token FRESH META CONVERT CONGRUENCE CONTEXT OCCURS DERIVE ABSTRACT REWRITE
-%token TRANSFORMATION
+%token TRANSFORMATION MAP TO
 
 (* Toplevel directives *)
 %token VERBOSITY
@@ -261,6 +261,9 @@ term_:
 
   | TRANSFORMATION lst=transformation_cases END
     { Sugared.Transformation lst }
+
+  | MAP transf=term TO e=term
+    { Sugared.TransformationAction (transf, e)}
 
   | e=app_term COLONQT bdry=ty_term
     { Sugared.BoundaryAscribe (e, bdry) }

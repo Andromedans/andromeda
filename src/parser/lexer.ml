@@ -26,6 +26,8 @@ let reserved = [
   ("judgement", MLJUDGEMENT) ;
   ("judgment", MLJUDGEMENT) ; (* for Egbert Rijke and other Americans *)
   ("let", LET) ;
+  ("map", MAP) ; (* For action of a type-theoretic transformation *)
+  ("to", TO) ; (* For action of a type-theoretic transformation *)
   ("match", MATCH) ;
   ("meta", META) ;
   ("mlforall", MLFORALL) ;

@@ -241,6 +241,7 @@ type error =
   | BoundaryExpected of value
   | JudgementExpected of value
   | JudgementOrBoundaryExpected of value
+  | TransformationExpected of value
   | EqualityCheckerExpected of value
   | DerivationExpected of value
   | ClosureExpected of value
@@ -510,6 +511,12 @@ let as_boundary ~at v =
      end
   | Derivation _ | Judgement _ | Transformation _ | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
     error ~at (BoundaryExpected v)
+
+let as_transformation ~at v =
+  match v with
+  | Transformation transf -> transf
+  | Derivation _ | Judgement _ | Boundary _  | External _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _ ->
+    error ~at (TransformationExpected v)
 
 let as_closure ~at = function
   | Closure f -> f
@@ -944,6 +951,8 @@ let print_error ~penv err ppf =
 
   | DerivationExpected v ->
      Format.fprintf ppf "expected a derivation but got %s" (name_of v)
+
+  | TransformationExpected v -> Format.fprintf ppf "expected a transformation but got %s" (name_of v)
 
   | EqualityCheckerExpected v ->
      Format.fprintf ppf "expected an equality checker but got %s" (name_of v)

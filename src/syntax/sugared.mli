@@ -74,6 +74,7 @@ and comp' =
   | Tuple of comp list
   | Match of comp * match_case list
   | Transformation of transformation_case list
+  | TransformationAction of comp * comp
   | Let of let_clause list  * comp
   | LetRec of letrec_clause list * comp
   | MLAscribe of comp * ml_schema

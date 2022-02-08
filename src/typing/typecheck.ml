@@ -42,6 +42,8 @@ let rec generalizable c =
     | AbstractAtom _
     | Match _
     | Transformation _
+    | TransformationActionJudgement _
+    | TransformationActionBoundary _
     | BoundaryAscribe _
     | AsDerivation _
     | TTConstructor _
@@ -252,7 +254,7 @@ and check_pattern ({Location.it=p'; at} as p) t =
         check_patterns ps ts >>= fun (ps, xts) ->
         return (locate ~at (Syntax.Patt_Tuple ps), xts)
 
-     | Mlty.(Prod _ | Judgement | Boundary | Derivation | String | Meta _ | Param _ |
+     | Mlty.(Prod _ | Judgement | Boundary | Derivation | Transformation | String | Meta _ | Param _ |
              Arrow _ | Handler _ | Apply _ | Ref _ | Exn) ->
         infer_pattern p >>= fun (p, t', xts) ->
         Tyenv.add_equation ~at t' t >>= fun () ->
@@ -460,6 +462,15 @@ let rec infer_comp ({Location.it=c; at} : Desugared.comp) : (Syntax.comp * Mlty.
   | Desugared.Transformation cases ->
     transformation_cases cases >>= fun (cases, t) ->
     return (locate ~at (Syntax.Transformation cases), t)
+
+  | Desugared.TransformationAction (transf, c) ->
+    check_comp transf Mlty.Transformation >>= fun transf ->
+    infer_comp c >>= fun (c,t) ->
+     Tyenv.as_judgement_or_boundary ~at t >>=
+       begin function
+         | Tyenv.Is_judgement -> return (locate ~at (Syntax.TransformationActionJudgement (transf, c)), Mlty.Judgement)
+         | Tyenv.Is_boundary -> return (locate ~at (Syntax.TransformationActionBoundary (transf, c)), Mlty.Boundary)
+       end
 
   | Desugared.BoundaryAscribe (c1, c2) ->
      check_comp c2 Mlty.Boundary >>= fun c2 ->

@@ -183,6 +183,20 @@ let rec comp {Location.it=c'; at} =
   | Syntax.Transformation cases ->
     transformation_cases cases
 
+  | Syntax.TransformationActionJudgement (transf, c) ->
+    comp_as_transformation transf >>= fun transf' ->
+    comp_as_judgement_abstraction c >>= fun abstr ->
+    Runtime.get_env >>= fun env ->
+    let sgn = Runtime.get_signature env in
+    Runtime.return_judgement (Nucleus.Transformation.act_judgement_abstraction sgn transf' abstr)
+
+  | Syntax.TransformationActionBoundary (transf, c) ->
+    comp_as_transformation transf >>= fun transf' ->
+    comp_as_boundary_abstraction c >>= fun abstr ->
+    Runtime.get_env >>= fun env ->
+    let sgn = Runtime.get_signature env in
+    Runtime.return_boundary (Nucleus.Transformation.act_boundary_abstraction sgn transf' abstr)
+
   | Syntax.BoundaryAscribe (c1, c2) ->
      comp_as_boundary_abstraction c2 >>= fun bdry ->
      check_judgement c1 bdry >>=
@@ -415,6 +429,8 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.MLBoundary _
   | Syntax.Raise _
   | Syntax.Transformation _
+  | Syntax.TransformationActionJudgement _
+  | Syntax.TransformationActionBoundary _
     ->
 
     comp c >>= fun v ->
@@ -649,6 +665,11 @@ and comp_as_boundary ~at c =
 (** Run [c] and convert the result to a boundary abstraction. *)
 and comp_as_eq_type_abstraction c =
   comp c >>= fun v -> return (Runtime.as_eq_type_abstraction ~at:c.Location.at v)
+
+(** Run [c] and convert the result to a transformation. *)
+and comp_as_transformation c =
+  comp c >>= fun v ->
+  return (Runtime.as_transformation ~at:c.Location.at v)
 
 and comp_as_atom c =
   comp c >>= fun v -> (as_atom ~at:c.Location.at v)

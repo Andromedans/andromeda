@@ -21,6 +21,7 @@ let apply (s : t) t =
         | Mlty.Judgement
         | Mlty.Boundary
         | Mlty.Derivation
+        | Mlty.Transformation
         | Mlty.String
         | Mlty.Param _ as t -> t
 

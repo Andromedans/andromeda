@@ -94,6 +94,7 @@ and comp' =
   | Natural of comp
   | MLBoundary of boundary
   | Transformation of transformation_case list
+  | TransformationAction of comp * comp
 
 and boundary =
   | BoundaryIsType

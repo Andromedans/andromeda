@@ -80,6 +80,8 @@ and comp' =
   | Natural of comp
   | MLBoundary of boundary
   | Transformation of transformation_case list
+  | TransformationActionJudgement of comp * comp
+  | TransformationActionBoundary of comp * comp
 
 (** The boundary of the conclusion of a premise or a rule *)
 and boundary =

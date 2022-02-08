@@ -1025,6 +1025,11 @@ let rec comp ctx {Location.it=c';at} =
      let cases = List.map (transformation_case ~at ctx) cases in
      locate (Desugared.Transformation cases)
 
+   | Sugared.TransformationAction (transf, c) ->
+     let transf = comp ctx transf
+     and c = comp ctx c in
+     locate (Desugared.TransformationAction (transf, c))
+
   | Sugared.BoundaryAscribe (c, bdry) ->
      let bdry = comp ctx bdry
      and c = comp ctx c in
