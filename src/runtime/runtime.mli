@@ -9,6 +9,7 @@ type value =
   | Judgement of Nucleus.judgement_abstraction (** A judgement *)
   | Boundary of Nucleus.boundary_abstraction   (** A judgement boundary (also known as a goal) *)
   | Derivation of Nucleus.derivation           (** A hypothetical derivation *)
+  | Transformation of Nucleus.transformation
   | External of external_value                 (** An external ML value *)
   | Closure of (value,value) closure           (** An ML function *)
   | Handler of handler                         (** Handler value *)
@@ -106,6 +107,9 @@ val as_boundary_abstraction : at:Location.t -> value -> Nucleus.boundary_abstrac
 (** Convert, or fail with [BoundaryExpected] *)
 val as_boundary : at:Location.t -> value -> Nucleus.boundary
 
+(** Convert, or fail with [TransformationExpected] *)
+val as_transformation: at:Location.t -> value -> Nucleus.transformation
+
 (** Convert, or fail with [ClosureExpected] *)
 val as_closure : at:Location.t -> value -> (value,value) closure
 
@@ -182,6 +186,7 @@ type error =
   | BoundaryExpected of value
   | JudgementExpected of value
   | JudgementOrBoundaryExpected of value
+  | TransformationExpected of value
   | EqualityCheckerExpected of value
   | DerivationExpected of value
   | ClosureExpected of value
@@ -233,6 +238,8 @@ val return_unit : value comp
 val return_judgement : Nucleus.judgement_abstraction -> value comp
 
 val return_boundary : Nucleus.boundary_abstraction -> value comp
+
+val return_transformation : Nucleus.transformation -> value comp
 
 val return_closure : (value -> value comp) -> value comp
 

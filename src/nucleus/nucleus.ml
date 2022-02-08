@@ -193,6 +193,8 @@ let rewrite_judgement = Rewrite.judgement
 let rewrite_is_type = Rewrite.is_type
 let rewrite_is_term = Rewrite.is_term
 
+module Transformation = Transformation
+
 let print_is_term = Nucleus_print.is_term
 let print_is_type = Nucleus_print.is_type
 let print_eq_term = Nucleus_print.eq_term

@@ -73,6 +73,8 @@ and comp' =
   | List of comp list
   | Tuple of comp list
   | Match of comp * match_case list
+  | Transformation of transformation_case list
+  | TransformationAction of comp * comp
   | Let of let_clause list  * comp
   | LetRec of letrec_clause list * comp
   | MLAscribe of comp * ml_schema
@@ -118,6 +120,8 @@ and handle_case =
   | CaseExc of exception_case (* raise p -> c *)
 
 and match_case = pattern * comp option * comp
+
+and transformation_case = Name.path * comp
 
 and exception_case = match_case
 

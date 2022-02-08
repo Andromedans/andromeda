@@ -132,7 +132,7 @@ let rec whnf ctx s = function
      | None -> t
      end
 
-  | Mlty.(Judgement | Boundary | Derivation | String | Param _ | Prod _ | Arrow _ |
+  | Mlty.(Judgement | Boundary | Derivation | Transformation | String | Param _ | Prod _ | Arrow _ |
      Handler _ | Ref _ | Exn) as t -> t
 
 (** Unify types [t] and [t'] under current substitition [s],
@@ -147,6 +147,7 @@ let rec unifiable ctx s t t' =
   | Mlty.(Judgement, Judgement)
   | Mlty.(Boundary, Boundary)
   | Mlty.(Derivation, Derivation)
+  | Mlty.(Transformation, Transformation)
   | Mlty.(String, String)
   | Mlty.(Exn, Exn) ->
      Some s
@@ -200,7 +201,7 @@ let rec unifiable ctx s t t' =
         fold s ts ts'
      end
 
-  | Mlty.(Judgement | Boundary | Derivation | String | Ref _ | Exn | Prod _ |
+  | Mlty.(Judgement | Boundary | Derivation | Transformation | String | Ref _ | Exn | Prod _ |
      Param _ | Arrow _ | Handler _ | Apply _), _ ->
      None
 
@@ -230,7 +231,7 @@ let as_judgement_or_boundary ~at t env =
   | Mlty.Meta _ ->
      Mlty.error ~at Mlty.UninferrableExpression
 
-  | Mlty.(Derivation | String | Ref _ | Exn |  Param _ | Handler _ | Prod _ | Arrow _ | Apply _) ->
+  | Mlty.(Derivation | Transformation | String | Ref _ | Exn |  Param _ | Handler _ | Prod _ | Arrow _ | Apply _) ->
      Mlty.(error ~at (JudgementOrBoundaryExpected t))
 
 let as_derivation_or_function ~at t env =
@@ -246,7 +247,7 @@ let as_derivation_or_function ~at t env =
      and t2 = Mlty.fresh_type () in
      (add_equation ~at t (Mlty.Arrow (t1, t2)) >>= fun () -> return (Is_function (t1, t2))) env
 
-  | Mlty.(Judgement | Boundary | String | Ref _ | Exn | Param _ | Handler _ | Prod _ | Apply _) ->
+  | Mlty.(Judgement | Boundary | Transformation | String | Ref _ | Exn | Param _ | Handler _ | Prod _ | Apply _) ->
      Mlty.(error ~at (DerivationOrFunctionExpected t))
 
 let as_handler ~at t env =
@@ -263,7 +264,7 @@ let as_handler ~at t env =
            | None -> assert false
      end
 
-  | Mlty.(Judgement | Boundary | Derivation | String | Ref _ | Exn |  Param _ |
+  | Mlty.(Judgement | Boundary | Derivation | Transformation | String | Ref _ | Exn |  Param _ |
      Prod _ | Arrow _ | Apply _) ->
      Mlty.(error ~at (HandlerExpected t))
 
@@ -280,7 +281,7 @@ let as_ref ~at t env =
            | None -> assert false
      end
 
-  | Mlty.(Judgement | Boundary | Derivation | String | Param _ | Prod _ | Handler _ |
+  | Mlty.(Judgement | Boundary | Derivation | Transformation | String | Param _ | Prod _ | Handler _ |
      Arrow _ | Apply _ | Exn) ->
      Mlty.(error ~at (RefExpected t))
 

@@ -131,6 +131,8 @@ type congruence_argument =
 *)
 type 'a indices = 'a list
 
+type transformation = derivation Ident.map
+
 type error =
   | InvalidInstantiation
   | InvalidAbstraction

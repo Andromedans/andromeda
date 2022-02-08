@@ -79,6 +79,9 @@ and comp' =
   | Context of comp
   | Natural of comp
   | MLBoundary of boundary
+  | Transformation of transformation_case list
+  | TransformationActionJudgement of comp * comp
+  | TransformationActionBoundary of comp * comp
 
 (** The boundary of the conclusion of a premise or a rule *)
 and boundary =
@@ -107,6 +110,8 @@ and handler = {
 and exception_case = match_case
 
 and match_case = pattern * comp option * comp
+
+and transformation_case = Ident.t * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = pattern list * pattern option * comp

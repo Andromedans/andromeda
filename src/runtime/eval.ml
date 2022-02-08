@@ -27,7 +27,7 @@ let as_bool ~at v =
      else
      Runtime.(error ~at (BoolExpected v))
 
-  | Runtime.(Tag (_, _::_) | Exc _ | Judgement _ | Boundary _ | Derivation _ | External _ |
+  | Runtime.(Tag (_, _::_) | Exc _ | Judgement _ | Boundary _ | Derivation _ | Transformation _ | External _ |
              Closure _ | Handler _ | Tuple _ | Ref _ | String _) ->
      Runtime.(error ~at (BoolExpected v))
 
@@ -180,6 +180,23 @@ let rec comp {Location.it=c'; at} =
      comp c >>=
      match_cases ~at cases comp
 
+  | Syntax.Transformation cases ->
+    transformation_cases cases
+
+  | Syntax.TransformationActionJudgement (transf, c) ->
+    comp_as_transformation transf >>= fun transf' ->
+    comp_as_judgement_abstraction c >>= fun abstr ->
+    Runtime.get_env >>= fun env ->
+    let sgn = Runtime.get_signature env in
+    Runtime.return_judgement (Nucleus.Transformation.act_judgement_abstraction sgn transf' abstr)
+
+  | Syntax.TransformationActionBoundary (transf, c) ->
+    comp_as_transformation transf >>= fun transf' ->
+    comp_as_boundary_abstraction c >>= fun abstr ->
+    Runtime.get_env >>= fun env ->
+    let sgn = Runtime.get_signature env in
+    Runtime.return_boundary (Nucleus.Transformation.act_boundary_abstraction sgn transf' abstr)
+
   | Syntax.BoundaryAscribe (c1, c2) ->
      comp_as_boundary_abstraction c2 >>= fun bdry ->
      check_judgement c1 bdry >>=
@@ -196,7 +213,7 @@ let rec comp {Location.it=c'; at} =
 
         | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-        | Runtime.(Derivation _ | External  _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+        | Runtime.(Derivation _ | Transformation _ | External  _ | Closure _ | Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
            Runtime.(error ~at (JudgementOrBoundaryExpected v)))
 
   | Syntax.AbstractAtom (a, c) ->
@@ -207,7 +224,7 @@ let rec comp {Location.it=c'; at} =
 
              | Runtime.Boundary bdry -> Runtime.return_boundary (Nucleus.abstract_boundary a bdry)
 
-             | Runtime.(External _ | Closure _ | Derivation _| Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+             | Runtime.(External _ | Closure _ | Derivation _ | Transformation _| Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
                 Runtime.(error ~at (JudgementOrBoundaryExpected v))
            end
 
@@ -282,7 +299,7 @@ let rec comp {Location.it=c'; at} =
       | Runtime.Closure f ->
         comp c2 >>= fun v ->
         Runtime.apply_closure f v
-      | Runtime.(Judgement _ | Boundary _ | Derivation _ | External _ |  Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as h ->
+      | Runtime.(Judgement _ | Boundary _ | Derivation _ |Transformation _ | External _ |  Handler _ | Exc _ | Tag _ | Tuple _ | Ref _ | String _) as h ->
         Runtime.(error ~at (Inapplicable h))
     end
 
@@ -411,6 +428,9 @@ and check_judgement ({Location.it=c'; at} as c) bdry =
   | Syntax.Natural _
   | Syntax.MLBoundary _
   | Syntax.Raise _
+  | Syntax.Transformation _
+  | Syntax.TransformationActionJudgement _
+  | Syntax.TransformationActionBoundary _
     ->
 
     comp c >>= fun v ->
@@ -594,6 +614,19 @@ and match_op_case other (ps, ptopt, c) (Runtime.{args; checking} as op_args) =
     | Some vs -> List.fold_left (fun cmp v -> Runtime.add_bound v cmp) (comp c) vs
     | None -> other op_args
 
+and transformation_cases : Syntax.transformation_case list -> Runtime.value Runtime.comp  = fun cases ->
+    let transf = Nucleus.Transformation.empty in
+    Runtime.lookup_signature >>= fun sgn ->
+    let rec fold tr = function
+    | [] -> Runtime.return_transformation tr
+    | (s, d) :: cases' ->
+      comp_as_derivation d >>= fun der ->
+      let tr' = Nucleus.Transformation.add_rule sgn s der tr in
+      fold tr' cases'
+    in
+    fold transf cases
+
+
 (** Run [c] and convert the result to a derivation. *)
 and comp_as_derivation c =
   comp c >>= fun v -> return (Runtime.as_derivation ~at:c.Location.at v)
@@ -632,6 +665,11 @@ and comp_as_boundary ~at c =
 (** Run [c] and convert the result to a boundary abstraction. *)
 and comp_as_eq_type_abstraction c =
   comp c >>= fun v -> return (Runtime.as_eq_type_abstraction ~at:c.Location.at v)
+
+(** Run [c] and convert the result to a transformation. *)
+and comp_as_transformation c =
+  comp c >>= fun v ->
+  return (Runtime.as_transformation ~at:c.Location.at v)
 
 and comp_as_atom c =
   comp c >>= fun v -> (as_atom ~at:c.Location.at v)

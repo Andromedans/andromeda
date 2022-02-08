@@ -431,6 +431,13 @@ module Ctx = struct
     | Some info ->
        info
 
+   (* Get information about the given TT constructor. *)
+  let get_tt_constructor ~at pth ctx =
+   match find_name pth ctx with
+   | Some (TTConstructor (pth, arity)) -> pth, arity
+   | None |Some (Bound _ | Value _ | MLConstructor _ | Operation _ | Exception _) ->
+      error ~at (UnknownPath pth)
+
   (* Add a module to the current module. *)
   let add_ml_module ~at m mdl ctx =
     check_is_fresh_module ~at m ctx ;
@@ -1014,6 +1021,15 @@ let rec comp ctx {Location.it=c';at} =
      and cases = List.map (match_case ctx) cases in
      locate (Desugared.Match (c, cases))
 
+   | Sugared.Transformation cases ->
+     let cases = List.map (transformation_case ~at ctx) cases in
+     locate (Desugared.Transformation cases)
+
+   | Sugared.TransformationAction (transf, c) ->
+     let transf = comp ctx transf
+     and c = comp ctx c in
+     locate (Desugared.TransformationAction (transf, c))
+
   | Sugared.BoundaryAscribe (c, bdry) ->
      let bdry = comp ctx bdry
      and c = comp ctx c in
@@ -1398,6 +1414,13 @@ and when_guard ctx = function
   | Some c ->
      let c = comp ctx c in
      Some c
+
+(* Desugar a transformation case*)
+
+and transformation_case ~at ctx (sym, deriv) =
+   let (sym', _arity) =  Ctx.get_tt_constructor ~at sym ctx in
+   let deriv' = comp ctx deriv in
+   (sym', deriv')
 
 
 and match_op_case ~at ctx op (ps, pt, c) =
