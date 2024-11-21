@@ -1,0 +1,4 @@
+(library
+ (name parser)
+ (modules_without_implementation desugared sugared)
+ (libraries sedlex utils))
