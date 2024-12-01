@@ -1,3 +1,4 @@
 (library
  (name equality)
+ (wrapped false)
  (libraries utils nucleus))

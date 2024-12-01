@@ -1,4 +1,5 @@
 (library
  (name typing)
+ (wrapped false)
  (modules_without_implementation syntax)
  (libraries utils nucleus parser))

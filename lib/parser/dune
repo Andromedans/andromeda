@@ -1,4 +1,9 @@
+(menhir
+ (modules parser))
+
 (library
  (name parser)
+ (wrapped false)
+ (preprocess (pps sedlex.ppx))
  (modules_without_implementation desugared sugared)
- (libraries sedlex utils))
+ (libraries sedlex menhirLib utils))

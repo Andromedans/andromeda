@@ -11,6 +11,13 @@ let files = ref []
     be processed in interactive mode. *)
 let add_file quiet filename = (files := (filename, quiet) :: !files)
 
+(** Set the version via build info *)
+let version = match Build_info.V1.version () with
+| None -> "n/a"
+| Some v -> Build_info.V1.Version.to_string v
+
+let lib_dir = "/usr/lib/andromeda"
+
 (** Command-line options *)
 let options = Arg.align [
     ("-I",
@@ -60,7 +67,7 @@ the load path");
 
     ("-v",
      Arg.Unit (fun () ->
-         Format.printf "Andromeda %s (%s)@." Build.version Sys.os_type ;
+         Format.printf "Andromeda %s (%s)@." version Sys.os_type ;
          exit 0),
      " Print version information and exit");
 
@@ -75,7 +82,7 @@ the load path");
 
 (** Interactive toplevel *)
 let interactive_shell state =
-  Format.printf "Andromeda %s@ [https://www.andromeda-prover.org/]@." Build.version ;
+  Format.printf "Andromeda %s@ [https://www.andromeda-prover.org/]@." version ;
   let rec loop state =
     let state =
       try
@@ -126,7 +133,7 @@ let main =
          warn if it is not found. *)
        let executable_dir = Filename.dirname Sys.argv.(0) in
        let candidates = List.map (fun d -> Filename.concat d prelude)
-           [executable_dir; Build.lib_dir] in
+           [executable_dir; lib_dir] in
        try
          let f = List.find (fun f -> Sys.file_exists f) candidates in
          add_file true f
@@ -148,7 +155,7 @@ let main =
        let executable_dir = Filename.dirname Sys.argv.(0) in
        let dirs =
          List.map (fun d -> Filename.concat d "stdlib")
-           [executable_dir ; Build.lib_dir] in
+           [executable_dir ; lib_dir] in
        try
          let d = List.find (fun d -> Sys.(file_exists d && is_directory d)) dirs in
          cons_to_require d
