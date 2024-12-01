@@ -271,6 +271,7 @@ let head_symbol_type = function
   | Nucleus_types.TypeConstructor (c, _) -> Ident c
   | Nucleus_types.(TypeMeta (MetaFree {meta_nonce=n;_}, _)) -> Nonce n
   | Nucleus_types.(TypeMeta (MetaBound _, _)) -> raise (Fatal_error ("head symbol of a bound type metavariable does not exist"))
+
 (** Apply rap to a list of arguments *)
 let rap_apply rap args =
   let rec fold rap args =

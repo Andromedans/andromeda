@@ -64,7 +64,7 @@ let instantiate_bound asmp0 ~lvl asmp =
   | true ->
      let bound0 = Bound_set.map (fun k -> lvl + k) asmp0.bound_var
      and bound_var = Bound_set.remove lvl asmp.bound_var in
-     (** Meta-variables do not contain bound variables *)
+     (* Meta-variables do not contain bound variables *)
      let asmp0 = {asmp0 with bound_var = bound0}
      and asmp = {asmp with bound_var} in
      union asmp asmp0
@@ -109,13 +109,13 @@ and of_is_term ~lvl = function
      if k < lvl then empty else singleton_bound (k - lvl)
 
   | TermAtom {atom_nonce=atm; atom_type=ty} ->
-     (** XXX should we include the assumptions of ty? *)
+     (* XXX should we include the assumptions of ty? *)
      add_free_var atm ty empty
 
   | TermMeta (MetaBound _, _) -> assert false
 
   | TermMeta (MetaFree {meta_nonce=mv; meta_boundary=bdry}, ts) ->
-     (** XXX should we include the assumptions of bdry? *)
+     (* XXX should we include the assumptions of bdry? *)
      add_free_meta mv bdry (of_is_terms ~lvl ts)
 
   | TermConstructor (_, args) ->

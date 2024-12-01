@@ -592,7 +592,7 @@ and infer_spine ~at c_head cs =
        check_derivation ~at c_head cs
 
     | Tyenv.Is_function (u, v) ->
-       (** It's an ML application *)
+       (* It's an ML application *)
        begin match cs with
        | [] -> assert false
        | [c] ->

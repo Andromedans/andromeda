@@ -29,9 +29,9 @@ let rec is_type ~lvl metas = function
      end
 
   | TypeMeta (MetaFree _  as mv, es_schema) ->
-     (** The type of a meta-variable cannot contain any bound meta-variables, as that would mean
-         that we have an extension of a signature by a meta-variable, whose type depends on some
-         further extension (that we abstracted over). *)
+     (* The type of a meta-variable cannot contain any bound meta-variables, as that would mean
+        that we have an extension of a signature by a meta-variable, whose type depends on some
+        further extension (that we abstracted over). *)
      let es = List.map (fun e_schema -> is_term ~lvl metas e_schema) es_schema in
      Mk.type_meta mv es
 
@@ -49,7 +49,7 @@ and is_term ~lvl (metas : argument list) = function
      Mk.term_convert_join e asmp t
 
   | TermAtom _ as atm ->
-     (** The type of an atom cannot contain bound meta-variables. *)
+     (* The type of an atom cannot contain bound meta-variables. *)
      atm
 
   | TermMeta (MetaBound k, es_schema) ->
@@ -61,9 +61,9 @@ and is_term ~lvl (metas : argument list) = function
      end
 
   | TermMeta (MetaFree _ as mv, es_schema) ->
-     (** The type of a meta-variable cannot contain any bound meta-variables, as that would mean
-         that we have an extension of a signature by a meta-variable, whose type depends on some
-         further extension (that we abstracted over). *)
+     (* The type of a meta-variable cannot contain any bound meta-variables, as that would mean
+        that we have an extension of a signature by a meta-variable, whose type depends on some
+        further extension (that we abstracted over). *)
      let es = List.map (fun e_schema -> is_term ~lvl metas e_schema) es_schema in
      Mk.term_meta mv es
 
