@@ -1,7 +1,6 @@
 (executable
  (public_name "andromeda")
  (name "andromeda")
- (modules andromeda)
  (promote (until-clean) (into ..))
  (libraries utils nucleus equality parser typing runtime dune-build-info unix)
  (modes byte exe))
