@@ -4,3 +4,8 @@
  (promote (until-clean) (into ..))
  (libraries utils nucleus equality parser typing runtime dune-build-info unix)
  (modes byte exe))
+
+(install
+ (files (glob_files stdlib/*))
+ (section lib)
+ (package andromeda))
