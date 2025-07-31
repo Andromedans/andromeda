@@ -1,5 +1,11 @@
 require eq ;;
 
+require judgemental_equality_type;;
+
+require judgemental_equality_term;;
+
+
+
 rule Id (A type) (a : A) (b : A) type
 ;;
 
@@ -18,10 +24,29 @@ rule J
 
 rule J_β
   (A type)
+  (A' type)
   ({x y : A} {p : Id A x y} C type)
   ({x : A} c : C{x, x, refl A x})
   (a : A)
-  : J A C c a a (refl A a) ≡ c{a} : C{a, a, refl A a}
+  (a' : A')
+  (a'' : A)
+  (A' ≡ A by ξ)
+  (a' ≡  convert a (judgemental_equality_type.eq_type_sym A' A ξ) : A' by ζ)
+  (a' ≡  convert a'' (judgemental_equality_type.eq_type_sym A' A ξ) : A' by ρ)
+  (a'' ≡ a : A by ω)
+  :?
+  (* J A C c a a'' (refl A' a') ≡  c{a} :  C{a, a, refl A a} by ?? *)
+  (eq.add_locally (derive -> ξ) (fun () ->
+   eq.add_locally (derive -> ζ) (fun () ->
+   eq.add_locally (derive -> ω) (fun () ->
+   convert (J A C c a a'' (convert (refl A' a') (congruence (Id A' a' a') (Id A a a'') ξ ζ ρ)))
+    (congruence
+    (C{a, a'', (convert (refl A' a') (congruence (Id A' a' a') (Id A a a'') ξ ζ ρ)) })
+    (C{a, a, refl A a})
+    (judgemental_equality_term.eq_term_refl A a)
+    ω
+    (convert (congruence (refl A' a') (refl A a) ξ ζ) (congruence (Id A' a' a') (Id A a a'') ξ ζ ρ)))
+   ≡ c{a} : C{a, a, refl A a} by ??))))
 ;;
 
 eq.add_rule J_β
