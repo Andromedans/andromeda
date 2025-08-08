@@ -1,0 +1,31 @@
+<ul>
+  <li><a {% if page.navigation == "Andromeda 2" %}class="active"{% endif %}
+         href="{{ relBase }}index.html">Andromeda 2</a></li>
+  {% if page.andromeda_version >= 2 %}
+      <li><a {% if page.navigation == "install" %}class="active"{% endif %}
+             href="install.html">Installation</a></li>
+      <li><a {% if page.navigation == "Q & A" %}class="active"{% endif %}
+             href="answers.html">Q & A</a></li>
+    </ul>
+    <br>
+    <ul>
+      <li><a href="v1/index.html">Andromeda 1</a></li>
+    </ul>
+{% else %}
+    </ul>
+    <br>
+    <ul>
+      <li><a {% if page.navigation == "about" %}class="active"{% endif %}
+             href="index.html">Andromeda 1</a></li>
+      <li><a {% if page.navigation == "install" %}class="active"{% endif %}
+             href="install.html">Installation</a></li>
+      <li><a {% if page.navigation == "type-theory" %}class="active"{% endif %}
+             href="type-theory.html">Type theory</a></li>
+      <li><a {% if page.navigation == "meta-language" %}class="active"{% endif %}
+             href="meta-language.html">Meta-language</a></li>
+      <li><a {% if page.navigation == "examples" %}class="active"{% endif %}
+             href="examples.html">Examples</a></li>
+      <li><a {% if page.navigation == "code" %}class="active"{% endif %}
+             href="code.html">Code</a></li>
+     </ul>
+  {% endif %}

@@ -1,0 +1,5 @@
+## This file allows joining different accounts of a single person.
+## Cf for instance: git shortlog -nse. More details via: man git shortlog
+
+Christopher A. Stone <stone@cs.hmc.edu>              christopherastone <stone@cs.hmc.edu>
+Jason Gross <jgross@mit.edu>                         Jason Gross <t-jagro@microsoft.com>
