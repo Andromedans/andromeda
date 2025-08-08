@@ -1,67 +1,52 @@
 ---
-title: Andromeda proof assistant
-navigation: Andromeda 2
-andromeda_version: 2
+title: About Andromeda 2
+navigation: about
 layout: page
 ---
 
-### ICFP 2019 material
+Andromeda 2 is a proof checker for user-definable dependently-typed theories.
+It follows the design of [LCF](https://en.wikipedia.org/wiki/Logic_for_Computable_Functions)-style theorem provers:
 
-* [abstract, keynote slides (pdf), and demo file](http://math.andrej.com/2019/08/21/derivations-as-computations/)
-* [some answers to *sli.do* questions](answers.html)
+* There is an abstract datatype `judgement` whose values can only be constructed
+  by a *nucleus*, a small trusted component of the proof checker,
 
-### Introduction
-
-Information about the old Andromeda 1, an implementation of type theory with
-equality reflection, is available [*here*](v1/index.html).
-
-Andromeda 2 is currently under active development. Until better documentation
-will be available, the best way to learn about Andromeda 2 is by consulting the
-code examples found in
-[theories subdirectory](https://github.com/Andromedans/andromeda/tree/master/theories)
-and the [tests subdirectory](https://github.com/Andromedans/andromeda/tree/master/tests).
-
-The design of Andromeda follows the tradition of
-[LCF](https://en.wikipedia.org/wiki/Logic_for_Computable_Functions)-style theorem provers:
-
-* there is an abstract datatype of judgements,
-* all constructions of judgements are done by a trusted *nucleus* and directly correspond
-  to the application of inference rules of type theory,
-* the user interacts with the nucleus by writing programs in a high-level, statically
+* The user interacts with the nucleus by writing programs in a high-level, statically
   typed meta-language *Andromeda ML (AML)*.
 
-The nucleus does not perform any normalization (it cannot as the underlying type theory
-has no normal forms), unification, or perform proof search. These techniques can all be
-implemented on top of the nucleus in AML, and therefore cannot compute underivable
-judgments by design. Of course, they could fail or run forever because AML is a
-general-purpose programming language.
+* Normalization, unification, and other proof development techniques reside outside
+  the trusted nucleus. They are implemented in AML, or in some cases in OCaml.
+
+* Andromeda 2 uses algebraic effects and handlers as a control mechanism for directing
+  proof search.
 
 
-### History of the name
+## Developers
 
-Andromeda used to be called Brazil, as a consequence of discussions at the Institute for
-Advanced Study where we talked about "sending proofs to a far away place where they will
-check them independently". We thought of Brazil as a faraway place, but it later turned
-out it was not quite far enough. Martin Escardó suggested the name Andromeda. We hope that
-nobody will claim that our neighboring galaxy is a nearby place.
-
-### Developers
-
-* [Andrej Bauer](http://andrej.com/)
+* [Andrej Bauer](https://andrej.com/)
 * [Gaëtan Gilbert](https://github.com/SkySkimmer)
 * [Philipp G. Haselwarter](https://www.haselwarter.org/~philipp/)
-* [Anja Petković](https://anjapetkovic.com/)
+* [Anja Petković Komel](https://anjapetkovic.com/)
 * [Matija Pretnar](http://matija.pretnar.info/)
 * [Chris Stone](https://www.cs.hmc.edu/~stone/)
 
+## A bit of history
 
-### Travis Continuous Integration
+Andromeda 1 was first conceived by Andrej Bauer during the [Univalent
+Foundations of Mathematics](https://www.ias.edu/math/sp/univalent) 2012/13
+program at the [Institute for Advanced Study](https://www.ias.edu). The original
+idea was to use algebraic effects and handlers as a mechanism for implementing a
+proof checker for extensional type theory. In 2017 Andrej Bauer and Philipp
+Haselwarter implemented Andromeda 2, which allowed user-defined type theories,
+of which extensional type theory was just one example.
 
-The GitHub repository is linked to Travis CI. The current build status:
+In conversations with Vladimir Voevodsky about type theory and its role in
+formal proof checking, we would sometimes talk about “sending proofs to a far
+away place where they will check them independently, like Brazil”. Thus, in the
+beginning the name of the proof checker was Brazil. It later turned out Brazil
+was not quite far enough. Martin Escardó suggested the name Andromeda. We hope
+that nobody will claim that our neighboring galaxy is a nearby place.
 
-[![Build Status](https://api.travis-ci.org/Andromedans/andromeda.png?branch=master)](https://travis-ci.org/Andromedans/andromeda)
-
-### Support
+## Support
 
 This material is based upon work supported by the Air Force Office of Scientific Research,
 Air Force Materiel Command, USAF under Award No. FA9550-14-1-0096. Any opinions, findings,

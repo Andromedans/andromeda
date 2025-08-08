@@ -1,11 +1,13 @@
 ---
-title: The Andromeda meta-language
-navigation: meta-language
+title: Documentation
+navigation: documentation
 layout: page
 use_math: true
 ---
 
-Table of contents:
+**Warning (2025-08-08):** This documentation refers to an old Andromeda 1. It is essentially flawed in two regards: handlers have been simpliefied in Andromeda 2, and the underlying type theory is user-definable through the `rule` command. We are in the process of updating it. Until this warning is deleted, your best chance is to consult the `./theories` and `./stdlib` subdirectories.
+
+### Table of contents
 
 * [About the Andromeda meta-language](#about-the-andromeda-meta-language)
 * [ML-types](#ml-types)

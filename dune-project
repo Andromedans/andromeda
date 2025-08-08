@@ -18,6 +18,6 @@
  (source (github Andromedans/andromeda))
  (bug_reports "https://github.com/Andromedans/andromeda/issues")
  (homepage "https://github.com/Andromedans/andromeda")
- (synopsis "A generic proof checker for user-definable dependent type theories")
+ (synopsis "A proof checker for user-definable dependent type theories")
  (license "BSD-2-Clause")
  (depends (ocaml (>= 4.12.0)) dune dune-build-info menhir sedlex))

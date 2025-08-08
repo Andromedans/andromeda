@@ -2,8 +2,7 @@ kramdown:
   hard_wrap: false
   input: GFM
 
-title: Andromeda
-description: Type theory with equality reflection
-google_analytics: UA-64364355-1
-show_downloads: true
+title: Andromeda 2
+description: A proof checker for user-definable dependent type theories
+show_downloads: false
 theme: jekyll-theme-slate

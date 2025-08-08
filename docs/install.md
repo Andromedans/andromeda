@@ -1,36 +1,30 @@
 ---
 layout: page
 title: How to install Andromeda
-andromeda_version: 2
 navigation: "install"
 ---
 
-## Installation
+Andromeda is implemented in [OCaml](https://ocaml.org) and relies on the [OPAM](https://opam.ocaml.org) package manager
+for installation. Please make sure you have a recent working OCaml & OPAM.
 
-### Installation with OPAM
+Execute the following command to get and install Andromeda:
 
-The easiest way to install Andromeda is through the [Opam](http://opam.ocamlpro.com)
-package manager for OCaml. You can install Opam on your system following
-[these instructions](http://opam.ocaml.org/doc/Install.html). In case your operating
-system does not provide OCaml version >= 4.07, you can install it with `opam switch
-4.08.1`. Then simply add the Andromeda repo to opam, update and install Andromeda with
-these commands:
+    opam pin add andromeda git+https://github.com/Andromedans/andromeda
 
-    git clone https://github.com/Andromedans/andromeda
-    cd andromeda
-    opam update
-    opam pin add andromeda .    # for installation (confirm twice with "y")
-    opam upgrade                # to upgrade
+We have *not* tested the OPAM installation thoroughly. If you hit problems, please consider compiling Andromeda youself,
+as follows.
 
-### Building Andromeda
+### How to compile Andromeda
+
+If you would like to compile Andromeda yourself, follow these instructions.
 
 #### Prerequisites
 
-To build Andromeda, you need [OCaml 4.07](http://ocaml.org) or later (and quite possibly
-it works with earlier versions too), the
-[menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator and the
-[sedlex](https://www.lexifi.com/sedlex) unicode lexer. We recommend using
-[Opam](http://opam.ocamlpro.com) for installation of OCaml and dependencies.
+To build Andromeda, you need [OCaml 4.12](https://ocaml.org) or later (and quite possibly
+it works with earlier versions too) and several OCaml packages, which you can install by
+running
+
+    opam install dune dune-build-info menhir sedlex
 
 If you also install the [ledit](http://opam.ocaml.org/packages/ledit/ledit.2.03/) or
 [rlwrap](http://utopia.knoware.nl/~hlub/uck/rlwrap/#rlwrap) utility, the Andromeda
@@ -43,10 +37,21 @@ Checkout the Andromeda repository
     git clone git@github.com:Andromedans/andromeda.git
 
 or consider [forking it](https://github.com/Andromedans/andromeda#fork-destination-box) if
-you indent do contribute to the project.
+you indent do experiment with it, or contribute to the project.
 
-To build Andromeda type `make` at the command line. This will create the executable
-`andromeda.native`. You can run the tests in the `test` subfolder with `make test`.
+To build Andromeda, run the command
 
-The file `prelude.m31` contains basic definitions and is loaded when Andromeda is
-started (unless the option `--no-prelude` is given).
+    dune build
+
+in the `andromeda` folder. This will create the executable `./andromeda.exe`. You can also run tests with
+
+    dune runtest
+
+If you see no input, the tests passed.
+
+#### Usage
+
+You may run the compiled executable `andromeda.exe`. For basic usage and command-line options, run
+
+    ./andromeda.exe --help
+
