@@ -2,18 +2,33 @@ require eq;;
 
 rule (×) (A type) (B type) type ;;
 
-rule pair (A type) (B type) (a : A) (b : B) : A × B ;; 
+rule pair (A type) (B type) (a : A) (b : B) : A × B ;;
 
 rule fst (A type) (B type) (u : A × B) : A ;;
 rule snd (A type) (B type) (u : A × B) : B ;;
 
-rule β_fst (A type) (B type) (s : A) (t : B) : fst A B (pair A B s t) ≡ s : A ;;
+rule β_fst (A₁ type) (A₂ type)
+           (B₁ type) (B₂ type)
+           (s : A₂) (t : B₂)
+           (A₂ ≡ A₁ by ξ) (B₂ ≡ B₁ by ζ)
+           :?
+           (eq.add_locally (derive -> ξ) (fun () ->
+            (eq.add_locally (derive -> ζ) (fun () ->
+              fst A₁ B₁ (pair A₂ B₂ s t) ≡ s : A₁ by ?? )))) ;;
 eq.add_rule β_fst ;;
-rule β_snd (A type) (B type) (s : A) (t : B) : snd A B (pair A B s t) ≡ t : B ;;
+
+rule β_snd (A₁ type) (A₂ type)
+           (B₁ type) (B₂ type)
+           (s : A₂) (t : B₂)
+           (A₂ ≡ A₁ by ξ) (B₂ ≡ B₁ by ζ)
+           :?
+           (eq.add_locally (derive -> ξ) (fun () ->
+            (eq.add_locally (derive -> ζ) (fun () ->
+              snd A₁ B₁ (pair A₂ B₂ s t) ≡ t : B₁ by ?? )))) ;;
 eq.add_rule β_snd ;;
 
-rule ext (A type) (B type) 
-         (p : A × B) (q : A × B) 
+rule ext (A type) (B type)
+         (p : A × B) (q : A × B)
          (fst A B p ≡ fst A B q : A)
          (snd A B p ≡ snd A B q : B)
          : p ≡ q : A × B ;;

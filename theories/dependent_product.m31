@@ -6,14 +6,19 @@ rule λ (A type) ({x : A} B type) ({x : A} e : B{x}) : Π A B ;;
 
 rule app (A type) ({x : A} B type) (s : Π A B) (a : A) : B{a} ;;
 
-rule Π_β (A type) ({x : A} B type) ({x : A} s : B{x}) (a : A)
-  : app A B (λ A B s) a ≡ s{a} : B{a} ;;
-
+rule Π_β (A type) ({x:A} B type)
+         (A' type) ({x:A'} B' type)
+         ({x:A'} s : B'{x}) (a : A)
+         (A' ≡ A by ξ) ({x : A'} B'{x} ≡ B{convert x ξ} by ζ)
+         :?
+         (eq.add_locally (derive -> ξ) (fun () ->
+           eq.add_locally (derive (x : A') -> ζ{x}) (fun () ->
+           app A B (λ A' B' s) a ≡ s{a} : B{a} by ??
+           )));;
 eq.add_rule Π_β ;;
 
-rule Π_ext (A type) ({x : A} B type)
+rule Π_ext (A type) ({x:A} B type)
            (f : Π A B) (g : Π A B)
-           ({x : A} app A B f x ≡ app A B g x : B{x})
+           ({x:A} app A B f x ≡ app A B g x : B{x})
            : f ≡ g : Π A B ;;
-
 eq.add_rule Π_ext ;;

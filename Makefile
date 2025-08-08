@@ -16,7 +16,7 @@ SEDLEX=$(shell if [ "$(SEDLEX_VERSION)" \< "2.0" ] ; then echo "sedlex" ; else e
 # Use this to not die on all warnings
 #OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50 -use-ocamlfind -pkg menhirLib -pkg $(SEDLEX)
 
-OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg $(SEDLEX)
+OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50-70-32,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg $(SEDLEX)
 
 # The --strict flag prevents --explain, so we make a separate Makefile target to get
 # menhir explanations

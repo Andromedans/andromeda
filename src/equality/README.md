@@ -6,13 +6,13 @@ We support user-provided β-rules and extensionality-rules (these are inter-deri
 
 A term extensionality rule has the form
 
-    derive R P₁ ... Pᵢ A (x : A) (y : A) Q₁ ... Qⱼ -> x ≡ y : A
+    derive P₁ ... Pᵢ Q₁ ... Qⱼ (x : A) (y : A) E₁ ... Eₖ -> x ≡ y : A
 
 where:
 
 * the premises `P₁ ... Pᵢ` are type and term premises
-* the premises `Q₁ ... Qⱼ` are equation premises
-* the head meta-variables of the premises `P₁ ... Pᵢ` appear in `A` (fully η-expanded), so that the premises `P₁ ... Pᵢ` can be read off `A`.
+* the premises `Q₁ ... Qⱼ` and `E₁ ... Eₖ` are equation premises
+* the head meta-variables of the premises `P₁ ... Pᵢ` appear in `A` (fully η-expanded) linearly, so that the premises `P₁ ... Pᵢ` can be read off `A`.
 
 For example, the extensionality rule for functions is
 
@@ -38,14 +38,29 @@ For example, the extensionality rule for dependent sums is
 
 ### Computation rules
 
-A term β-rule has the form
+A term computation rule has the form
 
-    derive R P₁ ... Pᵢ -> e₁ ≡ e₂ : A
+    derive P₁ ... Pᵢ Q₁ ... Qⱼ -> e₁ ≡ e₂ : A
 
 where:
 
-* the head meta-variable of each premise appears in `e₁` (fully η-expanded), so that the premises can be read off `e₁`
-* `e₁` is not a bound variable
+* `Q₁ ... Qⱼ`are equational premises
+* the head meta-variable of each premise `P₁ ... Pᵢ` appears linearly in `e₁` (fully η-expanded), so that the premises can be read off `e₁`
+* `e₁` is not a bound variable or a metavariable
+
+
+A type β-rule has the form
+
+    derive R P₁ ... Pᵢ Q₁ ... Qⱼ -> A ≡ B
+
+where:
+
+* the premises `Q₁ ... Qⱼ` are equations
+* the premises `P₁ ... Pᵢ` are term and type premises (no equations)
+* the head meta-variable of each premise appears linearly in `A`, uninstantiated, so that
+  the premises can be read off `A`
+
+The usual β-rules should be linearized:
 
 For example, the β-rule for functions is:
 
@@ -59,13 +74,11 @@ For example, the β-rule for projections are:
            ->
            π₁ A B (pair A B a b) == a : A
 
-A type β-rule has the form
+The second should be linearized to
 
-    derive R P₁ ... Pᵢ -> A ≡ B
-
-where:
-
-* the premises `P₁ ... Pᵢ` are term and type premises (no equations)
-* the head meta-variable of each premise appears in `A`, uninstantiated, so that
-  the premises can be read off `A`
-
+    derive (A type) ({x : A} B type)
+          (A' type) ({x : A'} B' type)
+          (a : A') (b : B'{a})
+          (A' ≡ A by ξ) ({x : A'} B'{x} ≡ B{convert x ξ} by ζ)
+          ->
+          π₁ A B (convert (pair A' B' a b) (congruence (Σ A' B') (Σ A B) ξ ζ)) ≡ convert a ξ : A
