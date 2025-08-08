@@ -600,7 +600,9 @@ and comp_as_derivation c =
 
 (** Run [c] and convert the result to an type judgement. *)
 and comp_as_is_type c =
-  comp c >>= fun v -> return (Runtime.as_is_type ~at:c.Location.at v)
+  let bdry = Nucleus.(abstract_not_abstract form_is_type_boundary) in
+  check_judgement c bdry >>= fun j ->
+  return (Runtime.as_is_type ~at:c.Location.at (Runtime.mk_judgement j))
 
 (** Run [c] and convert the result to an term judgement. *)
 and comp_as_is_term c =
