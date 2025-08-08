@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+
+  {% include relBase.html %}
+  <head>
+    {% include meta.html %}
+    <title>{{page.title}}</title>
+    {% if page.use_math %}
+      {% include mathjax.html %}
+    {% endif %}
+  </head>
+
+  <body>
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+        {% include header.html %}
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    {% if page.use_math %}
+    <p style="display:none">{% include macros.html %}</p>
+    {% endif %}
+    <div id="main_content_wrap" class="outer">
+    <!-- NAVIGATION -->
+    <nav>{% include navigation.html %}</nav>
+
+      <section id="main_content" class="inner">
+      {{ content }}
+      </section>
+    </div>
+  </body>
+    {% include anchors.html %}
+</html>

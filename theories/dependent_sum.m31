@@ -1,18 +1,12 @@
 require eq ;;
 
-rule Σ (A type) ({x : A} B type) type
+rule Σ (A type) ({x : A} B type) type ;;
 
-rule pair (A type) ({x : A} B type) (a : A) (b : B{a})
-  : Σ A B
-;;
+rule pair (A type) ({x : A} B type) (a : A) (b : B{a}) : Σ A B ;;
 
-rule π₁ (A type) ({x : A} B type) (s : Σ A B)
-  : A
-;;
+rule π₁ (A type) ({x : A} B type) (s : Σ A B) : A ;;
 
-rule π₂ (A type) ({x : A} B type) (s : Σ A B)
-  : B{π₁ A B s}
-;;
+rule π₂ (A type) ({x : A} B type) (s : Σ A B) : B{π₁ A B s} ;;
 
 rule Σ_β₁ (A type) ({x : A} B type)
           (A' type) ({x : A'} B' type)
@@ -42,5 +36,4 @@ rule Σ_ext (A type) ({x:A} B type) (s : Σ A B) (t : Σ A B)
   : s ≡ t : Σ A B ;;
 eq.add_rule Σ_ext ;;
 
-eq.add_rule Σ_ext
-;;
+eq.add_rule Σ_ext ;;
