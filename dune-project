@@ -10,13 +10,14 @@
   "Andrej Bauer"
   "Gaëtan Gilbert"
   "Philipp G. Haselwarter"
+  "Anja Petković Komel"
   "Christopher A. Stone")
  (maintainers
-  "Philipp G. Haselwarter <philipp@haselwarter.org>"
-  "Luna Strah <strah.luna@gmail.com>")
+  "Luna Strah <strah.luna@gmail.com>"
+  "Philipp G. Haselwarter <philipp@haselwarter.org>")
  (source (github Andromedans/andromeda))
  (bug_reports "https://github.com/Andromedans/andromeda/issues")
  (homepage "https://github.com/Andromedans/andromeda")
- (synopsis "¸¸.•*¨*• A Prover for Type Theories à la Martin-Löf •*¨*•.¸¸")
+ (synopsis "A generic proof checker for user-definable dependent type theories")
  (license "BSD-2-Clause")
- (depends (ocaml (>= 4.07.0)) dune dune-build-info menhir sedlex))
+ (depends (ocaml (>= 4.12.0)) dune dune-build-info menhir sedlex))

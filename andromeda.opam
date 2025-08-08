@@ -4,13 +4,14 @@ version: "2.0"
 synopsis:
   "¸¸.•*¨*• A Prover for Type Theories à la Martin-Löf •*¨*•.¸¸"
 maintainer: [
-  "Philipp G. Haselwarter <philipp@haselwarter.org>"
   "Luna Strah <strah.luna@gmail.com>"
+  "Philipp G. Haselwarter <philipp@haselwarter.org>"
 ]
 authors: [
   "Andrej Bauer"
   "Gaëtan Gilbert"
   "Philipp G. Haselwarter"
+  "Anja Petković Komel"
   "Christopher A. Stone"
 ]
 license: "BSD-2-Clause"
