@@ -1,0 +1,1 @@
+let _ = let rec f x  = () in f ;;

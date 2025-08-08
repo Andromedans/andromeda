@@ -1,0 +1,28 @@
+(* Test generation of indices when fresh bound names are made *)
+rule A type ;;
+rule f (x : A) (y : A) : A ;;
+{a₀: A} {a : A} f a₀ a ;;
+rule a : A ;;
+{a₀: A} {a : A} f a₀ a ;;
+rule a₁ : A ;;
+{a₀: A} {a : A} f a₀ a ;;
+rule a₂ : A ;;
+rule a₃ : A ;;
+{a₀: A} {a : A} f a₀ a ;;
+{a₀: A} {a₄ : A} {a : A} f (f a₀ a₄) a ;;
+{a₀: A} {a4 : A} {a : A} f (f a₀ a4) a ;;
+rule a₄ : A ;;
+rule a₅ : A ;;
+rule a₆ : A ;;
+rule a₇ : A ;;
+rule a₈ : A ;;
+rule a₉ : A ;;
+{a₀: A} {a : A} f a₀ a ;;
+rule a₁₀ : A ;;
+{a₀: A} {a : A} f a₀ a ;;
+rule a₁1 : A ;;
+{a₀: A} {a : A} f (f a₁1 a₀) a ;;
+{a₀: A} {a₁₀ : A} f (f a₁1 a₀) a₁₀ ;;
+rule a₁₁ : A ;;
+{a₀: A} {a₁₀ : A} f (f a₁1 a₀) a₁₀ ;;
+{a₀: A} {a₁1 : A} f (f a₁1 a₀) a₁1 ;;

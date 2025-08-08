@@ -1,0 +1,137 @@
+require eq ;;
+
+(* Unit type *)
+rule unit type;;
+rule tt : unit;;
+rule unit_ext (x : unit) (y : unit): x ≡ y : unit;;
+
+eq.add_rule unit_ext;;
+
+(* Simple products *)
+
+rule (×) (X type) (Y type) type ;;
+rule pair (A type) (B type) (x : A) (y : B) : A × B ;;
+rule fst (A type) (B type) (_ : A × B) : A ;;
+rule snd (A type) (B type) (_ : A × B) : B ;;
+
+rule sym_ty (A type) (A' type) (A ≡ A') : A' ≡ A ;;
+
+rule β_fst (A type) (A' type)
+           (B type) (B' type)
+           (A' ≡ A by ξ) (B' ≡ B by ζ)
+           (x : A') (y : B')
+           :
+           fst A B (convert (pair A' B' x y) (congruence (A' × B') (A × B) ξ ζ)) ≡ (convert x ξ) : A
+           ;;
+
+rule β_snd (A type) (A' type)
+           (B type) (B' type)
+           (A' ≡ A by ξ) (B' ≡ B by ζ)
+           (x : A') (y : B')
+           :
+           snd A B (convert (pair A' B' x y) (congruence (A' × B') (A × B) ξ ζ)) ≡ (convert y ζ) : B
+           ;;
+
+rule prod_ext (A type) (B type) (u : A × B) (v : A × B)
+              (fst A B u ≡ fst A B v : A by ξ)
+              (snd A B u ≡ snd A B v : B by ζ)
+              :
+              u ≡ v : A × B  ;;
+
+eq.add_rule β_fst;;
+eq.add_rule β_snd;;
+eq.add_rule prod_ext;;
+
+rule U type;;
+rule V type;;
+rule p : U × V;;
+rule u : U;;
+rule v : V;;
+
+
+eq.normalize (fst U V (pair U V u v));;
+eq.normalize (snd U V (pair U V u v));;
+
+eq.prove (p ≡ pair U V (fst U V p) (snd U V p) : (U × V) by ??);;
+
+
+(* Test type is normalized before applying extensionality rules *)
+rule P type ;;
+rule P_eq_prodUV : P ≡ (U × V) ;;
+eq.add_rule (derive -> P_eq_prodUV) ;;
+rule p' : P ;;
+eq.prove (p' ≡ pair U V (fst U V p') (snd U V p') : P by ??);;
+
+rule unuseful (A type) (B type) : (A × B) ≡ U ;;
+eq.add_locally unuseful (fun () -> eq.compute (U × V)) ;;
+eq.compute (U × V) ;;
+
+
+(* Natural numbers *)
+
+rule ℕ type;;
+
+rule z : ℕ;;
+
+rule s (n : ℕ) : ℕ;;
+
+rule ℕ_ind
+  ({x : ℕ} C type)
+  (base : C{z})
+  ({n : ℕ} {c_n : C{n}} step : C{s n})
+  (k : ℕ)
+  : C{k}
+
+rule ℕ_β_z
+  ({x : ℕ} C type)
+  (base : C{z})
+  ({n : ℕ} {c_n : C{n}} step : C{s n})
+  : ℕ_ind C base step z == base : C{z}
+
+rule ℕ_β_s
+  ({x : ℕ} C type)
+  (base : C{z})
+  ({n : ℕ} {c_n : C{n}} step : C{s n})
+  (k : ℕ)
+  : ℕ_ind C base step (s k) == step { k, ℕ_ind C base step k } : C { s k };;
+
+eq.add_rule ℕ_β_s;;
+eq.add_rule ℕ_β_z;;
+
+
+let plus = derive (n : ℕ) (m : ℕ) -> ℕ_ind ({_} ℕ) n ({k : ℕ} {c_k : ℕ} s c_k) m ;;
+let foo = plus (z) (s z);;
+eq.normalize foo;;
+eq.compute foo ;;
+eq.normalize (ℕ_ind ({_} ℕ) z ({c_n _} s c_n) z);;
+eq.normalize (s (ℕ_ind ({_} ℕ) z ({c_n _} s c_n) z));;
+eq.prove (plus (s z) (s z) ≡ s (s z) : ℕ by ??) ;;
+
+
+rule weird (A type)
+           ({_ : A} B type)
+           (a : A)
+           (b : B{a})
+           (B{a} == A by ξ)
+           (_ :? eq.add_locally (derive -> ξ) (fun () -> a == b : A by ??))
+           type ;;
+
+let d = derive
+    (A type)
+    (B type)
+    ({a : A}{b : B} op : A)
+    (e : B)
+    ({a : A} op{a}{e} ≡ a : A by ξ)
+    (e' : B)
+    (e' ≡ e : B by η)
+    (x : A)
+    ->
+    eq.add_locally
+        (derive (y : A) -> ξ{y})
+        (fun () ->
+            eq.add_locally (derive -> η)
+             (fun () ->
+                eq.prove(op{x}{e'} ≡ x : A by ??)
+            )
+        )
+    ;;

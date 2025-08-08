@@ -1,0 +1,9 @@
+(alias
+ (name default)
+ (deps andromeda.install))
+
+(install
+ (section lib)
+ (package andromeda)
+ (files prelude.m31 (glob_files stdlib/*)))
+

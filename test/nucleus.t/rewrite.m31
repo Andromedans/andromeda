@@ -1,0 +1,42 @@
+rule A type ;;
+rule B (_ : A) type ;;
+rule A' type ;;
+rule A_eq_A' : A ≡ A' ;;
+rule A'_eq_A : A' == A ;;
+
+rule a : A ;;
+rule a' : A ;;
+rule a_eq_a' : a ≡ a' : A ;;
+rewrite (B a) a_eq_a' ;;
+let D = meta D :? {_:A} ?? type ;;
+rewrite (D{a}) a_eq_a' ;;
+
+rule C (X type) (x : X) : A ;;
+rewrite (C A a) A_eq_A' a_eq_a' ;;
+
+let E = meta E :? {_ : A} {_ : A} ?? : A ;;
+rule refl_A (x : A) : x == x : A ;;
+rewrite (E{a}{a'}) a_eq_a' (refl_A a');;
+
+rule Π (X type) ({_ : X} Y type) type
+rule B' (x : A') type
+rule β (x : A) :  B x ≡ B' (convert x A_eq_A') ;;
+rewrite ((Π A ({x : A} B x))) A_eq_A' ({x : A} β x);;
+
+rule F (X type) ({x : X} y : A) : A ;;
+let fa = rewrite (F A ({_ : A} a)) A_eq_A' ({x : A} a_eq_a')  ;;
+match fa with | (?e, F ?arg1 ?arg2) -> arg2 end ;;
+
+rule refl_tm (X type) (x : X) : x ≡ x : X ;;
+let der = derive
+            (M type)
+            (N type)
+            ({x : M}{y : N} op : M)
+            (m : M)
+            (m' : M)
+            (m' ≡ m : M by ξ)
+            (n : N)
+            ->
+            let (?e, _) = rewrite op{m'}{n} ξ (refl_tm N n) in
+            e
+            ;;

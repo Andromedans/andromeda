@@ -1,0 +1,18 @@
+rule A type ;;
+rule B type ;;
+rule ξ : A ≡ B ;;
+
+let d = derive (x : A) -> convert x ξ ;;
+
+rule a : A ;;
+match d a with ?x : ?t -> (x, t) end ;;
+
+rule P (b : B) type ;;
+rule e (x : A) : P (convert x ξ) ;;
+match e a with ?x : P (_ : ?t) -> (x, t) end ;;
+
+rule b : B ;;
+rule f (x : A) : convert x ξ ≡  b : B ;;
+match f a with (_ : ?t) ≡ (_ : ?u) : _ -> (t, u) end ;;
+
+match (convert a ξ) with (_ : ?t) -> t end ;;
