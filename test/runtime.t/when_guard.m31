@@ -1,0 +1,17 @@
+let a = "a" in
+   match "b" with
+   | ?x when ML.false -> "problem"
+   | _ -> a
+   end
+;;
+
+match [[]] with
+| ?s when (match s with [[]] -> ML.true | _ -> ML.false end) -> "yes"
+| _ -> "no"
+end
+;;
+
+match [] with
+| ?s when (match s with [[]] -> ML.true | _ -> ML.false end) -> "yes"
+| _ -> "no"
+end

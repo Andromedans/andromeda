@@ -1,0 +1,14 @@
+rule A type ;;
+rule B type ;;
+rule C type ;;
+rule c : C ;;
+rule ζ : A ≡ B ;;
+rule ξ : C ≡ A ;;
+
+let test1 =
+  ({x : A} convert x ζ){convert c ξ}
+;;
+
+let test2 =
+  (derive (a : A) -> convert a ζ) (convert c ξ)
+;;

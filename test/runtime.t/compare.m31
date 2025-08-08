@@ -1,0 +1,13 @@
+module C =
+struct
+  external compare : mlforall a, a -> a -> ML.order = "compare"  ;;
+  compare ["foo"; "bar"; "baz"] ["foo"; "bar"; "qux"] ;;
+  compare ("foo", "bar", "baz") ("foo", "bar", "qux") ;;
+  compare ML.less ML.greater ;;
+  compare ML.greater ML.less ;;
+  compare [] [[]] ;;
+  compare ((), []) ((), [[]]) ;;
+  match compare "bar" "foo" with ML.less -> "a" | ML.equal -> "b" | ML.greater -> "c" end ;;
+  match compare "foo" "foo" with ML.less -> "a" | ML.equal -> "b" | ML.greater -> "c" end ;;
+  match compare "qux" "foo" with ML.less -> "a" | ML.equal -> "b" | ML.greater -> "c" end ;;
+end

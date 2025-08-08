@@ -1,0 +1,37 @@
+rule A type ;;
+rule B type ;;
+rule a : A ;;
+rule b : A ;;
+
+(* Evaluation of boundaries *)
+
+⁇ type ;;
+{x : A} {y : A} (⁇ type) ;;
+
+⁇ : A ;;
+{x : A} {y : A} ⁇ : A ;;
+
+A ≡ B by ?? ;;
+{x : A} {y : A} A ≡ B by ?? ;;
+
+a ≡ b : A by ?? ;;
+{x : A} a ≡ x : A by ?? ;;
+
+(* Boundary checking *)
+
+rule ξ : A ≡ B ;;
+
+try
+  a :? (?? : B)
+with
+  ML.coerce a _ -> convert a ξ
+end ;;
+
+rule P (_ : A) type ;;
+rule ζ (x : A) (y : A) : P x ≡ P y ;;
+
+try
+  a :? {x : A} P x ≡ P x by ??
+with
+  | ML.coerce _ _ -> {z : A} ζ z z
+end

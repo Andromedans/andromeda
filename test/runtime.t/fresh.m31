@@ -1,0 +1,10 @@
+rule A type ;;
+rule B (u : A) (v : A) type ;;
+
+let a = fresh a : A ;;
+let b = fresh _ : A ;;
+
+let c = fresh b : B a b ;;
+let d = fresh _ : B b (fresh α : A) ;;
+
+let e = fresh ( ++ ) : A ;;

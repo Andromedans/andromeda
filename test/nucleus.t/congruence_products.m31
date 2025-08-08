@@ -1,0 +1,31 @@
+rule eq_term_refl (A type) (a : A) : a ≡ a : A
+
+rule eq_type_refl (A type) : A ≡ A
+
+rule Π (A type) ({x : A} B type) type
+
+rule λ (A type) ({x : A} B type) ({x : A} f : B{x}) : Π A B
+
+rule app (A type) ({x : A} B type) (s : Π A B) (a : A) : B{a}
+
+rule A type
+rule a : A
+rule B (x : A) type
+rule f (x : A) : B x
+rule g : Π A ({x:A} B x) ;;
+
+congruence (Π A ({x:A} B x))
+           (Π A ({x:A} B x))
+           (eq_type_refl A)
+           ({x : A} eq_type_refl (B x)) ;;
+
+congruence (app A ({x:A} B x) g a) (app A ({x:A} B x) g a)
+           (eq_type_refl A) ({x:A} eq_type_refl (B x))
+           (eq_term_refl (Π A ({x:A} B x)) g) (eq_term_refl A a) ;;
+
+congruence (λ A ({x:A} B x) ({x:A} f x))
+           (λ A ({x:A} B x) ({x:A} f x))
+           (eq_type_refl A)
+           ({x : A} eq_type_refl (B x))
+           ({x : A} eq_term_refl (B x) (f x)) ;;
+
