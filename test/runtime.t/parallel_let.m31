@@ -1,0 +1,19 @@
+(* Test parallel lets. *)
+
+let cow =
+  let a = "x" in
+    let a = "y"
+    and b = a in
+    (a, b)
+;;
+
+let (?x,?y) = ("x","y")
+and ((?a,?b),?c) = (("a","b"), "c")
+;;
+
+let (_,?y') = ("x","y")
+and ((?a',_),?c') = (("a","b"), "c")
+;;
+
+let (?x'' :: _) = ["x";"y"]
+and [?a''; ?b''; ?c''] = ["a"; "b"; "c"]

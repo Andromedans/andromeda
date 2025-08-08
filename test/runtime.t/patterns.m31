@@ -1,0 +1,81 @@
+match "foo" with _ -> "bar" end ;;
+
+match "foo" with ?x -> x end ;;
+
+match ("foo", "bar", "baz") with (?x, ?y, ?z) -> (z, x, y) end ;;
+
+match "foo" with "bar" -> "wrong" | "foo" -> "right" end ;;
+
+let (?x, ?y, ?z) = ("foo", "bar", "baz") in (z, x, y) ;;
+
+match (["foo"; "bar"], "baz") with
+  | (?a, ?b) as (?x :: ?xs, ?c) -> (a, b, x, xs, c)
+end ;;
+
+match ML.Some "foo" with
+  | ML.Some ?s -> s
+  | ML.None -> "WRONG ANSWER"
+end ;;
+
+rule A type ;;
+rule a : A ;;
+rule P (_ : A) type ;;
+
+let test_judgement e =
+match e with
+  | ?x : ?X -> ([x; X], "isterm")
+  | ?X ≡ ?Y -> ([X; Y], "eqtype")
+  | ?X type -> ([X], "istype")
+  | ?x ≡ ?y : ?X -> ([x; y; X], "eqterm")
+  | {x : ?X} (?j :> judgement) -> ([x; X; j], "abstraction")
+end ;;
+
+test_judgement a ;;
+
+test_judgement A ;;
+
+test_judgement (P a) ;;
+
+rule B type ;;
+rule ξ : A ≡ B ;;
+
+test_judgement ξ ;;
+
+rule b : A ;;
+rule ζ : a ≡ b : A ;;
+
+test_judgement ζ ;;
+
+(* Test that when we invert a term equality we get terms of the type at the equality. *)
+test_judgement (convert ζ ξ) ;;
+
+test_judgement (convert a ξ) ;;
+
+test_judgement ({z : A} P z) ;;
+
+let test_boundary bdry =
+match bdry with
+  | ⁇ type -> ([], [], "istype boundary")
+  | ⁇ : ?X -> ([X], [], "isterm boundary")
+  | (?X ≡ ?Y by ⁇) as ?Θ -> ([X; Y], [Θ], "eqtype boundary")
+  | ?x ≡ ?y : ?X by ⁇ -> ([x; y; X], [], "eqterm boundary")
+  | {x : ?X} (?bdry :> boundary) -> ([x; X], [bdry], "abstraction boundary")
+end ;;
+
+test_boundary (⁇ type) ;;
+
+test_boundary (⁇ : A) ;;
+
+test_boundary (⁇ : P a) ;;
+
+test_boundary (A ≡ P a by ⁇) ;;
+
+test_boundary (a ≡ b : A by ⁇) ;;
+
+test_boundary ((convert a ξ) ≡ (convert b ξ) : B by ⁇) ;;
+
+test_boundary ({z : A} ⁇ : P z) ;;
+
+rule θ : B ≡ A ;;
+
+test_boundary ({z : B} ⁇ : P (convert z θ)) ;;

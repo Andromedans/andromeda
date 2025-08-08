@@ -1,0 +1,46 @@
+rule reflexivity
+   (X type) (x : X) :
+   x ≡ x : X
+;;
+
+rule symmetry
+   (X type) (x : X) (y : X)
+   (x ≡ y : X by α) :
+   y ≡ x : X
+;;
+
+rule transitivity
+   (X type) (x : X) (y : X) (z : X)
+   (x ≡ y : X by α) (y ≡ z : X by β) :
+   x ≡ z : X
+;;
+
+rule magic (A type) (a : A) (b : A) : a ≡ b : A ;;
+
+let eq =
+derive
+  (A type)
+  ({a : A} B type)
+  ({a : A} b₁ : B{a})
+  ({a : A} b₂ : B{a})
+  ({a : A} b₁{a} ≡ b₂{a} : B{a} by ξ)
+  (a₁ : A)
+  (a₂ : A)
+  (a₁ ≡ a₂ : A by α)
+->
+  let p = ξ{a₁} in
+  let q = congruence b₂{a₁} b₂{a₂} α in
+  let r = congruence B{a₂} B{a₁} (symmetry A a₁ a₂ α) in
+  let s = transitivity B{a₁} b₁{a₁} b₂{a₁} (convert b₂{a₂} r) p q in
+  s
+;;
+
+rule nat type ;;
+rule plus (m : nat) (n : nat) : nat ;;
+rule comm (m : nat) (n : nat) : plus m n ≡ plus n m : nat ;;
+rule Vec (X  type) (n : nat) type ;;
+rule u (X type) (n : nat) : Vec X n ;;
+rule j : nat ;;
+rule k : nat ;;
+
+eq nat ({n} Vec nat n) ({n} u nat n) ({n} u nat n) ({n} reflexivity (Vec nat n) (u nat n)) (plus j k) (plus k j) (comm j k) ;;

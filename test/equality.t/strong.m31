@@ -1,0 +1,47 @@
+require eq ;;
+
+rule N type ;;
+rule z : N ;;
+rule s (_ : N) : N ;;
+
+rule plus (_ : N) (_ : N) : N ;;
+rule plus_z (m : N) : plus m z ≡ m : N ;;
+rule plus_s (m : N) (n : N) : plus m (s n) ≡ s (plus m n) : N ;;
+
+rule times (_ : N) (_ : N) : N ;;
+rule times_z (m : N) : times m z ≡ z : N ;;
+rule times_s (m : N) (n : N) : times m (s n) ≡ plus (times m n) m : N ;;
+
+eq.add_rule plus_z ;;
+eq.add_rule plus_s ;;
+eq.add_rule times_z ;;
+eq.add_rule times_s ;;
+
+let one = s z ;;
+let two = s (s z) ;;
+let three = s (s (s z)) ;;
+let four = s three ;;
+let five = plus two three ;;
+let six = plus three three ;;
+
+eq.prove (plus three three ≡ plus two four : N by ??) ;;
+
+(* eq.prove (plus three three ≡ plus two three : N by ??) ;; *)
+
+eq.normalize (plus (s z) (s z)) ;;
+
+eq.normalize six ;;
+
+eq.compute six ;;
+
+eq.normalize (plus five six) ;;
+
+eq.prove (plus five six ≡ s (s (s (s (s (s (s (s (s (s (s z)))))))))) : N by ??) ;;
+
+eq.compute (plus five six) ;;
+
+eq.compute (times two (times six six)) ;;
+
+eq.prove (times five six ≡ plus five (times five five) : N by ??) ;;
+
+(* eq.prove (times five six ≡ plus five (times five four) : N by ??) ;; *)

@@ -1,0 +1,22 @@
+(* Test ML typing and derivations *)
+
+let cow f x = f x ;; (** cow is polymorphic *)
+
+let chicken (?f :> derivation) x y = f x y ;; (** f is a derivaton *)
+
+rule A type ;;
+rule a : A ;;
+rule B (x : A) (y : A) (z : A) type ;;
+rule s (x : A) (y : A) (z : A) : B x y z ;;
+
+let d = derive (x : A) (y : A) -> s x x y ;;
+
+chicken d a a ;;
+
+let e = derive ({x : A} {y : A} T type) (a : A) -> T{a}{a} ;;
+
+chicken e ;;
+
+chicken e ({x : A} {y : A} B x x y) a ;;
+
+e ({x y} B x x y) a ;;

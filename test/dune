@@ -1,2 +1,2 @@
-(test
- (name test_andromeda))
+(cram
+ (deps %{bin:andromeda}))

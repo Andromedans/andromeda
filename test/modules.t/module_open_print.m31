@@ -1,0 +1,12 @@
+module A =
+struct
+  rule X type
+  mltype cow = Cow | Bull
+end ;;
+
+A.X ;;
+A.Cow ;;
+
+open A ;;
+A.X ;;
+A.Cow

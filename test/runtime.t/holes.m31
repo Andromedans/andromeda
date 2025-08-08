@@ -1,0 +1,12 @@
+operation (?) : judgement;;
+
+with
+    | operation (?) : ML.Some (?bdry) -> meta hole :? bdry
+end ;;
+
+rule A type ;;
+rule B (_ : A) type ;;
+rule Σ (X type) ({_: X} Y type) type ;;
+
+B (?) ;;
+Σ (?) (?) ;;
