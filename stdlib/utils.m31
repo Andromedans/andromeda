@@ -3,53 +3,53 @@ require base
 (** Reverse a list *)
 let rev =
   let rec rev acc lst = match lst with
-    | [] → acc
-    | x :: tl → rev (x :: acc) tl
+    | [] -> acc
+    | ?x :: ?tl -> rev (x :: acc) tl
     end
   in
-  fun x → rev [] x
+  fun x -> rev [] x
 
 (** Fold over a list *)
 let rec fold f acc lst :> mlforall a b, (a -> b -> a) -> a -> list b -> a =
 match lst with
-  | [] → acc
-  | x :: tl → fold f (f acc x) tl
+  | [] -> acc
+  | ?x :: ?tl -> fold f (f acc x) tl
   end
 
 (** `list_map f l` applies `f` to each element of `l`  *)
 let rec list_map f l
-  :> mlforall α β, (α → β) → list α → list β
-  = let l = fold (fun acc x → f x :: acc) [] l in rev l
+  :> mlforall α β, (α -> β) -> list α -> list β
+  = let l = fold (fun acc x -> f x :: acc) [] l in rev l
 
 (** Find in an associative list. *)
-let rec assoc_find x lst :> mlforall a b, a → list (a * b) → ML.option b = match lst with
-  | [] → ML.None
-  | (x, v) :: _ → ML.Some v
-  | (_,_) :: lst → assoc_find x lst
+let rec assoc_find x lst :> mlforall a b, a -> list (a * b) -> ML.option b = match lst with
+  | [] -> ML.None
+  | (?x, ?v) :: _ -> ML.Some v
+  | (_, _) :: ?lst -> assoc_find x lst
   end
 
 (** Append two lists, reverse the first one *)
-let rev_append l1 l2 = fold (fun acc x → x :: acc) l2 l1
+let rev_append l1 l2 = fold (fun acc x -> x :: acc) l2 l1
 
 (** Append two lists *)
-let rec append l1 l2 :> mlforall α, list α → list α → list α =
+let rec append l1 l2 :> mlforall α, list α -> list α -> list α =
   match l1 with
-  | [] → l2
-  | x :: l1 → x :: (append l1 l2)
+  | [] -> l2
+  | ?x :: ?l1 -> x :: (append l1 l2)
   end
 
 (** Does an element appear in a list *)
-let rec mem x lst :> mlforall α, α → list α → ML.bool =
+let rec mem x lst :> mlforall α, α -> list α -> ML.bool =
   match lst with
-  | [] → ML.false
-  | y :: _ when base.(=) x y → ML.true
-  | _ :: lst → mem x lst
+  | [] -> ML.false
+  | ?y :: _ when base.(=) x y -> ML.true
+  | _ :: ?lst -> mem x lst
   end
 
 (* Update a key-value in an associative list, fail if the key is not present. *)
 let assoc_update x v lst =
   let rec aux acc lst = match lst with
-    | (x, _) :: lst → rev_append acc ((x, v) :: lst)
-    | y :: lst → aux (y :: acc) lst
+    | (?x, _) :: ?lst -> rev_append acc ((x, v) :: lst)
+    | ?y :: ?lst -> aux (y :: acc) lst
     end
   in aux [] lst

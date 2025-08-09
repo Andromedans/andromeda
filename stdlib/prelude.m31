@@ -1,7 +1,4 @@
 require base
-(* require "std/equal.m31" *)
-
-(* A global operation (?) to make holes and a metavariable is generated with the correct boundary *)
 
 operation (?) : judgement;;
 
