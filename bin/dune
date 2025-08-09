@@ -2,6 +2,7 @@
  (public_name "andromeda")
  (name "andromeda")
  (promote (until-clean) (into ..))
+ (flags :standard -warn-error -27)
  (libraries utils nucleus equality parser typing runtime dune-build-info unix)
- (modes byte exe))
+ (modes exe))
 

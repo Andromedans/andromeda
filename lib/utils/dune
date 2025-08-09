@@ -1,4 +1,8 @@
 (library
  (name utils)
  (wrapped false)
- (libraries))
+ (libraries dune-site))
+
+(generate_sites_module
+ (module files)
+ (sites andromeda))

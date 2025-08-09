@@ -3,8 +3,7 @@
 (** Possible locations of prelude file *)
 type prelude =
   | PreludeNone              (* do not use a prelude, turned on by the --no-prelude *)
-  (* look in the default location, which is the $(LIB_DIR) or next to the executable *)
-  | PreludeDefault of string
+  | PreludeDefault of string (* look in the default location, as configured during installation *)
   | PreludeFile of string    (* look for prelude in a specific location *)
 
 (** Location of the prelude file *)

@@ -24,7 +24,7 @@ To build Andromeda, you need [OCaml 4.12](https://ocaml.org) or later (and quite
 it works with earlier versions too) and several OCaml packages, which you can install by
 running
 
-    opam install dune dune-build-info menhir sedlex
+    opam install dune dune-build-info dune-site menhir sedlex
 
 If you also install the [ledit](http://opam.ocaml.org/packages/ledit/ledit.2.03/) or
 [rlwrap](http://utopia.knoware.nl/~hlub/uck/rlwrap/#rlwrap) utility, the Andromeda

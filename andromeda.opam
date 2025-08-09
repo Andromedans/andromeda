@@ -3,6 +3,7 @@ opam-version: "2.0"
 version: "2.0"
 synopsis: "A proof checker for user-definable dependent type theories"
 maintainer: [
+  "Andrej Bauer <andrej.bauer@andrej.com>"
   "Luna Strah <strah.luna@gmail.com>"
   "Philipp G. Haselwarter <philipp@haselwarter.org>"
 ]
@@ -14,12 +15,13 @@ authors: [
   "Christopher A. Stone"
 ]
 license: "BSD-2-Clause"
-homepage: "https://github.com/Andromedans/andromeda"
+homepage: "https://www.andromeda-prover.org"
 bug-reports: "https://github.com/Andromedans/andromeda/issues"
 depends: [
   "ocaml" {>= "4.12.0"}
   "dune" {>= "3.12"}
   "dune-build-info"
+  "dune-site"
   "menhir"
   "sedlex"
   "odoc" {with-doc}
