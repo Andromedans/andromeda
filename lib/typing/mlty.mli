@@ -60,7 +60,6 @@ type error =
   | TypeMismatch of ty * ty
   | HandlerExpected of ty
   | RefExpected of ty
-  | DynamicExpected of ty
   | UnknownExternal of string
   | ValueRestriction
   | Ungeneralizable of param list * ty

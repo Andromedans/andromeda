@@ -151,29 +151,9 @@ module Builtin : sig
   val equal_type_name : t
   val equal_type : path
 
-  (** The name of the [coercible] type *)
-  val coercible_ty_name : t
-  val coercible_ty : path
-
-  (** The name of the [Coercible] constructor *)
-  val coercible_constructor_name : t
-  val coercible_constructor : path
-
-  (** The name of the [Convertible] constructor *)
-  val convertible_name : t
-  val convertible : path
-
-  (** The name of the [NotCoercible] constructor *)
-  val notcoercible_name : t
-  val notcoercible : path
-
   (** The name of the [coerce] operation *)
   val coerce_name : t
   val coerce : path
-
-  (** The name of the [hypotheses] dynamic variable *)
-  val hypotheses_name : t
-  val hypotheses : path
 
   (** The name of the [EqualityCheckerException] exception *)
   val eqchk_excs_name : t

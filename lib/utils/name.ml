@@ -122,23 +122,8 @@ module Builtin = struct
   let equal_type_name = mk_name "equal_type"
   let equal_type = in_ml equal_type_name
 
-  let coercible_ty_name = mk_name "coercible"
-  let coercible_ty = in_ml coercible_ty_name
-
-  let coercible_constructor_name = mk_name "Coercible"
-  let coercible_constructor = in_ml coercible_constructor_name
-
-  let convertible_name = mk_name "Convertible"
-  let convertible = in_ml convertible_name
-
-  let notcoercible_name = mk_name "NotCoercible"
-  let notcoercible = in_ml notcoercible_name
-
   let coerce_name = mk_name "coerce"
   let coerce = in_ml coerce_name
-
-  let hypotheses_name = mk_name "hypotheses"
-  let hypotheses = in_ml hypotheses_name
 
   let eqchk_excs_name = mk_name "EqualityCheckerException"
   let eqchk_excs = in_ml eqchk_excs_name

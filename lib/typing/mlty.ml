@@ -70,7 +70,6 @@ type error =
   | TypeMismatch of ty * ty
   | HandlerExpected of ty
   | RefExpected of ty
-  | DynamicExpected of ty
   | UnknownExternal of string
   | ValueRestriction
   | Ungeneralizable of param list * ty
@@ -196,10 +195,6 @@ let print_error err ppf =
 
   | RefExpected t ->
     Format.fprintf ppf "expected a reference but got@ @[<hov>%t@]"
-      (print_ty ~penv t)
-
-  | DynamicExpected t ->
-    Format.fprintf ppf "expected a dynamic but got@ @[<hov>%t@]"
       (print_ty ~penv t)
 
   | UnknownExternal s ->
