@@ -1,18 +1,19 @@
 (** Configuration parameters *)
 
-type prelude =
-  | PreludeNone
-  | PreludeDefault of string
-  | PreludeFile of string
+let stdlibDir : string option =
+  match SharedFiles.Sites.stdlib with
+  | [] -> None
+  | d :: _ -> Some d
 
-let prelude_file = ref (PreludeDefault "prelude.m31")
+let prelude_file =
+  ref (match stdlibDir with
+       | None -> None
+       | Some dir -> Some (Filename.concat dir "prelude.m31"))
 
-type stdlib =
-  | StdlibNone
-  | StdlibDefault of string
-  | StdlibDirectory of string
-
-let stdlib_directory = ref (StdlibDefault "stdlib")
+let stdlib_directory =
+  ref (match stdlibDir with
+       | None -> None
+       | Some dir -> Some dir)
 
 let interactive_shell = ref true
 

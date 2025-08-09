@@ -9,6 +9,8 @@
 
  (name "andromeda")
 
+ (sites (share stdlib))
+
  (authors
   "Andrej Bauer"
   "Gaëtan Gilbert"

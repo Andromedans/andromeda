@@ -1,10 +1,10 @@
-  $ andromeda --prelude prelude.m31 --stdlib stdlib abstract_type.m31
+  $ andromeda abstract_type.m31
   ML type cow declared.
   ML type pretty declared.
   val f :> pretty cow → pretty cow = <function>
   - :> list (pretty cow → pretty cow) = <function> :: <function> :: []
-  $ andromeda --prelude prelude.m31 --stdlib stdlib local_let_rec.m31
-  $ andromeda --prelude prelude.m31 --stdlib stdlib modules.m31
+  $ andromeda local_let_rec.m31
+  $ andromeda modules.m31
   ML type cow declared.
   Processing module A
   ML type A.cow declared.
@@ -15,7 +15,7 @@
   val x :> cow = Cow "x"
   val u :> cow * A.cow * B.cow = (Cow "x", A.Cow "A.x", B.Cow "A.y")
   val v :> cow * A.cow * B.cow = (Bull, A.Bull, B.Bull)
-  $ andromeda --prelude prelude.m31 --stdlib stdlib typedefs.m31
+  $ andromeda typedefs.m31
   ML type test_empty declared.
   ML type test_unit1 declared.
   ML type test_unit2 declared.

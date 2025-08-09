@@ -1,12 +1,12 @@
-  $ andromeda --prelude prelude.m31 --stdlib stdlib bad_numeral.m31
+  $ andromeda bad_numeral.m31
   File "bad_numeral.m31", line 1, characters 11-29:
   Parsing error: bad numeral 4611686018427387904
   [1]
-  $ andromeda --prelude prelude.m31 --stdlib stdlib malformed-unicode.m31
+  $ andromeda malformed-unicode.m31
   File "malformed-unicode.m31", line 1, characters 7-7:
   Parsing error: malformed UTF8
   [1]
-  $ andromeda --prelude prelude.m31 --stdlib stdlib subscripts.m31
+  $ andromeda subscripts.m31
   Rule A is postulated.
   Rule f is postulated.
   - :> judgement = ⊢ {a₀ : A} {a : A} f a₀ a : A
@@ -35,7 +35,7 @@
   Rule a₁₁ is postulated.
   - :> judgement = ⊢ {a₀ : A} {a₁₂ : A} f (f a₁1 a₀) a₁₂ : A
   - :> judgement = ⊢ {a₀ : A} {a₁₂ : A} f (f a₁₂ a₀) a₁₂ : A
-  $ andromeda --prelude prelude.m31 --stdlib stdlib unclosed_comment.m31
+  $ andromeda unclosed_comment.m31
   File "unclosed_comment.m31", line 1 character 1 - line 2 character 0:
   Parsing error: input ended inside unclosed comment
   [1]

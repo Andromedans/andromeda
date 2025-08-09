@@ -1,4 +1,4 @@
-  $ andromeda --prelude prelude.m31 --stdlib stdlib abstract_atoms.m31
+  $ andromeda abstract_atoms.m31
   Rule A is postulated.
   - :> judgement = ⊢ {x : A} x : A
   - :> boundary = ⊢ {_ : A} ⁇ : A
@@ -9,7 +9,7 @@
   val atom :> judgement = x₁ : A ⊢ x₁ : A
   val bdry :> boundary = ⊢ {_ : A} ⁇ : A
   val abstr2 :> boundary = ⊢ {_ : A} {_ : A} ⁇ : A
-  $ andromeda --prelude prelude.m31 --stdlib stdlib compare.m31
+  $ andromeda compare.m31
   Processing module C
   external compare : mlforall α, α → α → ML.order = "compare"
   - :> ML.order = ML.less
@@ -21,7 +21,7 @@
   - :> mlstring = "a"
   - :> mlstring = "b"
   - :> mlstring = "c"
-  $ andromeda --prelude prelude.m31 --stdlib stdlib derivation.m31
+  $ andromeda derivation.m31
   val cow :> mlforall α β, (α → β) → α → β = <function>
   val chicken :> derivation → judgement → judgement → judgement =
     <function>
@@ -36,14 +36,14 @@
   - :> judgement → judgement → judgement = <function>
   - :> judgement = ⊢ B a a a type
   - :> judgement = ⊢ B a a a type
-  $ andromeda --prelude prelude.m31 --stdlib stdlib equation_by.m31
+  $ andromeda equation_by.m31
   Rule A is postulated.
   Rule a is postulated.
   - :> judgement = ⊢ A ≡ A
   - :> judgement = ⊢ a ≡ a : A
   - :> derivation = derive ({_ : A} f : A) (x : A) (y : A) (x ≡ y : A by ξ)
     → f {x} ≡ f {y} : A
-  $ andromeda --prelude prelude.m31 --stdlib stdlib exception.m31
+  $ andromeda exception.m31
   Exception Cow is declared.
   Exception Horn is declared.
   Exception Tail is declared.
@@ -55,7 +55,7 @@
   - :> mlstring * mlstring = ("horn", "")
   - :> mlstring * mlstring = ("tail", "")
   - :> mlstring = "horn"
-  $ andromeda --prelude prelude.m31 --stdlib stdlib fresh.m31
+  $ andromeda fresh.m31
   Rule A is postulated.
   Rule B is postulated.
   val a :> judgement = a₀ : A ⊢ a₀ : A
@@ -65,7 +65,7 @@
   val d :> judgement = x₁ : A, α₃ : A, x₄ : B x₁ α₃ ⊢ x₄ : B
     x₁ α₃
   val e :> judgement = ( ++₅ ) : A ⊢ ( ++₅ ) : A
-  $ andromeda --prelude prelude.m31 --stdlib stdlib fun_pattern.m31
+  $ andromeda fun_pattern.m31
   val f :> mlforall α β γ, α * β → γ → β * α = <function>
   val g :> list mlstring → mlunit = <function>
   - :> _α → ML.bool * mlstring = <function>
@@ -73,22 +73,22 @@
   - :> mlunit = ()
   val h :> _β * _γ → _δ → _δ * _β * _γ
   - :> list _ε * mlstring * ML.bool = ([], "foo", ML.false)
-  $ andromeda --prelude prelude.m31 --stdlib stdlib handler_exception.m31
+  $ andromeda handler_exception.m31
   Exception Cow is declared.
   Operation moo is declared.
   - :> mlstring * mlstring = ("correct", "moo")
-  $ andromeda --prelude prelude.m31 --stdlib stdlib handler.m31
+  $ andromeda handler.m31
   Operation auto is declared.
   Rule A is postulated.
   Rule a is postulated.
   Rule B is postulated.
   - :> judgement = ⊢ a : A
   - :> judgement = ⊢ B type
-  $ andromeda --prelude prelude.m31 --stdlib stdlib holes.m31
+  $ andromeda holes.m31
   File "holes.m31", line 1, characters 1-25:
   Type error: ( ? ) is already declared as an operation
   [1]
-  $ andromeda --prelude prelude.m31 --stdlib stdlib list_pattern.m31
+  $ andromeda list_pattern.m31
   val x :> mlstring = "x"
   val y :> mlstring = "y"
   val z :> mlstring = "z"
@@ -101,7 +101,7 @@
   val lst'' :> list mlstring = []
   val x''' :> mlstring = "x"
   val lst''' :> list mlstring = "y" :: "z" :: []
-  $ andromeda --prelude prelude.m31 --stdlib stdlib nullary_rule.m31
+  $ andromeda nullary_rule.m31
   Rule A is postulated.
   Rule a is postulated.
   val d :> derivation = derive → A type
@@ -111,7 +111,7 @@
   - :> derivation = derive (x : A) (y : A) → B x y type
   - :> derivation = derive → B a a type
   - :> judgement = ⊢ B a a type
-  $ andromeda --prelude prelude.m31 --stdlib stdlib parallel_let.m31
+  $ andromeda parallel_let.m31
   val cow :> mlstring * mlstring = ("y", "x")
   val x :> mlstring = "x"
   val y :> mlstring = "y"
@@ -125,7 +125,7 @@
   val a'' :> mlstring = "a"
   val b'' :> mlstring = "b"
   val c'' :> mlstring = "c"
-  $ andromeda --prelude prelude.m31 --stdlib stdlib patterns.m31
+  $ andromeda patterns.m31
   - :> mlstring = "bar"
   - :> mlstring = "foo"
   - :> mlstring * mlstring * mlstring = ("baz", "foo", "bar")
@@ -178,7 +178,7 @@
   - :> list judgement * list boundary * mlstring =
     ((z₂ : B ⊢ z₂ : B) :: (⊢ B type) :: [], (z₂ : B ⊢ ⁇ : P z₂)
      :: [], "abstraction boundary")
-  $ andromeda --prelude prelude.m31 --stdlib stdlib top_handler.m31
+  $ andromeda top_handler.m31
   Operation auto is declared.
   Rule A is postulated.
   Rule a is postulated.
@@ -193,7 +193,7 @@
   File "top_handler.m31", line 25, characters 1-4:
   Runtime error: uncaught exception Auto_cannot_infer
   [1]
-  $ andromeda --prelude prelude.m31 --stdlib stdlib when_guard.m31
+  $ andromeda when_guard.m31
   - :> mlstring = "a"
   - :> mlstring = "yes"
   - :> mlstring = "no"

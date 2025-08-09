@@ -1,24 +1,10 @@
 (** Configuration parameters *)
 
-(** Possible locations of prelude file *)
-type prelude =
-  | PreludeNone              (* do not use a prelude, turned on by the --no-prelude *)
-  | PreludeDefault of string (* look in the default location, as configured during installation *)
-  | PreludeFile of string    (* look for prelude in a specific location *)
-
 (** Location of the prelude file *)
-val prelude_file : prelude ref
-
-(** The user may chose to not add the standard library to the load path,
- ** select a specific directory, or use the default. The default is selected
- ** when Andromeda is compiled. *)
-type stdlib =
-  | StdlibNone
-  | StdlibDefault of string
-  | StdlibDirectory of string
+val prelude_file : string option ref
 
 (** Directory containing the standard library *)
-val stdlib_directory : stdlib ref
+val stdlib_directory : string option ref
 
 (** Should the interactive shell be run? *)
 val interactive_shell : bool ref

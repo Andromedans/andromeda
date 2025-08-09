@@ -4,5 +4,5 @@
  (libraries dune-site))
 
 (generate_sites_module
- (module files)
+ (module sharedFiles)
  (sites andromeda))

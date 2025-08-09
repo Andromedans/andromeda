@@ -1,4 +1,4 @@
-  $ andromeda --prelude prelude.m31 --stdlib stdlib abstraction_congruence.m31
+  $ andromeda abstraction_congruence.m31
   val d :> derivation = derive (A type) (u : A) (v : A) (u ≡ v : A by ξ) ({_
     : A} B type) → B {u} ≡ B {v}
   Rule T is postulated.
@@ -6,7 +6,7 @@
   Rule b is postulated.
   Rule S is postulated.
   - :> derivation = derive (a ≡ b : T by ζ) → S a a ≡ S b b
-  $ andromeda --prelude prelude.m31 --stdlib stdlib alpha_equality.m31
+  $ andromeda alpha_equality.m31
   Rule A is postulated.
   Rule P is postulated.
   Rule a is postulated.
@@ -17,7 +17,7 @@
   val a' :> judgement = ⊢ a : B
   val Q :> judgement = ⊢ P a type
   val u' :> judgement = ⊢ u : P a
-  $ andromeda --prelude prelude.m31 --stdlib stdlib boundary.m31
+  $ andromeda boundary.m31
   Rule A is postulated.
   Rule B is postulated.
   Rule a is postulated.
@@ -35,7 +35,7 @@
   Rule P is postulated.
   Rule ζ is postulated.
   - :> judgement = ⊢ {z : A} P z ≡ P z
-  $ andromeda --prelude prelude.m31 --stdlib stdlib congruence_derive.m31
+  $ andromeda congruence_derive.m31
   Rule reflexivity is postulated.
   Rule symmetry is postulated.
   Rule transitivity is postulated.
@@ -53,7 +53,7 @@
   Rule k is postulated.
   - :> judgement = ⊢ u nat (plus j k) ≡ u nat (plus k j) : Vec nat (plus j
     k)
-  $ andromeda --prelude prelude.m31 --stdlib stdlib congruence_products.m31
+  $ andromeda congruence_products.m31
   Rule eq_term_refl is postulated.
   Rule eq_type_refl is postulated.
   Rule Π is postulated.
@@ -68,7 +68,7 @@
   - :> judgement = ⊢ app A ({x} B x) g a ≡ app A ({x} B x) g a : B a
   - :> judgement = ⊢ λ A ({x} B x) ({x} f x) ≡ λ A ({x} B x) ({x} f x) :
     Π A ({x} B x)
-  $ andromeda --prelude prelude.m31 --stdlib stdlib congruence_rule.m31
+  $ andromeda congruence_rule.m31
   Rule A is postulated.
   Rule B is postulated.
   Rule b₁ is postulated.
@@ -83,7 +83,7 @@
   val q :> judgement = ⊢ b₂ a₁ ≡ b₂ a₂ : B a₁
   val r :> judgement = ⊢ B a₂ ≡ B a₁
   val s :> judgement = ⊢ b₁ a₁ ≡ b₂ a₂ : B a₁
-  $ andromeda --prelude prelude.m31 --stdlib stdlib congruence.m31
+  $ andromeda congruence.m31
   Rule A is postulated.
   Rule B is postulated.
   Rule Π is postulated.
@@ -102,7 +102,7 @@
   Rule B' is postulated.
   Rule β is postulated.
   - :> judgement = ⊢ Π A ({x} B x x) ≡ Π A' ({y} B' y y)
-  $ andromeda --prelude prelude.m31 --stdlib stdlib context.m31
+  $ andromeda context.m31
   Rule A is postulated.
   Rule a is postulated.
   Rule f is postulated.
@@ -115,7 +115,7 @@
   val u :> judgement = b₀ : A, u₁ : B a b₀ ⊢ u₁ : B a b₀
   - :> list judgement = (b₀ : A ⊢ b₀ : A) :: (b₀ : A, u₁ : B a
     b₀ ⊢ u₁ : B a b₀) :: []
-  $ andromeda --prelude prelude.m31 --stdlib stdlib convert_in_rule.m31
+  $ andromeda convert_in_rule.m31
   Rule A is postulated.
   Rule B is postulated.
   Rule ξ is postulated.
@@ -129,7 +129,7 @@
   Rule f is postulated.
   - :> judgement * judgement = ((⊢ B type), (⊢ B type))
   - :> judgement = ⊢ B type
-  $ andromeda --prelude prelude.m31 --stdlib stdlib convert_nested.m31
+  $ andromeda convert_nested.m31
   Rule A is postulated.
   Rule B is postulated.
   Rule C is postulated.
@@ -138,7 +138,7 @@
   Rule ξ is postulated.
   val test1 :> judgement = ⊢ c : B
   val test2 :> judgement = ⊢ c : B
-  $ andromeda --prelude prelude.m31 --stdlib stdlib convert.m31
+  $ andromeda convert.m31
   Rule A is postulated.
   Rule B is postulated.
   Rule ξ is postulated.
@@ -154,7 +154,7 @@
   - :> judgement * judgement * judgement * judgement =
     ((u₀ : P z ⊢ u₀ : P z), (⊢ P z type), (u₀ : P z ⊢ u₀ : P a),
      (⊢ P a type))
-  $ andromeda --prelude prelude.m31 --stdlib stdlib derive.m31
+  $ andromeda derive.m31
   Rule A is postulated.
   Rule a is postulated.
   Rule B is postulated.
@@ -169,7 +169,7 @@
   - :> judgement = ⊢ {a₀ : A} s a₀ ≡ s a₀ : B a₀ a₀
   val f :> derivation = derive (a : A) (b : A) → B a b type
   - :> judgement = ⊢ {u : A} {v : A} B u v type
-  $ andromeda --prelude prelude.m31 --stdlib stdlib order_of_arguments.m31
+  $ andromeda order_of_arguments.m31
   Rule A is postulated.
   Rule B is postulated.
   Rule a is postulated.
@@ -180,7 +180,7 @@
   - :> judgement = ⊢ P a b type
   - :> judgement = ⊢ p : P a b
   - :> judgement = ⊢ Q p a b type
-  $ andromeda --prelude prelude.m31 --stdlib stdlib premise_with_general_boundary.m31
+  $ andromeda premise_with_general_boundary.m31
   Rule prod is postulated.
   Rule Pi is postulated.
   - :> derivation = derive (X type) ({_ : X} Y type) → Pi X ({x₀} Y {x₀})
@@ -188,12 +188,12 @@
   Rule Cow is postulated.
   - :> derivation = derive (A type) ({_ : A} B type) (C : prod (Pi A ({x} B
     {x})) A) → Cow A ({x} B {x}) C type
-  $ andromeda --prelude prelude.m31 --stdlib stdlib print_assumptions.m31
+  $ andromeda print_assumptions.m31
   val r :> ref (ML.option _α) = ref ML.None
   val j :> judgement = ?A₀ type, {_ : ?A₀} ?B₁ type, {x : ?A₀} {_ :
     ?B₁ {x}} ?f₂ : ?A₀, a₃ : ?A₀, b₄ : ?B₁ {a₃} ⊢ ?f₂
     {a₃} {b₄} : ?A₀
-  $ andromeda --prelude prelude.m31 --stdlib stdlib rewrite.m31
+  $ andromeda rewrite.m31
   Rule A is postulated.
   Rule B is postulated.
   Rule A' is postulated.
@@ -229,7 +229,7 @@
   val der :> derivation = derive (M type) (N type) ({_ : M} {_ : N} op : M) (m
     : M) (m' : M) (m' ≡ m : M by ξ) (n : N) → op {m'} {n} ≡ op {m} {n} :
     M
-  $ andromeda --prelude prelude.m31 --stdlib stdlib rule_as_derivation.m31
+  $ andromeda rule_as_derivation.m31
   Rule bull is postulated.
   - :> judgement = ⊢ bull type
   Rule tail is postulated.
@@ -246,7 +246,7 @@
   Rule reflect is postulated.
   - :> derivation = derive (A type) (a : A) (b : A) (p : Id A a b) → a ≡ b
     : A
-  $ andromeda --prelude prelude.m31 --stdlib stdlib rules.m31
+  $ andromeda rules.m31
   Rule A is postulated.
   - :> judgement = ⊢ A type
   Rule a is postulated.

@@ -1,4 +1,4 @@
-  $ andromeda --prelude prelude.m31 --stdlib stdlib eqchk_exceptions.m31
+  $ andromeda eqchk_exceptions.m31
   Processing module eq
   ML type eq.checker declared.
   external empty_checker : eq.checker = "Eqchk.empty_checker"
@@ -45,7 +45,7 @@
     "LHS of equation [3] ≡ [2] :
   U not a correct metavariable 1"
   [1]
-  $ andromeda --prelude prelude.m31 --stdlib stdlib equality-checker.m31
+  $ andromeda equality-checker.m31
   Processing module eq
   ML type eq.checker declared.
   external empty_checker : eq.checker = "Eqchk.empty_checker"
@@ -177,7 +177,7 @@
   val d :> derivation = derive (A type) (B type) ({_ : A} {_ : B} op : A) (e :
     B) ({a : A} op {a} {e} ≡ a : A by ξ) (e' : B) (e' ≡ e : B by η) (x :
     A) → op {x} {e'} ≡ x : A
-  $ andromeda --prelude prelude.m31 --stdlib stdlib normalization_boundaries.m31
+  $ andromeda normalization_boundaries.m31
   Processing module eq
   ML type eq.checker declared.
   external empty_checker : eq.checker = "Eqchk.empty_checker"
@@ -272,7 +272,7 @@
      A' A' p₀) (snd A' A' p₀) (snd A' A' p₀))), (?M₀ type ⊢ ψ A'
      ({p₀} triple A' A' A' (fst A' A' p₀) (snd A' A' p₀) (snd A' A'
      p₀)) type))
-  $ andromeda --prelude prelude.m31 --stdlib stdlib strong.m31
+  $ andromeda strong.m31
   Processing module eq
   ML type eq.checker declared.
   external empty_checker : eq.checker = "Eqchk.empty_checker"
