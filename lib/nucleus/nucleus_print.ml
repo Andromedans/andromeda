@@ -67,7 +67,7 @@ and thesis_eq_term ?max_level ~penv (EqTerm (_asmp, e1, e2, t)) ppf =
     (thesis_is_type ~max_level:Level.eq_type ~penv t)
 
 (** Print the boundary of a type judgement. *)
-and boundary_is_type ?max_level ~penv ~print_head () ppf =
+and boundary_is_type ?max_level ~penv:_ ~print_head () ppf =
   Print.print
     ?max_level
     ~at_level:Level.boundary

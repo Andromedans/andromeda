@@ -48,12 +48,12 @@ struct
     { table_map = TableMap.add table_next info table_map ;
       table_next = table_next + 1 }
 
-  let get k {table_map; table_next} =
+  let get k {table_map; table_next=_} =
     TableMap.find k table_map
 
   let get_last {table_map; table_next} = TableMap.find (table_next - 1) table_map
 
-  let set_last info ({table_map; table_next} as tbl) =
+  let set_last info ({table_map=_; table_next} as tbl) =
     { tbl with table_map = TableMap.add (table_next - 1) info tbl.table_map }
 
   let fold_table f acc {table_map; _} = TableMap.fold (fun _ x acc -> f acc x) table_map acc
@@ -199,7 +199,7 @@ let lookup_ml_type pth ctx =
 
 let lookup_ml_type_id pth ctx = fst (lookup_ml_type pth ctx)
 
-let lookup_ml_constructor (t_pth, Path.Level (c_name, c_lvl)) ctx =
+let lookup_ml_constructor (t_pth, Path.Level (_c_name, c_lvl)) ctx =
   match lookup_ml_type t_pth ctx with
   | _, Mlty.Alias _ -> assert false
   | _, Mlty.Abstract _ -> assert false
@@ -225,7 +225,7 @@ let add_ml_exception exc tyopt ctx =
   let exc = Ident.create exc in
   { ctx with table = SymbolTable.add_ml_exception (exc, tyopt) ctx.table }
 
-let add_bound name schema ctx =
+let add_bound _name schema ctx =
   { ctx with ml_bound = schema :: ctx.ml_bound }
 
 let add_ml_value _name schema ctx =

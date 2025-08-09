@@ -17,8 +17,6 @@ let stdlib_directory =
 
 let interactive_shell = ref true
 
-let wrapper = ref (Some ["rlwrap"; "ledit"])
-
 let verbosity = ref 2
 
 let ascii = ref false

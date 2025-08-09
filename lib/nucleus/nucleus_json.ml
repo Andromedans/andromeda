@@ -77,7 +77,7 @@ let rec abstraction json_u xts =
        [Json.tuple xts ; json_u u]
 
 let boundary = function
-  | BoundaryIsType abstr ->
+  | BoundaryIsType _abstr ->
      Json.tag "BoundaryIsType" []
 
   | BoundaryIsTerm t ->

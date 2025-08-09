@@ -44,7 +44,7 @@ and is_term e0 ?(lvl=0) = function
        Mk.term_convert_join e asmp t
 
 (* there are no bound variables in the type of a meta *)
-and meta e0 ?(lvl=0) mv = mv
+and meta _e0 ?lvl:_ mv = mv
 
 and eq_type e0 ?(lvl=0) (EqType (asmp, t1, t2)) =
   let asmp = assumptions e0 ~lvl asmp
@@ -102,7 +102,7 @@ and judgement e0 ?(lvl=0) = function
     | JudgementEqTerm asmp ->
        JudgementEqTerm (eq_term e0 ~lvl asmp)
 
-let is_type_boundary _ ?(lvl=0) () = ()
+let is_type_boundary _ ?lvl:_ () = ()
 
 let is_term_boundary e0 ?(lvl=0) t =
   is_type e0 ~lvl t
@@ -229,7 +229,7 @@ and judgement_fully ?(lvl=0) es = function
   | JudgementEqTerm eq ->
      JudgementEqTerm (eq_term_fully ~lvl es eq)
 
-let is_type_boundary_fully _ ?(lvl=0) () = ()
+let is_type_boundary_fully _ ?lvl:_ () = ()
 
 let is_term_boundary_fully ?(lvl=0) es t =
   is_type_fully ~lvl es t

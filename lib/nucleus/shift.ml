@@ -40,7 +40,7 @@ and is_term ~lvl k = function
      TermConvert (e, asmp, t)
 
 (* metas can't refer to bound variables, so shifting does not affect them *)
-and meta ~lvl k mv = mv
+and meta ~lvl:_ _k mv = mv
 
 and eq_type ~lvl k (EqType (asmp, t1, t2)) =
   let asmp = Assumption.shift ~lvl k asmp

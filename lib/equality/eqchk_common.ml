@@ -146,7 +146,7 @@ let print_eqchk_error ~penv err ppf =
     | EqualityPremiseExpected p ->
       Format.fprintf ppf "Object premise %t appears where equality premise expected"
       Nucleus_print.(premise ~penv p)
-    | DerivationWrongForm drv ->
+    | DerivationWrongForm _drv ->
       Format.fprintf ppf "Derivation not in a required form"
     | ObjectBoundaryExpected (bdry) ->
       Format.fprintf ppf
@@ -283,7 +283,7 @@ let rap_apply rap args =
   try
     fold rap args
   with
-  | Nucleus.Error err -> raise (Fatal_error ("Nucleus error"))
+  | Nucleus.Error _err -> raise (Fatal_error ("Nucleus error"))
 
 (** Apply rap to a list of arguments, return the judgement *)
 let rap_fully_apply rap args =
@@ -350,7 +350,7 @@ let heads_term_normal = function
 
   | Patt.TermFreeMeta (_, es) -> heads_terms es
 
-  | Patt.TermBound v -> IntSet.empty
+  | Patt.TermBound _v -> IntSet.empty
 
 let heads_term = function
   | Patt.TermAddMeta _ -> IntSet.empty

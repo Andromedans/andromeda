@@ -60,7 +60,7 @@ let rec generalizable c =
   -> Ungeneralizable
 
 (* Instantite the bound parameters in a type with the given ones. *)
-let rec ml_ty params {Location.it=t; at} =
+let rec ml_ty params {Location.it=t; at=_} =
   match t with
 
   | Desugared.ML_Arrow (t1, t2) ->
@@ -651,7 +651,7 @@ and check_match_case p tp g c tc =
      check_comp c tc >>= fun c ->
      return (p, g, c))
 
-and check_match_cases ~at tp tc cases =
+and check_match_cases ~at:_ tp tc cases =
   let rec fold cases' = function
   | [] ->
      let cases' = List.rev cases' in
@@ -663,7 +663,7 @@ and check_match_cases ~at tp tc cases =
   in
   fold [] cases
 
-and match_cases ~at t = function
+and match_cases ~at:_ t = function
   | [] ->
      return ([], Mlty.fresh_type ())
 

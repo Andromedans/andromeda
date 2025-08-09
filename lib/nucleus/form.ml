@@ -220,7 +220,7 @@ let rule_as_derivation sgn cnstr =
                  JudgementEqTerm (Mk.eq_term asmp e1 e2 t)
             in
             Arg_NotAbstract jdg
-         | Abstract (x, t, bdry) ->
+         | Abstract (x, _t, bdry) ->
             let args = (TermBoundVar i) :: args in
             Arg_Abstract (x, mk_arg (i+1) args bdry)
        in
@@ -269,14 +269,14 @@ let symmetry_term (EqTerm (asmp, e1, e2, t)) = Mk.eq_term asmp e2 e1 t
 
 let symmetry_type (EqType (asmp, t1, t2)) = Mk.eq_type asmp t2 t1
 
-let transitivity_term (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t')) =
+let transitivity_term (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', _t')) =
   match Alpha_equal.is_term e2 e1' with
   | false -> Error.raise (AlphaEqualTermMismatch (e2, e1'))
   | true ->
      let asmp = Assumption.union asmp (Assumption.union asmp' (Collect_assumptions.is_term e1'))
      in Mk.eq_term asmp e1 e2' t
 
-let transitivity_term' (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t')) =
+let transitivity_term' (EqTerm (asmp, e1, e2, _t)) (EqTerm (asmp', e1', e2', t')) =
   match Alpha_equal.is_term e2 e1' with
   | false -> Error.raise (AlphaEqualTermMismatch (e2, e1'))
   | true ->

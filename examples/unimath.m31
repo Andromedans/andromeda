@@ -1,0 +1,227 @@
+(* A demo of Andromeda 1.0 shown at the UniMath School in Birmingham, April 1st, 2019. *)
+
+(* The builtin type theory of Andromeda:
+
+   - products Π (x : A), B
+   - equality type a ≡ b
+   - Type : Type
+
+  and equality reflection. That's it. No normalization, no equality checking,
+  no termination checking. All of that is implemented by the user.
+*)
+
+(* For convenience, the standard library (written in the Andromeda Meta Language)
+   provides equality checking. The user can specify their own β and η rules.
+   In this demo we will only use the β rules. *)
+
+(* To add something new to type theory, use the constant keyword. It introduces
+   a new primitive constant of the given type. *)
+
+(* The definition of unary natural numbers. *)
+
+(* Formation *)
+constant N : Type
+
+(* Introduction rules *)
+constant Z : N       (* Zero *)
+constant S : N → N   (* Successor *)
+
+(* The induction principle *)
+constant ind_N :
+  Π (P : N → Type), P Z → (Π (n : N), P n → P (S n)) → Π (m : N), P m
+
+(* β-rules *)
+
+constant ind_N_Z :
+  Π (P : N → Type) (x : P Z) (f : ∏ (n : N), P n → P (S n)),
+    ind_N P x f Z ≡ x
+
+constant ind_N_S :
+  Π (P : N → Type) (x : P Z) (f : ∏ (n : N), P n → P (S n)) (m : N),
+    ind_N P x f (S m) ≡ f m (ind_N P x f m)
+
+
+(* Andromeda does not have a notion of definition. Instead, suppose we want to
+   introduce a new symbol x equal to expression e. We do this in two steps:
+
+   1. Postulate a new constant x
+   2. Postulate a new equality x ≡ e
+
+   We may then control whether x is unfolded to e by using the equality by
+   a β-rule or not.
+*)
+
+constant three : N
+constant three_def : three ≡ S (S (S Z))
+
+(* To prove that the successor of three is 4, we tell Andromeda to use three_def
+   by a β-rule (locally). *)
+
+let succ_three_is_four =
+  now betas = add_beta three_def in
+    refl (S (S (S (S Z))))
+    : S three ≡ S (S (S (S Z)))
+
+(* When we define a function f : A → B we can postulate its defining equation in
+   two ways:
+
+     1. f ≡ λ x . ⟨body-of-definition⟩
+     2. Π (x : A), f x ≡ ⟨body-of-definition⟩
+
+   If we use the first one by a β-rule, Andromeda will replace every occurrence of f
+   with λ x . ⟨body-of-definition⟩.
+
+   If we use the second one, Andromeda will leave f alone, but it will replace
+   every occurrence of f e with ⟨body-of-definition⟩, where x is replaced with e.
+   This is one way of controlling unfolding of definitions.
+*)
+
+(* The predecessor function is defined so that it only unfolds when applied: *)
+
+constant pred : N → N
+constant pred_def :
+  Π (x : N), pred x ≡ ind_N (λ (_ : N), N) Z (λ (x' _ : N), x') x
+
+
+(* Nothing prevents us from having several equations for the same symbol,
+   and then we use whichever is most convenient for rewriting. For example,
+   we may derive the following basic facts about predecessor. *)
+
+let pred_Z =
+  now betas = add_betas [ind_N_Z, pred_def] in
+    refl Z : pred Z ≡ Z
+
+let pred_S =
+  (λ n : N, (now betas = add_betas [ind_N_S, pred_def] in refl n))
+  : Π (n : N), pred (S n) ≡ n
+
+(* And here is addition. *)
+
+constant (+) : N → N → N
+constant plus_def :
+  Π (x y : N), x + y ≡ ind_N (λ (_ : N), N) x (λ (_ : N), S) y
+
+(* We now use the ind_N computation rules to establish properties of plus
+   Later we use these properties to compute with plus -- we do not have to
+   always go back to ind_N. *)
+
+let plus_Z =
+  (λ (x : N),
+    now betas = add_betas [plus_def, ind_N_Z] in
+      refl x : x + Z ≡ x)
+ : Π (x : N), x + Z ≡ x
+
+let plus_S =
+  (λ (x y : N),
+    now betas = add_betas [plus_def, ind_N_S] in
+     refl (x + (S y)) :
+       x + S y ≡ S (x + y))
+  : Π (x y : N), x + S y ≡ S (x + y)
+
+(* Some typical numbers *)
+
+let one   = S Z
+let two   = S (S Z)
+let three = S (S (S Z))
+let four  = S (S (S (S Z)))
+let five  = S (S (S (S (S Z))))
+let six   = S (S (S (S (S (S Z)))))
+let seven = S (S (S (S (S (S (S Z))))))
+let eight = S (S (S (S (S (S (S (S Z)))))))
+let nine  = S (S (S (S (S (S (S (S (S Z))))))))
+
+(* We can compute addition and predecessor without going back to
+   their definitions in terms of ind_N. Instead we use the derived
+   equations. *)
+
+(** Verify that the predecessor of four is three *)
+do
+  now betas = add_betas [pred_Z, pred_S] in
+    refl four : pred five ≡ four
+
+(** Verify that 2 + 3 = 1 + 4 *)
+do
+  now betas = add_betas [plus_Z,plus_S] in
+    refl five : two + three ≡ one + four
+
+(** It's a bit silly that above we need to write refl 5, we shall see below
+    that there are two better ways: we can ask for the normal form of 2 + 3,
+    or we can ask for the proof term to be filled in by unification. *)
+
+(* let us establish commutativity of addition. *)
+
+let plus_Z' =
+  ind_N
+    (λ (x : N), Z + x ≡ x)
+    (plus_Z Z)
+    (λ (x : N) (IH : Z + x ≡ x),
+       now betas = add_betas [IH,plus_S] in
+         refl (S (Z + x)) : Z + (S x) ≡ S x)
+  : Π (x : N), Z + x ≡ x
+
+let plus_S' =
+  (λ (x y : N),
+    now betas = add_betas [plus_Z,plus_S] in
+    ind_N
+      (λ (z : N), S x + z ≡ S (x + z))
+      (refl (S x))
+      (λ (z : N) (IH : S x + z ≡ S (x + z)),
+       now betas = add_betas [IH,plus_S] in
+         refl (S x + S z) : S x + S z ≡ S (x + S z))
+      y)
+  : Π (x y : N), S x + y ≡ S (x + y)
+
+let plus_commute =
+  (λ (x y : N),
+    now betas = add_betas [plus_Z,plus_S,plus_Z',plus_S'] in
+    ind_N
+      (λ (z : N), z + y ≡ y + z)
+      (refl y)
+      (λ (z : N) (IH : z + y ≡ y + z),
+          now betas = add_beta IH in
+           refl (S (z + y)) : S z + y ≡ y + (S z))
+      x)
+  : Π (x y : N), x + y ≡ y + x
+
+(* Using commutativity we can now verify that if a : P (x + y) then a : P (y + x),
+   without any transport because equality is strict in Andromeda. Note that commutativty
+   is not a β-rule, it's a general equality hint. *)
+do
+  now hints = add_hint plus_commute in
+  λ (P : N → Type) (x y : N) (a : P (x + y)), a : P (y + x)
+
+(* We do not have to proceed from ind_N. Instead, we can use any other form
+   of definition that we see fit. Here for instance is the definition of
+   multiplication based on Peano axioms (we could have used a definition
+   using ind_N if we wanted to). *)
+
+constant ( * ) : N → N → N
+constant times_Z : Π (n : N), n * Z ≡ Z
+constant times_S : Π (m n : N), m * S n ≡ m * n + m
+
+(* We can compute with these. However, by default we get the weak head-normal form. *)
+do
+  now betas = add_betas [plus_Z, plus_S, times_Z, times_S] in
+    whnf (two * three)
+
+(* We may direct Andromeda that it should evaluate eagerly. *)
+do
+  now betas = add_betas [plus_Z, plus_S, times_Z, times_S] in
+  now reducing = add_reducing S [eager] in
+  now reducing = add_reducing ( + ) [eager, eager] in
+  now reducing = add_reducing ( * ) [eager, eager] in
+    whnf (two * three)
+
+(* We also have a simple form of unification. The holes are written as ?, and
+   the unification algorithm will fill them in as long as some equation forces
+   their value to be known. *)
+
+(** Verify that 2 + 3 = 1 + 4, using holes *)
+do
+  now betas = add_betas [plus_Z,plus_S] in
+  resolve
+     (refl ? : two + three ≡ one + four)
+
+(* The mechanism is as follows: the ? operation generates new variables (called
+   imp₀, imp₁, ...) and equations governing them. Then resolve substitutes away
+   the imps using the equations. *)

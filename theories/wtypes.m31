@@ -1,0 +1,116 @@
+require dependent_product ;;
+open dependent_product ;;
+
+let (>=>) = derive (A type) (B type) -> Π A ({_} B)
+;;
+
+rule W
+  (A type) ({x : A} B type)
+  type
+;;
+
+rule sup
+  (A type) ({x : A} B type)
+  (a : A) (_ : B{a} >=> W A B)
+  : W A B
+;;
+
+let ap f x =
+  match f with
+  _ : Π A B -> app A B f x
+  end
+;;
+
+let lam u =
+  match u with
+  ({x : A} (e : B)) -> λ A (abstract x B) (abstract x e)
+  end
+;;
+
+rule W_ind
+   (A type) ({_ : A} B type)
+   ({_ : W A B} C type)
+   (_ : Π A ({a}
+     Π (B{a} >=> W A B) ({u}
+       (Π B{a} ({y} C{ap u y})) >=> C{sup A B a u}
+     )
+   ))
+   (t : W A B)
+   : C{t}
+;;
+
+rule W_β
+   (A type) ({_ : A} B type)
+   ({_ : W A B} C type)
+   (f : Π A ({a}
+     Π (B{a} >=> W A B) ({u}
+       (Π B{a} ({y} C{ap u y})) >=> C{sup A B a u}
+     )
+   ))
+   (a : A) (u : B{a} >=> W A B)
+   : W_ind A B C f (sup A B a u) ≡
+     ap (ap (ap f a) u) (lam ({b : B{a}} W_ind A B C f (ap u b)))
+   : C{sup A B a u}
+
+require bool ;;
+open bool ;;
+
+eq.add_rule if_True_β ;;
+eq.add_rule if_False_β ;;
+eq.add_rule If_True_β ;;
+eq.add_rule If_False_β ;;
+
+(** unit type *)
+rule unit type
+;;
+
+rule tt : unit
+;;
+
+rule unit_ind
+  ({x : unit} C type) (c : C{tt}) (a : unit)
+  : C{a}
+;;
+
+rule unit_β
+  ({x : unit} C type) (c : C{tt})
+  : unit_ind C c tt ≡ c : C{tt}
+;;
+
+eq.add_rule unit_β ;;
+
+rule unit_ext
+  (s : unit) (t : unit)
+  : s ≡ t : unit
+;;
+
+eq.add_rule unit_ext;;
+
+(** empty type *)
+rule empty type ;;
+
+rule empty_ind
+  ({x : empty} C type) (a : empty)
+  : C{a}
+;;
+
+(** natural numbers *)
+
+let Ntree = {b : bool} If b unit empty ;;
+
+let N = W bool Ntree ;;
+
+let typeof x = match x with _ : T -> T end ;;
+
+typeof (lam ({c : empty} empty_ind ({_} N) c)) ;;
+
+eq.prove (empty ≡ If False unit empty by ??) ;;
+
+eq.prove ( (Π empty                ({_} W bool ({b} If b unit empty)))
+           ≡
+           Π (If False unit empty) ({_} W bool ({x} If x unit empty))
+           by ??
+         )
+;;
+
+let zero = sup bool Ntree False (lam ({c : empty} empty_ind ({_} N) c)) ;;

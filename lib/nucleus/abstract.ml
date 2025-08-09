@@ -62,11 +62,11 @@ and eq_term x ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
   and t = is_type x ~lvl t
   in EqTerm (asmp, e1, e2, t)
 
-and meta x ~lvl = function
+and meta x ~lvl:_ = function
 
     | MetaBound _ as mv -> mv
 
-    | MetaFree {meta_nonce; meta_boundary} as mv ->
+    | MetaFree {meta_boundary; _} as mv ->
        (* the type of a meta can't refer to bound variables nor to atoms *)
        if Occurs_atom.abstraction Occurs_atom.boundary x meta_boundary then
          Error.raise InvalidAbstraction
@@ -134,7 +134,7 @@ let judgement_abstraction ?name {atom_nonce=n; atom_type=t} abstr =
   let x = match name with Some x -> x | None -> Nonce.name n in
   Mk.abstract x t abstr
 
-let boundary_is_type _atm ?lvl () = ()
+let boundary_is_type _atm ?lvl:_ () = ()
 
 let boundary_is_term atm ?lvl t = is_type atm ?lvl t
 
@@ -175,7 +175,7 @@ let boundary_abstraction {atom_nonce=n; atom_type=t} abstr =
   let abstr = abstraction boundary n abstr in
   Mk.abstract (Nonce.name n) t abstr
 
-let judgement_with_boundary x ?(lvl=0) (jdg, bdry) = 
+let judgement_with_boundary x ?(lvl=0) (jdg, bdry) =
   (judgement x ~lvl jdg, boundary x ~lvl bdry)
 
 let judgement_with_boundary_abstraction {atom_nonce=n; atom_type=t} abstr =

@@ -240,14 +240,14 @@ and normalize_heads_type ~strong sgn chk ty0 =
 
     | Nucleus.Stump_TypeConstructor (s, cargs) ->
       let heads = get_type_heads chk (Ident s) in
-      let cargs_eq_cargs', Normal cargs' = normalize_arguments ~strong sgn chk heads cargs in
+      let cargs_eq_cargs', Normal _cargs' = normalize_arguments ~strong sgn chk heads cargs in
       let ty0_eq_ty1, ty1 = Nucleus.rewrite_is_type sgn ty0 cargs_eq_cargs' in
       ty0_eq_ty1, Normal ty1
 
     | Nucleus.Stump_TypeMeta (mv, es) ->
       let heads = get_type_heads chk (Nonce (Nucleus.meta_nonce mv)) in
       let es = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es in
-      let es_eq_es', Normal es' = normalize_arguments ~strong sgn chk heads es in
+      let es_eq_es', Normal _es' = normalize_arguments ~strong sgn chk heads es in
       let ty0_eq_ty1, ty1 = Nucleus.rewrite_is_type sgn ty0 es_eq_es' in
       ty0_eq_ty1, Normal ty1
 
@@ -258,22 +258,22 @@ and normalize_heads_term ~strong sgn chk e0 =
 
   | Nucleus.Stump_TermConstructor (s, cargs) ->
      let heads = get_term_heads chk (Ident s) in
-     let cargs_eq_cargs', Normal cargs' = normalize_arguments ~strong sgn chk heads cargs in
+     let cargs_eq_cargs', Normal _cargs' = normalize_arguments ~strong sgn chk heads cargs in
      let e0_eq_e1, e1 = Nucleus.rewrite_is_term sgn e0 cargs_eq_cargs' in
     e0_eq_e1, Normal e1
 
   | Nucleus.Stump_TermMeta (mv, es) ->
      let heads = get_term_heads chk (Nonce (Nucleus.meta_nonce mv)) in
      let es = List.map (fun e -> Nucleus.(abstract_not_abstract (JudgementIsTerm e))) es in
-     let es_eq_es', Normal es' = normalize_arguments ~strong sgn chk heads es in
+     let es_eq_es', Normal _es' = normalize_arguments ~strong sgn chk heads es in
      let e0_eq_e1, e1 = Nucleus.rewrite_is_term sgn e0 es_eq_es' in
     e0_eq_e1, Normal e1
 
   | Nucleus.Stump_TermAtom _ ->
      Nucleus.(reflexivity_term sgn e0), Normal e0
 
-  | Nucleus.Stump_TermConvert (e0', t) (* == e0 : t *) ->
-     let e0'_eq_e1, Normal e1 = normalize_heads_term ~strong sgn chk e0' in (* e0' == e1 : t' *)
+  | Nucleus.Stump_TermConvert (e0', _t) (* == e0 : t *) ->
+     let e0'_eq_e1, Normal _e1 = normalize_heads_term ~strong sgn chk e0' in (* e0' == e1 : t' *)
      (* e0 == e0 : t and e0' == e1 : t' ===> e0 == e1 : t *)
      let e0_eq_e1 = Nucleus.transitivity_term (Nucleus.reflexivity_term sgn e0) e0'_eq_e1 in
      (* let e1 = Nucleus.form_is_term_convert sgn e1 t in *)
@@ -470,7 +470,7 @@ and prove_eq_type chk sgn (ty1, ty2) =
 
 and prove_eq_term ~ext chk sgn bdry =
   let normalization_phase bdry =
-     let (e1, e2, t) = Nucleus.invert_eq_term_boundary bdry in
+     let (e1, e2, _t) = Nucleus.invert_eq_term_boundary bdry in
      let e1_eq_e1', Normal e1' = normalize_term_norm ~strong:false sgn chk e1
      and e2_eq_e2', Normal e2' = normalize_term_norm ~strong:false sgn chk e2 in
      let e1'_eq_e2' = check_normal_term chk sgn (Normal e1') (Normal e2') in
@@ -483,7 +483,7 @@ and prove_eq_term ~ext chk sgn bdry =
     normalization_phase bdry
   else
     let (e1, e2, t) = Nucleus.invert_eq_term_boundary bdry in
-    let t_eq_t', Normal t' = normalize_type_norm ~strong:false sgn chk t in
+    let t_eq_t', Normal _t' = normalize_type_norm ~strong:false sgn chk t in
     let e1' = Nucleus.(form_is_term_convert sgn e1 t_eq_t')
     and e2' = Nucleus.(form_is_term_convert sgn e2 t_eq_t')in
     let bdry' = Nucleus.(form_eq_term_boundary sgn e1' e2') in

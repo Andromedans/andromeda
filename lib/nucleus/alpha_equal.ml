@@ -133,7 +133,7 @@ and judgement jdg1 jdg2 =
 
   | JudgementIsTerm e1, JudgementIsTerm e2 -> is_term e1 e2
 
-  | JudgementEqType (EqType (_asmp1, t1, u1)), JudgementEqType (EqType (_asmp2, t2, u2)) ->
+  | JudgementEqType (EqType (_asmp1, t1, u1)), JudgementEqType (EqType (_asmp2, _t2, u2)) ->
      is_type t1 u2 && is_type u1 u2
 
   | JudgementEqTerm (EqTerm (_asmp1, a1, b1, t1)), JudgementEqTerm (EqTerm (_asmp2, a2, b2, t2)) ->

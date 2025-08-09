@@ -100,7 +100,7 @@ let invert_abstractions ?name inst_u inst_v abstr_u abstr_v =
   | NotAbstract u, NotAbstract v -> Some (Stumps_NotAbstract (u, v))
 
   | Abstract (x_u, t_u, abstr_u),
-    Abstract (x_v, t_v, abstr_v) ->
+    Abstract (  _, t_v, abstr_v) ->
      if not (Alpha_equal.is_type t_u t_v) then
        None
      else

@@ -402,7 +402,7 @@ and form_argument metas = function
            raise (EqchkError (Form_fail (EqualityTermArgumentInPatt e)))
      end
 
-  | Nucleus_types.Arg_Abstract (atm, jdg) as abstr ->
+  | Nucleus_types.Arg_Abstract (_atm, _jdg) as abstr ->
       (* Is this an eta-expanded meta-variable? *)
       try
         extract_meta metas abstr

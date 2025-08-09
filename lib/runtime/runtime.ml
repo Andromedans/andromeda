@@ -43,11 +43,11 @@ struct
     { table_map = TableMap.add table_next info table_map ;
       table_next = table_next + 1 }
 
-  let get k {table_map; table_next} = TableMap.find k table_map
+  let get k {table_map; table_next=_} = TableMap.find k table_map
 
   let get_last {table_map; table_next} = TableMap.find (table_next - 1) table_map
 
-  let set_last info ({table_map; table_next} as tbl) =
+  let set_last info ({table_map=_; table_next} as tbl) =
     { tbl with table_map = TableMap.add (table_next - 1) info tbl.table_map }
 
   type 'v ml_module = {
@@ -298,7 +298,7 @@ let lookup_ref x _env =
   let v = !x in
   Return v
 
-let update_ref x v env =
+let update_ref x v _env =
   x := v ;
   Return ()
 
@@ -630,7 +630,7 @@ let push_bound = add_bound0
 let add_ml_value0 v env =
   { env with lexical = { env.lexical with table = SymbolTable.add_ml_value v env.lexical.table } }
 
-let top_add_ml_value v ({top_runtime=({lexical;_} as env);_} as topenv) =
+let top_add_ml_value v ({top_runtime=env;_} as topenv) =
   let env = add_ml_value0 v env in
   (), {topenv with top_runtime=env}
 
@@ -686,7 +686,7 @@ let top_open_path pth ({top_runtime;_} as topenv) =
 let top_lookup_signature topenv =
   get_signature topenv.top_runtime, topenv
 
-let print_external ?max_level ~penv v ppf =
+let print_external ?max_level:_ ~penv:_ v ppf =
   match v with
   | EqualityChecker _ -> Format.fprintf ppf "<checker>"
 
@@ -708,9 +708,9 @@ let rec print_value ?max_level ~penv v ppf =
 
   | External v -> print_external ?max_level ~penv v ppf
 
-  | Closure f -> Format.fprintf ppf "<function>"
+  | Closure _f -> Format.fprintf ppf "<function>"
 
-  | Handler h -> Format.fprintf ppf "<handler>"
+  | Handler _h -> Format.fprintf ppf "<handler>"
 
   | Exc (exc, vopt) ->
      print_exception ?max_level ~penv (Ident.path exc) vopt ppf
@@ -754,7 +754,7 @@ and print_exception ?max_level ~penv exc vopt ppf =
 and print_tag ?max_level ~penv t lst ppf =
   match Ident.path t, lst with
 
-  | Path.Direct (Path.Level ({Name.fixity=Name.Prefix; name} as x,_)), [v] ->
+  | Path.Direct (Path.Level ({Name.fixity=Name.Prefix; name=_} as x,_)), [v] ->
      (* prefix tag applied to one argument *)
      (* Although it is reasonable to parse prefix operators as
         binding very tightly, it can be confusing to see
@@ -1148,7 +1148,7 @@ struct
 
     | Boundary bdry -> Json.tag "Boundary" [Nucleus.Json.boundary_abstraction bdry]
 
-    | Derivation drv -> Json.tag "Derivation" []
+    | Derivation _drv -> Json.tag "Derivation" []
 
     | Closure _ -> Json.tag "Function" []
 
@@ -1162,9 +1162,9 @@ struct
 
     | Tuple lst -> Json.tag "Tuple" [Json.List (List.map value lst)]
 
-    | Ref r -> Json.tag "Reference" []
+    | Ref _r -> Json.tag "Reference" []
 
     | String s -> Json.tag "String" [Json.String s]
 
-    | External v -> Json.tag "External" []
+    | External _v -> Json.tag "External" []
 end

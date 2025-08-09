@@ -1,0 +1,50 @@
+rule bool type ;;
+
+rule True : bool ;;
+rule False : bool ;;
+
+rule if
+   ({_ : bool} C type)
+   (b : bool)
+   (_ : C{True})
+   (_ : C{False})
+   : C{b}
+;;
+
+rule if_True_β
+   ({_ : bool} C type)
+   (u : C{True})
+   (v : C{False})
+   : if C True u v ≡ u : C{True}
+;;
+
+rule if_False_β
+   ({_ : bool} C type)
+   (u : C{True})
+   (v : C{False})
+   : if C False u v ≡ v : C{False}
+;;
+
+
+rule If (_ : bool) (_ type) (_ type) type ;;
+
+rule If_True_β
+    (A type) (B type)
+    : If True A B ≡ A
+;;
+
+rule If_False_β
+    (A type) (B type)
+    : If False A B ≡ B
+;;
+
+
+
+let ( && ) = derive (b : bool) (c : bool) -> if ({_} bool) b c False
+;;
+
+let ( || ) = derive (b : bool) (c : bool) -> if ({_} bool) b True c
+;;
+
+let not = derive (b : bool) -> if ({_} bool) b False True
+;;

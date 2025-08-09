@@ -9,9 +9,6 @@ val stdlib_directory : string option ref
 (** Should the interactive shell be run? *)
 val interactive_shell : bool ref
 
-(** The command-line wrappers that we look for. *)
-val wrapper : string list option ref
-
 (** Select which messages should be printed:
     - 0 no messages
     - 1 only errors

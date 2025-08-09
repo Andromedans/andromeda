@@ -2,7 +2,7 @@ open Nucleus_types
 
 (** Checking judgements against their boundaries *)
 
-let is_type_boundary abstr bdry = true
+let is_type_boundary _abstr _bdry = true
 
 let is_term_boundary sgn e t =
   Alpha_equal.is_type (Sanity.type_of_term sgn e) t

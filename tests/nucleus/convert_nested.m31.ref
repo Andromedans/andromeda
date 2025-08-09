@@ -1,0 +1,8 @@
+Rule A is postulated.
+Rule B is postulated.
+Rule C is postulated.
+Rule c is postulated.
+Rule ζ is postulated.
+Rule ξ is postulated.
+val test1 :> judgement = ⊢ c : B
+val test2 :> judgement = ⊢ c : B

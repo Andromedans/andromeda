@@ -314,7 +314,7 @@ module Ctx = struct
 
     | Name.PModule (pth, x) ->
        begin match find_ml_module pth ctx with
-       | Some (pth, mdl) -> find x mdl
+       | Some (_pth, mdl) -> find x mdl
        | None -> None
        end
 
@@ -347,7 +347,7 @@ module Ctx = struct
   let check_is_fresh_type ~at t ctx =
     match find_type_in_module t (current_module ctx) with
     | None -> ()
-    | Some info -> error ~at (MLTypeAlreadyDeclared t)
+    | Some _info -> error ~at (MLTypeAlreadyDeclared t)
 
   (* Check that the module is not bound already *)
   let check_is_fresh_module ~at m ctx =
@@ -521,7 +521,7 @@ module Ctx = struct
     check_is_fresh_name ~at c ctx ;
     let (), ctx =
       update_current ctx
-        (fun mk_path current ->
+        (fun _mk_path current ->
           (), { current with ml_constructors = Assoc.add c info current.ml_constructors } )
     in
     ctx
@@ -829,7 +829,7 @@ let rec pattern ~toplevel ctx {Location.it=p; at} =
   | Sugared.Patt_List ps ->
      let nil_path, _ = Ctx.get_path_nil ctx
      and cons_path, _ = Ctx.get_path_cons ctx in
-     let rec fold ~at ctx = function
+     let rec fold ~at:_ ctx = function
        | [] -> ctx, locate (Desugared.Patt_MLConstructor (nil_path, []))
        | p :: ps ->
           let ctx, p = pattern ~toplevel ctx  p in
@@ -845,7 +845,7 @@ let rec pattern ~toplevel ctx {Location.it=p; at} =
   | Sugared.Patt_String s ->
      ctx, locate (Desugared.Patt_String s)
 
-and patterns ~at ~toplevel ctx ps =
+and patterns ~at:_ ~toplevel ctx ps =
   let rec fold ctx ps_out = function
     | [] ->
        ctx, List.rev ps_out
@@ -1117,7 +1117,7 @@ let rec comp ctx {Location.it=c';at} =
   | Sugared.List cs ->
      let nil_path, _ = Ctx.get_path_nil ctx
      and cons_path, _ = Ctx.get_path_cons ctx in
-     let rec fold ~at = function
+     let rec fold ~at:_ = function
        | [] -> locate (Desugared.MLConstructor (nil_path, []))
        | c :: cs ->
           let c = comp ctx c in
@@ -1261,7 +1261,7 @@ and letrec_clauses ~at ~toplevel ctx lst =
   in
   fold [] lst
 
-and let_clause ~at ctx ps c =
+and let_clause ~at:_ ctx ps c =
   let rec fold ctx = function
     | [] ->
        comp ctx c
@@ -1484,12 +1484,12 @@ and premises :
   in
   fold ctx [] prems
 
-let decl_operation ~at ctx args res =
+let decl_operation ~at:_ ctx args res =
   let args = List.map (mlty ctx []) args
   and res = mlty ctx [] res in
   args, res
 
-let mlty_constructor ~at ctx params (c, args) =
+let mlty_constructor ~at:_ ctx params (c, args) =
   (c, List.map (mlty ctx params) args)
 
 let mlty_def ~at ctx params = function
@@ -1565,7 +1565,7 @@ let rec toplevel' ctx {Location.it=cmd; at} =
      (ctx, locate1 (Desugared.DeclOperation (pth, (args, res))))
 
   | Sugared.DeclException (exc, tyopt) ->
-     let arity, tyopt =
+     let _arity, tyopt =
        match tyopt with
        | None -> Nullary, None
        | Some ty -> Unary,Some (mlty ctx [] ty)
@@ -1609,7 +1609,7 @@ let rec toplevel' ctx {Location.it=cmd; at} =
   | Sugared.Verbosity n ->
      (ctx, locate1 (Desugared.Verbosity n))
 
-  | Sugared.Require mdl_names ->
+  | Sugared.Require _mdl_names ->
      (* requires are preprocessed, skip them in later stages *)
      (ctx, [])
 
@@ -1726,7 +1726,7 @@ let rec load_requires ~basedir ~loading ctx cmds =
   fold ~loading ctx cmds
 
 (* Desugar commands, after loading the required modules *)
-let commands ~loading ~basedir ctx cmds =
+let commands ~loading:_ ~basedir ctx cmds =
   let ctx, mdls = load_requires ~loading:[] ~basedir ctx cmds in
   let ctx, cmds = toplevels ctx cmds in
   ctx, (mdls @ cmds)

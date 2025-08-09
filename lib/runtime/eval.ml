@@ -361,7 +361,7 @@ and check_arguments ~at rap cs =
   match rap, cs with
   | Nucleus.RapDone jdg, [] -> Runtime.return_judgement (Nucleus.abstract_not_abstract jdg)
   | Nucleus.RapMore (bdry, rap_apply), c :: cs ->
-     Runtime.lookup_signature >>= fun sgn ->
+     Runtime.lookup_signature >>= fun _sgn ->
      check_judgement c bdry >>= fun arg ->
      let rap = rap_apply arg in
      check_arguments ~at rap cs
@@ -494,7 +494,7 @@ and exception_handler :
        (Syntax.comp -> 'a Runtime.comp) ->
        Syntax.exception_case list -> Runtime.exc -> 'a Runtime.comp
   = fun ~at comp hnd exc ->
-  let default ~at _ = Runtime.raise_exception exc in
+  let default ~at:_ _ = Runtime.raise_exception exc in
   let v = Runtime.Exc exc in
   match_cases ~at ~default hnd comp v
 
@@ -626,7 +626,7 @@ and comp_as_boundary_abstraction c =
   comp c >>= fun v -> return (Runtime.as_boundary_abstraction ~at:c.Location.at v)
 
 (** Run [c] and convert the result to a boundary. *)
-and comp_as_boundary ~at c =
+and comp_as_boundary ~at:_ c =
   comp c >>= fun v -> return (Runtime.as_boundary ~at:c.Location.at v)
 
 (** Run [c] and convert the result to a boundary abstraction. *)
@@ -690,7 +690,7 @@ and local_context lctx cmp =
   in
   fold lctx
 
-and premise {Location.it=Syntax.Premise(x, lctx, c); at} =
+and premise {Location.it=Syntax.Premise(x, lctx, c); _} =
   local_context lctx (comp_as_boundary_abstraction c) >>= fun bdry ->
   let mv, jdg = Nucleus.form_meta x bdry in
   let v = Runtime.Judgement jdg in
@@ -810,14 +810,14 @@ let rec toplevel ~quiet ~print_annot {Location.it=c; at} =
           (Print.sequence (Path.print ~opens ~parentheses:true) "," lst)) ;
      return ()
 
-  | Syntax.DeclOperation (op, k) ->
+  | Syntax.DeclOperation (op, _k) ->
      Runtime.top_lookup_opens >>= fun opens ->
      (if not quiet then
         Format.printf "@[<hov 2>Operation %t is declared.@]@."
           (Path.print ~opens ~parentheses:true op)) ;
      return ()
 
-  | Syntax.DeclException (exc, topt) ->
+  | Syntax.DeclException (exc, _topt) ->
      Runtime.top_lookup_opens >>= fun opens ->
      (if not quiet then
         Format.printf "@[<hov 2>Exception %t is declared.@]@."

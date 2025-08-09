@@ -55,7 +55,7 @@ let new_line ?(n=1) lexbuf =
         pos_bol = lcp.pos_cnum ;
       }
 
-let update_pos ({pos_end; pos_start; stream;_} as buf) =
+let update_pos ({pos_end; pos_start=_; stream;_} as buf) =
   let p_start, p_end = Sedlexing.loc stream in
   buf.pos_start <- {pos_end with Lexing.pos_cnum = p_start};
   buf.pos_end <- {pos_end with Lexing.pos_cnum = p_end }

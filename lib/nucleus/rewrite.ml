@@ -14,7 +14,7 @@ let convert_argument sgn es asmps prem arg jdg =
           asmp, NotAbstract (JudgementIsType t2)
           else Error.raise InvalidRewrite
 
-        | BoundaryIsTerm t_schema, JudgementIsTerm e1, JudgementEqTerm (EqTerm (asmp, e1', e2, t)) ->
+        | BoundaryIsTerm t_schema, JudgementIsTerm e1, JudgementEqTerm (EqTerm (asmp, e1', e2, _t)) ->
           if Alpha_equal.is_term e1 e1' then
           let es_arg = List.map Coerce.to_argument es in
           let t' = Instantiate_meta.is_type ~lvl:0 es_arg t_schema in
@@ -95,7 +95,7 @@ let is_type sgn t jdg_lst =
         in
         fold [] Assumption.empty rl args jdg_lst
 
-  | TypeMeta ((MetaFree {meta_nonce=n; meta_boundary} as m), args) ->
+  | TypeMeta ((MetaFree {meta_nonce=_; meta_boundary} as m), args) ->
       let rec fold es asmps bdry args jdg_lst =
         begin
         match bdry, args, jdg_lst with
@@ -172,7 +172,7 @@ let rec is_term sgn e jdg_lst =
     in
     fold [] Assumption.empty rl args jdg_lst
 
-  | TermMeta ((MetaFree {meta_nonce=n; meta_boundary} as m), args) ->
+  | TermMeta ((MetaFree {meta_nonce=_; meta_boundary} as m), args) ->
     let rec fold es asmps bdry args jdg_lst =
       begin
       match bdry, args, jdg_lst with
@@ -215,7 +215,7 @@ let rec is_term sgn e jdg_lst =
   | TermConvert (e', asmp, t) ->
     begin
     match is_term sgn e' jdg_lst with
-    | (EqTerm (asmps, e1, e2, t') as eq), e'' ->
+    | (EqTerm (_asmps, _e1, _e2, t') as eq), e'' ->
       let t''_eq_t = Mk.eq_type asmp (Sanity.type_of_term sgn e'') t in
       (Form_convert.eq_term_convert eq (Mk.eq_type asmp t' t)), (Form_convert.is_term_convert sgn e'' t''_eq_t)
     end

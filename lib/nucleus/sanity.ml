@@ -23,7 +23,7 @@ let fully_apply_abstraction_no_checks inst_u abstr args =
 let type_of_term sgn = function
   | TermAtom {atom_type=t; _} -> t
 
-  | TermBoundVar k ->
+  | TermBoundVar _k ->
      (* We should never get here. If ever we need to compute the type of a
         term with bound variables, then we should have unabstracted the term
         beforehand, and asked about the type of the unabstracted version. *)
@@ -60,7 +60,7 @@ let type_of_term sgn = function
      | Some bdry -> fully_apply_abstraction_no_checks (Instantiate_bound.is_type_fully ?lvl:None) bdry args
      end
 
-  | TermConvert (e, _, t) -> t
+  | TermConvert (_, _, t) -> t
 
 let type_at_abstraction = function
   | NotAbstract _ -> None
@@ -81,13 +81,13 @@ let judgement_with_boundary sgn jdg =
     | JudgementIsTerm jdg as jdg'->
       jdg', BoundaryIsTerm (type_of_term sgn jdg)
 
-    | JudgementIsType jdg as jdg'->
+    | JudgementIsType _ as jdg'->
       jdg', BoundaryIsType ()
 
-    | JudgementEqType (EqType (asmp, t1, t2)) as jdg'->
+    | JudgementEqType (EqType (_asmp, t1, t2)) as jdg'->
       jdg', BoundaryEqType (t1,t2)
 
-    | JudgementEqTerm (EqTerm (asmp, e1, e2, t)) as jdg'->
+    | JudgementEqTerm (EqTerm (_asmp, e1, e2, t)) as jdg'->
       jdg', BoundaryEqTerm (e1, e2, t)
 
 let rec abstracted_judgement_with_boundary sgn abstr_jdg =

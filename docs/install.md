@@ -11,18 +11,14 @@ Execute the following command to get and install Andromeda:
 
     opam pin add andromeda git+https://github.com/Andromedans/andromeda
 
-We have *not* tested the OPAM installation thoroughly. If you hit problems, please consider compiling Andromeda youself,
-as follows.
-
 ### How to compile Andromeda
 
 If you would like to compile Andromeda yourself, follow these instructions.
 
 #### Prerequisites
 
-To build Andromeda, you need [OCaml 4.12](https://ocaml.org) or later (and quite possibly
-it works with earlier versions too) and several OCaml packages, which you can install by
-running
+You need [OCaml 4.12](https://ocaml.org) or later, and quite possibly it works with earlier versions,
+and several OCaml packages, which you can install by running
 
     opam install dune dune-build-info dune-site menhir sedlex
 

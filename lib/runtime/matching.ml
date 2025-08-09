@@ -47,7 +47,7 @@ let rec collect_pattern sgn xvs {Location.it=p'; at} v =
   | Syntax.Patt_GenAtom p, (Runtime.Judgement abstr as v) ->
      let e = as_is_term abstr in
      begin match Nucleus.invert_is_term sgn e with
-     | Nucleus.Stump_TermAtom a ->
+     | Nucleus.Stump_TermAtom _a ->
         collect_pattern sgn xvs p v
      | Nucleus.(Stump_TermConstructor _ | Stump_TermMeta _ | Stump_TermConvert _) ->
         raise Match_fail
@@ -234,7 +234,7 @@ and collect_constructor sgn xvs c ps = function
      in
      collect e
 
-  | Nucleus.(JudgementEqType eq)  -> raise Match_fail
+  | Nucleus.(JudgementEqType _eq)  -> raise Match_fail
 
   | Nucleus.JudgementEqTerm _ -> raise Match_fail
 

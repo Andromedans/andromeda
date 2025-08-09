@@ -1,0 +1,20 @@
+require eq ;;
+
+rule U type
+;;
+
+rule El (_ : U) type
+;;
+
+rule Π (A type) ({x : A} B type) type
+;;
+
+rule π (a : U) ({x : El a} b : U) : U
+;;
+
+rule El_π
+  (a : U) ({x : El a} b : U)
+  : El (π a b) ≡ Π (El a) ({x : El a} El b{x})
+;;
+
+eq.add_rule El_π ;;
